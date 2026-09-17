@@ -1,17 +1,16 @@
 {
     "welcome":[
-        "Die App <b>Kalender</b> versucht ein besserere und vor allem OpenSource Kalender zusein, sodass du die Kontrolle über deine Daten hast.",
-        "Es wird nichts online gespeichert außer beim Kalender Provider und auf de Gerät Lokal!",
+        "Die App <b>WKeePass</b> ist eien Passwort & 2FA Manager das dden Keepass Standard implemtiert hat und so mit allen KeepassDatenbanken kompatibel ist.",
         "Starte jetzt und übergezeuge dich selber!"
     ], 
-    "minVersion":"1.0.0",
+    "minVersion":"0.0.1",
 
 
     "changelog":[
         {
-            "version":"1.0.0",
+            "version":"0.0.1",
             "changes":[
-                "Start vom Kalender"
+                "Start vom WKeePass"
             ]
         }
     ],
