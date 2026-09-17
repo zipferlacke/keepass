@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  Womit sich der Dienst in den Android-Einstellungen vorstellt.
+
+  `settingsActivity` ist der Knopf „Einstellungen" neben unserem Namen in
+  Einstellungen → Passwörter und Konten. Er führt in die Anwendung selbst;
+  eine eigene Oberfläche nur für den Dienst wäre eine zweite Stelle, an der
+  dasselbe eingestellt wird.
+-->
+<autofill-service
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="de.wuefl.wkeepass.MainActivity" />

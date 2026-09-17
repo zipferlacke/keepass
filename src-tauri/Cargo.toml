@@ -1,0 +1,131 @@
+[package]
+name = "wkeepass"
+version = "0.1.0"
+edition = "2021"
+# Vorgabe der keepass-Crate
+rust-version = "1.85"
+
+[lib]
+name = "wkeepass_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-persisted-scope = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# QR-Dekodierung
+rqrr = "0.9"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+# Datenbankkern
+# Lokale Kopie statt crates.io: Die Bibliothek stolpert über echte
+# KDBX-Dateien, in denen gleichnamige Elemente nicht lückenlos
+# aufeinanderfolgen ("duplicate field `String`"). Der Eingriff steckt in
+# vendor/keepass/src/format/xml_db/normalise.rs — sonst unverändert.
+keepass = { path = "vendor/keepass", features = ["totp", "save_kdbx4"] }
+chrono = "0.4"
+
+# Versiegeltes Master-Passwort (PIN / Biometrie)
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+base64 = "0.22"
+
+# Systemschlüsselbund: Linux (Secret Service), macOS (Keychain),
+# Windows (Credential Manager). Android hat einen eigenen Speicher
+# (android-native-keyring-store), der nicht über diese Schnittstelle
+# läuft — dort meldet der Kern vorerst „kein Speicher" und fällt auf
+# die PIN zurück. Siehe keystore.rs.
+keyring = "4"
+
+# Nur mit --features agent: Fernsteuerung für Screenshots (siehe tools/)
+tauri-agent-plugin = { version = "0.0.2", optional = true }
+
+# Browser-Anbindung: NaCl-Box, wie sie keepassxc-browser erwartet
+# (X25519 + XSalsa20-Poly1305). Das vorhandene chacha20poly1305 passt hier
+# nicht — die Erweiterung spricht ausschließlich diesen Chiffrierer.
+crypto_box = { version = "0.9", features = ["salsa20"] }
+
+# Passkeys: ES256-Schlüsselpaare und CBOR für attestationObject/COSE
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+ciborium = "0.2"
+
+sha1 = "0.10"
+sha2 = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+
+# Biometrie auf Android und iOS. Das Plugin deckt ausdrücklich **nur** diese
+# beiden ab — Linux, macOS und Windows brauchen eigene Wege, siehe
+# biometric.rs.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-biometric = "2"
+
+# macOS: Touch ID über LocalAuthentication. Der Chip gibt den Schlüssel
+# erst nach erfolgreicher Prüfung frei — hier ist die Biometrie also
+# wirklich bindend, anders als unter Linux.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-local-authentication = "0.3"
+block2 = "0.6"
+
+# Windows Hello. Anders als unter Linux ist das hier mehr als ein Ja/Nein:
+# Der Schlüssel liegt im TPM und signiert erst nach der Prüfung. Aus der
+# Signatur über einen festen Zufallswert entsteht der Schlüssel, mit dem das
+# Master-Passwort versiegelt ist (siehe biometric.rs, seal.rs). Die Fassung
+# entspricht der, die tauri/wry ohnehin einbinden.
+[target.'cfg(windows)'.dependencies]
+windows-future = "0.2"
+windows = { version = "0.61", features = [
+    "Foundation",
+    "Security_Credentials",
+    "Security_Credentials_UI",
+    "Security_Cryptography",
+    "Storage_Streams",
+    "Win32_Foundation",
+    "Win32_System_WinRT",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+# Zugriff auf den WebKitGTK-Webview, um das Kontextmenü abzuschalten.
+# Die Fassung muss zu der passen, die wry ohnehin einbindet.
+[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))'.dependencies.webkit2gtk]
+version = "2.0"
+features = ["v2_38"]
+
+
+# fprintd über D-Bus für den Linux-Desktop. zbus liegt über den
+# Schlüsselbund ohnehin schon im Abhängigkeitsbaum.
+#
+# gtk kommt über wry ohnehin mit; wir brauchen es hier ausdrücklich, um die
+# Reihenfolge der Fensterknöpfe zu setzen (webview.rs). Die Fassung muss zu
+# der passen, die wry einbindet.
+[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))'.dependencies]
+zbus = { version = "5", features = ["blocking-api"] }
+gtk = "0.18"
+
+[dev-dependencies]
+quick-xml = { version = "0.38", features = ["serialize"] }
+
+[features]
+default = []
+# Werkzeugbrücke für tauri-agent-tools. Nur zum Entwickeln — niemals in
+# einer ausgelieferten Fassung, sie öffnet die Oberfläche für Fremdsteuerung.
+agent = ["dep:tauri-agent-plugin"]
+
+# Abhängigkeiten auch in der Entwicklungsfassung optimiert übersetzen.
+#
+# Ohne das läuft Argon2 unoptimiert — und weil die Schlüsselableitung
+# absichtlich rechenintensiv ist, schlägt der Unterschied voll durch:
+# aus einer Sekunde werden zehn. Unser eigener Code bleibt bei opt-level 0,
+# damit das Neuübersetzen schnell bleibt.
+[profile.dev.package."*"]
+opt-level = 3

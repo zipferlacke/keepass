@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Berechtigungen für WKeePass. Beide Fenster müssen hier stehen — Tauri vergibt sie je Fenster, und ein nicht aufgeführtes Fenster bekommt jeden invoke-Aufruf verweigert. Das äußert sich als leere, schwarze Seite, ohne Fehlermeldung.",
+  "windows": [
+    "main",
+    "browser-request"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "fs:default",
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
+        {
+          "path": "$APPCONFIG/**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        {
+          "path": "$APPCONFIG/**"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=WKeePass
+GenericName=Passwortverwaltung
+Comment=Passwortverwaltung für KeePass-Datenbanken
+Exec=wkeepass %f
+Icon=de.wuefl.wkeepass
+Terminal=false
+Categories=Utility;
+Keywords=KeePass;Passwort;Password;TOTP;Passkey;
+MimeType=application/x-keepass2;

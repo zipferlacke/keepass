@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "WKeePass",
+  "version": "0.1.0",
+  "identifier": "de.wuefl.wkeepass",
+  "build": {
+    "frontendDist": "../src-ui",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "python3 tools/devserver.py"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "WKeePass",
+        "width": 1100,
+        "height": 780,
+        "minWidth": 300,
+        "minHeight": 300
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "Passwortverwaltung für KeePass-Datenbanken",
+    "longDescription": "WKeePass öffnet und schreibt KDBX-Dateien. Alle Klartextwerte bleiben im Kern der Anwendung; die Oberfläche bekommt nur Verweise darauf.",
+    "fileAssociations": [
+      {
+        "ext": [
+          "kdbx"
+        ],
+        "name": "KeePass-Datenbank",
+        "description": "KeePass-Datenbank",
+        "mimeType": "application/x-keepass2",
+        "role": "Editor",
+        "rank": "Alternate"
+      }
+    ]
+  }
+}

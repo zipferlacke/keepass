@@ -1,0 +1,20 @@
+{
+    "welcome":[
+        "Die App <b>Kalender</b> versucht ein besserere und vor allem OpenSource Kalender zusein, sodass du die Kontrolle über deine Daten hast.",
+        "Es wird nichts online gespeichert außer beim Kalender Provider und auf de Gerät Lokal!",
+        "Starte jetzt und übergezeuge dich selber!"
+    ], 
+    "minVersion":"1.0.0",
+
+
+    "changelog":[
+        {
+            "version":"1.0.0",
+            "changes":[
+                "Start vom Kalender"
+            ]
+        }
+    ],
+
+    "messages":[]
+}

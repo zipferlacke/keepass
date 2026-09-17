@@ -1,0 +1,10 @@
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/test_with_derive-524bd903bae77376.d: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/env.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/executable.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/file.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/socket.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/utils.rs
+
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/libtest_with_derive-524bd903bae77376.so: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/env.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/executable.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/file.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/socket.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/utils.rs
+
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/lib.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/env.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/executable.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/file.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/socket.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/test-with-derive-0.16.4/src/utils.rs:

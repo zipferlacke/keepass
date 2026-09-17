@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>WKeePass</title>
+
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  
+
+<div class="app">
+
+  <!-- Navigation: unten auf schmalen, links auf breiten Bildschirmen -->
+  <nav class="app-nav">
+    <button class="brand" data-view="home" title="WKeePass">
+      <img class="brand-mark" src="./logo.svg" alt="" width="32" height="32">
+      <span class="brand-name">WKeePass</span>
+    </button>
+
+    <div class="nav-items">
+      <button data-view="home" aria-current="page"><span class="msr">home</span><span class="nav-label">Start</span></button>
+      <button data-view="passwords"><span class="msr">key</span><span class="nav-label">Passwörter</span></button>
+      <button data-view="totp"><span class="msr">timer</span><span class="nav-label">TOTP</span></button>
+      <button data-view="settings"><span class="msr">settings</span><span class="nav-label">Einstellungen</span></button>
+    </div>
+  </nav>
+
+  <div class="app-body">
+
+    <header class="app-header">
+      <div class="header-row">
+        <h1 id="app-title">WKeePass</h1>
+        <div class="header-actions">
+          <button class="button" data-shape="round no-background" id="btn-lock" title="Datenbank sperren"><span class="msr">lock</span></button>
+          <button class="button" data-shape="round no-background" id="btn-close-settings" title="Schließen" aria-label="Schließen"><span class="msr">close</span></button>
+        </div>
+      </div>
+
+    </header>
+
+    <main>
+      <section class="view" id="view-home" data-active>
+        <div class="tile-grid" id="tile-grid"></div>
+        <div class="section-label">Zuletzt genutzt</div>
+        <div class="entry-list" id="recent-list"></div>
+      </section>
+
+      <section class="view" id="view-passwords">
+        <div class="list-toolbar">
+          <div class="searchbar" id="searchbar">
+            <span class="msr">search</span>
+            <input id="search" type="text" placeholder="Suchen …" autocomplete="off">
+          </div>
+          <div class="tagbar" id="tagbar"></div>
+        </div>
+        <div class="legend" id="legend"></div>
+        <div id="entry-table"></div>
+      </section>
+
+      <section class="view" id="view-totp">
+        <div class="totp-list" id="totp-list"></div>
+      </section>
+
+      <section class="view" id="view-security">
+        <div id="security-body"></div>
+      </section>
+
+      <section class="view" id="view-settings">
+        <div id="settings-body"></div>
+      </section>
+    </main>
+
+    <!-- Sperrbildschirm: liegt über allem, solange nichts geöffnet ist -->
+    <div class="lockscreen" id="lockscreen" hidden>
+      <div class="lock-topbar">
+        <button class="lock-settings" id="lock-gear" title="Einstellungen" aria-label="Einstellungen">
+          <span class="msr">settings</span>
+        </button>
+      </div>
+      <div class="lock-card" id="lock-card"></div>
+    </div>
+
+    <!-- Erster Start: eigene Seite, kein Dialog -->
+    <div class="lockscreen" id="welcome" hidden>
+      <div class="lock-card" id="welcome-card"></div>
+    </div>
+
+    <!-- Neuer Eintrag: runder Knopf über der Navigation -->
+    <button class="fab" id="btn-add" title="Neu anlegen" aria-label="Neu anlegen">
+      <span class="msr">add</span>
+    </button>
+
+  </div>
+</div>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

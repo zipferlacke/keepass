@@ -1,0 +1,11 @@
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/salsa20-6fac53a0507f4594.d: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends/soft.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/xsalsa.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/../README.md
+
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/libsalsa20-6fac53a0507f4594.rlib: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends/soft.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/xsalsa.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/../README.md
+
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/libsalsa20-6fac53a0507f4594.rmeta: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends/soft.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/xsalsa.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/../README.md
+
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/lib.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/backends/soft.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/xsalsa.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa20-0.11.0/src/../README.md:

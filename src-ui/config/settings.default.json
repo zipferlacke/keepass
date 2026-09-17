@@ -1,0 +1,44 @@
+{
+  "version": 3,
+  "appearance": {
+    "theme": "system",
+    "primary": "#26A269"
+  },
+  "database": {
+    "current": null,
+    "recent": [],
+    "autoSync": true
+  },
+  "unlock": {
+    "biometrics": true,
+    "autoLockMinutes": 5,
+    "clipboardClearSeconds": 30
+  },
+  "icons": {
+    "download": true
+  },
+  "checks": {
+    "passwordStrength": true,
+    "reuseDetection": true,
+    "expiryWarnDays": 14,
+    "passwordBreach": true,
+    "emailBreach": true,
+    "automatic": "weekly",
+    "lastRunAt": null
+  },
+  "ui": {
+    "welcomeSeen": false,
+    "startView": "home",
+    "expandedFolders": [],
+    "showTotpInList": true
+  },
+  "databases": [],
+  "databaseDefaults": {
+    "autoSync": true,
+    "iconsDownload": true,
+    "expiryWarnDays": 14
+  },
+  "browser": {
+    "guard": "identify"
+  }
+}

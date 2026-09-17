@@ -1,0 +1,108 @@
+{
+    "id": "/",
+    "name": "Kalender",
+    "short_name": "Kalender",
+    "start_url": "/kalender/",
+    "display": "standalone",
+    "display_override": [
+        "standalone",
+        "window-controls-overlay",
+        "fullscreen"
+    ],
+    "background_color": "#94cec6",
+    "theme_color": "#94cec6",
+    "description": "Kalender",
+    "icons": [
+        {
+            "src": "../appdata/wkalender-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "../appdata/wkalender-144.png",
+            "sizes": "144x144",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "../appdata/wkalender-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "../appdata/wkalender-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "../appdata/wkalender-1024.png",
+            "sizes": "1024x1024",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "../appdata/screenshot-narrow-1.png",
+            "type": "image/png",
+            "sizes": "412x915",
+            "form_factor": "narrow"
+        },
+        {
+            "src": "../appdata/screenshot-narrow-2.png",
+            "type": "image/png",
+            "sizes": "412x915",
+            "form_factor": "narrow"
+        },
+        {
+            "src": "../appdata/screenshot-narrow-3.png",
+            "type": "image/png",
+            "sizes": "412x915",
+            "form_factor": "narrow"
+        },
+        {
+            "src": "../appdata/screenshot-narrow-4.png",
+            "type": "image/png",
+            "sizes": "412x915",
+            "form_factor": "narrow"
+        },
+        {
+            "src": "../appdata/screenshot-wide-1.png",
+            "type": "image/png",
+            "sizes": "1366x1024",
+            "form_factor": "wide"
+        },
+        {
+            "src": "../appdata/screenshot-wide-2.png",
+            "type": "image/png",
+            "sizes": "1366x1024",
+            "form_factor": "wide"
+        },
+        {
+            "src": "../appdata/screenshot-wide-3.png",
+            "type": "image/png",
+            "sizes": "1366x1024",
+            "form_factor": "wide"
+        },
+        {
+            "src": "../appdata/screenshot-wide-4.png",
+            "type": "image/png",
+            "sizes": "1366x1024",
+            "form_factor": "wide"
+        }
+    ],
+    "categories": ["productivity", "utilities"],
+    "shortcuts": [
+        {
+        "name": "Neuer Termin",
+        "short_name": "Neu",
+        "url": "/kalender/index.html?action=new",
+        "icons": [{ "src": "../appdata/wkalender-144.png", "sizes": "144x144" }]
+        }
+    ],
+    "dir": "ltr",
+    "lang": "de"
+}

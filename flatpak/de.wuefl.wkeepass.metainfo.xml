@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>de.wuefl.wkeepass</id>
+  <name>WKeePass</name>
+  <summary>Passwortverwaltung für KeePass-Datenbanken</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <!-- TODO: echte Lizenz eintragen -->
+  <project_license>LicenseRef-proprietary</project_license>
+  <developer id="de.wuefl">
+    <name>wuefl</name>
+  </developer>
+  <description>
+    <p>
+      WKeePass öffnet und schreibt KDBX-Dateien. Alle Klartextwerte bleiben
+      im Kern der Anwendung; die Oberfläche bekommt nur Verweise darauf.
+    </p>
+  </description>
+  <launchable type="desktop-id">de.wuefl.wkeepass.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-09-17"/>
+  </releases>
+</component>

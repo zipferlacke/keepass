@@ -1,0 +1,11 @@
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/inout-80c4d75caf93b5c9.d: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/errors.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout_buf.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/reserved.rs
+
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/libinout-80c4d75caf93b5c9.rlib: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/errors.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout_buf.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/reserved.rs
+
+/home/wuefl/Dokumente/dev/web/wuefl_products/keepass/src-tauri/vendor/keepass/target/debug/deps/libinout-80c4d75caf93b5c9.rmeta: /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/lib.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/errors.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout_buf.rs /home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/reserved.rs
+
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/lib.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/errors.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/inout_buf.rs:
+/home/wuefl/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/inout-0.2.2/src/reserved.rs:

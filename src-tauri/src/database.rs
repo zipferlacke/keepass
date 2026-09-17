@@ -1,0 +1,703 @@
+//! Datenbank öffnen, auslesen und zurückschreiben.
+//!
+//! Das Entsperren liegt vollständig hier. Die Oberfläche fragt nur, welche
+//! Wege es gibt (`unlock_methods`), und schickt dann einen davon los
+//! (`vault_unlock`). Welcher Weg zum Master-Passwort führt, entscheidet der
+//! Kern; die Oberfläche sieht das Passwort in keinem Fall.
+
+use chrono::NaiveDateTime;
+use keepass::db::EntryRef;
+use keepass::{Database, DatabaseKey};
+use zeroize::Zeroizing;
+
+use crate::dto;
+use crate::seal;
+use crate::state::{all_folders, folder_path, is_recycled};
+use crate::util::write_atomic;
+use crate::Vault;
+
+/// Feldnamen, unter denen KeePass-Anwendungen das TOTP-Geheimnis ablegen.
+const OTP_FIELDS: [&str; 2] = ["otp", "TOTP Seed"];
+
+/// Woran KeePassXC einen Passkey-Eintrag erkennbar macht.
+const PASSKEY_FIELD: &str = "KPEX_PASSKEY_USERNAME";
+
+/* =========================================================
+   Entsperren
+   ========================================================= */
+
+/// Welche Wege zum Entsperren gibt es auf diesem Gerät?
+///
+/// Asynchron, weil die Auskunft selbst warten kann: fprintd über D-Bus,
+/// Windows Hello über WinRT. Auf dem Hauptfaden stünde so lange das Fenster.
+#[tauri::command]
+pub async fn unlock_methods(app: tauri::AppHandle, path: Option<String>) -> Result<dto::UnlockMethods, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let offer = seal::offer(&app, path.as_deref());
+        let status = seal::status(&app);
+
+        dto::UnlockMethods {
+            password: true,
+            pin: offer.pin,
+            biometric: offer.biometric,
+            keyring: offer.keyring,
+            pin_set: status.pin_set,
+            device: seal::device_offer(&app, path.as_deref()),
+            device_available: crate::biometric::device_key_available(),
+            device_label: crate::biometric::device_key_label().map(str::to_string),
+        }
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))
+}
+
+/// Entsperrt und öffnet die Datenbank.
+///
+/// `method` ist `"password"`, `"pin"`, `"biometric"` oder `"device"`. Bei
+/// `"password"` ist `secret` das Master-Passwort, bei `"pin"` die PIN; bei
+/// den beiden anderen wird `secret` nicht gebraucht.
+///
+/// `remember` schaltet diese Datenbank gleich für PIN und/oder
+/// Fingerabdruck frei — dafür muss die App-PIN bereits festgelegt sein.
+///
+/// # Warum das asynchron ist
+///
+/// Argon2 rechnet hier bewusst sekundenlang, und zwar bei richtigem wie bei
+/// falschem Passwort gleichermaßen. Als synchrones Kommando liefe das auf
+/// dem Hauptfaden und würde das Fenster so lange einfrieren — genau der
+/// Effekt, den man dann für einen Absturz hält. Die teure Arbeit gehört
+/// deshalb in einen eigenen Faden.
+#[tauri::command]
+pub async fn vault_unlock(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    path: String,
+    method: String,
+    secret: Option<String>,
+    keyfile: Option<String>,
+    #[allow(non_snake_case)] autoLockMinutes: Option<u64>,
+    remember: Option<dto::Remember>,
+) -> Result<dto::DatabaseInfo, String> {
+    let auto_lock_minutes = autoLockMinutes.unwrap_or(0);
+
+    let worker = app.clone();
+    let target = path.clone();
+
+    let Opened { db, raw, master, format, read_only } =
+        tauri::async_runtime::spawn_blocking(move || open_blocking(&worker, &target, &method, secret, keyfile))
+            .await
+            .map_err(|e| format!("Entsperren abgebrochen: {e}"))??;
+
+    // Wenn gewünscht, gleich eine PIN hinterlegen. Fehlschläge hier dürfen
+    // das Öffnen nicht verhindern — die Datenbank ist ja auf.
+    //
+    // Das muss auf einen Arbeitsfaden, genau wie das Öffnen selbst: `remember`
+    // prüft die PIN, und das heißt Argon2id — dieselbe absichtlich teure
+    // Rechnung, mehrere Sekunden lang. Dazu kommt der Schlüsselbund über
+    // D-Bus, der auf eine Antwort des Systems wartet. Beides direkt hier
+    // auszuführen legt den Ausführer der Laufzeit lahm, über den auch die
+    // Antwort an die Oberfläche zurückgeht — sie wartet dann ewig.
+    let pin_note = match remember {
+        // Der Geräteschlüssel braucht keine PIN, nur das Master-Passwort
+        // und die Prüfung durch das Gerät.
+        Some(r) if r.allow_device => {
+            let worker = app.clone();
+            let target = path.clone();
+            let secret = master.to_string();
+
+            tauri::async_runtime::spawn_blocking(move || {
+                let device = seal::remember_device(&worker, &target, &secret).err();
+                let pin = (r.allow_pin || r.allow_biometric)
+                    .then(|| {
+                        seal::remember(&worker, &target, &secret, &r.pin, r.allow_pin, r.allow_biometric)
+                            .err()
+                    })
+                    .flatten();
+                device.or(pin)
+            })
+            .await
+            .map_err(|e| format!("Freigabe abgebrochen: {e}"))?
+        }
+        Some(r) if r.allow_pin || r.allow_biometric => {
+            let worker = app.clone();
+            let target = path.clone();
+            let secret = master.to_string();
+
+            tauri::async_runtime::spawn_blocking(move || {
+                seal::remember(&worker, &target, &secret, &r.pin, r.allow_pin, r.allow_biometric)
+                    .err()
+            })
+            .await
+            .map_err(|e| format!("Freigabe abgebrochen: {e}"))?
+        }
+        _ => None,
+    };
+
+    let name = std::path::Path::new(&path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unbenannt.kdbx".into());
+
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.clear();
+    vault.db = Some(db);
+    vault.path = Some(path.clone().into());
+    vault.master = Some(master);
+    vault.opened_hash = Some(digest(&raw));
+    vault.read_only = read_only;
+    vault.auto_lock_minutes = auto_lock_minutes;
+    vault.touch();
+
+    drop(vault);
+
+    // Entsperrt wird nicht mehr nur im Hauptfenster: Fragt ein Browser an,
+    // während die Datei zu ist, geht die Anmeldemaske im kleinen Fenster auf.
+    // Ohne diese Nachricht bliebe ein danebenstehendes Hauptfenster auf dem
+    // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
+    use tauri::Emitter;
+    let _ = app.emit("vault-unlocked", &name);
+
+    if let Some(note) = pin_note {
+        return Err(format!("Geöffnet, aber die Freigabe wurde nicht gespeichert: {note}"));
+    }
+
+    Ok(dto::DatabaseInfo { name, path, read_only, format })
+}
+
+/// Ergebnis der teuren Arbeit, die außerhalb des Hauptfadens läuft.
+struct Opened {
+    db: Database,
+    raw: Vec<u8>,
+    master: Zeroizing<String>,
+    format: String,
+    read_only: bool,
+}
+
+/// Master-Passwort beschaffen, Datei lesen, Container aufschließen.
+/// Alles hier drin darf dauern.
+fn open_blocking(
+    app: &tauri::AppHandle,
+    path: &str,
+    method: &str,
+    secret: Option<String>,
+    keyfile: Option<String>,
+) -> Result<Opened, String> {
+    let master: Zeroizing<String> = match method {
+        "password" => Zeroizing::new(secret.unwrap_or_default()),
+        "pin" => seal::unseal_with_pin(app, path, &secret.unwrap_or_default())?,
+        // Kein vorgeschaltetes `verify`: Das Gerät prüft beim Signieren selbst.
+        "device" => seal::unseal_with_device(app, path)?,
+        "biometric" => {
+            // Erst der Nachweis, dass du es bist — dann erst kommt K ins
+            // Spiel. Die Prüfung selbst macht die Plattform.
+            crate::biometric::verify("Datenbank entsperren")?;
+            seal::unseal_with_biometric(app, path)?
+        }
+        other => return Err(format!("Unbekannter Weg zum Entsperren: {other}")),
+    };
+
+    if master.is_empty() && keyfile.is_none() {
+        return Err("Ohne Master-Passwort geht es nicht.".into());
+    }
+
+    let mut key = DatabaseKey::new().with_password(&master);
+    if let Some(keyfile) = &keyfile {
+        let mut file = std::fs::File::open(keyfile)
+            .map_err(|e| format!("Schlüsseldatei nicht lesbar: {e}"))?;
+        key = key
+            .with_keyfile(&mut file)
+            .map_err(|e| format!("Schlüsseldatei nicht verwendbar: {e}"))?;
+    }
+
+    // Einmal komplett lesen: Daraus entsteht sowohl die Datenbank als auch
+    // der Fingerabdruck, gegen den beim Speichern geprüft wird.
+    let raw = std::fs::read(path).map_err(|e| format!("Datei nicht lesbar: {e}"))?;
+
+    let db = Database::parse(&raw, key).map_err(|e| match e {
+        keepass::error::DatabaseOpenError::Key(_) => {
+            "Falsches Passwort oder falsche Schlüsseldatei.".to_string()
+        }
+        other => format!("Datenbank konnte nicht geöffnet werden: {other}"),
+    })?;
+
+    // Zurückschreiben kann die Bibliothek nur KDBX 4.1.
+    let format = db.config.version.to_string();
+    let read_only = !matches!(db.config.version, keepass::config::DatabaseVersion::KDB4(1));
+
+    Ok(Opened { db, raw, master, format, read_only })
+}
+
+/// Legt eine neue, leere Datenbank an und öffnet sie gleich.
+///
+/// Genauso asynchron wie das Entsperren, und aus demselben Grund: Das
+/// Verschlüsseln kostet dieselbe Rechenzeit.
+#[tauri::command]
+pub async fn vault_create(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    path: String,
+    password: String,
+    #[allow(non_snake_case)] autoLockMinutes: Option<u64>,
+    remember: Option<dto::Remember>,
+) -> Result<dto::DatabaseInfo, String> {
+    if password.is_empty() {
+        return Err("Eine neue Datenbank braucht ein Master-Passwort.".into());
+    }
+    if std::path::Path::new(&path).exists() {
+        return Err("An dieser Stelle liegt schon eine Datei.".into());
+    }
+
+    let target = path.clone();
+    let secret = password.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        // `Database::new` liefert KDBX 4.1 — genau das, was sich auch
+        // zurückschreiben lässt.
+        let db = Database::new();
+
+        let mut bytes: Vec<u8> = Vec::new();
+        db.save(&mut bytes, DatabaseKey::new().with_password(&secret))
+            .map_err(|e| format!("Anlegen fehlgeschlagen: {e}"))?;
+
+        write_atomic(std::path::Path::new(&target), &bytes)
+    })
+    .await
+    .map_err(|e| format!("Anlegen abgebrochen: {e}"))??;
+
+    vault_unlock(app, state, path, "password".into(), Some(password), None, autoLockMinutes, remember).await
+}
+
+/// SHA-256 über den Dateiinhalt — nur zum Erkennen fremder Änderungen,
+/// nichts Geheimes.
+fn digest(bytes: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes).into()
+}
+
+/// Legt die PIN des Programms fest. Sie gilt für alle Datenbanken.
+///
+/// Asynchron, weil Argon2 auch hier sekundenlang rechnet.
+#[tauri::command]
+pub async fn app_pin_create(app: tauri::AppHandle, pin: String) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || seal::create_pin(&app, &pin))
+        .await
+        .map_err(|e| format!("Abgebrochen: {e}"))??;
+    Ok(true)
+}
+
+/// Ändert die PIN — nur gegen die alte, und wickelt dabei alle Freigaben
+/// um. Eine Wiederherstellung gibt es nicht.
+#[tauri::command]
+pub async fn app_pin_change(app: tauri::AppHandle, old: String, new: String) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || seal::change_pin(&app, &old, &new))
+        .await
+        .map_err(|e| format!("Abgebrochen: {e}"))??;
+    Ok(true)
+}
+
+/// Verwirft PIN, Schlüssel und sämtliche Freigaben.
+#[tauri::command]
+pub fn app_pin_clear(app: tauri::AppHandle) -> Result<bool, String> {
+    seal::clear(&app)?;
+    Ok(true)
+}
+
+/// Schaltet die **offene** Datenbank für PIN und/oder Fingerabdruck frei.
+///
+/// Das Master-Passwort kommt aus dem Kern; die PIN muss eingegeben werden,
+/// weil ohne sie kein App-Schlüssel entsteht.
+#[tauri::command]
+pub async fn vault_remember(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    pin: String,
+    #[allow(non_snake_case)] allowPin: bool,
+    #[allow(non_snake_case)] allowBiometric: bool,
+) -> Result<bool, String> {
+    let (path, master) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let path = vault
+            .path
+            .clone()
+            .ok_or("Keine Datenbank geöffnet.")?
+            .to_string_lossy()
+            .to_string();
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string();
+        (path, master)
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        seal::remember(&app, &path, &master, &pin, allowPin, allowBiometric)
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))??;
+    Ok(true)
+}
+
+/// Schaltet die **offene** Datenbank gerätegebunden frei (Windows Hello) —
+/// oder nimmt das zurück. Ohne PIN: Der Schutz kommt aus dem TPM.
+#[tauri::command]
+pub async fn vault_remember_device(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    enable: bool,
+) -> Result<bool, String> {
+    let (path, master) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let path = vault
+            .path
+            .clone()
+            .ok_or("Keine Datenbank geöffnet.")?
+            .to_string_lossy()
+            .to_string();
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string();
+        (path, master)
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        if enable {
+            seal::remember_device(&app, &path, &master)
+        } else {
+            seal::forget_device(&app, &path)
+        }
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))??;
+    Ok(true)
+}
+
+/// Nimmt die Freigabe einer Datenbank zurück. Die PIN bleibt bestehen.
+#[tauri::command]
+pub fn vault_forget(app: tauri::AppHandle, path: String) -> Result<bool, String> {
+    seal::forget(&app, &path)?;
+    Ok(true)
+}
+
+/// „Ich bin es" bestätigen, ohne die Datenbank anzufassen — für das
+/// Anzeigen eines Passworts oder eine Anfrage aus dem Browser.
+///
+/// Drei Wege, und welche davon zur Auswahl stehen, sagt `unlock_methods`:
+///
+///   `pin`        die App-PIN. Sie gilt hier **immer**, wenn eine festgelegt
+///                ist — auch wenn diese Datenbank nicht per PIN geöffnet
+///                werden darf. Zum Entsperren ist sie ein Schlüssel, hier
+///                nur ein Nachweis, und das sind zwei verschiedene Fragen.
+///   `master`     das Master-Passwort der offenen Datenbank.
+///   `biometric`  Fingerabdruck oder Gesicht.
+#[tauri::command]
+pub async fn confirm_presence(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    reason: String,
+    method: Option<String>,
+    secret: Option<String>,
+) -> Result<bool, String> {
+    match method.as_deref() {
+        // Das Master-Passwort der offenen Datenbank. Es liegt ohnehin im
+        // Kern; verglichen wird dort, es verlässt ihn nicht.
+        Some("master") => {
+            let given = secret.ok_or("Kein Passwort angegeben.")?;
+
+            let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+            let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?;
+
+            // Zeichenweiser Vergleich in fester Zeit wäre hier übertrieben:
+            // Wer den Kern messen kann, hat ihn ohnehin.
+            if given.as_str() == master.as_str() {
+                Ok(true)
+            } else {
+                Err("Master-Passwort stimmt nicht.".into())
+            }
+        }
+
+        Some("biometric") => {
+            // Auf einen Arbeitsfaden: Die Prüfung wartet auf den Finger des
+            // Nutzers — unter Linux über D-Bus bei fprintd, anderswo beim
+            // System. Auf dem Ausführer der Laufzeit stünde währenddessen
+            // die ganze Oberfläche.
+            tauri::async_runtime::spawn_blocking(move || crate::biometric::verify(&reason))
+                .await
+                .map_err(|e| format!("Abgebrochen: {e}"))?
+                .map(|()| true)
+        }
+
+        // Voreinstellung ist die PIN — auch ohne ausdrückliche Angabe, damit
+        // ältere Aufrufe weiter gelten.
+        _ => {
+            let pin = secret.ok_or("Keine PIN angegeben.")?;
+            tauri::async_runtime::spawn_blocking(move || seal::confirm_pin(&app, &pin))
+                .await
+                .map_err(|e| format!("Abgebrochen: {e}"))??;
+            Ok(true)
+        }
+    }
+}
+
+/* =========================================================
+   Lesen
+   ========================================================= */
+
+/// Alles, was ein Eintrag mitbringt, bevor die Token vergeben sind.
+struct RawEntry {
+    entry: dto::Entry,
+    password: Option<String>,
+    totp: Option<String>,
+}
+
+#[tauri::command]
+pub fn vault_list_entries(state: tauri::State<'_, Vault>) -> Result<Vec<dto::Entry>, String> {
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+
+    // Erst lesen (leiht die Datenbank aus), dann Token vergeben (leiht den
+    // Zustand veränderlich aus). Beides zugleich ginge nicht.
+    let mut raws: Vec<RawEntry> = {
+        let db = vault.database()?;
+        db.iter_all_entries().map(|e| read_entry(db, &e)).collect()
+    };
+
+    let mut out = Vec::with_capacity(raws.len());
+    for raw in raws.drain(..) {
+        let RawEntry { mut entry, password, totp } = raw;
+        let uuid = entry.id.clone().unwrap_or_default();
+
+        if let Some(value) = password {
+            let token = vault.token_for(&uuid, "Password");
+            vault.secrets.insert(token.clone(), Zeroizing::new(value));
+            entry.has_password = true;
+            entry.password_token = Some(token);
+        }
+
+        if let Some(value) = totp {
+            let token = vault.token_for(&uuid, "otp");
+            vault.secrets.insert(token.clone(), Zeroizing::new(value));
+            entry.has_totp = true;
+            entry.totp_token = Some(token);
+        }
+
+        out.push(entry);
+    }
+
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn vault_folders(state: tauri::State<'_, Vault>) -> Result<Vec<String>, String> {
+    let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    Ok(all_folders(vault.database()?))
+}
+
+/// Übersetzt einen Eintrag in die Form, die die Oberfläche erwartet.
+///
+/// Nimmt `EntryRef` und nicht `Entry`, weil Anhänge und Elterngruppe an der
+/// Datenbank hängen, nicht am Eintrag selbst.
+fn read_entry(db: &Database, entry: &EntryRef<'_>) -> RawEntry {
+    let uuid = entry.id().uuid().to_string();
+
+    let otp_raw = OTP_FIELDS.iter().find_map(|f| entry.get(f)).filter(|v| !v.is_empty());
+    let totp_config = otp_raw.and_then(parse_totp_config).unwrap_or_default();
+
+    let attachments = entry
+        .attachments_named()
+        .map(|(name, att)| dto::AttachmentLink {
+            name: name.to_string(),
+            reference: att.id().id().to_string(),
+        })
+        .collect();
+
+    let expires = match (entry.times.expires, entry.times.expiry) {
+        (Some(true), Some(at)) => Some(at.format("%Y-%m-%d").to_string()),
+        _ => None,
+    };
+
+    RawEntry {
+        entry: dto::Entry {
+            id: Some(uuid),
+            folder: folder_path(db, entry.parent().id()),
+            name: entry.get_title().unwrap_or_default().to_string(),
+            username: entry.get_username().unwrap_or_default().to_string(),
+            url: entry.get_url().unwrap_or_default().to_string(),
+            notes: entry.get(keepass::db::fields::NOTES).unwrap_or_default().to_string(),
+            tags: entry.tags.clone(),
+            modified: iso(entry.times.last_modification),
+            accessed: iso(entry.times.last_access.or(entry.times.last_modification)),
+
+            // Die Token folgen erst, wenn der Zustand veränderlich vorliegt.
+            has_password: false,
+            password_token: None,
+            has_totp: false,
+            totp_token: None,
+            totp_config,
+
+            passkey: entry.get(PASSKEY_FIELD).is_some() || entry.get("Passkey") == Some("True"),
+            expires,
+            attachments,
+            recycled: is_recycled(db, entry.parent().id()),
+        },
+        password: entry.get_password().filter(|v| !v.is_empty()).map(str::to_string),
+        totp: otp_raw.map(str::to_string),
+    }
+}
+
+/// Liest Ziffern, Zeitfenster und Verfahren aus einer `otpauth://`-Adresse.
+fn parse_totp_config(raw: &str) -> Option<dto::TotpConfig> {
+    let totp: keepass::db::TOTP = raw.parse().ok()?;
+    Some(dto::TotpConfig {
+        digits: totp.digits,
+        period: totp.period,
+        algorithm: match totp.algorithm {
+            keepass::db::TOTPAlgorithm::Sha256 => "SHA256".into(),
+            keepass::db::TOTPAlgorithm::Sha512 => "SHA512".into(),
+            _ => "SHA1".into(),
+        },
+    })
+}
+
+fn iso(time: Option<NaiveDateTime>) -> String {
+    time.unwrap_or_else(keepass::db::Times::now).format("%Y-%m-%dT%H:%M:%SZ").to_string()
+}
+
+/* =========================================================
+   Schreiben und Sperren
+   ========================================================= */
+
+#[tauri::command]
+pub fn vault_commit(state: tauri::State<'_, Vault>) -> Result<bool, String> {
+    commit(&state)
+}
+
+/// Schreibt die Datenbank zurück.
+///
+/// Steht als eigene Funktion da, weil nicht nur die Oberfläche schreibt: Die
+/// Browser-Anbindung legt Verknüpfungen und Einträge an, und die wären beim
+/// nächsten Start weg, wenn sie nur im Arbeitsspeicher stünden.
+pub fn commit(state: &Vault) -> Result<bool, String> {
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.touch();
+
+    if vault.read_only {
+        return Err(
+            "Diese Datei lässt sich nicht zurückschreiben — gespeichert wird nur KDBX 4.1. \
+             Wandle sie in KeePassXC um (Datenbank → Datenbankeinstellungen → Format)."
+                .into(),
+        );
+    }
+
+    let path = vault.path.clone().ok_or("Keine Datenbank geöffnet.")?;
+
+    // Hat in der Zwischenzeit jemand anderes geschrieben? Die Datei liegt in
+    // Nextcloud und wird auch von KeePassXC angefasst. Lieber abbrechen als
+    // die Änderung des anderen Geräts stillschweigend wegwerfen.
+    if let Some(expected) = vault.opened_hash {
+        if let Ok(current) = std::fs::read(&path) {
+            if digest(&current) != expected {
+                return Err(
+                    "Die Datei wurde seit dem Öffnen von außen geändert — vermutlich durch \
+                     KeePassXC oder die Synchronisierung. Es wurde nichts geschrieben. \
+                     Sperre die Datenbank und öffne sie neu."
+                        .into(),
+                );
+            }
+        }
+    }
+
+    let master = vault.master.as_ref().ok_or("Kein Master-Passwort im Kern.")?;
+
+    let mut bytes: Vec<u8> = Vec::new();
+    vault
+        .database()?
+        .save(&mut bytes, DatabaseKey::new().with_password(master))
+        .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
+
+    write_atomic(&path, &bytes)?;
+
+    // Ab jetzt ist unser eigener Stand der maßgebliche.
+    vault.opened_hash = Some(digest(&bytes));
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn vault_lock(state: tauri::State<'_, Vault>) -> Result<bool, String> {
+    state.lock().map_err(|_| "Kern blockiert.".to_string())?.clear();
+    Ok(true)
+}
+
+/// Meldet dem Kern, dass die Oberfläche benutzt wird. Ohne das würde die
+/// Selbstsperre auch beim Lesen zuschlagen — Scrollen und Suchen lösen
+/// keinen Kommandoaufruf aus.
+#[tauri::command]
+pub fn vault_touch(state: tauri::State<'_, Vault>) -> Result<bool, String> {
+    state.lock().map_err(|_| "Kern blockiert.".to_string())?.touch();
+    Ok(true)
+}
+
+/// Setzt die Ruhezeit neu — die Oberfläche ruft das, wenn die Einstellung
+/// geändert wird. `0` schaltet die Selbstsperre ab.
+#[tauri::command]
+pub fn vault_set_auto_lock(
+    state: tauri::State<'_, Vault>,
+    minutes: u64,
+) -> Result<bool, String> {
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.auto_lock_minutes = minutes;
+    vault.touch();
+    Ok(true)
+}
+
+/// Wächter: sperrt die Datenbank, wenn zu lange nichts passiert ist.
+///
+/// Das gehört in den Kern und nicht in den Webview — ein Timer im Fenster
+/// läuft nicht zuverlässig weiter, wenn das Fenster im Hintergrund liegt
+/// oder der Rechner schläft. Hier zählt die Uhr in jedem Fall.
+pub fn start_auto_lock(app: tauri::AppHandle) {
+    use tauri::{Emitter, Manager};
+
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(20));
+
+        let Some(state) = app.try_state::<Vault>() else { continue };
+        let Ok(mut vault) = state.lock() else { continue };
+
+        if vault.idle_expired() {
+            vault.clear();
+            drop(vault);
+            // Die Oberfläche zeigt daraufhin den Sperrbildschirm.
+            let _ = app.emit("vault-locked", "Wegen Untätigkeit gesperrt.");
+        }
+    });
+}
+
+/* =========================================================
+   Gemeinsam genutzt
+   ========================================================= */
+
+/// Findet einen Eintrag über seine UUID als Zeichenkette.
+pub fn entry_id_of(db: &Database, uuid: &str) -> Option<keepass::db::EntryId> {
+    db.iter_all_entries()
+        .find(|e| e.id().uuid().to_string() == uuid)
+        .map(|e| e.id())
+}
+
+/// Setzt alle nicht geschützten Felder eines Eintrags.
+pub fn apply_plain_fields(entry: &mut keepass::db::EntryMut<'_>, input: &dto::Entry) {
+    use keepass::db::fields;
+
+    entry.set_unprotected(fields::TITLE, input.name.clone());
+    entry.set_unprotected(fields::USERNAME, input.username.clone());
+    entry.set_unprotected(fields::URL, input.url.clone());
+    entry.set_unprotected(fields::NOTES, input.notes.clone());
+
+    entry.tags = input.tags.clone();
+    entry.times.last_modification = Some(keepass::db::Times::now());
+
+    match &input.expires {
+        Some(day) => {
+            entry.times.expires = Some(true);
+            entry.times.expiry = NaiveDateTime::parse_from_str(
+                &format!("{day} 00:00:00"),
+                "%Y-%m-%d %H:%M:%S",
+            )
+            .ok();
+        }
+        None => entry.times.expires = Some(false),
+    }
+}

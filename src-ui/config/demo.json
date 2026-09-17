@@ -1,0 +1,324 @@
+{
+  "database": {
+    "name": "beispiel.kdbx",
+    "path": "(Demo-Daten)"
+  },
+  "folders": [
+    "Allgemein",
+    "Arbeit",
+    "Einkauf",
+    "Entwicklung",
+    "Freizeit",
+    "Papierkorb",
+    "Privat"
+  ],
+  "secrets": {
+    "s1": "T7#kmZq!2wLpXe",
+    "s2": "JBSWY3DPEHPK3PXP",
+    "s3": "Vw9!qsldk2#Rt",
+    "s4": "h4kd8!Lp2mQ#v",
+    "s5": "KRSXG5CTMVRXEZLU",
+    "s6": "passwort123",
+    "s7": "Xk92#mQpLz!4vRn8",
+    "s8": "sommer2024",
+    "s9": "MFRGGZDFMZTWQ2LK",
+    "s10": "Rt8$vLm3!qYz9",
+    "s11": "ONSWG4TFOQ======",
+    "s12": "passwort123",
+    "s13": "qwertz123",
+    "s14": "Nb5!xTr7@wQd2",
+    "s15": "hallo123",
+    "s16": "GEZDGNBVGY3TQOJQ",
+    "s17": "test1234"
+  },
+  "entries": [
+    {
+      "id": "d1f0c4a2-0001-4000-8000-000000000001",
+      "folder": "Arbeit",
+      "name": "Intranet",
+      "username": "m.beispiel",
+      "url": "intranet.example.com",
+      "notes": "",
+      "tags": [
+        "Arbeit"
+      ],
+      "modified": "2026-02-11T09:01:00Z",
+      "hasPassword": true,
+      "passwordToken": "s1",
+      "hasTotp": true,
+      "totpToken": "s2",
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": true,
+      "expires": "2026-09-30",
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0002-4000-8000-000000000002",
+      "folder": "Arbeit",
+      "name": "Projektverwaltung",
+      "username": "m.beispiel",
+      "url": "projekte.example.com",
+      "notes": "",
+      "tags": [
+        "Arbeit"
+      ],
+      "modified": "2026-03-12T09:02:00Z",
+      "hasPassword": true,
+      "passwordToken": "s3",
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0003-4000-8000-000000000003",
+      "folder": "Entwicklung",
+      "name": "Code-Hosting",
+      "username": "dev-konto",
+      "url": "code.example.org",
+      "notes": "",
+      "tags": [
+        "Dev"
+      ],
+      "modified": "2026-04-13T09:03:00Z",
+      "hasPassword": true,
+      "passwordToken": "s4",
+      "hasTotp": true,
+      "totpToken": "s5",
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": true,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0004-4000-8000-000000000004",
+      "folder": "Entwicklung",
+      "name": "Paketregister",
+      "username": "dev-konto",
+      "url": "pakete.example.org",
+      "notes": "",
+      "tags": [
+        "Dev"
+      ],
+      "modified": "2026-05-14T09:04:00Z",
+      "hasPassword": true,
+      "passwordToken": "s6",
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0005-4000-8000-000000000005",
+      "folder": "Entwicklung",
+      "name": "Server-Konsole",
+      "username": "admin",
+      "url": "console.example.net",
+      "notes": "",
+      "tags": [
+        "Server"
+      ],
+      "modified": "2026-06-15T09:05:00Z",
+      "hasPassword": true,
+      "passwordToken": "s7",
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0006-4000-8000-000000000006",
+      "folder": "Privat",
+      "name": "Webmail",
+      "username": "max@example.com",
+      "url": "mail.example.com",
+      "notes": "",
+      "tags": [
+        "Privat"
+      ],
+      "modified": "2026-07-16T09:06:00Z",
+      "hasPassword": true,
+      "passwordToken": "s8",
+      "hasTotp": true,
+      "totpToken": "s9",
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": "2026-11-15",
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0007-4000-8000-000000000007",
+      "folder": "Privat",
+      "name": "Cloud-Speicher",
+      "username": "max@example.com",
+      "url": "cloud.example.com",
+      "notes": "",
+      "tags": [
+        "Privat"
+      ],
+      "modified": "2026-08-17T09:07:00Z",
+      "hasPassword": true,
+      "passwordToken": "s10",
+      "hasTotp": true,
+      "totpToken": "s11",
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0008-4000-8000-000000000008",
+      "folder": "Einkauf",
+      "name": "Onlineshop",
+      "username": "max@example.com",
+      "url": "shop.example.com",
+      "notes": "",
+      "tags": [
+        "Einkauf"
+      ],
+      "modified": "2026-01-18T09:08:00Z",
+      "hasPassword": true,
+      "passwordToken": "s12",
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0009-4000-8000-000000000009",
+      "folder": "Einkauf",
+      "name": "Auktionsplattform",
+      "username": "max_b",
+      "url": "auktion.example.com",
+      "notes": "",
+      "tags": [
+        "Einkauf"
+      ],
+      "modified": "2026-02-10T09:09:00Z",
+      "hasPassword": true,
+      "passwordToken": "s13",
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0010-4000-8000-000000000010",
+      "folder": "Freizeit",
+      "name": "Streamingdienst",
+      "username": "max@example.com",
+      "url": "stream.example.com",
+      "notes": "",
+      "tags": [
+        "Freizeit"
+      ],
+      "modified": "2026-03-11T09:10:00Z",
+      "hasPassword": true,
+      "passwordToken": "s14",
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0011-4000-8000-000000000011",
+      "folder": "Freizeit",
+      "name": "Spieleplattform",
+      "username": "max_b",
+      "url": "spiele.example.com",
+      "notes": "",
+      "tags": [
+        "Freizeit"
+      ],
+      "modified": "2026-04-12T09:11:00Z",
+      "hasPassword": true,
+      "passwordToken": "s15",
+      "hasTotp": true,
+      "totpToken": "s16",
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0012-4000-8000-000000000012",
+      "folder": "Papierkorb",
+      "name": "Altes Forum",
+      "username": "max_b",
+      "url": "forum.example.org",
+      "notes": "",
+      "tags": [
+        "Privat"
+      ],
+      "modified": "2026-05-13T09:12:00Z",
+      "hasPassword": true,
+      "passwordToken": "s17",
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": []
+    }
+  ]
+}

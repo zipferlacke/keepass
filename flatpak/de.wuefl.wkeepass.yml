@@ -1,0 +1,79 @@
+# Flatpak-Manifest für WKeePass.
+#
+# Gebaut wird aus dem Quelltext, für x86_64 und aarch64 gleichermaßen.
+# WebKitGTK bringt die GNOME-Runtime mit, deshalb muss hier nichts davon
+# mitgebaut werden.
+#
+# Lokal bauen und installieren (aus dem Projektverzeichnis):
+#
+#   flatpak-builder --user --install --force-clean \
+#       --install-deps-from=flathub flatpak-build flatpak/de.wuefl.wkeepass.yml
+#
+# Achtung: Beim Bauen darf cargo ins Netz, um die Crates zu laden. Für den
+# eigenen Gebrauch und GitHub-Releases ist das in Ordnung — Flathub lässt es
+# nicht zu, dort bräuchte es vorher `flatpak-cargo-generator`.
+
+id: de.wuefl.wkeepass
+runtime: org.gnome.Platform
+runtime-version: '49'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: wkeepass
+
+finish-args:
+  # Fenster
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # HIBP-Abfrage, Favicons
+  - --share=network
+  # Die Datenbank liegt irgendwo im Heimatverzeichnis (Nextcloud-Ordner).
+  # Die Dateiauswahl über das Portal allein reicht nicht: write_atomic legt
+  # eine Sicherungskopie daneben und benennt um — dafür braucht es das
+  # Verzeichnis, nicht nur die eine Datei.
+  - --filesystem=home
+  # Schlüsselbund (Secret Service) für den Schlüssel K aus keystore.rs
+  - --talk-name=org.freedesktop.secrets
+  # Fingerabdruck über fprintd
+  - --system-talk-name=net.reactivated.Fprint
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+
+modules:
+  - name: wkeepass
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+      env:
+        CARGO_HOME: /run/build/wkeepass/cargo
+    build-commands:
+      # tauri/custom-protocol ist das, was `cargo tauri build` sonst selbst
+      # setzt: Die Oberfläche kommt aus der Binärdatei, nicht vom devUrl.
+      - cargo build --release --locked --features tauri/custom-protocol
+          --manifest-path src-tauri/Cargo.toml
+      - install -Dm755 src-tauri/target/release/wkeepass /app/bin/wkeepass
+      - install -Dm644 flatpak/de.wuefl.wkeepass.desktop
+          /app/share/applications/de.wuefl.wkeepass.desktop
+      - install -Dm644 flatpak/de.wuefl.wkeepass.metainfo.xml
+          /app/share/metainfo/de.wuefl.wkeepass.metainfo.xml
+      - install -Dm644 src-tauri/icons/128x128.png
+          /app/share/icons/hicolor/128x128/apps/de.wuefl.wkeepass.png
+      - install -Dm644 src-tauri/icons/128x128@2x.png
+          /app/share/icons/hicolor/256x256/apps/de.wuefl.wkeepass.png
+      - install -Dm644 src-tauri/icons/icon.png
+          /app/share/icons/hicolor/512x512/apps/de.wuefl.wkeepass.png
+    sources:
+      - type: dir
+        path: ..
+        skip:
+          - src-tauri/target
+          - .secrets
+          - .git
+          - .flatpak-builder
+          - flatpak-build
+          - appdata
+          - keepass-android

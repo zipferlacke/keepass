@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>WKeePass</title>
+
+<!--
+  Das kleine Fenster für Anfragen aus dem Browser.
+
+  Eigenständig und absichtlich schlank: Es geht mittig über dem Browser auf,
+  während man dort in einem Anmeldeformular steht. Die ganze Anwendung dafür
+  zu laden wäre langsam und aufdringlich — sie muss dafür nicht einmal
+  laufen.
+
+  Auch das Entsperren passiert hier. Dieselben Felder, dieselbe Form: Ob
+  gerade die Datei geöffnet oder eine Herausgabe bestätigt wird, ändert nur
+  die Beschriftung.
+
+  Dass es *unser* Fenster ist und nicht etwas, das die Website zeichnet, ist
+  der eigentliche Punkt — eine Bestätigung im Browser könnte eine Seite
+  nachbauen.
+-->
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body class="request-body">
+
+<main class="request" id="request" hidden>
+  <div class="request-head">
+    <span class="msr" id="req-icon">shield_person</span>
+    <div class="request-head-text">
+      <strong id="req-title">Anfrage aus dem Browser</strong>
+      <small id="req-host"></small>
+    </div>
+    <button type="button" class="button" data-shape="round no-background"
+            id="req-gear" title="Einstellungen" aria-label="Einstellungen">
+      <span class="msr">settings</span>
+    </button>
+  </div>
+
+  <p id="req-text"></p>
+  <p class="hint" id="req-warning" hidden></p>
+  <ul id="req-entries" hidden></ul>
+
+  <form id="req-form">
+    <!-- Nur bei „legitimieren“: Nachweis statt Ja/Nein -->
+    <div id="req-identify" hidden>
+      <!-- Der Umschalter ist zugleich die Beschriftung: Was gewählt ist,
+           steht darin. Eine zusätzliche Zeile darüber sagte dasselbe noch
+           einmal. -->
+      <div class="group-radio" id="req-methods" hidden></div>
+
+      <span class="pw-field">
+        <input type="password" id="req-secret" autocomplete="off">
+        <button type="button" class="pw-eye" data-shape="square no-background"
+                id="req-eye" title="Sichtbar machen" aria-label="Sichtbar machen">
+          <span class="msr">visibility</span>
+        </button>
+      </span>
+
+      <button type="button" class="button" data-shape="full" id="req-bio" hidden>
+        <span class="msr">fingerprint</span>&nbsp;<span id="req-bio-text">Mit Fingerabdruck bestätigen</span>
+      </button>
+    </div>
+
+    <div class="request-actions">
+      <button type="button" class="button" id="req-deny">Abbrechen</button>
+      <button type="submit" class="button hightlight" id="req-allow">Übernehmen</button>
+    </div>
+  </form>
+</main>
+
+<!-- Einstellungen, ohne das Hauptfenster zu öffnen -->
+<section class="request" id="req-settings" hidden>
+  <div class="request-head">
+    <span class="msr">settings</span>
+    <div class="request-head-text">
+      <strong>Browser-Erweiterung</strong>
+      <small>Vor dem Ausfüllen</small>
+    </div>
+    <button type="button" class="button" data-shape="round no-background"
+            id="req-back" title="Zurück" aria-label="Zurück">
+      <span class="msr">close</span>
+    </button>
+  </div>
+
+  <div class="group-radio" id="req-guard">
+    <label><input type="radio" name="guard" value="never">Nichts</label>
+    <label><input type="radio" name="guard" value="confirm">Bestätigen</label>
+    <label><input type="radio" name="guard" value="identify">Legitimieren</label>
+  </div>
+
+  <p class="hint" id="req-guard-note"></p>
+</section>
+
+<script type="module" src="./js/request.js"></script>
+</body>
+</html>
