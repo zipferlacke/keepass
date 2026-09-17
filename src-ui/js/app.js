@@ -8,8 +8,8 @@ import * as qr from './qr.js';
 import * as preview from './preview.js';
 import { enableDragMove } from './dragmove.js';
 import * as pick from './multiselect.js';
-import { isTauri, invoke, unlockMethods, pickDatabaseFile, pickSavePath, listen } from './platform.js';
-import { dialog, banner, closeHostDialog, tableview } from './ui.js';
+import { isTauri, isMobile, invoke, unlockMethods, pickDatabaseFile, pickSavePath, listen } from './platform.js';
+import { dialog, banner, closeHostDialog, tableview, selectPicker} from './ui.js';
 
 /* =========================================================
    Zustand
@@ -74,6 +74,9 @@ async function boot() {
   // Abrufe über die Browser-Erweiterung zählen ebenfalls als Nutzung.
   await listen('entries-used', ev => markUsed(ev?.payload ?? []));
 
+  // Auswahlfelder bekommen das Aussehen der übrigen Oberfläche.
+  selectPicker();
+
   await bindBrowserRequests();
   await bindFileDrops();
   bindStaticEvents();
@@ -135,7 +138,7 @@ async function adoptStartupDatabase() {
   if (!path || path === settings.get('database.current', null)) return;
 
   await settings.set('database.current', path, { silent: true });
-  await rememberDatabase({ name: path.split(/[\\/]/).pop(), path });
+  await rememberDatabase({ name: dbName(path), path });
 }
 
 /* =========================================================
@@ -152,6 +155,9 @@ async function adoptStartupDatabase() {
    ========================================================= */
 
 async function bindBrowserRequests() {
+  // Auf Android und iOS gibt es die Browser-Erweiterung nicht.
+  if (isMobile) return;
+
   await listen('browser-needs-unlock', () => {
     if (!state.locked) return;
     banner('Ein Browser wartet auf die Datenbank.', 'info', 8000);
@@ -304,7 +310,19 @@ function recentDatabases() {
 
 async function rememberDatabase(entry) {
   const list = recentDatabases().filter(d => d.path !== entry.path);
-  list.unshift(entry);
+
+  // Wo die Datei liegt, weiß unter Android nur der Kern: Er fragt den
+  // Anbieter nach dem Dateinamen. Einmal merken reicht — die Auskunft kostet
+  // jedes Mal einen Weg über die Java-Seite.
+  const label = entry.label ?? await pfadAuskunft(entry.path);
+
+  // Kam beim Auswählen kein Name heraus, nimm den Dateinamen aus der
+  // Auskunft („Downloads — passwoerter.kdbx").
+  const name = entry.name && entry.name !== 'Noch nicht geöffnet'
+    ? entry.name
+    : (label?.split('/').pop() ?? entry.name);
+
+  list.unshift({ ...entry, name, label });
   await settings.set('database.recent', list.slice(0, 5), { silent: true });
   await settings.set('database.current', entry.path, { silent: true });
 }
@@ -374,7 +392,7 @@ function renderLockscreen(message) {
            <span class="msr">database</span>
            <span class="lock-current-text">
              <strong>${esc(active.name)}</strong>
-             <small>${esc(active.path)}</small>
+             <small>${esc(pfadLabel(active.path, active.label))}</small>
            </span>
          </div>`
       : `<p class="lock-sub">Noch keine Datenbank ausgewählt</p>`}
@@ -400,7 +418,7 @@ function renderLockscreen(message) {
       <div class="lock-db-list">
         ${list.map(d => `
           <button type="button" class="lock-db" data-db="${esc(d.path)}" aria-pressed="${d.path === current}">
-            <span class="lock-db-text"><strong>${esc(d.name)}</strong><small>${esc(d.path)}</small></span>
+            <span class="lock-db-text"><strong>${esc(d.name)}</strong><small>${esc(pfadLabel(d.path, d.label))}</small></span>
           </button>`).join('')}
       </div>
     </details>` : ''}`;
@@ -451,9 +469,16 @@ async function openUnlockDialog() {
           ${settings.get('unlock.biometrics', true) ? 'checked' : ''}></div>
       </div>` : ''}
 
-      ${u.pin || !u.pinSet ? '' : `<div class="setting">
-        <div class="setting-label"><strong>Künftig auch mit PIN öffnen</strong></div>
+      ${u.pin ? '' : `<div class="setting">
+        <div class="setting-label"><strong>Künftig auch mit PIN öffnen</strong>
+          ${u.pinSet ? '' : '<small>Dafür wird gleich eine App-PIN festgelegt</small>'}</div>
         <div class="setting-control"><input type="checkbox" data-shape="toggle" name="remember"></div>
+      </div>`}
+
+      ${u.device || u.biometric || !u.biometricAvailable || !u.keyring ? '' : `<div class="setting">
+        <div class="setting-label"><strong>Künftig auch mit Fingerabdruck öffnen</strong>
+          <small>Der Fingerabdruck weist dich aus; der Schlüssel kommt aus dem Schlüsselbund</small></div>
+        <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberBio"></div>
       </div>`}`,
     confirmText: 'Entsperren',
     cancelText: 'Abbrechen',
@@ -475,14 +500,27 @@ async function openUnlockDialog() {
   if (!d.pw) { banner('Bitte PIN oder Master-Passwort eingeben.', 'warning'); return; }
 
   const wantsPin = fieldChecked(res.data, 'remember');
+  const wantsBio = fieldChecked(res.data, 'rememberBio');
   const wantsDevice = fieldChecked(res.data, 'rememberDevice');
-  const pin = wantsPin ? await askAppPin() : '';
+
+  // PIN und Fingerabdruck hängen beide am App-Schlüssel, und der entsteht
+  // erst mit der PIN des Programms. Ohne sie geht keins von beidem.
+  let pin = '';
+  if (wantsPin || wantsBio) {
+    if (!state.unlock.pinSet && !(await createAppPin())) return;
+    pin = await askAppPin();
+  }
 
   unlock({
     method: 'password',
     secret: d.pw,
-    remember: (wantsPin && pin) || wantsDevice
-      ? { pin, allowPin: wantsPin && Boolean(pin), allowBiometric: false, allowDevice: wantsDevice }
+    remember: ((wantsPin || wantsBio) && pin) || wantsDevice
+      ? {
+          pin,
+          allowPin: wantsPin && Boolean(pin),
+          allowBiometric: wantsBio && Boolean(pin),
+          allowDevice: wantsDevice
+        }
       : null
   });
 }
@@ -509,6 +547,69 @@ async function askAppPin() {
  * anbieten. Übergehen lässt sich das — dann geht jede Datenbank eben nur
  * mit ihrem Master-Passwort auf.
  */
+/**
+ * Wo eine Datenbank liegt — in lesbar.
+ *
+ * Auf Android ist der „Pfad" eine Adresse wie
+ * `content://org.nextcloud.documents/document/5092c86d…`. Die sagt niemandem
+ * etwas; die Anwendung dahinter schon.
+ */
+const HERKUNFT = {
+  'com.android.providers.downloads.documents': 'Downloads',
+  'com.android.externalstorage.documents': 'Gerätespeicher',
+  'com.android.providers.media.documents': 'Medien',
+  'org.nextcloud.documents': 'Nextcloud',
+  'com.google.android.apps.docs.storage': 'Google Drive'
+};
+
+/**
+ * Der Name, unter dem eine Datenbank in der Liste steht — bevor sie einmal
+ * offen war. Danach nimmt `rememberDatabase` den Namen aus der Datei selbst.
+ */
+function dbName(path) {
+  const text = String(path ?? '');
+  if (!text.startsWith('content://')) return text.split(/[\\/]/).pop();
+
+  const name = decodeURIComponent(text.split(/[/:]/).pop() ?? '');
+  // Steckt kein Name in der Adresse, kennt ihn niemand: Android gibt beim
+  // Auswählen und beim Anlegen nur eine Kennung zurück. Der richtige Name
+  // steht in der Datenbank selbst und kommt beim ersten Öffnen.
+  return name.includes('.') && !/^[0-9a-f]+$/i.test(name) ? name : 'Noch nicht geöffnet';
+}
+
+/** Fragt den Kern, wie die Datei heißt und wo sie liegt. */
+async function pfadAuskunft(path) {
+  if (!isTauri || !path) return null;
+  try {
+    return await invoke('path_label', { path });
+  } catch {
+    return null;
+  }
+}
+
+function pfadLabel(path, gemerkt = null) {
+  if (gemerkt) return gemerkt;
+
+  const text = String(path ?? '');
+  if (!text.startsWith('content://')) return text;
+
+  const authority = text.slice('content://'.length).split('/')[0];
+  const name = decodeURIComponent(text.split(/[/:]/).pop() ?? '');
+  const ort = HERKUNFT[authority] ?? authority.replace(/\.documents$/, '').split('.').pop();
+
+  return name.includes('.') && !/^[0-9a-f]+$/i.test(name) ? `${ort} — ${name}` : ort;
+}
+
+/** Warum die Biometrie hier nicht angeboten wird. */
+function biometrieFehlt() {
+  if (!state.unlock.biometricAvailable) {
+    return isMobile
+      ? 'Kein Finger oder Gesicht hinterlegt — in den Android-Einstellungen einrichten.'
+      : 'Auf dem Gerät nicht verfügbar';
+  }
+  return 'Ohne Schlüsselbund nicht möglich';
+}
+
 async function showWelcome() {
   return new Promise(resolve => {
     $('#welcome').hidden = false;
@@ -550,10 +651,11 @@ async function showWelcome() {
         : `<div class="setting">
             <div class="setting-label">
               <strong>Biometrie Entsperrung nutzen</strong>
-              <small>${state.unlock.keyring ? '' : 'Auf dem Gerät nicht verfügbar'}</small>
+              <small>${state.unlock.keyring && state.unlock.biometricAvailable ? '' : biometrieFehlt()}</small>
             </div>
             <div class="setting-control">
-              <input type="checkbox" data-shape="toggle" id="wc-bio" ${state.unlock.keyring ? '' : 'disabled'}>
+              <input type="checkbox" data-shape="toggle" id="wc-bio"
+                ${state.unlock.keyring && state.unlock.biometricAvailable ? '' : 'disabled'}>
             </div>
           </div>`}
 
@@ -600,7 +702,7 @@ async function pickDatabase() {
 
   if (!picked) { banner('Es wurde keine Datei ausgewählt.', 'info'); return; }
 
-  const name = String(picked).split(/[\\/]/).pop();
+  const name = dbName(picked);
   await rememberDatabase({ name, path: picked });
   renderLockscreen();
 }
@@ -754,7 +856,7 @@ async function manageAccess() {
 
       <label class="check">
         <input type="checkbox" name="bio" ${state.unlock.biometric ? 'checked' : ''}
-          ${state.unlock.keyring ? '' : 'disabled'}>
+          ${state.unlock.keyring && state.unlock.biometricAvailable ? '' : 'disabled'}>
         <strong>Mit Fingerabdruck öffnen</strong>
       </label>
       <p class="hint">Der Fingerabdruck ist dabei <em>kein Schlüssel</em>, sondern der
@@ -930,37 +1032,69 @@ function wirePasswordFields(root = document) {
   });
 }
 
-/** Legt eine neue, leere Datenbank an und öffnet sie gleich. */
+/**
+ * Legt eine neue, leere Datenbank an und öffnet sie gleich.
+ *
+ * Erst Name und Master-Passwort, dann der Speicherort. Die Reihenfolge ist
+ * Absicht: Der Name gehört in die Datei selbst, und unter Android ist er die
+ * einzige Bezeichnung, die später noch da ist — aus einer
+ * `content://`-Adresse lässt sich kein Dateiname herausholen.
+ */
 async function createDatabase() {
-  // Erst der Ort — dann weiß der Dialog schon, wohin es geht.
-  const path = await pickSavePath('passwoerter.kdbx');
-  if (!path) { banner('Es wurde kein Speicherort ausgewählt.', 'info'); return; }
-
   const fields = captureFields('pw', 'pw2');
 
   const res = await dialog({
     title: 'Neue Datenbank anlegen',
-    content: `<p>Wird angelegt unter:<br><code>${esc(path)}</code></p>
+    content: `<div class="dlg-field">
+        <label for="fld-db-name">Name der Datenbank</label>
+        <div class="dlg-input-row">
+          <input id="fld-db-name" type="text" name="dbName" placeholder="Passwörter" autocomplete="off">
+        </div>
+      </div>
+      <div class="dlg-field">
+        <label for="fld-db-level">Verschlüsselungsstärke</label>
+        <div class="dlg-input-row">
+          <select id="fld-db-level" name="dbLevel" data-sp-picker data-sp-search="false">
+            ${STUFEN.map(([wert, label, hinweis]) =>
+              `<option value="${wert}" ${wert === 'standard' ? 'selected' : ''}>${label} — ${hinweis}</option>`).join('')}
+          </select>
+        </div>
+      </div>
       <p>Das Master-Passwort ist der Hauptschlüssel. Es gibt keine
       Wiederherstellung — ist es weg, sind die Einträge weg.</p>
       ${passwordField('pw', 'Master-Passwort', { minlength: 1 })}
       ${passwordField('pw2', 'Master-Passwort wiederholen', { minlength: 1 })}`,
-    confirmText: 'Anlegen',
+    confirmText: 'Weiter zum Speicherort',
     cancelText: 'Abbrechen',
     onInsert: fields.onInsert
   });
 
   if (!res?.submit) return;
+
+  const name = String(res.data?.dbName ?? '').trim() || 'Passwörter';
+  const level = String(res.data?.dbLevel ?? 'standard');
   const pw = fields.value('pw', res.data);
 
   if (!pw) { banner('Ohne Master-Passwort geht es nicht.', 'warning'); return; }
   if (pw !== fields.value('pw2', res.data)) { banner('Die beiden Passwörter stimmen nicht überein.', 'warning'); return; }
 
+  // Aus „Passwörter privat" wird „passwoerter-privat.kdbx" als Vorschlag.
+  const datei = `${name.toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'passwoerter'}.kdbx`;
+
+  const path = await pickSavePath(datei);
+  if (!path) { banner('Es wurde kein Speicherort ausgewählt.', 'info'); return; }
+
   try {
     const info = await vault.create({
-      path, password: pw,
+      path, password: pw, name,
       autoLockMinutes: Number(settings.get('unlock.autoLockMinutes', 5)) || 0
     });
+
+    // Die Stufe steht erst in der offenen Datenbank; sie zu setzen schreibt
+    // die Datei gleich noch einmal — beim Anlegen fällt das nicht auf.
+    if (level !== 'standard') await vault.setSecurity({ level });
     await rememberDatabase({ name: info.name, path: info.path });
     await settings.set('database.current', info.path, { silent: true });
 
@@ -1051,7 +1185,7 @@ async function unlock({ method = 'password', secret = null, remember = null } = 
     if (/^Geöffnet, aber/.test(err.message)) {
       banner(err.message, 'warning', 8000);
       await vault.adopt();
-      if (path) await rememberDatabase({ name: String(path).split(/[\\/]/).pop(), path });
+      if (path) await rememberDatabase({ name: dbName(path), path });
       await enterUnlocked();
       return;
     }
@@ -2311,6 +2445,13 @@ function settingsMarkup() {
       </div>
     </div>
 
+    ${state.locked ? '' : `<div class="settings-group">
+      <div class="section-label">Datenbank</div>
+      <div class="settings-card" id="database-card">
+        <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+      </div>
+    </div>`}
+
     <div class="settings-group">
       <div class="section-label">Entsperren</div>
       <div class="settings-card">
@@ -2319,9 +2460,11 @@ function settingsMarkup() {
             <strong>Biometrie verwenden</strong>
             <small>${state.unlock.deviceAvailable
               ? `${esc(deviceName())} — beim Öffnen anbieten, ersetzt PIN und Master-Passwort`
-              : state.unlock.biometric ? 'Fingerabdruck oder Gesichtserkennung' : 'Auf diesem Gerät nicht verfügbar'}</small>
+              : state.unlock.biometricAvailable
+                ? 'Fingerabdruck oder Gesichtserkennung'
+                : 'Auf diesem Gerät nicht verfügbar'}</small>
           </div>
-          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="unlock.biometrics" name="unlock.biometrics" ${s.unlock?.biometrics ? 'checked' : ''} ${state.unlock.biometric || state.unlock.deviceAvailable ? '' : 'disabled'}></div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="unlock.biometrics" name="unlock.biometrics" ${s.unlock?.biometrics ? 'checked' : ''} ${state.unlock.biometricAvailable || state.unlock.deviceAvailable ? '' : 'disabled'}></div>
         </div>
         <div class="setting">
           <div class="setting-label">
@@ -2350,12 +2493,12 @@ function settingsMarkup() {
       </div>
     </div>
 
-    <div class="settings-group">
+    ${isMobile ? '' : `<div class="settings-group">
       <div class="section-label">Browser-Erweiterung</div>
       <div class="settings-card" id="browser-card">
         <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
       </div>
-    </div>
+    </div>`}
 
     <div class="settings-group">
       <div class="section-label">Website-Icons</div>
@@ -2487,6 +2630,89 @@ function renderSettings() {
   // Nachgereicht: Der Zustand kommt aus dem Kern und würde das Zeichnen
   // sonst aufhalten.
   renderBrowserSection();
+  renderDatabaseSection();
+}
+
+/** Die drei Stufen der Schlüsselableitung, wie sie der Kern kennt. */
+const STUFEN = [
+  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten'],
+  ['standard', 'Standard', 'Guter Mittelweg — Empfehlung'],
+  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen']
+];
+
+/**
+ * Name und Verschlüsselung der offenen Datenbank.
+ *
+ * Der Name steht in der Datei selbst, nicht im Dateinamen — er erscheint
+ * überall dort, wo die Datenbank auftaucht, und ist auf dem Handy oft die
+ * einzige Bezeichnung, die es gibt.
+ */
+async function renderDatabaseSection() {
+  const card = $('#database-card');
+  if (!card) return;
+
+  let info;
+  try {
+    info = await vault.security();
+  } catch (err) {
+    card.innerHTML = `<div class="setting"><div class="setting-label">
+      <strong>Nicht verfügbar</strong><small>${esc(err.message)}</small></div></div>`;
+    return;
+  }
+
+  card.innerHTML = `
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Name der Datenbank</strong>
+        <small>Steht in der Datei, nicht im Dateinamen</small>
+      </div>
+      <div class="setting-control">
+        <input type="text" id="db-name" value="${esc(info.name)}" placeholder="Passwörter"
+               ${info.readOnly ? 'disabled' : ''}>
+      </div>
+    </div>
+
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Verschlüsselungsstärke</strong>
+        <small>Wie lange das Ableiten des Schlüssels dauert — für dich einmal beim Öffnen,
+        für einen Angreifer bei jedem Rateversuch</small>
+      </div>
+      <div class="setting-control">
+        <select id="db-level" data-sp-picker data-sp-search="false" ${info.readOnly ? 'disabled' : ''}>
+          ${STUFEN.map(([wert, name, hinweis]) =>
+            `<option value="${wert}" ${info.level === wert ? 'selected' : ''}>${name} — ${hinweis}</option>`).join('')}
+          ${info.level === 'eigen' ? '<option value="eigen" selected>Eigene Einstellung</option>' : ''}
+        </select>
+      </div>
+    </div>
+
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Im Einzelnen</strong>
+        <small>${esc(info.format)} · ${esc(info.cipher)} · ${esc(info.kdf)}
+        mit ${info.iterations} Durchgängen, ${info.memoryMib} MiB, ${info.parallelism} Fäden</small>
+      </div>
+    </div>`;
+
+  const speichern = async (feld, wert) => {
+    try {
+      await vault.setSecurity(wert);
+      banner(feld === 'name' ? 'Name gespeichert.' : 'Verschlüsselung geändert — die Datei wurde neu geschrieben.', 'success');
+      renderDatabaseSection();
+    } catch (err) {
+      banner(`Nicht gespeichert: ${err.message}`, 'error', 6000);
+    }
+  };
+
+  const name = card.querySelector('#db-name');
+  name?.addEventListener('change', () => {
+    if (name.value.trim() !== info.name) speichern('name', { name: name.value.trim() });
+  });
+
+  card.querySelector('#db-level')?.addEventListener('change', ev => {
+    if (ev.target.value !== 'eigen') speichern('level', { level: ev.target.value });
+  });
 }
 
 /**
@@ -2811,7 +3037,7 @@ async function openFolderDialog({ parent = '', path = null } = {}) {
       <div class="dlg-field">
         <label for="fld-folder-parent">Übergeordneter Ordner</label>
         <div class="dlg-input-row">
-          <select id="fld-folder-parent" name="parent">
+          <select id="fld-folder-parent" name="parent" data-sp-picker>
             ${options.map(f => `<option value="${esc(f)}" ${f === parentPath ? 'selected' : ''}>${f ? esc(f) : '— oberste Ebene —'}</option>`).join('')}
           </select>
         </div>
@@ -3068,7 +3294,7 @@ async function placeTotp(parsed) {
       <div class="dlg-field" id="pick-existing" hidden>
         <label for="totp-target">Eintrag auswählen</label>
         <div class="dlg-input-row">
-          <select id="totp-target">
+          <select id="totp-target" data-sp-picker>
             ${candidates.map(e => `<option value="${e.id}" ${suggestion?.id === e.id ? 'selected' : ''}>${esc(e.name)}${e.username ? ` — ${esc(e.username)}` : ''}</option>`).join('')}
           </select>
         </div>
@@ -3307,7 +3533,7 @@ async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {
         <div class="dlg-field">
           <label for="fld-algorithm">Algorithmus</label>
           <div class="dlg-input-row">
-            <select id="fld-algorithm" name="algorithm">
+            <select id="fld-algorithm" name="algorithm" data-sp-picker data-sp-search="false">
               ${['SHA1', 'SHA256', 'SHA512'].map(a => `<option value="${a}" ${t.algorithm === a ? 'selected' : ''}>${a}</option>`).join('')}
             </select>
           </div>
@@ -4108,7 +4334,7 @@ async function createEmptyFile() {
       <div class="dlg-field">
         <label for="fld-new-file-type">Art</label>
         <div class="dlg-input-row">
-          <select id="fld-new-file-type" name="newFileType">
+          <select id="fld-new-file-type" name="newFileType" data-sp-picker data-sp-search="false">
             ${NEW_FILE_TYPES.map(t => `<option value="${t.ext}">${t.label}</option>`).join('')}
           </select>
         </div>

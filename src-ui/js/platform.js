@@ -13,6 +13,12 @@
 export const isTauri = typeof window !== 'undefined' &&
   ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 
+/**
+ * Läuft die App auf Android oder iOS? Dort gibt es manches nicht, was der
+ * Desktop hat — allem voran die Browser-Erweiterung.
+ */
+export const isMobile = isTauri && /Android|iPhone|iPad/i.test(navigator.userAgent);
+
 let cachedInvoke = null;
 let demoModule = null;
 

@@ -24,8 +24,9 @@
 //! belegt, dass du es bist, er ist kein zweites Geheimnis. Die Prüfung
 //! fällt unter Linux und macOS in diesem Programm.
 //!
-//! Windows Hello geht einen dritten, stärkeren Weg ohne PIN: Dort ist die
-//! Biometrie selbst der Schlüssel. Siehe den Abschnitt „Gerätegebunden".
+//! Windows Hello und der Android-Keystore gehen einen dritten, stärkeren
+//! Weg ohne PIN: Dort ist die Biometrie selbst der Schlüssel. Siehe den
+//! Abschnitt „Gerätegebunden".
 //!
 //! # Der Prüfblock
 //!
@@ -308,15 +309,16 @@ pub fn unseal_with_biometric(
 }
 
 /* =========================================================
-   Gerätegebunden: Windows Hello
+   Gerätegebunden: Windows Hello und der Android-Keystore
    ---------------------------------------------------------
    Ein eigenes Siegel neben dem der PIN, in `device.json`.
 
    Hier ist die Biometrie kein Nachweis vor dem Schlüsselbund, sondern
-   selbst der Schlüssel: Das TPM signiert einen Zufallswert erst nach der
-   Prüfung, und aus der Signatur entsteht der Schlüssel (biometric.rs).
-   Wer die Datei kopiert, kann damit nichts anfangen — ohne dieses Gerät
-   und ohne Finger bzw. Gesicht gibt es keine Signatur.
+   selbst der Schlüssel: Der Chip rechnet über einen Zufallswert erst nach
+   bestandener Prüfung — unter Windows signiert das TPM ihn, unter Android
+   rechnet der Keystore einen HMAC darüber (biometric.rs). Wer die Datei
+   kopiert, kann damit nichts anfangen: ohne dieses Gerät und ohne Finger
+   bzw. Gesicht keine Antwort des Chips.
 
    Deshalb braucht dieser Weg **keine PIN**. Er ersetzt beim Öffnen PIN
    und Master-Passwort, und er bleibt bestehen, wenn die PIN entfernt wird.
@@ -342,8 +344,9 @@ pub fn device_offer(app: &tauri::AppHandle, path: Option<&str>) -> bool {
 
 /// Versiegelt das Master-Passwort mit dem Geräteschlüssel.
 ///
-/// Fragt dabei Windows Hello ab — beim allerersten Mal zweimal, weil das
-/// Anlegen des Schlüssels im TPM selbst eine Prüfung verlangt.
+/// Fragt dabei das Gerät ab. Unter Windows beim allerersten Mal zweimal,
+/// weil das Anlegen des Schlüssels im TPM selbst eine Prüfung verlangt;
+/// unter Android genügt ein Griff zum Finger.
 pub fn remember_device(app: &tauri::AppHandle, path: &str, master: &str) -> Result<(), String> {
     let mut sealed = match read_device(app) {
         Some(sealed) => sealed,

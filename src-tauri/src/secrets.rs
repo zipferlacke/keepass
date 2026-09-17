@@ -256,10 +256,10 @@ pub async fn save_attachment(
         return Ok(None);
     };
 
-    let target = target.into_path().map_err(|e| format!("Pfad nicht nutzbar: {e}"))?;
-    std::fs::write(&target, &bytes).map_err(|e| format!("Schreiben fehlgeschlagen: {e}"))?;
+    let target = target.to_string();
+    crate::storage::write(&target, &bytes)?;
 
-    Ok(Some(target.to_string_lossy().to_string()))
+    Ok(Some(target))
 }
 
 /// Wie groß ein einzelner Anhang höchstens sein darf.
@@ -295,10 +295,10 @@ pub async fn pick_attachments(
     let picked = rx.recv().map_err(|e| format!("Dateiauswahl fehlgeschlagen: {e}"))?;
     let Some(paths) = picked else { return Ok(Vec::new()) };
 
-    let paths = paths
-        .into_iter()
-        .map(|p| p.into_path().map_err(|e| format!("Pfad nicht lesbar: {e}")))
-        .collect::<Result<Vec<_>, _>>()?;
+    // Nicht `into_path()`: Auf Android kommt hier eine `content://`-Adresse
+    // zurück, die sich nicht in einen Pfad verwandeln lässt. Was damit
+    // anzufangen ist, weiß `storage.rs`.
+    let paths = paths.into_iter().map(|p| p.to_string()).collect();
 
     let mut vault = lock(&state)?;
     stage_paths(&mut vault, paths)
@@ -313,19 +313,17 @@ pub async fn pick_attachments(
 /// Pfade kommen immer vom System: aus dem Dialog oder aus dem Ablegen.
 pub fn stage_paths(
     vault: &mut crate::state::VaultState,
-    paths: Vec<std::path::PathBuf>,
+    paths: Vec<String>,
 ) -> Result<Vec<dto::StagedAttachment>, String> {
     let mut staged = Vec::new();
 
     for path in paths {
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "Anhang".into());
+        let name = crate::storage::file_name(&path);
 
-        let size = std::fs::metadata(&path)
-            .map_err(|e| format!("„{name}“ nicht lesbar: {e}"))?
-            .len();
+        // Erst lesen, dann die Größe prüfen: Über eine `content://`-Adresse
+        // gibt es kein `metadata`, nur die offene Datei.
+        let bytes = crate::storage::read(&path).map_err(|e| format!("„{name}“: {e}"))?;
+        let size = bytes.len() as u64;
 
         if size > MAX_ATTACHMENT_BYTES {
             return Err(format!(
@@ -333,8 +331,6 @@ pub fn stage_paths(
                 size as f64 / (1024.0 * 1024.0)
             ));
         }
-
-        let bytes = std::fs::read(&path).map_err(|e| format!("„{name}“ nicht lesbar: {e}"))?;
 
         let reference = format!("{STAGED_PREFIX}{}", vault.new_token());
         let mime = mime_from_name(&name);

@@ -16,14 +16,27 @@
 name: wuefl-libs holen
 description: Ersetzt den lokalen Symlink durch wuefl-libs von GitHub
 
+name: wuefl-libs holen
+description: Ersetzt den lokalen Symlink durch wuefl-libs von GitHub
+
 runs:
   using: composite
   steps:
     - name: wuefl-libs holen
       shell: bash
       run: |
-        ZIEL=src-ui/libs/wuefl-libs-v2-2-1
+        ZIEL="src-ui/libs/wuefl-libs-v2-2-1"
         rm -rf "$ZIEL"
-        git clone --depth 1 https://github.com/zipferlacke/wuefl-libs.git "$ZIEL"
+        
+        # 1. Sucht alle Tags, sortiert sie nach Versionsnummer und schneidet den neuesten aus
+        TAG=$(git ls-remote --tags --refs --sort="v:refname" https://github.com/zipferlacke/wuefl-libs.git | tail -n1 | sed 's/.*\///')
+        # Festen Tag hier definieren
+        #TAG="v2.2.1"
+      
+        echo "Lade neusten Tag: $TAG"
+
+        # 2. Klont gezielt nur diesen Tag (--branch funktioniert auch für Tags)
+        git clone --depth 1 --branch "$LATEST_TAG" https://github.com/zipferlacke/wuefl-libs.git "$ZIEL"
+        
         echo "wuefl-libs: $(git -C "$ZIEL" describe --tags --always)"
         rm -rf "$ZIEL/.git"

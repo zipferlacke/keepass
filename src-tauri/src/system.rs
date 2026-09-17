@@ -14,7 +14,14 @@ pub async fn pick_database_file(app: tauri::AppHandle) -> Result<Option<String>,
             let _ = tx.send(path.map(|p| p.to_string()));
         });
 
-    rx.recv().map_err(|e| format!("Dateiauswahl fehlgeschlagen: {e}"))
+    let picked = rx.recv().map_err(|e| format!("Dateiauswahl fehlgeschlagen: {e}"))?;
+
+    // Ohne das wäre die Datei nach dem nächsten Start der App nicht mehr
+    // erreichbar — siehe storage::remember_access.
+    if let Some(path) = &picked {
+        crate::storage::remember_access(path);
+    }
+    Ok(picked)
 }
 
 /// Fragt, wohin eine **neue** Datenbank geschrieben werden soll.
@@ -39,8 +46,31 @@ pub async fn pick_save_path(
 
     let picked = rx.recv().map_err(|e| format!("Speicherort-Auswahl fehlgeschlagen: {e}"))?;
 
-    // Manche Dialoge geben den Namen ohne Endung zurück.
-    Ok(picked.map(|p| if p.ends_with(".kdbx") { p } else { format!("{p}.kdbx") }))
+    // Manche Dialoge geben den Namen ohne Endung zurück — aber nur bei
+    // echten Pfaden. Auf Android kommt eine Adresse
+    // (`…/document/1500`), und die ist eine Kennung, kein Name: Hängt man
+    // dort etwas an, zeigt sie auf nichts mehr, und Android verweigert das
+    // Schreiben mit „Permission Denial".
+    if let Some(path) = &picked {
+        crate::storage::remember_access(path);
+    }
+
+    Ok(picked.map(|p| {
+        if crate::storage::is_uri(&p) || p.ends_with(".kdbx") {
+            p
+        } else {
+            format!("{p}.kdbx")
+        }
+    }))
+}
+
+/// Wie eine Datei in der Oberfläche heißen soll.
+///
+/// Auf dem Schreibtisch der Pfad, auf Android „Downloads — datei.kdbx": Den
+/// Namen kennt dort nur der Anbieter der Datei, nicht die Adresse.
+#[tauri::command]
+pub fn path_label(path: String) -> String {
+    crate::storage::label(&path)
 }
 
 /// Die Datenbank, mit der die Anwendung aufgerufen wurde.

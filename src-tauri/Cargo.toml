@@ -71,6 +71,14 @@ zeroize = { version = "1", features = ["derive"] }
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-biometric = "2"
 
+# Android: Zugriff auf die Java-Seite, um Rechte an einer Datei dauerhaft zu
+# übernehmen (`takePersistableUriPermission`, siehe storage.rs). Ohne das ist
+# eine ausgewählte Datei nach dem nächsten Start nicht mehr erreichbar.
+# Die Fassungen müssen zu denen passen, die tauri/wry ohnehin einbinden.
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+tao = "0.35"
+
 # macOS: Touch ID über LocalAuthentication. Der Chip gibt den Schlüssel
 # erst nach erfolgreicher Prüfung frei — hier ist die Biometrie also
 # wirklich bindend, anders als unter Linux.

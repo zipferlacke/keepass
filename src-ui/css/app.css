@@ -247,7 +247,10 @@
     top: 0;
     z-index: 30;
     background: var(--bg-default);
-    padding: 0.75rem 1rem 0.5rem;
+    /* Auf dem Handy zeichnet der Webview bis unter die Statusleiste mit Uhr
+       und Akku. `viewport-fit=cover` in index.html gibt uns dafür
+       env(safe-area-inset-*) — ohne diesen Abstand läge der Titel darunter. */
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -996,9 +999,23 @@
     flex: 0 0 auto;
   }
 
+  /* Meldungen liegen ganz oben im Fenster — auf dem Handy also unter der
+     Statusleiste mit Uhr, Kamera und Symbolen. Der Rand kommt aus
+     `viewport-fit=cover` (siehe index.html). */
+  #notification_wrapper:popover-open {
+    padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+
   .userDialog .content header {
     font-size: var(--fs-600);
     line-height: 1.2;
+    /* Auf dem Handy füllt der Dialog den Bildschirm und liegt damit unter
+       der Statusleiste mit Uhr und Akku. */
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .userDialog .content {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Der Abstand kommt vom Container, nicht von den Blöcken selbst */
@@ -1049,8 +1066,11 @@
       z-index: 60;
     }
 
-    /* Damit nichts unter Navigation und Knopf verschwindet */
-    body > main {
+    /* Damit nichts unter Navigation und Knopf verschwindet.
+       `main` liegt in `.app-body`, nicht direkt unter `body` — mit
+       `body > main` griff die Regel nie, und die Einstellungen endeten
+       hinter der Navigationsleiste. */
+    main {
       padding-bottom: calc(var(--nav-bottom-height) + 5.5rem + env(safe-area-inset-bottom));
     }
   }
@@ -1103,7 +1123,10 @@
     z-index: 80;
     display: grid;
     place-items: center;
-    padding: 1.25rem;
+    padding:
+      calc(1.25rem + env(safe-area-inset-top, 0px))
+      1.25rem
+      calc(1.25rem + env(safe-area-inset-bottom, 0px));
     background: var(--bg-default);
 
     &[hidden] { display: none; }
@@ -1939,7 +1962,7 @@
       inset-inline: 0;
       display: flex;
       justify-content: flex-end;
-      padding: 0.75rem 1rem;
+      padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem;
       z-index: 1;
     }
 
@@ -1977,7 +2000,16 @@
         flex-direction: column;
         min-width: 0;
 
-        strong { font-size: var(--fs-300); }
+        /* Der Name kann eine lange Zeichenkette ohne Leerzeichen sein —
+           Nextcloud liefert als Adresse eine Kennung. Ohne Kürzen zieht er
+           die Seite in die Breite, und Android zoomt die ganze Oberfläche
+           heraus, um sie unterzubringen. */
+        strong {
+          font-size: var(--fs-300);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
         small {
           font-size: var(--fs-100);
           color: var(--text-hover);

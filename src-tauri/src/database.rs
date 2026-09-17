@@ -13,7 +13,6 @@ use zeroize::Zeroizing;
 use crate::dto;
 use crate::seal;
 use crate::state::{all_folders, folder_path, is_recycled};
-use crate::util::write_atomic;
 use crate::Vault;
 
 /// Feldnamen, unter denen KeePass-Anwendungen das TOTP-Geheimnis ablegen.
@@ -40,6 +39,7 @@ pub async fn unlock_methods(app: tauri::AppHandle, path: Option<String>) -> Resu
             password: true,
             pin: offer.pin,
             biometric: offer.biometric,
+            biometric_available: crate::biometric::available(),
             keyring: offer.keyring,
             pin_set: status.pin_set,
             device: seal::device_offer(&app, path.as_deref()),
@@ -133,10 +133,14 @@ pub async fn vault_unlock(
         _ => None,
     };
 
-    let name = std::path::Path::new(&path)
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| "unbenannt.kdbx".into());
+    // Auf Android ist der „Pfad" eine Adresse, in der oft nur eine Kennung
+    // steht (Nextcloud: `…/document/5092c86d…`). Dann ist der Name aus der
+    // Datenbank selbst die bessere Auskunft.
+    let meta_name = db.meta.database_name.clone().filter(|n| !n.trim().is_empty());
+    let name = match meta_name {
+        Some(n) if crate::storage::is_uri(&path) => n,
+        _ => crate::storage::file_name(&path),
+    };
 
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.clear();
@@ -253,29 +257,41 @@ pub async fn vault_create(
     state: tauri::State<'_, Vault>,
     path: String,
     password: String,
+    name: Option<String>,
     #[allow(non_snake_case)] autoLockMinutes: Option<u64>,
     remember: Option<dto::Remember>,
 ) -> Result<dto::DatabaseInfo, String> {
     if password.is_empty() {
         return Err("Eine neue Datenbank braucht ein Master-Passwort.".into());
     }
-    if std::path::Path::new(&path).exists() {
+    // Auf Android legt der Speichern-Dialog die Datei selbst an; dort ist
+    // „existiert schon" der Normalfall und kein Grund abzubrechen.
+    if !crate::storage::is_uri(&path) && std::path::Path::new(&path).exists() {
         return Err("An dieser Stelle liegt schon eine Datei.".into());
     }
 
     let target = path.clone();
     let secret = password.clone();
+    let title = name.clone().unwrap_or_default();
 
     tauri::async_runtime::spawn_blocking(move || {
         // `Database::new` liefert KDBX 4.1 — genau das, was sich auch
         // zurückschreiben lässt.
-        let db = Database::new();
+        let mut db = Database::new();
+
+        // Der Name steht in der Datei selbst. Das ist unter Android die
+        // einzige verlässliche Bezeichnung: Aus der Adresse des Systems
+        // lässt sich keine herausholen.
+        if !title.trim().is_empty() {
+            db.meta.database_name = Some(title.trim().to_string());
+            db.meta.database_name_changed = Some(chrono::Local::now().naive_local());
+        }
 
         let mut bytes: Vec<u8> = Vec::new();
         db.save(&mut bytes, DatabaseKey::new().with_password(&secret))
             .map_err(|e| format!("Anlegen fehlgeschlagen: {e}"))?;
 
-        write_atomic(std::path::Path::new(&target), &bytes)
+        crate::storage::write(&target, &bytes)
     })
     .await
     .map_err(|e| format!("Anlegen abgebrochen: {e}"))??;
@@ -573,6 +589,114 @@ fn iso(time: Option<NaiveDateTime>) -> String {
 }
 
 /* =========================================================
+   Name und Verschlüsselung
+   ---------------------------------------------------------
+   Der Schlüssel entsteht nicht direkt aus dem Master-Passwort: Eine
+   Ableitungsfunktion rechnet absichtlich lange daran. Je länger, desto
+   teurer wird jeder Rateversuch — und desto länger dauert auch das eigene
+   Öffnen. Deshalb drei Stufen statt einer Zahl.
+   ========================================================= */
+
+/// Die drei Stufen: (Durchgänge, Speicher in MiB, Fäden).
+const STUFEN: [(&str, u64, u64, u32); 3] = [
+    ("schnell", 5, 32, 2),
+    ("standard", 10, 64, 4),
+    ("stark", 20, 256, 4),
+];
+
+fn stufe_von(iterations: u64, memory_mib: u64, parallelism: u32) -> String {
+    STUFEN
+        .iter()
+        .find(|(_, i, m, p)| *i == iterations && *m == memory_mib && *p == parallelism)
+        .map(|(name, ..)| (*name).to_string())
+        .unwrap_or_else(|| "eigen".to_string())
+}
+
+#[tauri::command]
+pub fn vault_security(state: tauri::State<'_, Vault>) -> Result<dto::Security, String> {
+    use keepass::config::{KdfConfig, OuterCipherConfig};
+
+    let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    let db = vault.database()?;
+
+    let (kdf, iterations, memory, parallelism) = match db.config.kdf_config {
+        KdfConfig::Aes { rounds } => ("AES-KDF".to_string(), rounds, 0, 0),
+        KdfConfig::Argon2 { iterations, memory, parallelism, .. } => {
+            ("Argon2d".to_string(), iterations, memory, parallelism)
+        }
+        KdfConfig::Argon2id { iterations, memory, parallelism, .. } => {
+            ("Argon2id".to_string(), iterations, memory, parallelism)
+        }
+        _ => ("unbekannt".to_string(), 0, 0, 0),
+    };
+
+    let cipher = match db.config.outer_cipher_config {
+        OuterCipherConfig::AES256 => "AES-256",
+        OuterCipherConfig::Twofish => "Twofish",
+        OuterCipherConfig::ChaCha20 => "ChaCha20",
+        _ => "unbekannt",
+    };
+
+    // KDBX führt den Speicher in Byte, gedacht wird er in MiB.
+    let memory_mib = memory / (1024 * 1024);
+
+    Ok(dto::Security {
+        name: db.meta.database_name.clone().unwrap_or_default(),
+        format: db.config.version.to_string(),
+        read_only: vault.read_only,
+        level: stufe_von(iterations, memory_mib, parallelism),
+        kdf,
+        iterations,
+        memory_mib,
+        parallelism,
+        cipher: cipher.to_string(),
+    })
+}
+
+/// Setzt Name und/oder Stufe. Wirksam wird beides mit dem nächsten Speichern.
+#[tauri::command]
+pub fn vault_set_security(
+    state: tauri::State<'_, Vault>,
+    name: Option<String>,
+    level: Option<String>,
+) -> Result<bool, String> {
+    use keepass::config::KdfConfig;
+
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.touch();
+    if vault.read_only {
+        return Err("Diese Datei lässt sich nicht zurückschreiben.".into());
+    }
+
+    let db = vault.database_mut()?;
+
+    if let Some(name) = name {
+        let name = name.trim().to_string();
+        db.meta.database_name_changed = Some(chrono::Local::now().naive_local());
+        db.meta.database_name = (!name.is_empty()).then_some(name);
+    }
+
+    if let Some(level) = level {
+        let (_, iterations, memory_mib, parallelism) = STUFEN
+            .iter()
+            .find(|(name, ..)| *name == level)
+            .ok_or_else(|| format!("Unbekannte Stufe: {level}"))?;
+
+        // Argon2id statt Argon2d: Es hält zusätzlich Angriffen über
+        // Seitenkanäle stand und ist das, was KeePassXC heute vorgibt.
+        db.config.kdf_config = KdfConfig::Argon2id {
+            iterations: *iterations,
+            memory: memory_mib * 1024 * 1024,
+            parallelism: *parallelism,
+            // Die Fassung, die auch die Bibliothek voreinstellt (0x13).
+            version: Default::default(),
+        };
+    }
+
+    Ok(true)
+}
+
+/* =========================================================
    Schreiben und Sperren
    ========================================================= */
 
@@ -603,7 +727,9 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
     // Geöffnet ist nur die Offline-Kopie. Zurückschreiben geht erst, wenn
     // die Datei wieder lesbar ist — sonst entstünde am Ort womöglich eine
     // neue Datei neben einer, die gerade nur nicht erreichbar ist.
-    if vault.offline && std::fs::read(&path).is_err() {
+    let ziel = path.to_string_lossy().to_string();
+
+    if vault.offline && crate::storage::read(&ziel).is_err() {
         return Err(
             "Der Speicherort ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie. \
              Gespeichert werden kann erst, wenn die Datei wieder da ist."
@@ -615,7 +741,7 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
     // Nextcloud und wird auch von KeePassXC angefasst. Lieber abbrechen als
     // die Änderung des anderen Geräts stillschweigend wegwerfen.
     if let Some(expected) = vault.opened_hash {
-        if let Ok(current) = std::fs::read(&path) {
+        if let Ok(current) = crate::storage::read(&ziel) {
             if digest(&current) != expected {
                 return Err(
                     "Die Datei wurde seit dem Öffnen von außen geändert — vermutlich durch \
@@ -635,12 +761,12 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
         .save(&mut bytes, DatabaseKey::new().with_password(master))
         .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
 
-    write_atomic(&path, &bytes)?;
+    crate::storage::write(&ziel, &bytes)?;
 
     // Ab jetzt ist unser eigener Stand der maßgebliche.
     vault.opened_hash = Some(digest(&bytes));
     vault.offline = false;
-    crate::offline::store(app, &path.to_string_lossy(), &bytes);
+    crate::offline::store(app, &ziel, &bytes);
     Ok(true)
 }
 

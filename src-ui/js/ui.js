@@ -30,6 +30,18 @@ function load(path) {
   return modules.get(path);
 }
 
+/**
+ * Lädt den SelectPicker aus wuefl-libs.
+ *
+ * Danach übernimmt er von selbst jedes `<select data-sp-picker>` — auch
+ * solche, die später dazukommen; er hört auf Änderungen am Dokument. Ohne
+ * ihn zeichnet das Betriebssystem die Liste, und auf dem Handy sieht das
+ * neben dem Rest der Oberfläche fremd aus.
+ */
+export function selectPicker() {
+  return load('selectpicker/selectpicker.js');
+}
+
 /* =========================================================
    Dialoge und Meldungen
    ========================================================= */

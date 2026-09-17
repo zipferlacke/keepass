@@ -122,6 +122,12 @@ jobs:
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npx --yes @tauri-apps/cli@2 android init --ci
           cp -r icons/android/. gen/android/app/src/main/res/
+          # Unsere eigenen Kotlin-Klassen (Keystore-Schlüssel für die
+          # Biometrie) und die Regel, die sie vor dem Optimierer schützt —
+          # derselbe Schritt wie in tools/android.sh.
+          cp -r ../keepass-android/kotlin/de/wuefl/wkeepass/sicherheit \
+                gen/android/app/src/main/java/de/wuefl/wkeepass/
+          cp ../keepass-android/proguard-wkeepass.pro gen/android/app/
 
       - name: Bauen
         working-directory: src-tauri

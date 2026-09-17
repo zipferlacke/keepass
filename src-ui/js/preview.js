@@ -64,24 +64,98 @@ export async function asBlobUrl(att) {
 const escapeHtml = s => String(s).replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+const slugify = text => String(text)
+  .toLowerCase()
+  // 1. Deutsche Umlaute gezielt übersetzen, da "ae" im Deutschen besser ist als nur "a"
+  .replace(/ä/g, 'ae')
+  .replace(/ö/g, 'oe')
+  .replace(/ü/g, 'ue')
+  .replace(/ß/g, 'ss')
+  // 2. Unicode-Normalisierung (trennt z.B. é in e und ´)
+  .normalize('NFD')
+  // 3. Entfernt alle isolierten Akzente/Diakritika
+  .replace(/[\u0300-\u036f]/g, '')
+  // 4. Behält nur noch Standard-Buchstaben, Zahlen, Leerzeichen und Bindestriche
+  .replace(/[^\w\s-]/g, '')
+  // 5. Trimmen und Leerzeichen zu Bindestrichen machen
+  .trim()
+  .replace(/\s+/g, '-');
+
+
 export function renderMarkdown(src) {
   const codeBlocks = [];
+  const detailsBlocks = [];
+  const tableBlocks = [];
 
-  // 1. Code-Blöcke herausnehmen, damit die Inline-Regeln sie nicht anfassen
-  let text = String(src).replace(/```([\w-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    codeBlocks.push(`<pre class="md-code"><code data-lang="${escapeHtml(lang)}">${escapeHtml(code.replace(/\n$/, ''))}</code></pre>`);
+  let text = String(src);
+
+  // 1. Code-Blöcke herausnehmen
+  text = text.replace(/```([\w-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    codeBlocks.push(`<pre class="md-code"><code data-lang="${escapeHtml(lang)}">${escapeHtml(code)}</code></pre>`);
     return `\u0000CODE${codeBlocks.length - 1}\u0000`;
   });
 
+  // 1.5 Bequeme Markdown-Details-Syntax umwandeln (::: details Titel ... :::)
+  text = text.replace(/^:::\s*details\s*(.*?)\n([\s\S]*?)^:::/gim, (_, summary, content) => {
+    const sumText = summary.trim() ? summary.trim() : 'Details';
+    return `<details>\n<summary>${sumText}</summary>\n${content}\n</details>`;
+  });
+
+  // 2. <details> und <summary> Blöcke herausnehmen und sichern
+  text = text.replace(/<details([^>]*)>([\s\S]*?)<\/details>/gi, (_, attrs, content) => {
+    let summaryHtml = '';
+    let innerContent = content;
+    
+    const summaryMatch = innerContent.match(/<summary>([\s\S]*?)<\/summary>/i);
+    if (summaryMatch) {
+      // NEU: Den Summary-Text rekursiv als Markdown rendern!
+      let parsedSummary = renderMarkdown(summaryMatch[1].trim());
+      
+      // Wenn das Ergebnis ein einzelnes <p>-Tag ist (z.B. bei normalem Text),
+      // entfernen wir es, da <p> in <summary> den nativen Aufklapp-Pfeil verschiebt.
+      if (parsedSummary.startsWith('<p>') && parsedSummary.endsWith('</p>') && parsedSummary.indexOf('<p>', 3) === -1) {
+        parsedSummary = parsedSummary.substring(3, parsedSummary.length - 4);
+      }
+      
+      parsedSummary = parsedSummary.replace(/<h([1-6])([^>]*)>/gi, '<h$1$2 style="display: inline; margin: 0;">');
+      
+      summaryHtml = `<summary>${parsedSummary}</summary>`;
+      innerContent = innerContent.replace(/<summary>([\s\S]*?)<\/summary>/i, '');
+    }
+
+    // Rekursives Rendern des Inhalts
+    const renderedInner = renderMarkdown(innerContent);
+    
+    detailsBlocks.push(`<details${attrs}>\n${summaryHtml}\n${renderedInner}\n</details>`);
+    return `\u0000DETAILS${detailsBlocks.length - 1}\u0000`;
+  });
+
+  // 3. Jetzt erst den restlichen Text maskieren
   text = escapeHtml(text);
 
   const inline = s => s
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, '<img src="$2" alt="$1" class="md-img">')
+    .replace(/\[([^\]]+)\]\((#[^)\s]+)\)/g, '<a href="$2">$1</a>')
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
     .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+
+  // 4. Tabellen herausnehmen
+  text = text.replace(/^([^\n]*\|[^\n]*)\n(^[\s|:-]+\|[\s|:-]*$)\n?((?:^[^\n]*\Vert{}[^\n]*(?:\n\vert{}$))*)/gm, (match, headerLine, sepLine, bodyLines) => {
+    const parseRow = (row, isHeader) => '<tr>' + row.split('|')
+      .map(c => c.trim())
+      .filter((c, i, arr) => !(c === '' && (i === 0 || i === arr.length - 1))) 
+      .map(c => `<${isHeader ? 'th' : 'td'}>${inline(c)}</${isHeader ? 'th' : 'td'}>`)
+      .join('') + '</tr>';
+    
+    const headHtml = parseRow(headerLine, true);
+    const bodyHtml = bodyLines ? bodyLines.trim().split('\n').filter(Boolean).map(l => parseRow(l, false)).join('\n') : '';
+    
+    tableBlocks.push(`<table class="md-table">\n<thead>\n${headHtml}\n</thead>\n<tbody>\n${bodyHtml}\n</tbody>\n</table>`);
+    return `\n\u0000TABLE${tableBlocks.length - 1}\u0000\n`;
+  });
 
   const out = [];
   let listType = null;
@@ -89,31 +163,31 @@ export function renderMarkdown(src) {
 
   const closeList = () => { if (listType) { out.push(`</${listType}>`); listType = null; } };
   const closeQuote = () => { if (inQuote) { out.push('</blockquote>'); inQuote = false; } };
+  const closeAll = () => { closeList(); closeQuote(); };
 
   for (const rawLine of text.split('\n')) {
     const line = rawLine.replace(/\s+$/, '');
 
-    if (/^\u0000CODE\d+\u0000$/.test(line.trim())) {
-      closeList(); closeQuote();
+    if (/^\u0000(?:CODE|DETAILS|TABLE)\d+\u0000$/.test(line.trim())) {
+      closeAll();
       out.push(line.trim());
       continue;
     }
 
-    if (!line.trim()) { closeList(); closeQuote(); continue; }
-
-    // Tabellen-Trennzeile überspringen
-    if (/^\|?[\s:-]+\|[\s|:-]*$/.test(line) && line.includes('|')) continue;
+    if (!line.trim()) { closeAll(); continue; }
 
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
-      closeList(); closeQuote();
+      closeAll();
       const level = heading[1].length;
-      out.push(`<h${level} class="md-h">${inline(heading[2])}</h${level}>`);
+      const titleText = heading[2];
+      const id = slugify(titleText);
+      out.push(`<h${level} id="${id}" class="md-h">${inline(titleText)}</h${level}>`);
       continue;
     }
 
     if (/^(---+|\*\*\*+|___+)$/.test(line.trim())) {
-      closeList(); closeQuote();
+      closeAll();
       out.push('<hr>');
       continue;
     }
@@ -127,7 +201,7 @@ export function renderMarkdown(src) {
     }
     closeQuote();
 
-    const task = line.match(/^\s*[-*+]\s+\[( |x|X)\]\s+(.*)$/);
+    const task = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/);
     if (task) {
       if (listType !== 'ul') { closeList(); out.push('<ul class="md-list">'); listType = 'ul'; }
       out.push(`<li class="md-task"><input type="checkbox" disabled ${task[1].toLowerCase() === 'x' ? 'checked' : ''}> ${inline(task[2])}</li>`);
@@ -152,11 +226,15 @@ export function renderMarkdown(src) {
     out.push(`<p>${inline(line)}</p>`);
   }
 
-  closeList();
-  closeQuote();
+  closeAll();
 
-  return out.join('\n').replace(/\u0000CODE(\d+)\u0000/g, (_, i) => codeBlocks[Number(i)]);
+  // 5. Blöcke wieder einfügen
+  return out.join('\n')
+    .replace(/\u0000CODE(\d+)\u0000/g, (_, i) => codeBlocks[Number(i)])
+    .replace(/\u0000DETAILS(\d+)\u0000/g, (_, i) => detailsBlocks[Number(i)])
+    .replace(/\u0000TABLE(\d+)\u0000/g, (_, i) => tableBlocks[Number(i)]);
 }
+
 
 /* =========================================================
    Vorschau-Inhalt aufbauen

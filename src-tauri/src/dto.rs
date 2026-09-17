@@ -29,6 +29,26 @@ pub struct DatabaseInfo {
     pub offline_reason: Option<String>,
 }
 
+/// Wie die offene Datenbank heißt und wie stark sie verschlüsselt ist.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Security {
+    /// Der Name aus der Datei — nicht der Dateiname.
+    pub name: String,
+    /// `"KDBX 4.1"`
+    pub format: String,
+    pub read_only: bool,
+    /// Welches Verfahren den Schlüssel aus dem Passwort ableitet.
+    pub kdf: String,
+    pub iterations: u64,
+    pub memory_mib: u64,
+    pub parallelism: u32,
+    /// Womit der Container verschlüsselt ist, etwa `"AES-256"`.
+    pub cipher: String,
+    /// Welche der drei Stufen das ist — oder `"eigen"`.
+    pub level: String,
+}
+
 /// Welche Wege zum Entsperren stehen auf diesem Gerät bereit?
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,7 +58,12 @@ pub struct UnlockMethods {
     /// Es liegt ein mit PIN versiegeltes Master-Passwort vor.
     pub pin: bool,
     /// Fingerabdruck ist hinterlegt **und** die Plattform kann prüfen.
+    /// Diese Datenbank ist für den Fingerabdruck freigeschaltet **und** das
+    /// Gerät kann ihn prüfen.
     pub biometric: bool,
+    /// Kann das Gerät überhaupt biometrisch prüfen? Das ist die andere
+    /// Frage — sie entscheidet, ob die Einstellung angeboten wird.
+    pub biometric_available: bool,
     /// Es ist überhaupt eine App-PIN festgelegt. Ohne sie lässt sich keine
     /// Datenbank freischalten.
     pub pin_set: bool,

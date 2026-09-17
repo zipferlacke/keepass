@@ -28,6 +28,9 @@ let loading = null;       // damit parallele Aufrufe nur einmal laden
 let nextToken = 0;
 let nextRef = 0;
 const binaries = new Map();
+
+/** Name und Stärke der Demo-Datenbank — im Kern steht das in der Datei. */
+const demoSecurity = { name: 'Demodaten', level: 'standard', iterations: 10, memoryMib: 64, parallelism: 4 };
 let settingsMemory = null;
 let demoPin = null;       // in der Demo nur im Speicher, kein Siegel
 const demoAllowed = new Set();  // Pfade, die mit der PIN aufgehen dürfen
@@ -173,6 +176,7 @@ const commands = {
       pinSet: demoPin !== null,
       pin: demoPin !== null && demoAllowed.has(path ?? ''),
       biometric: false,
+      biometricAvailable: false,
       keyring: false,
       device: false,
       deviceAvailable: false,
@@ -194,10 +198,30 @@ const commands = {
   },
 
   /** Im Browser gibt es keine Dateien — die Demo tut nur so. */
-  async vault_create({ path, remember }) {
+  async vault_security() {
+    await ensureLoaded();
+    return {
+      name: demoSecurity.name, format: 'KDBX 4.1', readOnly: false,
+      kdf: 'Argon2id', iterations: demoSecurity.iterations,
+      memoryMib: demoSecurity.memoryMib, parallelism: demoSecurity.parallelism,
+      cipher: 'AES-256', level: demoSecurity.level
+    };
+  },
+
+  async vault_set_security({ name, level }) {
+    const stufen = { schnell: [5, 32, 2], standard: [10, 64, 4], stark: [20, 256, 4] };
+    if (name !== null && name !== undefined) demoSecurity.name = name;
+    if (level && stufen[level]) {
+      const [iterations, memoryMib, parallelism] = stufen[level];
+      Object.assign(demoSecurity, { level, iterations, memoryMib, parallelism });
+    }
+    return true;
+  },
+
+  async vault_create({ path, name, remember }) {
     await ensureLoaded();
     if (remember?.allowPin) demoAllowed.add(path ?? '');
-    return { name: String(path).split(/[\\/]/).pop(), path, readOnly: false, format: 'KDBX 4.1' };
+    return { name: name || String(path).split(/[\\/]/).pop(), path, readOnly: false, format: 'KDBX 4.1' };
   },
 
   async app_pin_create({ pin }) {

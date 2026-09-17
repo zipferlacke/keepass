@@ -18,6 +18,10 @@ mod biometric;
 mod database;
 mod dto;
 mod entries;
+// Die Browser-Erweiterung gibt es nur auf dem Desktop. Auf Android füllt das
+// System selbst aus (AutofillService, siehe keepass-android/) — dort wird
+// dieses Modul gar nicht erst übersetzt.
+#[cfg(desktop)]
 mod keepass_extension;
 mod keystore;
 mod offline;
@@ -27,6 +31,7 @@ mod seal;
 mod secrets;
 mod settings;
 mod state;
+mod storage;
 mod system;
 mod util;
 mod webview;
@@ -39,15 +44,31 @@ use state::VaultState;
 
 pub type Vault = Mutex<VaultState>;
 
+/// Der Zugang zur laufenden Anwendung, für Stellen ohne eigenen Handle.
+///
+/// Zwei Module brauchen ihn, bekommen ihn aber nicht als Argument
+/// durchgereicht: `biometric.rs` ruft auf Android das Tauri-Plugin auf, und
+/// `keystore.rs` braucht dort das private Verzeichnis der App. Beides
+/// passiert tief in Aufrufketten, die bis zur Oberfläche hinaufreichen —
+/// den Handle überall mitzuschleppen hieße, ein Dutzend Signaturen zu
+/// ändern, nur damit zwei Zeilen ihn sehen.
+static HANDLE: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
+
+pub fn app_handle() -> Option<&'static tauri::AppHandle> {
+    HANDLE.get()
+}
+
 /// Wurden wir von einem Browser über Native Messaging gestartet?
 ///
 /// Siehe `main.rs`: Dieselbe Datei bedient beide Rollen, und diese Frage
 /// entscheidet, welche.
+#[cfg(desktop)]
 pub fn started_by_browser() -> bool {
     keepass_extension::route::started_by_browser()
 }
 
 /// Arbeitet als Sprachrohr zwischen Browser und laufender Anwendung.
+#[cfg(desktop)]
 pub fn run_proxy() {
     keepass_extension::route::run_proxy();
 }
@@ -113,10 +134,12 @@ pub fn run() {
             { tauri_plugin_persisted_scope::init() }
         })
         .setup(|app| {
+            let _ = HANDLE.set(app.handle().clone());
             database::start_auto_lock(app.handle().clone());
 
             // Kanal für die Browser-Erweiterung. Scheitert das Einhängen,
             // läuft die Anwendung trotzdem — nur ohne Browser-Anbindung.
+            #[cfg(desktop)]
             keepass_extension::api::start(app.handle().clone());
 
             if let Some(window) = app.get_webview_window("main") {
@@ -136,7 +159,11 @@ pub fn run() {
                     let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event else {
                         return;
                     };
-                    let files: Vec<_> = paths.iter().filter(|p| p.is_file()).cloned().collect();
+                    let files: Vec<String> = paths
+                        .iter()
+                        .filter(|p| p.is_file())
+                        .map(|p| p.to_string_lossy().to_string())
+                        .collect();
                     if files.is_empty() {
                         return;
                     }
@@ -179,6 +206,8 @@ pub fn run() {
             database::vault_list_entries,
             database::vault_folders,
             database::vault_commit,
+            database::vault_security,
+            database::vault_set_security,
             database::vault_lock,
             database::vault_touch,
             database::vault_set_auto_lock,
@@ -216,6 +245,7 @@ pub fn run() {
             settings::settings_write,
             // System
             system::startup_database,
+            system::path_label,
             system::pick_database_file,
             system::pick_save_path,
             system::fetch_page_title,
@@ -225,12 +255,19 @@ pub fn run() {
             passkey::passkey_assert,
             passkey::passkey_delete,
             // Browser-Erweiterung
+            #[cfg(desktop)]
             keepass_extension::api::browser_answer,
+            #[cfg(desktop)]
             keepass_extension::api::browser_pending,
+            #[cfg(desktop)]
             keepass_extension::api::browser_identified,
+            #[cfg(desktop)]
             keepass_extension::api::browser_status,
+            #[cfg(desktop)]
             keepass_extension::api::browser_install,
+            #[cfg(desktop)]
             keepass_extension::api::browser_uninstall,
+            #[cfg(desktop)]
             keepass_extension::api::browser_forget,
             // QR
             qr::decode_qr_bytes,

@@ -28,10 +28,10 @@ pub enum Source {
 
 /// Liest die Datenbank vom Ort — oder, wenn das scheitert, aus der Kopie.
 pub fn read(app: &tauri::AppHandle, path: &str) -> Result<(Vec<u8>, Source), String> {
-    match std::fs::read(path) {
+    match crate::storage::read(path) {
         Ok(raw) => Ok((raw, Source::Original)),
         Err(err) => {
-            let reason = format!("Datei nicht lesbar: {err}");
+            let reason = err;
             let Some(copy) = copy_path(app, path).filter(|p| p.is_file()) else {
                 return Err(reason);
             };

@@ -33,9 +33,14 @@ Aufruf::
 import errno
 import functools
 import http.server
+import os
 import sys
 
-HOST = "127.0.0.1"
+# Auf dem Handy läuft die Oberfläche nicht auf demselben Gerät: Beim Aufruf
+# von `cargo tauri android dev --host` setzt Tauri `TAURI_DEV_HOST` auf die
+# Adresse dieses Rechners im WLAN, und dann muss der Server auch dort
+# lauschen — auf 127.0.0.1 käme das Handy nie an.
+HOST = os.environ.get("TAURI_DEV_HOST", "127.0.0.1")
 PORT = 1420
 ROOT = "src-ui"
 

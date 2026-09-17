@@ -45,9 +45,11 @@ pub fn verify(reason: &str) -> Result<(), String> {
    ist die Biometrie selbst der Schutz — dann braucht es weder PIN noch
    Schlüsselbund, und sie darf das Master-Passwort beim Öffnen ersetzen.
 
-   Bisher nur Windows Hello. macOS könnte dasselbe über einen Keychain-
-   Eintrag mit `SecAccessControl` (`biometryCurrentSet`); das ist hier noch
-   nicht gebaut, dort bleibt Touch ID ein Ja/Nein.
+   Gebaut für Windows (Hello, Schlüssel im TPM) und Android (Keystore mit
+   `setUserAuthenticationRequired`). macOS könnte dasselbe über einen
+   Keychain-Eintrag mit `SecAccessControl` (`biometryCurrentSet`); das ist
+   hier noch nicht gebaut, dort bleibt Touch ID ein Ja/Nein. Unter Linux
+   gibt es nichts dergleichen — fprintd sagt nur wahr oder falsch.
    ========================================================= */
 
 /// Kann diese Plattform einen an die Biometrie gebundenen Schlüssel liefern?
@@ -275,25 +277,183 @@ mod imp {
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
 mod imp {
-    // Das Plugin arbeitet mit einem AppHandle; den reicht `database.rs`
-    // noch nicht durch. Bis dahin: nicht verfügbar melden, damit die
-    // Oberfläche sauber auf PIN und Master-Passwort zurückfällt.
+    //! Fingerabdruck und Gesicht über `tauri-plugin-biometric`.
+    //!
+    //! Das Plugin beantwortet genau eine Frage: „Bist du es?" Das genügt
+    //! für den Nachweis vor dem Schlüsselbund (`verify`), nicht aber für
+    //! einen Schlüssel.
+    //!
+    //! Den liefert unter Android der Keystore, und zwar über eigenen
+    //! Kotlin-Code — siehe `keystore` weiter unten und
+    //! `keepass-android/kotlin/…/sicherheit/Geraeteschluessel.kt`. Wo der
+    //! greift, ist die Biometrie kein Nachweis mehr, sondern der Schutz
+    //! selbst, und `seal.rs` bietet den gerätegebundenen Weg an.
+    use tauri_plugin_biometric::{AuthOptions, BiometricExt};
+
     pub fn available() -> bool {
-        false
+        match crate::app_handle().map(|app| app.biometric().status()) {
+            Some(Ok(s)) => {
+                if !s.is_available {
+                    eprintln!("[biometric] nicht verfügbar: {:?} / {:?}", s.error, s.error_code);
+                }
+                s.is_available
+            }
+            Some(Err(e)) => {
+                eprintln!("[biometric] Abfrage fehlgeschlagen: {e}");
+                false
+            }
+            None => false,
+        }
     }
 
-    pub fn verify(_reason: &str) -> Result<(), String> {
-        Err(super::UNAVAILABLE.into())
+    pub fn verify(reason: &str) -> Result<(), String> {
+        let app = crate::app_handle().ok_or("Die Anwendung läuft noch nicht.")?;
+
+        app.biometric()
+            .authenticate(
+                reason.to_string(),
+                AuthOptions {
+                    // Ohne eingerichteten Finger bleibt der Weg über die
+                    // Gerätesperre — sonst käme man gar nicht mehr hinein.
+                    allow_device_credential: true,
+                    cancel_title: Some("Abbrechen".into()),
+                    title: Some("WKeePass".into()),
+                    subtitle: Some(reason.to_string()),
+                    // Kein zusätzliches Antippen nach dem Finger.
+                    confirmation_required: Some(false),
+                    fallback_title: None,
+                },
+            )
+            .map_err(|e| format!("Nicht bestätigt: {e}"))
     }
 
+    /* -----------------------------------------------------------------
+       Gerätegebunden — auf Android ein HMAC-Schlüssel im Keystore, den der
+       Sicherheitschip erst nach bestandener Prüfung rechnen lässt. iOS
+       könnte dasselbe über die Keychain mit `SecAccessControl`; das ist
+       hier noch nicht gebaut.
+       ----------------------------------------------------------------- */
+
+    #[cfg(target_os = "android")]
+    pub const DEVICE_KEY_LABEL: Option<&'static str> = Some("Biometrie");
+    #[cfg(target_os = "ios")]
     pub const DEVICE_KEY_LABEL: Option<&'static str> = None;
 
+    #[cfg(target_os = "ios")]
     pub fn device_key_available() -> bool {
         false
     }
 
+    #[cfg(target_os = "ios")]
     pub fn device_key(_challenge: &[u8]) -> Result<zeroize::Zeroizing<[u8; 32]>, String> {
         Err(super::UNAVAILABLE.into())
+    }
+
+    #[cfg(target_os = "android")]
+    pub use keystore::{device_key, device_key_available};
+
+    /// Die Brücke zu `Geraeteschluessel.kt`.
+    ///
+    /// Die Klasse liegt unter `keepass-android/kotlin/` und wird beim Bauen
+    /// ins Android-Projekt kopiert (`tools/android.sh`, und derselbe Schritt
+    /// in der GitHub-Aktion). Fehlt sie, meldet der erste Aufruf einen
+    /// Fehler und die App bleibt beim Weg über PIN und Schlüsselbund —
+    /// kaputt geht dabei nichts.
+    ///
+    /// Warum überhaupt Kotlin: `BiometricPrompt` verlangt eine Unterklasse
+    /// von `AuthenticationCallback`, und eine abstrakte Java-Klasse lässt
+    /// sich über JNI nicht ableiten. Die Begründung steht ausführlich in der
+    /// Kotlin-Datei.
+    #[cfg(target_os = "android")]
+    mod keystore {
+        use jni::objects::{JByteArray, JObject, JString, JValue};
+        use tao::platform::android::prelude::main_android_context;
+        use zeroize::Zeroizing;
+
+        const CLASS: &str = "de/wuefl/wkeepass/sicherheit/Geraeteschluessel";
+
+        pub fn device_key_available() -> bool {
+            let ergebnis = mit_java(|env, activity| {
+                env.call_static_method(
+                    CLASS,
+                    "verfuegbar",
+                    "(Landroid/content/Context;)Z",
+                    &[JValue::Object(activity)],
+                )?
+                .z()
+            });
+
+            match ergebnis {
+                Ok(ja) => ja,
+                Err(e) => {
+                    eprintln!("[biometric] Keystore-Schlüssel nicht nutzbar: {e}");
+                    false
+                }
+            }
+        }
+
+        /// Zeigt den Systemdialog und gibt zurück, was der Chip daraus
+        /// gerechnet hat. Das dauert — so lange, wie der Finger braucht.
+        ///
+        /// Der Aufruf blockiert, deshalb darf er nur aus einem Arbeitsfaden
+        /// kommen (`spawn_blocking` in `database.rs`): Der Dialog selbst
+        /// läuft auf dem Hauptfaden, und würden wir den anhalten, käme er nie.
+        pub fn device_key(challenge: &[u8]) -> Result<Zeroizing<[u8; 32]>, String> {
+            let bytes = mit_java(|env, activity| {
+                let wert = env.byte_array_from_slice(challenge)?;
+                let antwort = env
+                    .call_static_method(
+                        CLASS,
+                        "ableiten",
+                        "(Landroid/app/Activity;[B)[B",
+                        &[JValue::Object(activity), JValue::Object(&wert)],
+                    )?
+                    .l()?;
+
+                let bytes = env.convert_byte_array(&JByteArray::from(antwort))?;
+                if !bytes.is_empty() {
+                    return Ok(Ok(bytes));
+                }
+
+                // Leer heißt Fehlschlag; den Grund hält die Klasse bereit.
+                let grund = env
+                    .call_static_method(CLASS, "letzterFehler", "()Ljava/lang/String;", &[])?
+                    .l()?;
+                let grund: String = env.get_string(&JString::from(grund))?.into();
+                Ok(Err(grund))
+            })??;
+
+            let key: [u8; 32] = bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| "Der Geräteschlüssel hat die falsche Länge.".to_string())?;
+            Ok(Zeroizing::new(key))
+        }
+
+        /// Faden anhängen, Activity holen, aufrufen — und hinterher eine
+        /// offene Java-Ausnahme abräumen, sonst stolpert der nächste Aufruf
+        /// darüber.
+        fn mit_java<T>(
+            f: impl FnOnce(&mut jni::JNIEnv, &JObject) -> Result<T, jni::errors::Error>,
+        ) -> Result<T, String> {
+            let ctx = main_android_context().ok_or("Die Anwendung läuft noch nicht.")?;
+
+            let vm = unsafe { jni::JavaVM::from_raw(ctx.java_vm.cast()) }
+                .map_err(|e| format!("Keine Java-Umgebung: {e}"))?;
+            let mut env = vm
+                .attach_current_thread()
+                .map_err(|e| format!("Faden nicht angehängt: {e}"))?;
+            let activity = unsafe { JObject::from_raw(ctx.context_jobject.cast()) };
+
+            let ergebnis = f(&mut env, &activity);
+
+            if env.exception_check().unwrap_or(false) {
+                let _ = env.exception_describe();
+                let _ = env.exception_clear();
+            }
+
+            ergebnis.map_err(|e| format!("Der Geräteschlüssel antwortet nicht: {e}"))
+        }
     }
 }
 

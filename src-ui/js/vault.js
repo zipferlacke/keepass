@@ -87,8 +87,8 @@ export async function adopt() {
 }
 
 /** Legt eine neue, leere Datenbank an und öffnet sie gleich. */
-export async function create({ path, password, autoLockMinutes = 0, remember = null }) {
-  const info = await invoke('vault_create', { path, password, autoLockMinutes, remember });
+export async function create({ path, password, name = null, autoLockMinutes = 0, remember = null }) {
+  const info = await invoke('vault_create', { path, password, name, autoLockMinutes, remember });
   await refresh();
   dirty = false;
   opened = true;
@@ -152,6 +152,16 @@ export async function commit() {
 }
 
 export function hasUnsavedChanges() { return dirty; }
+
+/** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
+export const security = () => invoke('vault_security');
+
+/** Ändert Name und/oder Stufe und schreibt die Datei gleich zurück. */
+export async function setSecurity({ name = null, level = null }) {
+  await mutate('vault_set_security', { name, level });
+  await commit();
+  return true;
+}
 
 /* =========================================================
    Lesen
