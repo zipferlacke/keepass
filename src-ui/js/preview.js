@@ -19,6 +19,20 @@ export function kindOf(att) {
   return 'binary';
 }
 
+/** Der MIME-Typ zur Endung — dieselbe Zuordnung wie im Kern (secrets.rs). */
+const TYPES = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+  svg: 'image/svg+xml', pdf: 'application/pdf', json: 'application/json',
+  md: 'text/markdown', markdown: 'text/markdown', html: 'text/html', htm: 'text/html',
+  css: 'text/css', csv: 'text/csv', xml: 'application/xml'
+};
+
+export function typeFromName(name) {
+  const ext = String(name).split('.').pop().toLowerCase();
+  if (TYPES[ext]) return TYPES[ext];
+  return TEXT_EXTENSIONS.test(name) || /\.(ya?ml|toml|log)$/i.test(name) ? 'text/plain' : 'application/octet-stream';
+}
+
 export function iconFor(att) {
   return {
     image: 'image', pdf: 'picture_as_pdf', markdown: 'article',

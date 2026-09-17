@@ -1,0 +1,29 @@
+# Holt wuefl-libs von GitHub an die Stelle, an der lokal der Symlink liegt.
+#
+# Im Repository steht unter src-ui/libs/wuefl-libs-v2-2-1 nur ein Symlink
+# auf das Nachbarprojekt (../../../wuefl-libs/). Den gibt es im Build nicht,
+# deshalb wird er hier durch eine echte Kopie ersetzt. Der Ordnername bleibt,
+# weil app.css und ui.js genau diesen Pfad laden.
+#
+# Vorerst: immer der neueste Stand des Standardzweigs.
+#
+# Feste Fassung stattdessen — die `git clone`-Zeile unten ersetzen durch:
+#
+#   git clone --depth 1 --branch v2.3.0 https://github.com/zipferlacke/wuefl-libs.git "$ZIEL"
+#
+# (Tags: https://github.com/zipferlacke/wuefl-libs/tags)
+
+name: wuefl-libs holen
+description: Ersetzt den lokalen Symlink durch wuefl-libs von GitHub
+
+runs:
+  using: composite
+  steps:
+    - name: wuefl-libs holen
+      shell: bash
+      run: |
+        ZIEL=src-ui/libs/wuefl-libs-v2-2-1
+        rm -rf "$ZIEL"
+        git clone --depth 1 https://github.com/zipferlacke/wuefl-libs.git "$ZIEL"
+        echo "wuefl-libs: $(git -C "$ZIEL" describe --tags --always)"
+        rm -rf "$ZIEL/.git"

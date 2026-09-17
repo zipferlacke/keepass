@@ -29,7 +29,10 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 # Lokale Kopie statt crates.io: Die Bibliothek stolpert über echte
 # KDBX-Dateien, in denen gleichnamige Elemente nicht lückenlos
 # aufeinanderfolgen ("duplicate field `String`"). Der Eingriff steckt in
-# vendor/keepass/src/format/xml_db/normalise.rs — sonst unverändert.
+# vendor/keepass/src/format/xml_db/normalise.rs. Dazu ein Fehler beim
+# Schreiben: Anhang-Verweise zeigten nach Ersetzen oder Löschen auf die
+# falsche Stelle (vendor/keepass/src/format/xml_db/entry.rs) — sonst
+# unverändert.
 keepass = { path = "vendor/keepass", features = ["totp", "save_kdbx4"] }
 chrono = "0.4"
 

@@ -609,6 +609,10 @@ impl Connection {
             return Err(Failure(code::ACTION_CANCELLED_OR_DENIED, "Zugriff abgelehnt.".into()));
         }
 
+        // Für „Zuletzt genutzt": Die Oberfläche zählt mit, der Kern meldet
+        // nur, welche Einträge herausgegangen sind.
+        let _ = app.emit("entries-used", offen.iter().map(|c| c.uuid.clone()).collect::<Vec<_>>());
+
         let entries: Vec<Value> = offen
             .iter()
             .map(|c| {
@@ -772,6 +776,7 @@ impl Connection {
 
         let asserted = gefunden.ok_or(letzter)
         .map_err(|e| Failure(code::PASSKEYS_UNKNOWN_ERROR, e))?;
+        let _ = app.emit("entries-used", [&asserted.entry_uuid]);
 
         Ok(json!({ "response": credential(&asserted.credential_id, json!({
             "clientDataJSON": asserted.client_data_json,
@@ -917,7 +922,7 @@ fn credential(id: &str, response: Value) -> Value {
 fn persist(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
-        if let Err(err) = crate::database::commit(&app.state::<Vault>()) {
+        if let Err(err) = crate::database::commit(&app, &app.state::<Vault>()) {
             // Das ist kein Diagnosekram, sondern verlorene Arbeit — deshalb
             // unabhängig von `WKEEPASS_BROWSER_LOG`.
             eprintln!("[Browser] Nicht gespeichert: {err}");

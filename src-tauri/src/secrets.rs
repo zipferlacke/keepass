@@ -350,6 +350,45 @@ pub fn stage_paths(
     Ok(staged)
 }
 
+/// Legt eine Datei mit vorgegebenem Inhalt im Zwischenspeicher ab.
+///
+/// Für zwei Fälle aus der Dateiablage: eine neue, leere Datei anlegen und
+/// eine Textdatei nach dem Bearbeiten übernehmen. Geschrieben wird wie immer
+/// erst beim Speichern des Eintrags; bis dahin ist nichts verloren, wenn man
+/// den Dialog abbricht.
+///
+/// Anders als ein Pfad liest der Inhalt nichts vom Rechner — die Oberfläche
+/// kann hier nur ablegen, was sie ohnehin schon hat.
+#[tauri::command]
+pub fn stage_attachment_content(
+    state: tauri::State<'_, Vault>,
+    name: String,
+    content: String,
+) -> Result<dto::StagedAttachment, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() || name.contains(['/', '\\']) {
+        return Err("Der Dateiname ist leer oder enthält einen Schrägstrich.".into());
+    }
+
+    let bytes = content.into_bytes();
+    let size = bytes.len() as u64;
+    if size > MAX_ATTACHMENT_BYTES {
+        return Err("Mehr als 2 MB je Anhang nimmt die Datenbank nicht.".into());
+    }
+
+    let mut vault = lock(&state)?;
+    vault.database()?;
+
+    let reference = format!("{STAGED_PREFIX}{}", vault.new_token());
+    let mime = mime_from_name(&name);
+    vault.staged.insert(
+        reference.clone(),
+        crate::state::StagedAttachment { name: name.clone(), bytes },
+    );
+
+    Ok(dto::StagedAttachment { name, mime, size, reference })
+}
+
 fn mime_from_name(name: &str) -> String {
     let ext = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
 
@@ -361,7 +400,12 @@ fn mime_from_name(name: &str) -> String {
         "svg" => "image/svg+xml",
         "pdf" => "application/pdf",
         "json" => "application/json",
-        "txt" | "md" | "csv" => "text/plain",
+        "md" | "markdown" => "text/markdown",
+        "html" | "htm" => "text/html",
+        "css" => "text/css",
+        "csv" => "text/csv",
+        "xml" => "application/xml",
+        "txt" | "log" | "ini" | "conf" | "yml" | "yaml" | "toml" | "sh" | "js" | "rs" | "py" => "text/plain",
         _ => "application/octet-stream",
     }
     .to_string()

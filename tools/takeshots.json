@@ -1,0 +1,479 @@
+{
+  "themes": {
+    "light": "_light",
+    "dark": ""
+  },
+  "formats": {
+    "narrow": [412, 915, 2],
+    "wide": [1366, 1024, 2],
+    "promo-narrow": [540, 960, 2],
+    "promo-wide": [1920, 1080, 1],
+    "social": [1200, 630, 1]
+  },
+  "offline": true,
+  "shots": [
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-1{theme}.png",
+      "formats": ["narrow", "wide"],
+      "steps": [
+        ["click", "#wc-skip"],
+        ["click", "#lock-pick"],
+        ["shot"]
+      ]
+    },
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-2{theme}.png",
+      "formats": ["narrow", "wide"],
+      "steps": [
+        ["click", "#wc-skip"],
+        ["click", "#lock-pick"],
+        ["click", "#lock-unlock"],
+        ["fill", "dialog[open] [name=pw]", "demo"],
+        ["click", "dialog[open] .dialog_submit"],
+        ["wait", 2500],
+        ["shot"]
+      ]
+    },
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-3{theme}.png",
+      "formats": ["narrow", "wide"],
+      "steps": [
+        ["click", "#wc-skip"],
+        ["click", "#lock-pick"],
+        ["click", "#lock-unlock"],
+        ["fill", "dialog[open] [name=pw]", "demo"],
+        ["click", "dialog[open] .dialog_submit"],
+        ["wait", 2500],
+        ["click", ".nav-items [data-view=passwords]"],
+        ["click", "#entry-table details.folder[data-folder='Arbeit'] > summary"],
+        ["click", "#entry-table details.folder[data-folder='Privat'] > summary"],
+        ["shot"]
+      ]
+    },
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-4{theme}.png",
+      "formats": ["narrow", "wide"],
+      "steps": [
+        ["click", "#wc-skip"],
+        ["click", "#lock-pick"],
+        ["click", "#lock-unlock"],
+        ["fill", "dialog[open] [name=pw]", "demo"],
+        ["click", "dialog[open] .dialog_submit"],
+        ["wait", 2500],
+        ["click", ".nav-items [data-view=totp]"],
+        ["wait", 800],
+        ["shot"]
+      ]
+    },
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-5{theme}.png",
+      "formats": ["narrow", "wide"],
+      "steps": [
+        ["click", "#wc-skip"],
+        ["click", "#lock-pick"],
+        ["click", "#lock-unlock"],
+        ["fill", "dialog[open] [name=pw]", "demo"],
+        ["click", "dialog[open] .dialog_submit"],
+        ["wait", 2500],
+        ["click", "#recent-list tr[data-id$='000000000013']"],
+        ["wait", 800],
+        ["shot"]
+      ]
+    },
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-6{theme}.png",
+      "formats": ["narrow", "wide"],
+      "steps": [
+        ["click", "#wc-skip"],
+        ["click", "#lock-pick"],
+        ["click", "#lock-unlock"],
+        ["fill", "dialog[open] [name=pw]", "demo"],
+        ["click", "dialog[open] .dialog_submit"],
+        ["wait", 2500],
+        ["click", "#recent-list tr[data-id$='000000000013']"],
+        ["wait", 800],
+        ["click", "dialog[open] .file-row"],
+        ["wait", 800],
+        ["shot"]
+      ]
+    }
+  ],
+  "brand": {
+    "name": "WKeePass",
+    "claim": "Passwörter, TOTP-Codes, Passkeys und Dateien — sicher in deiner eigenen KeePass-Datei.",
+    "logo": "../src-tauri/icons/icon.png",
+    "colors": {
+      "from": "#76cc47",
+      "via": "#26A269",
+      "to": "#0a6aae",
+      "text": "#ffffff"
+    }
+  },
+  "compose": [
+    {
+      "out": "../appdata/werbung/handy-1-titel.png",
+      "formats": ["promo-narrow"],
+      "elements": [
+        {
+          "type": "stack",
+          "left": 8,
+          "right": 8,
+          "top": 0,
+          "bottom": 6,
+          "align": "center",
+          "gap": 3.5,
+          "items": [
+            {
+              "type": "logo",
+              "size": 30
+            },
+            {
+              "type": "text",
+              "style": "title",
+              "text": "{name}",
+              "size": 17
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "{claim}",
+              "size": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "out": "../appdata/werbung/handy-2-uebersicht.png",
+      "formats": ["promo-narrow"],
+      "elements": [
+        {
+          "type": "stack",
+          "top": 7,
+          "left": 8,
+          "right": 8,
+          "bottom": 66,
+          "valign": "top",
+          "align": "left",
+          "gap": 2,
+          "items": [
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Übersicht"
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Alles auf einen Blick"
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Passwörter, Passkeys, TOTP-Codes und Dateien — dazu der Sicherheitscheck und die zuletzt genutzten Einträge."
+            }
+          ]
+        },
+        {
+          "type": "phone",
+          "screen": "../appdata/screenshot-narrow-2_light.png",
+          "width": 78,
+          "bleed": { "bottom": 30 }
+        }
+      ]
+    },
+    {
+      "out": "../appdata/werbung/handy-3-passwoerter.png",
+      "formats": ["promo-narrow"],
+      "elements": [
+        {
+          "type": "stack",
+          "top": 7,
+          "left": 8,
+          "right": 8,
+          "bottom": 66,
+          "valign": "top",
+          "align": "left",
+          "gap": 2,
+          "items": [
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Passwörter"
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Ordnung, die mitdenkt"
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Ordner, Tags und eine Ampel, die schwache, doppelte und geleakte Passwörter sofort sichtbar macht."
+            }
+          ]
+        },
+        {
+          "type": "phone",
+          "screen": "../appdata/screenshot-narrow-3.png",
+          "width": 78,
+          "bleed": { "bottom": 30 }
+        }
+      ]
+    },
+    {
+      "out": "../appdata/werbung/handy-4-dateien.png",
+      "formats": ["promo-narrow"],
+      "elements": [
+        {
+          "type": "stack",
+          "top": 7,
+          "left": 8,
+          "right": 8,
+          "bottom": 66,
+          "valign": "top",
+          "align": "left",
+          "gap": 2,
+          "items": [
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Dateiablage"
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Dokumente sicher verwahren"
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Ausweise, Verträge und Notizen liegen verschlüsselt in deiner KeePass-Datei — ansehen, bearbeiten, umbenennen."
+            }
+          ]
+        },
+        {
+          "type": "phone",
+          "screen": "../appdata/screenshot-narrow-5_light.png",
+          "width": 78,
+          "bleed": { "bottom": 30 }
+        }
+      ]
+    },
+    {
+      "copy": "../appdata/screenshot-narrow-4_light.png",
+      "out": "../appdata/werbung/handy-5-totp.png"
+    },
+    {
+      "copy": "../appdata/screenshot-narrow-6_light.png",
+      "out": "../appdata/werbung/handy-6-vorschau.png"
+    },
+    {
+      "copy": "../appdata/screenshot-narrow-1_light.png",
+      "out": "../appdata/werbung/handy-7-entsperren.png"
+    },
+    {
+      "out": "../appdata/werbung/breit-1-titel.png",
+      "formats": ["promo-wide"],
+      "elements": [
+        {
+          "type": "stack",
+          "left": 10,
+          "right": 10,
+          "top": 0,
+          "bottom": 4,
+          "align": "center",
+          "gap": 2.4,
+          "items": [
+            {
+              "type": "logo",
+              "size": 26
+            },
+            {
+              "type": "text",
+              "style": "title",
+              "text": "{name}",
+              "size": 19
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "{claim}",
+              "size": 4,
+              "width": 70
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "out": "../appdata/werbung/breit-2-uebersicht.png",
+      "formats": ["promo-wide"],
+      "elements": [
+        {
+          "type": "stack",
+          "left": 6,
+          "right": 66,
+          "top": 0,
+          "bottom": 0,
+          "items": [
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Übersicht"
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Alles auf einen Blick"
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Passwörter, Passkeys, TOTP-Codes und Dateien — dazu der Sicherheitscheck und die zuletzt genutzten Einträge.",
+              "size": 2.8
+            }
+          ]
+        },
+        {
+          "type": "tablet",
+          "screen": "../appdata/screenshot-wide-2_light.png",
+          "left": 38,
+          "right": 4,
+          "top": 10,
+          "bottom": 10
+        }
+      ]
+    },
+    {
+      "out": "../appdata/werbung/breit-3-passwoerter.png",
+      "formats": ["promo-wide"],
+      "elements": [
+        {
+          "type": "stack",
+          "left": 66,
+          "right": 6,
+          "top": 0,
+          "bottom": 0,
+          "items": [
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Passwörter"
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Ordnung, die mitdenkt"
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Ordner, Tags und eine Ampel, die schwache, doppelte und geleakte Passwörter sofort sichtbar macht.",
+              "size": 2.8
+            }
+          ]
+        },
+        {
+          "type": "tablet",
+          "screen": "../appdata/screenshot-wide-3.png",
+          "left": 4,
+          "right": 38,
+          "top": 10,
+          "bottom": 10
+        }
+      ]
+    },
+    {
+      "out": "../appdata/werbung/breit-4-dateien.png",
+      "formats": ["promo-wide"],
+      "elements": [
+        {
+          "type": "stack",
+          "left": 6,
+          "right": 66,
+          "top": 0,
+          "bottom": 0,
+          "items": [
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Dateiablage"
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Dokumente sicher verwahren"
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Ausweise, Verträge und Notizen liegen verschlüsselt in deiner KeePass-Datei — ansehen, bearbeiten, umbenennen.",
+              "size": 2.8
+            }
+          ]
+        },
+        {
+          "type": "tablet",
+          "screen": "../appdata/screenshot-wide-5_light.png",
+          "left": 38,
+          "right": 4,
+          "top": 10,
+          "bottom": 10
+        }
+      ]
+    },
+    {
+      "copy": "../appdata/screenshot-wide-4_light.png",
+      "out": "../appdata/werbung/breit-5-totp.png"
+    },
+    {
+      "copy": "../appdata/screenshot-wide-6_light.png",
+      "out": "../appdata/werbung/breit-6-vorschau.png"
+    },
+    {
+      "copy": "../appdata/screenshot-wide-1_light.png",
+      "out": "../appdata/werbung/breit-7-entsperren.png"
+    },
+    {
+      "out": "../appdata/werbung/social.png",
+      "formats": ["social"],
+      "elements": [
+        {
+          "type": "stack",
+          "left": 10,
+          "right": 10,
+          "top": 0,
+          "bottom": 4,
+          "align": "center",
+          "gap": 2.4,
+          "items": [
+            {
+              "type": "logo",
+              "size": 26
+            },
+            {
+              "type": "text",
+              "style": "title",
+              "text": "{name}",
+              "size": 19
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "{claim}",
+              "size": 4,
+              "width": 70
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

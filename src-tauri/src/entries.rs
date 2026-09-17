@@ -112,6 +112,77 @@ pub fn vault_save_entry(
     Ok(saved)
 }
 
+/// Schreibt einen einzelnen Anhang eines **gespeicherten** Eintrags sofort
+/// in die Datenbank — bearbeitet, umbenannt oder neu angelegt.
+///
+/// Anders als `vault_save_entry` fasst das nur diesen einen Anhang an. Was im
+/// Eintragsdialog sonst noch geändert, aber nicht gespeichert wurde, bleibt
+/// unberührt.
+///
+/// `ref` ist entweder ein Verweis in den Zwischenspeicher (neuer Inhalt)
+/// oder die Kennung des vorhandenen Anhangs (nur umbenennen). `previous` ist
+/// der bisherige Name, falls es einen gab. Zurück kommt die neue Kennung.
+#[tauri::command]
+pub fn vault_write_attachment(
+    state: tauri::State<'_, Vault>,
+    #[allow(non_snake_case)] entryId: String,
+    name: String,
+    r#ref: String,
+    previous: Option<String>,
+) -> Result<String, String> {
+    let mut vault = lock(&state)?;
+    write_attachment(&mut vault, &entryId, &name, &r#ref, previous.as_deref())
+}
+
+fn write_attachment(
+    vault: &mut VaultState,
+    entry_uuid: &str,
+    name: &str,
+    reference: &str,
+    previous: Option<&str>,
+) -> Result<String, String> {
+    use keepass::db::Value;
+
+    if name.trim().is_empty() || name.contains(['/', '\\']) {
+        return Err("Der Name darf nicht leer sein und keinen Schrägstrich enthalten.".into());
+    }
+
+    let entry_id = entry_id_of(vault.database()?, entry_uuid).ok_or("Eintrag nicht gefunden.")?;
+
+    let bytes = if reference.starts_with(crate::secrets::STAGED_PREFIX) {
+        vault
+            .staged
+            .remove(reference)
+            .ok_or("Der Inhalt ist nicht mehr im Zwischenspeicher.")?
+            .bytes
+    } else {
+        let wanted: usize = reference.parse().map_err(|_| "Unbekannter Anhang.".to_string())?;
+        let db = vault.database()?;
+        let entry = db.entry(entry_id).ok_or("Eintrag nicht gefunden.")?;
+        let found = entry
+            .attachments_named()
+            .find(|(_, a)| a.id().id() == wanted)
+            .map(|(_, a)| a.data.get().to_vec());
+        found.ok_or("Der Anhang ist nicht mehr da.")?
+    };
+
+    let db = vault.database_mut()?;
+    let taken = db
+        .entry(entry_id)
+        .is_some_and(|e| e.attachments_named().any(|(n, _)| n == name));
+    if taken && previous != Some(name) {
+        return Err(format!("„{name}“ gibt es in diesem Eintrag schon."));
+    }
+
+    let mut node = db.entry_mut(entry_id).ok_or("Eintrag nicht gefunden.")?;
+    if let Some(old) = previous.filter(|old| *old != name) {
+        node.remove_attachment_by_name(old);
+    }
+    node.times.last_modification = Some(keepass::db::Times::now());
+    let id = node.add_attachment(name, Value::Unprotected(bytes)).id().id();
+    Ok(id.to_string())
+}
+
 /// Bringt die Anhänge des Eintrags auf den Stand, den die Oberfläche meldet.
 ///
 /// Die Liste ist die Wahrheit: Was dort fehlt, wird entfernt; was mit
@@ -119,8 +190,14 @@ pub fn vault_save_entry(
 /// steht bereits in der Datenbank und bleibt unangetastet — ein Anhang wird
 /// also nicht bei jedem Speichern neu geschrieben.
 ///
-/// Umbenennen fällt dabei von selbst ab: Der Name ist in KDBX der Schlüssel,
-/// unter dem der Eintrag seinen Anhang führt.
+/// Umbenennen: Der Name ist in KDBX der Schlüssel, unter dem der Eintrag
+/// seinen Anhang führt. Trägt ein vorhandener Verweis einen anderen Namen als
+/// in der Datenbank, wird der Inhalt unter dem neuen Namen neu abgelegt und
+/// der alte Name fällt als überzählig weg. Früher fehlte der erste Teil — der
+/// Anhang wurde entfernt und nie wieder angelegt.
+///
+/// Neuer Inhalt unter bekanntem Namen (Bearbeiten) ersetzt den alten, das
+/// erledigt `add_attachment` selbst.
 fn apply_attachments(
     vault: &mut crate::state::VaultState,
     entry_id: EntryId,
@@ -139,6 +216,26 @@ fn apply_attachments(
             .remove(&link.reference)
             .ok_or("Der Anhang ist nicht mehr im Zwischenspeicher. Bitte erneut auswählen.")?;
         incoming.push((link.name.clone(), staged.bytes));
+    }
+
+    // Umbenannte: Inhalt jetzt sichern, bevor der alte Name entfernt wird.
+    {
+        let db = vault.database()?;
+        if let Some(node) = db.entry(entry_id) {
+            let current: std::collections::HashMap<usize, (String, Vec<u8>)> = node
+                .attachments_named()
+                .map(|(name, att)| (att.id().id(), (name.to_string(), att.data.get().to_vec())))
+                .collect();
+
+            for link in &entry.attachments {
+                let Ok(id) = link.reference.parse::<usize>() else { continue };
+                if let Some((name, bytes)) = current.get(&id) {
+                    if *name != link.name {
+                        incoming.push((link.name.clone(), bytes.clone()));
+                    }
+                }
+            }
+        }
     }
 
     let keep: std::collections::HashSet<&str> =
@@ -392,4 +489,153 @@ fn resolve_editable(db: &keepass::Database, path: &str) -> Result<Option<GroupId
         return Err(format!("„{ROOT_LABEL}“ ist die Wurzel und lässt sich nicht ändern."));
     }
     Ok(Some(group))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use keepass::db::Value;
+    use keepass::Database;
+
+    /// Ein Eintrag mit einem Anhang „alt.txt", dazu der Tresor drumherum.
+    fn tresor_mit_anhang() -> (crate::state::VaultState, EntryId, usize) {
+        let mut db = Database::new();
+        let id = db.root_mut().add_entry().id();
+        let anhang = db
+            .entry_mut(id)
+            .unwrap()
+            .add_attachment("alt.txt", Value::Unprotected(b"Inhalt".to_vec()))
+            .id()
+            .id();
+
+        let mut vault = crate::state::VaultState::default();
+        vault.db = Some(db);
+        (vault, id, anhang)
+    }
+
+    fn eintrag(anhaenge: serde_json::Value) -> dto::Entry {
+        serde_json::from_value(serde_json::json!({ "attachments": anhaenge })).unwrap()
+    }
+
+    fn anhaenge(vault: &crate::state::VaultState, id: EntryId) -> Vec<(String, Vec<u8>)> {
+        let db = vault.database().unwrap();
+        let mut liste: Vec<_> = db
+            .entry(id)
+            .unwrap()
+            .attachments_named()
+            .map(|(name, att)| (name.to_string(), att.data.get().to_vec()))
+            .collect();
+        liste.sort();
+        liste
+    }
+
+    #[test]
+    fn umbenennen_behaelt_den_inhalt() {
+        let (mut vault, id, anhang) = tresor_mit_anhang();
+
+        let neu = eintrag(serde_json::json!([{ "name": "neu.md", "ref": anhang.to_string() }]));
+        apply_attachments(&mut vault, id, &neu).unwrap();
+
+        assert_eq!(anhaenge(&vault, id), vec![("neu.md".to_string(), b"Inhalt".to_vec())]);
+    }
+
+    #[test]
+    fn bearbeiten_ersetzt_den_inhalt() {
+        let (mut vault, id, _) = tresor_mit_anhang();
+        vault.staged.insert(
+            "staged:1".into(),
+            crate::state::StagedAttachment { name: "alt.txt".into(), bytes: b"Neu".to_vec() },
+        );
+
+        let neu = eintrag(serde_json::json!([{ "name": "alt.txt", "ref": "staged:1" }]));
+        apply_attachments(&mut vault, id, &neu).unwrap();
+
+        assert_eq!(anhaenge(&vault, id), vec![("alt.txt".to_string(), b"Neu".to_vec())]);
+    }
+
+    /// Speichern und neu öffnen — so, wie es die Datei auf der Platte sieht.
+    fn neu_geladen(vault: &crate::state::VaultState, id: EntryId) -> Vec<(String, Vec<u8>)> {
+        use keepass::DatabaseKey;
+
+        let mut bytes = Vec::new();
+        vault.database().unwrap().save(&mut bytes, DatabaseKey::new().with_password("test")).unwrap();
+        let db = Database::parse(&bytes, DatabaseKey::new().with_password("test")).unwrap();
+
+        let uuid = vault.database().unwrap().entry(id).unwrap().id().uuid();
+        let entry = db.iter_all_entries().find(|e| e.id().uuid() == uuid).unwrap();
+        let mut liste: Vec<_> = entry
+            .attachments_named()
+            .map(|(name, att)| (name.to_string(), att.data.get().to_vec()))
+            .collect();
+        liste.sort();
+        liste
+    }
+
+    #[test]
+    fn bearbeiteter_anhang_ueberlebt_das_speichern() {
+        let (mut vault, id, _) = tresor_mit_anhang();
+
+        // Ein zweiter Anhang, damit die Kennungen nach dem Ersetzen Lücken haben.
+        let zweiter = vault
+            .database_mut()
+            .unwrap()
+            .entry_mut(id)
+            .unwrap()
+            .add_attachment("zwei.txt", Value::Unprotected(b"Zwei".to_vec()))
+            .id()
+            .id();
+
+        vault.staged.insert(
+            "staged:1".into(),
+            crate::state::StagedAttachment { name: "alt.txt".into(), bytes: b"Neu".to_vec() },
+        );
+        let neu = eintrag(serde_json::json!([
+            { "name": "alt.txt", "ref": "staged:1" },
+            { "name": "zwei.txt", "ref": zweiter.to_string() }
+        ]));
+        apply_attachments(&mut vault, id, &neu).unwrap();
+
+        assert_eq!(
+            neu_geladen(&vault, id),
+            vec![
+                ("alt.txt".to_string(), b"Neu".to_vec()),
+                ("zwei.txt".to_string(), b"Zwei".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn einzelner_anhang_wird_sofort_geschrieben() {
+        let (mut vault, id, anhang) = tresor_mit_anhang();
+        let uuid = vault.database().unwrap().entry(id).unwrap().id().uuid().to_string();
+
+        // Umbenennen ohne neuen Inhalt …
+        write_attachment(&mut vault, &uuid, "neu.md", &anhang.to_string(), Some("alt.txt")).unwrap();
+        assert_eq!(anhaenge(&vault, id), vec![("neu.md".to_string(), b"Inhalt".to_vec())]);
+
+        // … dann neuer Inhalt unter demselben Namen.
+        vault.staged.insert(
+            "staged:9".into(),
+            crate::state::StagedAttachment { name: "neu.md".into(), bytes: b"Bearbeitet".to_vec() },
+        );
+        write_attachment(&mut vault, &uuid, "neu.md", "staged:9", Some("neu.md")).unwrap();
+        assert_eq!(neu_geladen(&vault, id), vec![("neu.md".to_string(), b"Bearbeitet".to_vec())]);
+
+        // Ein vergebener Name wird abgelehnt.
+        vault.staged.insert(
+            "staged:10".into(),
+            crate::state::StagedAttachment { name: "neu.md".into(), bytes: b"x".to_vec() },
+        );
+        assert!(write_attachment(&mut vault, &uuid, "neu.md", "staged:10", None).is_err());
+    }
+
+    #[test]
+    fn unveraendert_bleibt_unveraendert() {
+        let (mut vault, id, anhang) = tresor_mit_anhang();
+
+        let gleich = eintrag(serde_json::json!([{ "name": "alt.txt", "ref": anhang.to_string() }]));
+        apply_attachments(&mut vault, id, &gleich).unwrap();
+
+        assert_eq!(anhaenge(&vault, id), vec![("alt.txt".to_string(), b"Inhalt".to_vec())]);
+    }
 }

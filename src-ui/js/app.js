@@ -71,6 +71,9 @@ async function boot() {
     showLockscreen(String(ev?.payload ?? 'Wegen Untätigkeit gesperrt.'));
   });
 
+  // Abrufe über die Browser-Erweiterung zählen ebenfalls als Nutzung.
+  await listen('entries-used', ev => markUsed(ev?.payload ?? []));
+
   await bindBrowserRequests();
   await bindFileDrops();
   bindStaticEvents();
@@ -1028,6 +1031,10 @@ async function unlock({ method = 'password', secret = null, remember = null } = 
     });
     if (info?.path && info?.name) await rememberDatabase({ name: info.name, path: info.path });
 
+    if (info?.cachedAt) {
+      const when = new Date(info.cachedAt).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+      banner(`Die Datei ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie vom ${when}. Speichern geht erst wieder, wenn die Datei da ist.`, 'warning', 10000);
+    }
     if (info?.readOnly) {
       banner(`${info.format ?? 'Dieses Format'} kann nur gelesen werden — Änderungen lassen sich nicht speichern.`, 'warning', 8000);
     }
@@ -1263,11 +1270,13 @@ function renderHome() {
   const mailCheck = settings.get('checks.emailBreach', true);
   const problems = countProblems();
 
+  const einträge = n => `${n} ${n === 1 ? 'Eintrag' : 'Einträge'}`;
+
   const tiles = [
-    { view: 'passwords', icon: 'key', name: 'Passwörter', count: `${state.entries.length} Einträge` },
-    { view: 'passwords', icon: 'passkey', name: 'Passkeys', count: `${state.entries.filter(e => e.passkey).length} Einträge`, kind: 'passkey' },
+    { view: 'passwords', icon: 'key', name: 'Passwörter', count: einträge(state.entries.length) },
+    { view: 'passwords', icon: 'passkey', name: 'Passkeys', count: einträge(state.entries.filter(e => e.passkey).length), kind: 'passkey' },
     { view: 'totp', icon: 'timer', name: 'TOTP-Codes', count: `${state.entries.filter(e => e.hasTotp).length} Codes` },
-    { view: 'passwords', icon: 'folder_zip', name: 'Dateien', count: `${state.entries.filter(hasFiles).length} Einträge`, kind: 'files' }
+    { view: 'passwords', icon: 'folder_zip', name: 'Dateien', count: einträge(state.entries.filter(hasFiles).length), kind: 'files' }
   ];
 
   if (pwCheck || mailCheck) {
@@ -1290,8 +1299,8 @@ function renderHome() {
     showView(btn.dataset.view);
   }));
 
-  const used = new Map(usedEntries().map(u => [u.id, u.at]));
-  const lastUsed = e => Math.max(used.get(e.id) ?? 0, Date.parse(e.accessed ?? '') || 0);
+  const usage = usageMap();
+  const lastUsed = e => Math.max(usage[e.id]?.at ?? 0, Date.parse(e.accessed ?? '') || 0);
 
   const recent = state.entries
     .filter(e => !e.recycled)
@@ -1309,23 +1318,62 @@ function renderHome() {
    merkt sich das Programm die Nutzung selbst, pro Datenbank in
    settings.json, und nimmt den Wert aus der Datei nur dazu.
 
+   Als genutzt zählt: Eintrag öffnen, Benutzername/Passwort/TOTP kopieren,
+   Anhang ansehen und jede erlaubte Abfrage über die Browser-Erweiterung
+   (der Kern meldet sie mit `entries-used`).
+
+   Gespeichert wird je Eintrag
+     at     der letzte Zeitpunkt — bleibt, auch wenn er älter als 7 Tage ist
+     week   alle Zeitpunkte der letzten 7 Tage, für die Statistik
    In settings.json stehen dabei nur UUIDs und Zeitpunkte, keine Namen.
    ========================================================= */
 
+/** So viele Einträge behalten ihren letzten Zeitpunkt auch ohne Nutzung in der Woche. */
 const USED_LIMIT = 30;
+const USAGE_WINDOW = 7 * 24 * 60 * 60 * 1000;
 
-function usedEntries() {
-  return settings.forDatabase(settings.get('database.current', null)).usedEntries ?? [];
+/** Nutzung der offenen Datenbank: `{ [uuid]: { at, week: [ms…] } }`, bereinigt. */
+function usageMap(now = Date.now()) {
+  const stored = settings.forDatabase(settings.get('database.current', null));
+  const map = {};
+
+  // Ältere Fassung: nur eine Liste mit dem letzten Zeitpunkt.
+  for (const u of stored.usedEntries ?? []) map[u.id] = { at: u.at, week: [u.at] };
+  for (const [id, u] of Object.entries(stored.usage ?? {})) map[id] = { at: u.at ?? 0, week: [...(u.week ?? [])] };
+
+  const newest = new Set(Object.entries(map)
+    .sort(([, a], [, b]) => b.at - a.at)
+    .slice(0, USED_LIMIT)
+    .map(([id]) => id));
+
+  for (const [id, u] of Object.entries(map)) {
+    u.week = u.week.filter(t => now - t < USAGE_WINDOW);
+    if (!u.week.length && !newest.has(id)) delete map[id];
+  }
+  return map;
 }
 
-/** Vermerkt, dass ein Eintrag gerade benutzt wurde. */
-function markUsed(id) {
-  const path = settings.get('database.current', null);
-  if (!id || !path) return;
+/** Wie oft ein Eintrag in den letzten 7 Tagen genutzt wurde. */
+function usesThisWeek(id) {
+  return usageMap()[id]?.week.length ?? 0;
+}
 
-  const list = [{ id, at: Date.now() }, ...usedEntries().filter(u => u.id !== id)].slice(0, USED_LIMIT);
+/** Vermerkt, dass Einträge gerade benutzt wurden — eine UUID oder mehrere. */
+function markUsed(ids) {
+  const path = settings.get('database.current', null);
+  const list = [ids].flat().filter(Boolean);
+  if (!list.length || !path) return;
+
+  const now = Date.now();
+  const map = usageMap(now);
+  for (const id of list) {
+    const u = map[id] ??= { at: 0, week: [] };
+    u.at = now;
+    u.week.push(now);
+  }
+
   // Still speichern: Die Liste soll kein Neuzeichnen aller Ansichten auslösen.
-  settings.setForDatabase(path, 'usedEntries', list, { silent: true });
+  settings.setForDatabase(path, 'usage', map, { silent: true });
   if (!state.locked) renderHome();
 }
 
@@ -3286,12 +3334,17 @@ async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {
         <span class="dlg-plain-hint" id="dlg-att-count">${(e.attachments ?? []).length}</span>
       </div>
       <div class="attachment-grid" id="dlg-attachments"></div>
-      <button type="button" class="button" data-shape="full" id="btn-attach">
-        <span class="msr">upload_file</span>&nbsp;<span id="btn-attach-text">Datei anhängen …</span>
-      </button>
+      <div class="dlg-attach-actions">
+        <button type="button" class="button" data-shape="full" id="btn-attach">
+          <span class="msr">upload_file</span>&nbsp;<span id="btn-attach-text">Datei anhängen …</span>
+        </button>
+        <button type="button" class="button" data-shape="full" id="btn-new-file" data-only="files">
+          <span class="msr">note_add</span>&nbsp;Neue Datei …
+        </button>
+      </div>
     </div>
 
-    <div class="dlg-plain">
+    <div class="dlg-plain" id="dlg-notes-block">
       <div class="dlg-plain-head"><span class="msr">notes</span>Notizen</div>
       <textarea id="fld-notes" name="notes" rows="3">${esc(e.notes)}</textarea>
     </div>
@@ -3479,6 +3532,12 @@ function setEntryMode(mode) {
     btn.setAttribute('aria-selected', String(btn.dataset.mode === mode)));
 
   const files = mode === 'files';
+
+  // Notizen gehören in der Dateiablage nicht zum Standard — sind aber welche
+  // da, sollen sie nicht unsichtbar werden.
+  const notes = document.getElementById('fld-notes');
+  document.getElementById('dlg-notes-block').hidden = files && !notes?.value.trim();
+
   document.getElementById('dlg-att-title').textContent = files ? 'Dateien' : 'Anhänge';
   document.getElementById('btn-attach-text').textContent = files ? 'Dateien hinzufügen …' : 'Datei anhängen …';
   renderAttachments();
@@ -3645,6 +3704,8 @@ function wireAttachments() {
 
   renderAttachments();
 
+  document.getElementById('btn-new-file')?.addEventListener('click', createEmptyFile);
+
   button.addEventListener('click', async () => {
     button.disabled = true;
     try {
@@ -3774,7 +3835,7 @@ function renderFileList(grid) {
     grid.innerHTML = `<div class="file-drop">
       <span class="msr">upload_file</span>
       <strong>Noch keine Dateien</strong>
-      <small>Ziehe Dateien aufs Fenster oder wähle sie unten aus. Sie liegen danach verschlüsselt in der Datenbank.</small>
+      <small>Ziehe Dateien aufs Fenster, wähle sie unten aus oder lege eine neue an. Sie liegen danach verschlüsselt in der Datenbank.</small>
     </div>`;
     return;
   }
@@ -3806,12 +3867,32 @@ function renderFileList(grid) {
 }
 
 /* ---------- Anhang-Vorschau ----------
-   Eigenes Vollbild statt userDialog: oben nur Schließen, Dateiname und
-   Herunterladen, darunter die Datei auf der ganzen Fläche. userDialog
-   bringt Titel, Fußzeile und eine Höchstbreite mit, die hier nur stören.
+   Eigenes Vollbild statt userDialog: oben Schließen, Dateiname und die
+   Knöpfe, darunter die Datei auf der ganzen Fläche. userDialog bringt
+   Titel, Fußzeile und eine Höchstbreite mit, die hier nur stören.
    Als natives <dialog> mit showModal liegt es auch über einem offenen
-   Eintragsdialog, und Escape schließt nur die Vorschau. */
-async function openAttachmentViewer(att) {
+   Eintragsdialog, und Escape schließt nur die Vorschau.
+
+   Textdateien lassen sich über den Knopf oben bearbeiten, jede Datei über
+   ihren Namen umbenennen. Ist der Eintrag schon gespeichert, geht beides
+   sofort in die Datenbank — ohne „Speichern" im Eintrag und ohne Meldung,
+   außer es klappt nicht. Bei einem neuen Eintrag gibt es noch nichts, wohin
+   geschrieben werden könnte; dann zählt erst sein „Speichern". */
+
+/**
+ * Schreibt einen Anhang des offenen Eintrags sofort in die Datenbank, falls
+ * der Eintrag schon gespeichert ist. Sonst bleibt der Verweis, wie er ist,
+ * und „Speichern" im Eintrag nimmt ihn mit. Liefert den gültigen Verweis.
+ */
+async function persistAttachment(name, ref, previous) {
+  if (!state.dialogEntryId) return ref;
+  return vault.writeAttachment({ entryId: state.dialogEntryId, name, ref, previous });
+}
+
+/** Dateiarten, die als Text bearbeitet werden können. */
+const EDITABLE_KINDS = new Set(['text', 'markdown']);
+
+async function openAttachmentViewer(att, { edit = false } = {}) {
   if (!att) return;
   if (state.dialogEntryId) markUsed(state.dialogEntryId);
 
@@ -3820,28 +3901,245 @@ async function openAttachmentViewer(att) {
   viewer.innerHTML = `
     <header class="file-viewer-bar">
       <button type="button" class="button" data-shape="round no-background" data-viewer-close title="Schließen" aria-label="Schließen"><span class="msr">close</span></button>
-      <strong class="file-viewer-title" title="${esc(att.name)}">${esc(att.name)}</strong>
+      <div class="file-viewer-title">
+        <button type="button" class="file-viewer-name" data-viewer-rename title="Umbenennen">
+          <strong></strong><span class="msr">edit</span>
+        </button>
+        <input type="text" class="file-viewer-rename" hidden aria-label="Dateiname">
+      </div>
+      <button type="button" class="button" data-shape="round no-background" data-viewer-edit title="Bearbeiten" aria-label="Bearbeiten" hidden><span class="msr">edit_note</span></button>
+      <button type="button" class="button" data-shape="round no-background" data-viewer-show title="Anzeigen" aria-label="Anzeigen" hidden><span class="msr">visibility</span></button>
+      <button type="button" class="button" data-shape="round no-background" data-viewer-apply title="Speichern" aria-label="Speichern" hidden><span class="msr">check</span></button>
       <button type="button" class="button" data-shape="round no-background" data-viewer-save title="Herunterladen" aria-label="Herunterladen"><span class="msr">download</span></button>
     </header>
-    <div class="file-viewer-body"><p class="empty-state">Wird geladen …</p></div>`;
+    <div class="file-viewer-body"></div>`;
+
+  const $v = sel => viewer.querySelector(sel);
+  const body = $v('.file-viewer-body');
+  const nameInput = $v('.file-viewer-rename');
 
   let cleanup = () => {};
   let closed = false;
+  let editor = null;          // Textfeld, solange bearbeitet wird
+  let original = '';
+
+  const editable = () => EDITABLE_KINDS.has(preview.kindOf(att));
+  const dirty = () => Boolean(editor) && editor.value !== original;
+
+  /** Knöpfe passend zur Ansicht: Bearbeiten — oder Anzeigen und Speichern. */
+  const showButtons = () => {
+    $v('[data-viewer-edit]').hidden = Boolean(editor) || !editable();
+    $v('[data-viewer-show]').hidden = !editor;
+    $v('[data-viewer-apply]').hidden = !editor;
+  };
+
+  const showName = () => {
+    $v('.file-viewer-name strong').textContent = att.name;
+    $v('.file-viewer-name').title = `${att.name} — umbenennen`;
+  };
+
+  const showPreview = async () => {
+    cleanup();
+    cleanup = () => {};
+    editor = null;
+    showButtons();
+    body.innerHTML = '<p class="empty-state">Wird geladen …</p>';
+    const release = await preview.renderPreview(body, att);
+    if (closed) release(); else cleanup = release;
+  };
+
+  const showEditor = async () => {
+    if (editor || !editable()) return;
+    original = await preview.asText(att);
+    cleanup();
+    cleanup = () => {};
+    body.innerHTML = '';
+    editor = document.createElement('textarea');
+    editor.className = 'file-editor';
+    editor.spellcheck = false;
+    editor.value = original;
+    body.append(editor);
+    showButtons();
+    editor.focus();
+  };
+
+  /** Schreibt den bearbeiteten Text in den Eintrag. Bleibt im Bearbeiten. */
+  const saveEdit = async () => {
+    if (!dirty()) return true;
+    const text = editor.value;
+
+    try {
+      const staged = await vault.stageContent(att.name, text);
+      const stored = await vault.attachmentData(staged.ref);
+      const ref = await persistAttachment(att.name, staged.ref, att.name);
+      Object.assign(att, { ref, type: staged.type, size: staged.size, data: stored?.data ?? '' });
+      original = text;
+      renderAttachments();
+      return true;
+    } catch (err) {
+      banner(`Speichern fehlgeschlagen: ${err.message}`, 'error', 6000);
+      return false;
+    }
+  };
+
+  /**
+   * Vor jedem Verlassen des Bearbeitens: Gibt es ungespeicherte Änderungen,
+   * wird gefragt. Ja speichert, Nein verwirft — danach geht es in beiden
+   * Fällen weiter. Nur wenn das Speichern scheitert, bleibt alles, wie es ist.
+   */
+  const confirmLeave = async () => {
+    if (!dirty()) return true;
+    const res = await dialog({
+      title: 'Änderungen speichern?',
+      content: `„${esc(att.name)}“ wurde bearbeitet.`,
+      confirmText: 'Ja',
+      cancelText: 'Nein'
+    });
+    if (res?.submit) return saveEdit();
+    original = editor.value;   // verworfen: nicht noch einmal fragen
+    return true;
+  };
+
+  const requestClose = async () => {
+    if (await confirmLeave()) viewer.close();
+  };
+
+  const startRename = () => {
+    nameInput.value = att.name;
+    $v('.file-viewer-name').hidden = true;
+    nameInput.hidden = false;
+    nameInput.focus();
+    // Nur den Namen vor der Endung markieren, wie im Dateimanager.
+    const dot = att.name.lastIndexOf('.');
+    nameInput.setSelectionRange(0, dot > 0 ? dot : att.name.length);
+  };
+
+  const finishRename = async (apply) => {
+    if (nameInput.hidden) return;
+    const next = nameInput.value.trim();
+    nameInput.hidden = true;
+    $v('.file-viewer-name').hidden = false;
+    if (!apply || next === att.name) return;
+
+    if (!next || /[\\/]/.test(next)) {
+      banner('Der Name darf nicht leer sein und keinen Schrägstrich enthalten.', 'warning');
+      return;
+    }
+    if (state.dialogAttachments.some(a => a !== att && a.name === next)) {
+      banner(`„${next}“ gibt es in diesem Eintrag schon.`, 'warning');
+      return;
+    }
+
+    // Mit der Endung wechselt die Art — aus .md wird beim Umbenennen in
+    // .txt reiner Text, und die Vorschau soll das auch so zeigen.
+    try {
+      att.ref = await persistAttachment(next, att.ref, att.name);
+    } catch (err) {
+      banner(`Umbenennen fehlgeschlagen: ${err.message}`, 'error', 6000);
+      return;
+    }
+    att.name = next;
+    att.type = preview.typeFromName(next);
+    showName();
+    renderAttachments();
+    if (editor) showButtons(); else showPreview();
+  };
 
   viewer.addEventListener('close', () => {
     closed = true;
     cleanup();
     viewer.remove();
   });
-  viewer.querySelector('[data-viewer-close]').addEventListener('click', () => viewer.close());
-  viewer.querySelector('[data-viewer-save]').addEventListener('click', () => downloadWithWarning(att));
+  // Escape: erst das Umbenennen abbrechen, sonst wie der Schließen-Knopf.
+  viewer.addEventListener('cancel', ev => {
+    ev.preventDefault();
+    if (!nameInput.hidden) finishRename(false);
+    else requestClose();
+  });
+
+  $v('[data-viewer-close]').addEventListener('click', requestClose);
+  $v('[data-viewer-edit]').addEventListener('click', showEditor);
+  $v('[data-viewer-show]').addEventListener('click', async () => {
+    if (await confirmLeave()) showPreview();
+  });
+  $v('[data-viewer-apply]').addEventListener('click', saveEdit);
+  $v('[data-viewer-save]').addEventListener('click', async () => {
+    if (await confirmLeave()) downloadWithWarning(att);
+  });
+  $v('[data-viewer-rename]').addEventListener('click', startRename);
+  nameInput.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); finishRename(true); }
+  });
+  nameInput.addEventListener('blur', () => finishRename(true));
 
   document.body.append(viewer);
   viewer.showModal();
+  showName();
 
-  const release = await preview.renderPreview(viewer.querySelector('.file-viewer-body'), att);
-  // Schon wieder zu, bevor die Vorschau fertig war: gleich aufräumen.
-  if (closed) release(); else cleanup = release;
+  if (edit && editable()) await showEditor();
+  else await showPreview();
+}
+
+/** Dateiarten für „Neue Datei" — Endung, Anzeige und was anfangs drinsteht. */
+const NEW_FILE_TYPES = [
+  { ext: 'md', label: 'Markdown (.md)', content: name => `# ${name}\n\n` },
+  { ext: 'txt', label: 'Text (.txt)', content: () => '' },
+  { ext: 'html', label: 'HTML (.html)', content: name => `<!DOCTYPE html>\n<html lang="de">\n<head>\n  <meta charset="utf-8">\n  <title>${name}</title>\n</head>\n<body>\n\n</body>\n</html>\n` },
+  { ext: 'json', label: 'JSON (.json)', content: () => '{\n  \n}\n' },
+  { ext: 'csv', label: 'Tabelle (.csv)', content: () => '' },
+  { ext: 'yml', label: 'YAML (.yml)', content: () => '' }
+];
+
+/**
+ * Legt eine leere Textdatei im offenen Eintrag an und öffnet sie gleich
+ * zum Bearbeiten.
+ *
+ * Schreibt der Nutzer selbst eine Endung in den Namen, gilt die — die
+ * Auswahl ist nur die Vorgabe.
+ */
+async function createEmptyFile() {
+  const res = await dialog({
+    title: 'Neue Datei',
+    content: `
+      <div class="dlg-field">
+        <label for="fld-new-file-name">Name</label>
+        <div class="dlg-input-row"><input id="fld-new-file-name" type="text" name="newFileName" placeholder="Notiz" required></div>
+      </div>
+      <div class="dlg-field">
+        <label for="fld-new-file-type">Art</label>
+        <div class="dlg-input-row">
+          <select id="fld-new-file-type" name="newFileType">
+            ${NEW_FILE_TYPES.map(t => `<option value="${t.ext}">${t.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>`,
+    confirmText: 'Anlegen',
+    cancelText: 'Abbrechen',
+    onInsert: () => queueMicrotask(() => document.getElementById('fld-new-file-name')?.focus())
+  });
+  if (!res?.submit) return;
+
+  const base = String(res.data?.newFileName ?? '').trim();
+  const type = NEW_FILE_TYPES.find(t => t.ext === res.data?.newFileType) ?? NEW_FILE_TYPES[0];
+  if (!base) return;
+
+  const hasExtension = /\.[a-z0-9]{1,8}$/i.test(base);
+  const name = hasExtension ? base : `${base}.${type.ext}`;
+  const title = name.replace(/\.[^.]+$/, '');
+
+  if (state.dialogAttachments.some(a => a.name === name)) {
+    banner(`„${name}“ gibt es in diesem Eintrag schon.`, 'warning');
+    return;
+  }
+
+  try {
+    const staged = await vault.stageContent(name, hasExtension ? '' : type.content(title));
+    await addStagedAttachments([staged]);
+    renderAttachments();
+    openAttachmentViewer(state.dialogAttachments.find(a => a.ref === staged.ref), { edit: true });
+  } catch (err) {
+    banner(`Anlegen fehlgeschlagen: ${err.message}`, 'error', 6000);
+  }
 }
 
 /**

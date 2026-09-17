@@ -54,7 +54,8 @@
       },
       "passkey": true,
       "expires": "2026-09-30",
-      "attachments": []
+      "attachments": [],
+      "accessed": "2026-09-14T08:30:00Z"
     },
     {
       "id": "d1f0c4a2-0002-4000-8000-000000000002",
@@ -102,7 +103,8 @@
       },
       "passkey": true,
       "expires": null,
-      "attachments": []
+      "attachments": [],
+      "accessed": "2026-09-15T08:30:00Z"
     },
     {
       "id": "d1f0c4a2-0004-4000-8000-000000000004",
@@ -174,7 +176,46 @@
       },
       "passkey": false,
       "expires": "2026-11-15",
-      "attachments": []
+      "attachments": [],
+      "accessed": "2026-09-17T08:30:00Z"
+    },
+    {
+      "id": "d1f0c4a2-0001-4000-8000-000000000013",
+      "folder": "Privat",
+      "name": "Ausweis & Verträge",
+      "username": "",
+      "url": "",
+      "notes": "",
+      "tags": [
+        "Privat"
+      ],
+      "modified": "2026-09-10T18:20:00Z",
+      "hasPassword": false,
+      "passwordToken": null,
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": [
+        {
+          "name": "Ausweis-Muster.svg",
+          "ref": "demo-1"
+        },
+        {
+          "name": "Mietvertrag.md",
+          "ref": "demo-2"
+        },
+        {
+          "name": "Versicherungen.txt",
+          "ref": "demo-3"
+        }
+      ],
+      "accessed": "2026-09-16T08:30:00Z"
     },
     {
       "id": "d1f0c4a2-0007-4000-8000-000000000007",
@@ -222,7 +263,8 @@
       },
       "passkey": false,
       "expires": null,
-      "attachments": []
+      "attachments": [],
+      "accessed": "2026-09-12T08:30:00Z"
     },
     {
       "id": "d1f0c4a2-0009-4000-8000-000000000009",
@@ -270,7 +312,8 @@
       },
       "passkey": false,
       "expires": null,
-      "attachments": []
+      "attachments": [],
+      "accessed": "2026-09-13T08:30:00Z"
     },
     {
       "id": "d1f0c4a2-0011-4000-8000-000000000011",
@@ -320,5 +363,22 @@
       "expires": null,
       "attachments": []
     }
-  ]
+  ],
+  "attachments": {
+    "demo-1": {
+      "name": "Ausweis-Muster.svg",
+      "type": "image/svg+xml",
+      "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4NTYgNTQwIiB3aWR0aD0iODU2IiBoZWlnaHQ9IjU0MCI+CjxyZWN0IHdpZHRoPSI4NTYiIGhlaWdodD0iNTQwIiByeD0iMzYiIGZpbGw9IiNlOGYzZWUiLz4KPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9Ijg1NiIgaGVpZ2h0PSI5NiIgcng9IjM2IiBmaWxsPSIjMjZBMjY5Ii8+PHJlY3QgeT0iNjAiIHdpZHRoPSI4NTYiIGhlaWdodD0iMzYiIGZpbGw9IiMyNkEyNjkiLz4KPHRleHQgeD0iNDAiIHk9IjYyIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIzNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZiI+TVVTVEVSQVVTV0VJUzwvdGV4dD4KPHJlY3QgeD0iNDAiIHk9IjEzNiIgd2lkdGg9IjIyMCIgaGVpZ2h0PSIyODAiIHJ4PSIxNiIgZmlsbD0iI2M5ZGRkMyIvPgo8Y2lyY2xlIGN4PSIxNTAiIGN5PSIyMzUiIHI9IjU4IiBmaWxsPSIjOWZiZmIwIi8+PHJlY3QgeD0iNzIiIHk9IjMxMCIgd2lkdGg9IjE1NiIgaGVpZ2h0PSI5MCIgcng9IjQ1IiBmaWxsPSIjOWZiZmIwIi8+CjxnIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjMWQzYjJlIj48dGV4dCB4PSIzMDAiIHk9IjE3MCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzViN2E2YiI+TmFtZTwvdGV4dD48dGV4dCB4PSIzMDAiIHk9IjIwNCIgZm9udC1zaXplPSIzMiIgZm9udC13ZWlnaHQ9IjcwMCI+TWF4IEJlaXNwaWVsPC90ZXh0Pgo8dGV4dCB4PSIzMDAiIHk9IjI2MCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzViN2E2YiI+R2VidXJ0c2RhdHVtPC90ZXh0Pjx0ZXh0IHg9IjMwMCIgeT0iMjkyIiBmb250LXNpemU9IjI4Ij4wMS4wMS4xOTkwPC90ZXh0Pgo8dGV4dCB4PSIzMDAiIHk9IjM0OCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzViN2E2YiI+R8O8bHRpZyBiaXM8L3RleHQ+PHRleHQgeD0iMzAwIiB5PSIzODAiIGZvbnQtc2l6ZT0iMjgiPjMxLjEyLjIwMzQ8L3RleHQ+PC9nPgo8dGV4dCB4PSI0MCIgeT0iNDkyIiBmb250LWZhbWlseT0ibW9ub3NwYWNlIiBmb250LXNpemU9IjI2IiBmaWxsPSIjNWI3YTZiIj5JREQmbHQ7Jmx0O1QwMDAwMDAwMDAmbHQ7Jmx0OyZsdDsmbHQ7Jmx0OyZsdDsmbHQ7Jmx0OyZsdDsmbHQ7Jmx0OyZsdDsmbHQ7Jmx0OyZsdDs8L3RleHQ+Cjwvc3ZnPg=="
+    },
+    "demo-2": {
+      "name": "Mietvertrag.md",
+      "type": "text/markdown",
+      "data": "data:text/markdown;base64,IyBNaWV0dmVydHJhZyDigJQgV29obnVuZyBCZWlzcGllbHN0cmHDn2UgMTIKCioqVmVybWlldGVyOioqIE11c3RlciBJbW1vYmlsaWVuIEdtYkgKKipCZWdpbm46KiogMDEuMDQuMjAyNCDCtyAqKkthbHRtaWV0ZToqKiA4MjAg4oKsCgojIyBXaWNodGlnZSBQdW5rdGUKLSBLw7xuZGlndW5nc2ZyaXN0OiAzIE1vbmF0ZQotIEthdXRpb246IDIuNDYwIOKCrCAoTWlldGthdXRpb25za29udG8pCi0gU2Now7ZuaGVpdHNyZXBhcmF0dXJlbjoga2VpbmUgUGZsaWNodAoKPiDDnGJlcmdhYmVwcm90b2tvbGwgbGllZ3QgYWxzIEZvdG8gaW0gc2VsYmVuIEVpbnRyYWcuCg=="
+    },
+    "demo-3": {
+      "name": "Versicherungen.txt",
+      "type": "text/plain",
+      "data": "data:text/plain;base64,VmVyc2ljaGVydW5nZW4gKEJlaXNwaWVsZGF0ZW4pCgpIYWZ0cGZsaWNodCAgICBOci4gSFAtMDAwMC0xMjM0CkhhdXNyYXQgICAgICAgIE5yLiBIUi0wMDAwLTU2NzgKS3Jhbmtlbmthc3NlICAgVmVyc2ljaGVydGVubnIuIEEwMDAwMDAwMDAK"
+    }
+  }
 }

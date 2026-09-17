@@ -328,6 +328,20 @@ export function totpFor(entry, extra = {}) {
 export const attachmentData = ref => invoke('vault_attachment', { ref });
 export const pickAttachments = () => invoke('pick_attachments');
 export const saveAttachment = ref => invoke('save_attachment', { ref });
+/** Legt Text als Datei im Zwischenspeicher ab — neue Datei oder bearbeiteter Inhalt. */
+export const stageContent = (name, content) => invoke('stage_attachment_content', { name, content });
+
+/**
+ * Schreibt einen Anhang eines gespeicherten Eintrags sofort in die Datei —
+ * ohne „Speichern" im Eintrag. `ref` ist neuer Inhalt aus dem
+ * Zwischenspeicher oder der vorhandene Anhang (Umbenennen), `previous` der
+ * bisherige Name. Liefert die neue Kennung.
+ */
+export async function writeAttachment({ entryId, name, ref, previous = null }) {
+  const next = await mutate('vault_write_attachment', { entryId, name, ref, previous });
+  await commit();
+  return next;
+}
 
 /* ---------- Browser-Erweiterung ---------- */
 

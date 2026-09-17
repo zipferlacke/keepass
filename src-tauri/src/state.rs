@@ -32,6 +32,9 @@ pub struct VaultState {
     /// aber `vault_commit` verweigert die Arbeit.
     pub read_only: bool,
 
+    /// Geöffnet ist die Offline-Kopie, weil die Datei nicht lesbar war.
+    pub offline: bool,
+
     /// Wann zuletzt etwas über die Schnittstelle kam — für die Selbstsperre.
     pub last_activity: Option<std::time::Instant>,
     pub auto_lock_minutes: u64,
@@ -117,6 +120,7 @@ impl VaultState {
         self.master = None;
         self.opened_hash = None;
         self.read_only = false;
+        self.offline = false;
         self.last_activity = None;
         self.secrets.clear();
         self.field_tokens.clear();

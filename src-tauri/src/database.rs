@@ -83,7 +83,7 @@ pub async fn vault_unlock(
     let worker = app.clone();
     let target = path.clone();
 
-    let Opened { db, raw, master, format, read_only } =
+    let Opened { db, raw, master, format, read_only, offline } =
         tauri::async_runtime::spawn_blocking(move || open_blocking(&worker, &target, &method, secret, keyfile))
             .await
             .map_err(|e| format!("Entsperren abgebrochen: {e}"))??;
@@ -145,6 +145,7 @@ pub async fn vault_unlock(
     vault.master = Some(master);
     vault.opened_hash = Some(digest(&raw));
     vault.read_only = read_only;
+    vault.offline = offline.is_some();
     vault.auto_lock_minutes = auto_lock_minutes;
     vault.touch();
 
@@ -161,7 +162,8 @@ pub async fn vault_unlock(
         return Err(format!("Geöffnet, aber die Freigabe wurde nicht gespeichert: {note}"));
     }
 
-    Ok(dto::DatabaseInfo { name, path, read_only, format })
+    let (cached_at, offline_reason) = offline.unzip();
+    Ok(dto::DatabaseInfo { name, path, read_only, format, cached_at, offline_reason })
 }
 
 /// Ergebnis der teuren Arbeit, die außerhalb des Hauptfadens läuft.
@@ -171,6 +173,9 @@ struct Opened {
     master: Zeroizing<String>,
     format: String,
     read_only: bool,
+    /// Gesetzt, wenn statt der Datei die Offline-Kopie geöffnet wurde:
+    /// (Zeitpunkt der Kopie, Grund).
+    offline: Option<(String, String)>,
 }
 
 /// Master-Passwort beschaffen, Datei lesen, Container aufschließen.
@@ -210,8 +215,9 @@ fn open_blocking(
     }
 
     // Einmal komplett lesen: Daraus entsteht sowohl die Datenbank als auch
-    // der Fingerabdruck, gegen den beim Speichern geprüft wird.
-    let raw = std::fs::read(path).map_err(|e| format!("Datei nicht lesbar: {e}"))?;
+    // der Fingerabdruck, gegen den beim Speichern geprüft wird. Ist der Ort
+    // nicht erreichbar, springt die Offline-Kopie ein.
+    let (raw, source) = crate::offline::read(app, path)?;
 
     let db = Database::parse(&raw, key).map_err(|e| match e {
         keepass::error::DatabaseOpenError::Key(_) => {
@@ -224,7 +230,17 @@ fn open_blocking(
     let format = db.config.version.to_string();
     let read_only = !matches!(db.config.version, keepass::config::DatabaseVersion::KDB4(1));
 
-    Ok(Opened { db, raw, master, format, read_only })
+    // Erst nach dem Entschlüsseln kopieren: So landet nur eine Datei im
+    // Zwischenspeicher, die sich mit diesem Schlüssel auch öffnen lässt.
+    let offline = match source {
+        crate::offline::Source::Original => {
+            crate::offline::store(app, path, &raw);
+            None
+        }
+        crate::offline::Source::Cached { saved_at, reason } => Some((saved_at, reason)),
+    };
+
+    Ok(Opened { db, raw, master, format, read_only, offline })
 }
 
 /// Legt eine neue, leere Datenbank an und öffnet sie gleich.
@@ -561,8 +577,8 @@ fn iso(time: Option<NaiveDateTime>) -> String {
    ========================================================= */
 
 #[tauri::command]
-pub fn vault_commit(state: tauri::State<'_, Vault>) -> Result<bool, String> {
-    commit(&state)
+pub fn vault_commit(app: tauri::AppHandle, state: tauri::State<'_, Vault>) -> Result<bool, String> {
+    commit(&app, &state)
 }
 
 /// Schreibt die Datenbank zurück.
@@ -570,7 +586,7 @@ pub fn vault_commit(state: tauri::State<'_, Vault>) -> Result<bool, String> {
 /// Steht als eigene Funktion da, weil nicht nur die Oberfläche schreibt: Die
 /// Browser-Anbindung legt Verknüpfungen und Einträge an, und die wären beim
 /// nächsten Start weg, wenn sie nur im Arbeitsspeicher stünden.
-pub fn commit(state: &Vault) -> Result<bool, String> {
+pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.touch();
 
@@ -583,6 +599,17 @@ pub fn commit(state: &Vault) -> Result<bool, String> {
     }
 
     let path = vault.path.clone().ok_or("Keine Datenbank geöffnet.")?;
+
+    // Geöffnet ist nur die Offline-Kopie. Zurückschreiben geht erst, wenn
+    // die Datei wieder lesbar ist — sonst entstünde am Ort womöglich eine
+    // neue Datei neben einer, die gerade nur nicht erreichbar ist.
+    if vault.offline && std::fs::read(&path).is_err() {
+        return Err(
+            "Der Speicherort ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie. \
+             Gespeichert werden kann erst, wenn die Datei wieder da ist."
+                .into(),
+        );
+    }
 
     // Hat in der Zwischenzeit jemand anderes geschrieben? Die Datei liegt in
     // Nextcloud und wird auch von KeePassXC angefasst. Lieber abbrechen als
@@ -612,6 +639,8 @@ pub fn commit(state: &Vault) -> Result<bool, String> {
 
     // Ab jetzt ist unser eigener Stand der maßgebliche.
     vault.opened_hash = Some(digest(&bytes));
+    vault.offline = false;
+    crate::offline::store(app, &path.to_string_lossy(), &bytes);
     Ok(true)
 }
 

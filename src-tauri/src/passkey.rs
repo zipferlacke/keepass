@@ -100,6 +100,10 @@ pub struct AssertResponse {
     pub client_data_json: String,
     pub signature: String,
     pub user_handle: Option<String>,
+    /// Welcher Eintrag angemeldet hat — nur für „Zuletzt genutzt", geht
+    /// nicht an die Gegenstelle.
+    #[serde(skip)]
+    pub entry_uuid: String,
 }
 
 /* =========================================================
@@ -248,6 +252,7 @@ pub fn passkey_assert(
         client_data_json: B64URL.encode(&client_data),
         signature: B64URL.encode(signature.to_der().as_bytes()),
         user_handle: entry.get(F_HANDLE).map(str::to_string),
+        entry_uuid: entry.id().uuid().to_string(),
     })
 }
 

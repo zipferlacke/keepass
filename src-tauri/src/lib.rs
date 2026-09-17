@@ -20,6 +20,7 @@ mod dto;
 mod entries;
 mod keepass_extension;
 mod keystore;
+mod offline;
 mod passkey;
 mod qr;
 mod seal;
@@ -183,6 +184,7 @@ pub fn run() {
             database::vault_set_auto_lock,
             // Einträge
             entries::vault_save_entry,
+            entries::vault_write_attachment,
             entries::vault_delete_entry,
             entries::vault_empty_recycle_bin,
             entries::vault_move_entry,
@@ -208,6 +210,7 @@ pub fn run() {
             secrets::vault_attachment,
             secrets::pick_attachments,
             secrets::save_attachment,
+            secrets::stage_attachment_content,
             // Einstellungen
             settings::settings_read,
             settings::settings_write,

@@ -40,6 +40,9 @@ function ensureLoaded() {
     if (!res.ok) throw new Error(`Demo-Daten nicht lesbar (${res.status}).`);
     data = await res.json();
 
+    // Beispielanhänge liegen in der Demo direkt in der JSON-Datei.
+    for (const [ref, att] of Object.entries(data.attachments ?? {})) binaries.set(ref, att);
+
     // Höchsten vergebenen Token merken, damit neue nicht kollidieren
     for (const key of Object.keys(data.secrets)) {
       const n = Number(key.replace(/^s/, ''));
@@ -472,6 +475,42 @@ const commands = {
 
     binaries.set(ref, { name, type: 'text/plain', data });
     return [{ name, type: 'text/plain', size: 32, ref }];
+  },
+
+  /** Ein Anhang eines gespeicherten Eintrags, sofort geschrieben — wie im Kern. */
+  async vault_write_attachment({ entryId, name, ref, previous }) {
+    await ensureLoaded();
+    const entry = data.entries.find(e => e.id === entryId);
+    if (!entry) throw new Error('Eintrag nicht gefunden.');
+    const source = binaries.get(String(ref));
+    if (!source) throw new Error('Der Anhang ist nicht mehr da.');
+
+    const list = entry.attachments ?? [];
+    if (list.some(a => a.name === name) && previous !== name) {
+      throw new Error(`„${name}“ gibt es in diesem Eintrag schon.`);
+    }
+
+    const next = `demo-w${nextRef++}`;
+    const type = source.type;
+    binaries.set(next, { ...source, name });
+    if (String(ref).startsWith('staged:')) binaries.delete(String(ref));
+
+    const size = Math.floor((source.data.split(',')[1] ?? '').length * 3 / 4);
+    entry.attachments = [
+      ...list.filter(a => a.name !== name && a.name !== previous),
+      { name, type, size, ref: next }
+    ];
+    return next;
+  },
+
+  async stage_attachment_content({ name, content }) {
+    const ref = `staged:${nextRef++}`;
+    const bytes = new TextEncoder().encode(content);
+    const type = /\.md$/i.test(name) ? 'text/markdown' : /\.html?$/i.test(name) ? 'text/html' : 'text/plain';
+    let binary = '';
+    bytes.forEach(b => { binary += String.fromCharCode(b); });
+    binaries.set(ref, { name, type, data: `data:${type};base64,${btoa(binary)}` });
+    return { name, type, size: bytes.length, ref };
   },
 
   /**

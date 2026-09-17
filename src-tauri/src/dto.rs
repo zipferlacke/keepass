@@ -20,6 +20,13 @@ pub struct DatabaseInfo {
     pub read_only: bool,
     /// Fassung des Containers, für die Anzeige — z. B. `"KDBX 4.1"`.
     pub format: String,
+    /// Nur gesetzt, wenn die Datei nicht lesbar war und stattdessen die
+    /// Offline-Kopie geöffnet wurde: wann die Kopie entstand.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_at: Option<String>,
+    /// Warum die Datei selbst nicht ging.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offline_reason: Option<String>,
 }
 
 /// Welche Wege zum Entsperren stehen auf diesem Gerät bereit?

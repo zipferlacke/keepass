@@ -188,13 +188,22 @@ impl Entry {
             });
         }
 
+        // WKeePass: `Ref` ist die **Position** im Inner Header, nicht die
+        // interne Kennung. `to_xml` schreibt die Anhänge nach Kennung
+        // sortiert, aber lückenlos — nach Ersetzen oder Löschen hat die
+        // Kennung Lücken, und der Verweis zeigte ins Leere oder auf fremde
+        // Daten. Verweise auf nicht mehr vorhandene Anhänge (etwa aus dem
+        // Verlauf) entfallen, statt auf einen falschen zu zeigen.
+        let all = &db.database().attachments;
         let mut binary_fields = Vec::with_capacity(db.attachments.len());
         for (key, attachment) in &db.attachments {
+            if !all.contains_key(attachment) {
+                continue;
+            }
+            let position = all.keys().filter(|other| other.id() < attachment.id()).count();
             binary_fields.push(BinaryField {
                 key: key.clone(),
-                value: BinaryValue {
-                    value_ref: attachment.id(),
-                },
+                value: BinaryValue { value_ref: position },
             });
         }
 

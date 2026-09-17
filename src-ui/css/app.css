@@ -668,12 +668,13 @@
       align-items: center;
       gap: 0.35rem;
 
-      input, textarea, select { flex: 1; text-align: start; }
-      input[type="date"] { min-width: 0; }
+      /* min-width: 0 — sonst behält ein Eingabefeld seine Standardbreite
+         und schiebt zwei Felder nebeneinander auf dem Handy über den Rand. */
+      input, textarea, select { flex: 1; min-width: 0; text-align: start; }
     }
   }
 
-  .dlg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .dlg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
 
   .dlg-section {
     margin-bottom: 0.7rem;
@@ -2305,6 +2306,15 @@
     width: min(640px, 94vw);
   }
 
+  /* Lange Dateinamen dürfen den Dialog nicht verbreitern. userDialog legt
+     Formular und Inhalt als Raster mit `1fr` an — dessen Mindestbreite ist
+     die längste nicht umbrechende Zeile, und auf dem Handy ragte die
+     Dateiliste samt Löschknöpfen rechts aus dem Bild. */
+  .userDialog {
+    form { grid-template-columns: minmax(0, 1fr); }
+    .content, .content main { min-width: 0; }
+  }
+
   /* ============================================================
      Dateiablage: Liste statt Kacheln
      ============================================================ */
@@ -2350,6 +2360,14 @@
     }
 
     [data-remove]:hover { color: var(--clr-danger-700); }
+  }
+
+  .dlg-attach-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+
+    .button { flex: 1 1 12rem; }
   }
 
   .file-drop {
@@ -2417,10 +2435,34 @@
     .file-viewer-title {
       flex: 1;
       min-width: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Der Name ist zugleich der Knopf zum Umbenennen */
+    .file-viewer-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      max-width: 100%;
+      height: auto;
+      padding: 0.3rem 0.6rem;
+      border: none;
+      border-radius: var(--br-default);
+      background: transparent;
+      color: inherit;
       font-size: var(--fs-300);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      cursor: text;
+
+      strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .msr { font-size: 1rem; color: var(--text-hover); opacity: 0; }
+
+      &:hover { background: var(--clr-neutral-200); .msr { opacity: 1; } }
+    }
+
+    .file-viewer-rename {
+      width: min(28rem, 100%);
+      font-size: var(--fs-300);
       text-align: center;
     }
 
@@ -2429,7 +2471,10 @@
       min-height: 0;
       display: flex;
       flex-direction: column;
-      overflow: auto;
+      /* Nur senkrecht scrollen: Bilder passen sich an, Text bricht um.
+         Sonst zeigt WebKit schon bei einem Pixel Überstand einen Balken. */
+      overflow-x: hidden;
+      overflow-y: auto;
       padding-bottom: env(safe-area-inset-bottom, 0px);
 
       .preview-image {
@@ -2453,6 +2498,24 @@
 
       .empty-state { margin: auto; }
       .preview-type-icon { font-size: 3rem; }
+
+      .file-editor {
+        flex: 1;
+        width: 100%;
+        max-width: var(--width-normal);
+        margin-inline: auto;
+        padding: 0.85rem 1rem;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        color: inherit;
+        font-family: var(--font-mono);
+        font-size: var(--fs-200);
+        line-height: 1.55;
+        resize: none;
+        outline: none;
+        text-align: start;
+      }
     }
   }
 }

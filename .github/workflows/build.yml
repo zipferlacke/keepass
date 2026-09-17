@@ -1,4 +1,8 @@
-# Baut WKeePass für Windows, macOS und als Flatpak (x86_64 + aarch64).
+# Baut WKeePass für Windows, macOS, als Flatpak (x86_64 + aarch64) und als
+# Android-APK.
+#
+# wuefl-libs kommt dabei von GitHub (siehe .github/actions/wuefl-libs) —
+# lokal ist es nur ein Symlink auf das Nachbarprojekt.
 #
 # Start: von Hand unter „Actions" (workflow_dispatch) oder durch einen Tag
 # wie `v0.1.0`. Bei einem Tag landen alle Dateien zusätzlich in einem
@@ -32,6 +36,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/wuefl-libs
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -72,6 +78,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: ./.github/actions/wuefl-libs
+
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: wkeepass-${{ matrix.arch }}.flatpak
@@ -79,10 +87,96 @@ jobs:
           arch: ${{ matrix.arch }}
           cache-key: flatpak-builder-${{ matrix.arch }}-${{ hashFiles('src-tauri/Cargo.lock') }}
 
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/wuefl-libs
+
+      # Android-SDK und NDK liegen auf dem Runner schon bereit
+      # (ANDROID_HOME, ANDROID_NDK_LATEST_HOME) — nur Java muss passen.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # gen/ steht nicht im Repository — das Android-Projekt entsteht hier
+      # jedes Mal neu. Die Symbole dafür liegen fertig unter icons/android.
+      - name: Android-Projekt erzeugen
+        working-directory: src-tauri
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx --yes @tauri-apps/cli@2 android init --ci
+          cp -r icons/android/. gen/android/app/src/main/res/
+
+      - name: Bauen
+        working-directory: src-tauri
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx --yes @tauri-apps/cli@2 android build --ci --apk \
+            --target aarch64 --target armv7 --target x86_64
+
+      # Eine unsignierte APK lässt sich nicht installieren.
+      #
+      # Mit den Secrets ANDROID_KEYSTORE (base64 der .jks-Datei),
+      # ANDROID_KEYSTORE_PASSWORD und ANDROID_KEY_ALIAS wird immer mit
+      # demselben Schlüssel signiert — nur dann lassen sich Updates über eine
+      # installierte Fassung spielen. Ohne sie gibt es einen Wegwerfschlüssel:
+      # zum Ausprobieren gut, vor jedem Update muss die App aber runter.
+      #
+      # Schlüssel einmalig anlegen und als Secret hinterlegen:
+      #   keytool -genkeypair -v -keystore wkeepass.jks -alias wkeepass \
+      #           -keyalg RSA -keysize 4096 -validity 10000
+      #   base64 -w0 wkeepass.jks   # → ANDROID_KEYSTORE
+      - name: Signieren
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-release-unsigned.apk' | head -1)
+          test -n "$APK" || { echo "Keine APK gefunden"; exit 1; }
+
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          else
+            echo "::warning::Kein ANDROID_KEYSTORE hinterlegt — signiert mit einem Wegwerfschlüssel."
+            KEYSTORE_PASSWORD=wegwerf
+            KEY_ALIAS=wkeepass
+            keytool -genkeypair -keystore "$RUNNER_TEMP/release.jks" -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 365 -storepass "$KEYSTORE_PASSWORD" \
+              -dname "CN=WKeePass Test"
+          fi
+
+          "$TOOLS/zipalign" -f 4 "$APK" "$RUNNER_TEMP/aligned.apk"
+          "$TOOLS/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" --out wkeepass-android.apk "$RUNNER_TEMP/aligned.apk"
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wkeepass-Android
+          path: wkeepass-android.apk
+
   release:
     name: Release-Entwurf
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [desktop, flatpak]
+    needs: [desktop, flatpak, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
