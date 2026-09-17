@@ -8,6 +8,15 @@
 
     "changelog":[
         {
+            "version":"0.0.2",
+            "date":"2026-09-17",
+            "changes":[
+                "Android Biometrie, Filsystem hinzugefügt",
+                "Makdown Preview geändert"
+            ]
+        },
+        {
+            "date":"2026-09-17",
             "version":"0.0.1",
             "changes":[
                 "Start vom WKeePass"
