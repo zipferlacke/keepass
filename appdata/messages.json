@@ -44,7 +44,8 @@
                 "Einstellungen: Änderungsdatum der Datenbankdatei – auch bei Dateien aus der Cloud",
                 "Abgleich über die Cloud: Änderungen anderer Geräte werden Eintrag für Eintrag zusammengeführt statt das Speichern zu blockieren – immer aktiv, der ältere Stand bleibt im Verlauf",
                 "Import aus CSV: Spalten lassen sich selbst zuordnen, übrige Spalten auf Wunsch in die Notizen",
-                "Datenbanken mit Schlüsseldatei behalten sie beim Speichern"
+                "Datenbanken mit Schlüsseldatei behalten sie beim Speichern",
+                "Open Source unter der Apache License 2.0"
             ]
         },
         {
