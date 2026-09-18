@@ -40,7 +40,8 @@
                 "Entsperren: animierte Punkte, solange die Datenbank entschlüsselt wird",
                 "Selbstsperre greift nicht mehr mitten im Lesen",
                 "Sicherheitscheck: keine Auswahl und kein Verschieben mehr in den Befunden",
-                "Einträge heißen automatisch wie der Dienst (z. B. „GitHub“) statt nach ihrer Adresse – abschaltbar in den Einstellungen"
+                "Einträge heißen automatisch wie der Dienst (z. B. „GitHub“) statt nach ihrer Adresse – abschaltbar in den Einstellungen",
+                "Einstellungen: Änderungsdatum der Datenbankdatei – auch bei Dateien aus der Cloud"
             ]
         },
         {

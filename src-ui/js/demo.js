@@ -648,6 +648,7 @@ const commands = {
 
   /** Fremde Seiten sperren den Abruf per CORS aus — im Browser also nichts. */
   async fetch_page_title() { return null; },
+  async database_modified() { return Date.now() - 3600_000; },
 
   /* ---------- QR ---------- */
 

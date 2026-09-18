@@ -278,6 +278,7 @@ pub fn run() {
             system::pick_database_file,
             system::pick_save_path,
             system::fetch_page_title,
+            system::database_modified,
             // Passkeys
             passkey::passkey_list,
             passkey::passkey_create,

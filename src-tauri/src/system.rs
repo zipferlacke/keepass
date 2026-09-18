@@ -170,6 +170,15 @@ pub fn datei_uebergeben(app: &tauri::AppHandle, args: impl IntoIterator<Item = S
     let _ = app.emit("open-database", path);
 }
 
+/// Wann die Datenbankdatei zuletzt geändert wurde (ms seit 1970) — für die
+/// Einstellungen. `None`, wenn der Speicherort es nicht verrät.
+#[tauri::command]
+pub async fn database_modified(path: String) -> Result<Option<i64>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::storage::modified_ms(&path))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Holt den Namen des Dienstes hinter einer Adresse (siehe `web::dienstname`).
 ///
 /// Aus dem Webview heraus geht das nicht — fremde Seiten verbieten den

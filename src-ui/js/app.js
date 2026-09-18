@@ -3009,7 +3009,8 @@ function settingsMarkup() {
       <div class="settings-card">
         <div class="setting">
           <div class="setting-label"><strong>${esc(current?.name ?? 'Geöffnete Datenbank')}</strong>
-            <small>${esc(current?.path ?? '')}</small></div>
+            <small>${esc(current?.path ?? '')}</small>
+            <small id="db-modified" hidden></small></div>
         </div>
         <div class="setting">
           <div class="setting-label"><strong>Aus anderen Apps importieren</strong>
@@ -3627,6 +3628,18 @@ function wireSettings(root = $('#settings-body')) {
   });
 
   root.querySelector('#btn-import-entries')?.addEventListener('click', () => importFromOtherApps());
+
+  // Änderungsdatum der Datei — fragt je nach Ort das Dateisystem oder den
+  // Cloud-Anbieter, darum nachgereicht statt beim Zeichnen.
+  const dbPath = settings.get('database.current', null);
+  const modifiedEl = root.querySelector('#db-modified');
+  if (dbPath && modifiedEl) {
+    invoke('database_modified', { path: dbPath }).then(ms => {
+      if (!ms) return;
+      modifiedEl.textContent = `Datei zuletzt geändert: ${new Date(ms).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}`;
+      modifiedEl.hidden = false;
+    }).catch(() => {});
+  }
 
   root.querySelector('#btn-export')?.addEventListener('click', () => {
     settings.downloadSettings();

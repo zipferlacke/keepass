@@ -59,6 +59,18 @@ pub fn read(path: &str) -> Result<Vec<u8>, String> {
     std::fs::read(path).map_err(|e| format!("Datei nicht lesbar: {e}"))
 }
 
+/// Wann die Datei zuletzt geändert wurde, in Millisekunden seit 1970.
+///
+/// Bei einer Adresse weiß das nur der Anbieter (Nextcloud, Drive …) —
+/// `None`, wenn er es nicht verrät.
+pub fn modified_ms(path: &str) -> Option<i64> {
+    if is_uri(path) {
+        return uri::modified_ms(path);
+    }
+    let zeit = std::fs::metadata(path).ok()?.modified().ok()?;
+    Some(zeit.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as i64)
+}
+
 /// Schreibt eine Datei.
 ///
 /// Über einen Pfad so, dass ein Abbruch die alte Fassung nicht zerstört
@@ -309,6 +321,60 @@ mod uri {
         }
     }
 
+    /// `DocumentsContract.Document.COLUMN_LAST_MODIFIED` beim Anbieter.
+    pub fn modified_ms(path: &str) -> Option<i64> {
+        use jni::objects::{JObject, JObjectArray, JValue};
+
+        let ergebnis = crate::java::mit_java(|env, activity| {
+            let resolver = env
+                .call_method(activity, "getContentResolver", "()Landroid/content/ContentResolver;", &[])?
+                .l()?;
+            let uri = parse_uri(env, path)?;
+
+            let spalte = env.new_string("last_modified")?;
+            let spalten: JObjectArray = env.new_object_array(1, "java/lang/String", &spalte)?;
+
+            let cursor = env
+                .call_method(
+                    resolver,
+                    "query",
+                    "(Landroid/net/Uri;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)Landroid/database/Cursor;",
+                    &[
+                        JValue::Object(&uri),
+                        JValue::Object(&spalten),
+                        JValue::Object(&JObject::null()),
+                        JValue::Object(&JObject::null()),
+                        JValue::Object(&JObject::null()),
+                    ],
+                )?
+                .l()?;
+
+            if cursor.is_null() {
+                return Ok(None);
+            }
+
+            let mut zeit = None;
+            if env.call_method(&cursor, "moveToFirst", "()Z", &[])?.z()?
+                && !env.call_method(&cursor, "isNull", "(I)Z", &[JValue::Int(0)])?.z()?
+            {
+                let ms = env.call_method(&cursor, "getLong", "(I)J", &[JValue::Int(0)])?.j()?;
+                if ms > 0 {
+                    zeit = Some(ms);
+                }
+            }
+            env.call_method(&cursor, "close", "()V", &[])?;
+            Ok(zeit)
+        });
+
+        match ergebnis {
+            Ok(zeit) => zeit,
+            Err(e) => {
+                eprintln!("[storage] Änderungszeit zu {path} nicht ermittelbar: {e}");
+                None
+            }
+        }
+    }
+
     fn parse_uri<'a>(env: &mut jni::JNIEnv<'a>, path: &str) -> Result<jni::objects::JObject<'a>, jni::errors::Error> {
         use jni::objects::JValue;
         let text = env.new_string(path)?;
@@ -360,6 +426,10 @@ mod uri {
     pub fn remember(_path: &str) {}
 
     pub fn display_name(_path: &str) -> Option<String> {
+        None
+    }
+
+    pub fn modified_ms(_path: &str) -> Option<i64> {
         None
     }
 
