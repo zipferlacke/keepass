@@ -1,4 +1,4 @@
-# Baut WKeePass für Windows (Installer + MSI), macOS, Linux (Flatpak, RPM,
+# Baut WKeePass für Windows, macOS, Linux (Flatpak, RPM,
 # AppImage — je x86_64 und aarch64) und Android (APK + AAB).
 #
 # wuefl-libs kommt dabei von GitHub (siehe .github/actions/wuefl-libs) —
@@ -25,11 +25,9 @@ jobs:
         include:
           - name: Windows
             os: windows-latest
-            args: --bundles nsis,msi
+            args: --bundles nsis
             targets: ''
-            output: |
-              src-tauri/target/release/bundle/nsis/*.exe
-              src-tauri/target/release/bundle/msi/*.msi
+            output: src-tauri/target/release/bundle/nsis/*.exe
           - name: macOS
             os: macos-latest
             # Eine .dmg für Apple Silicon und Intel zugleich
