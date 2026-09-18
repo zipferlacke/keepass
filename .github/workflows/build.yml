@@ -5,8 +5,9 @@
 # lokal ist es nur ein Symlink auf das Nachbarprojekt.
 #
 # Start: von Hand unter „Actions" (workflow_dispatch) oder durch einen Tag
-# wie `v0.1.0`. Bei einem Tag landen alle Dateien zusätzlich in einem
-# Release-Entwurf, den man vor dem Veröffentlichen noch prüfen kann.
+# wie `v0.1.0` (siehe git-release: der Tag entsteht aus dem obersten Eintrag
+# in appdata/messages.json). Bei einem Tag wird daraus ein Release: Titel
+# und Text kommen aus der Tag-Beschreibung, alle gebauten Dateien hängen dran.
 
 name: Build
 
@@ -122,12 +123,10 @@ jobs:
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npx --yes @tauri-apps/cli@2 android init --ci
           cp -r icons/android/. gen/android/app/src/main/res/
-          # Unsere eigenen Kotlin-Klassen (Keystore-Schlüssel für die
-          # Biometrie) und die Regel, die sie vor dem Optimierer schützt —
+          # Unsere Kotlin-Klassen (Biometrie, Dateiauswahl, Autofill,
+          # Passkeys), ihr Manifest-Block und ihre Abhängigkeiten —
           # derselbe Schritt wie in tools/android.sh.
-          cp -r ../keepass-android/kotlin/de/wuefl/wkeepass/sicherheit \
-                gen/android/app/src/main/java/de/wuefl/wkeepass/
-          cp ../keepass-android/proguard-wkeepass.pro gen/android/app/
+          python3 ../tools/android-einbinden.py
 
       - name: Bauen
         working-directory: src-tauri
@@ -180,18 +179,35 @@ jobs:
           path: wkeepass-android.apk
 
   release:
-    name: Release-Entwurf
+    name: Release
     if: startsWith(github.ref, 'refs/tags/')
     needs: [desktop, flatpak, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      # checkout holt beim flachen Klonen nur den Commit, nicht das
+      # Tag-Objekt mit seiner Beschreibung — also ausdrücklich nachladen.
+      - name: Beschreibung aus dem Tag
+        run: |
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          # Erste Zeile („Version 0.1.0") wird der Titel, der Rest die
+          # Änderungen — je Zeile ein Punkt.
+          TITLE=$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents:subject)')
+          git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents:body)' \
+            | sed '/^-----BEGIN PGP SIGNATURE-----/,$d' \
+            | sed '/^[[:space:]]*$/d; s/^[-*][[:space:]]*//; s/^/- /' > release-notes.md
+          echo "TITLE=WKeePass ${TITLE:-$GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          cat release-notes.md
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
 
       - uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          name: ${{ env.TITLE }}
+          body_path: release-notes.md
           files: dist/**/*

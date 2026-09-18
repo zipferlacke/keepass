@@ -15,6 +15,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-fs = "2"
+# Links im Browser öffnen — etwa die Seite zum Löschen eines alten Kontos.
+# Nur über unseren eigenen Befehl `open_link`, der nichts außer http(s)
+# durchlässt; der Webview bekommt keine eigene Berechtigung dafür.
+tauri-plugin-opener = "2"
 tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-persisted-scope = "2"

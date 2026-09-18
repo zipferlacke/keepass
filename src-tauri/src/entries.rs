@@ -639,3 +639,42 @@ mod tests {
         assert_eq!(anhaenge(&vault, id), vec![("alt.txt".to_string(), b"Inhalt".to_vec())]);
     }
 }
+
+/// Vermerkt, dass Einträge gerade benutzt wurden (`LastAccessTime`).
+///
+/// Daraus entsteht im Sicherheitscheck die Liste der inaktiven Einträge —
+/// und KeePassXC zeigt denselben Zeitpunkt an. Geschrieben wird er mit dem
+/// nächsten Speichern; nur bei `persist` sofort, etwa wenn der Nutzer
+/// ausdrücklich „wird noch genutzt" sagt.
+#[tauri::command]
+pub fn vault_mark_accessed(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    ids: Vec<String>,
+    persist: Option<bool>,
+) -> Result<usize, String> {
+    let zahl = {
+        let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        mark_accessed(&mut vault, &ids)?
+    };
+    if persist.unwrap_or(false) && zahl > 0 {
+        crate::database::commit(&app, &state)?;
+    }
+    Ok(zahl)
+}
+
+pub fn mark_accessed(vault: &mut crate::state::VaultState, ids: &[String]) -> Result<usize, String> {
+    let db = vault.database_mut()?;
+    let treffer: Vec<_> = db
+        .iter_all_entries()
+        .filter(|e| ids.iter().any(|id| *id == e.id().uuid().to_string()))
+        .map(|e| e.id())
+        .collect();
+    let jetzt = keepass::db::Times::now();
+    for id in &treffer {
+        if let Some(mut entry) = db.entry_mut(*id) {
+            entry.times.last_access = Some(jetzt);
+        }
+    }
+    Ok(treffer.len())
+}

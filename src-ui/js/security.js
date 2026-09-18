@@ -161,6 +161,40 @@ export async function checkEmailBreached(email) {
   }
 }
 
+/**
+ * Die Einzelheiten zu allen Lecks einer Adresse: wann, bei wem, was
+ * abgeflossen ist und wie die Passwörter gespeichert waren.
+ *
+ * Ohne das steht nur ein Name da — und der Nutzer weiß nicht, ob er sein
+ * Passwort ändern, mit Phishing rechnen oder gar nichts tun muss.
+ *
+ * @returns {Promise<Map<string, {domain, year, data: string[], passwordRisk, details, industry}>>}
+ */
+export async function breachAnalytics(email) {
+  if (analyticsCache.has(email)) return analyticsCache.get(email);
+  const out = new Map();
+  try {
+    const res = await fetch(`https://api.xposedornot.com/v1/breach-analytics?email=${encodeURIComponent(email)}`);
+    if (res.ok) {
+      const data = await res.json();
+      for (const b of data?.ExposedBreaches?.breaches_details ?? []) {
+        out.set(b.breach, {
+          domain: b.domain || '',
+          year: String(b.xposed_date ?? '').slice(0, 4),
+          data: String(b.xposed_data ?? '').split(';').map(x => x.trim()).filter(Boolean),
+          passwordRisk: String(b.password_risk ?? 'unknown').toLowerCase(),
+          details: b.details || '',
+          industry: b.industry || ''
+        });
+      }
+    }
+  } catch { /* ohne Einzelheiten geht es auch — dann nur mit Namen */ }
+  analyticsCache.set(email, out);
+  return out;
+}
+
+const analyticsCache = new Map();
+
 /** Zusatzdetails (Datum, betroffene Daten) zu einem Leak-Namen. */
 export async function breachDetails(name) {
   try {
@@ -175,3 +209,52 @@ export async function breachDetails(name) {
    Kern gewandert (vault.reusedIds) — dort liegen die Werte, hier
    nicht mehr.
    ========================================================= */
+
+/* =========================================================
+   Konto beim Dienst löschen
+   ---------------------------------------------------------
+   Eine Schnittstelle zum Löschen bietet kein Dienst an — man muss auf
+   seiner Seite selbst klicken. Was sich machen lässt: direkt auf **die**
+   Seite springen, statt sie in den Einstellungen des Dienstes zu suchen.
+
+   Woher die Adressen kommen: JustDeleteMe (github.com/jdm-contrib/jdm),
+   eine offene, gepflegte Liste mit gut 2500 Diensten, je mit Link zur
+   Löschseite und einer Einschätzung, wie mühsam es ist. Abgerufen wird die
+   ganze Liste auf einmal — welche Dienste in der Datenbank stehen, erfährt
+   dabei niemand.
+   ========================================================= */
+
+const JDM_URL = 'https://raw.githubusercontent.com/jdm-contrib/jdm/master/_data/sites.json';
+let jdmPromise = null;
+
+/** Rechnername → { name, url, difficulty }; einmal je Sitzung geladen. */
+export function accountDeletionIndex() {
+  jdmPromise ??= fetch(JDM_URL)
+    .then(res => (res.ok ? res.json() : []))
+    .then(list => {
+      const index = new Map();
+      for (const site of list) {
+        if (!site.url) continue;
+        for (const domain of site.domains ?? []) {
+          index.set(domain.toLowerCase(), { name: site.name, url: site.url, difficulty: site.difficulty || '' });
+        }
+      }
+      return index;
+    })
+    .catch(() => { jdmPromise = null; return new Map(); });
+  return jdmPromise;
+}
+
+/** Sucht die Löschseite zu einer Adresse — auch über übergeordnete Domains. */
+export function findDeletion(index, url) {
+  if (!index || !url) return null;
+  let host;
+  try { host = new URL(url.includes('://') ? url : `https://${url}`).hostname.toLowerCase(); } catch { return null; }
+  host = host.replace(/^www\./, '');
+  const parts = host.split('.');
+  for (let i = 0; i < parts.length - 1; i++) {
+    const hit = index.get(parts.slice(i).join('.'));
+    if (hit) return hit;
+  }
+  return null;
+}

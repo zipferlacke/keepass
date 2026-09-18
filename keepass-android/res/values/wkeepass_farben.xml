@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Die Farben der App (src-ui/css/app.css) für die nativen Teile:
+     Autofill-Vorschläge und die Auswahlliste. Präfix wkeepass_, damit sich
+     nichts mit dem mischt, was Tauri erzeugt. -->
+<resources>
+    <color name="wkeepass_grund">#14161B</color>
+    <color name="wkeepass_karte">#1B1E24</color>
+    <color name="wkeepass_rand">#2C3038</color>
+    <color name="wkeepass_text">#E8EAED</color>
+    <color name="wkeepass_leise">#9AA0A6</color>
+    <color name="wkeepass_gruen">#26A269</color>
+    <color name="wkeepass_gruen_hell">#8FE0B5</color>
+</resources>

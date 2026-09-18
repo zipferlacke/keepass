@@ -35,6 +35,8 @@
 //! durch Code, den eine Website beeinflussen kann. Ist die Datenbank zu,
 //! wartet die Anfrage und das eigene Fenster fragt.
 
+use crate::secrets::current_totp;
+use crate::matching::{entry_urls, host_of, match_score, split_url};
 use std::io::{Read, Write};
 use std::sync::Mutex;
 
@@ -1344,16 +1346,6 @@ struct Candidate {
 /// dieselben Freigaben wieder.
 const DECISION_PREFIX: &str = "KP_BROWSER_";
 
-/// Der Rechnername einer Adresse, ohne Anmeldedaten, Port und Pfad.
-fn host_of(url: &str) -> Option<String> {
-    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
-    let rest = rest.split(['/', '?', '#']).next()?;
-    let rest = rest.rsplit_once('@').map(|(_, r)| r).unwrap_or(rest);
-    let host = rest.split(':').next()?.trim().to_ascii_lowercase();
-
-    (!host.is_empty()).then_some(host)
-}
-
 /// Wie `host_of`, aber für Stellen, die einen geliehenen Wert brauchen.
 fn host_of_str(url: &str) -> Option<&str> {
     let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
@@ -1361,94 +1353,6 @@ fn host_of_str(url: &str) -> Option<&str> {
     let host = rest.split(':').next()?;
 
     (!host.is_empty()).then_some(host)
-}
-
-/// Rechnername und Pfad einer Adresse, ohne Anmeldedaten, Port und Anhängsel.
-fn split_url(url: &str) -> Option<(String, Vec<String>)> {
-    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
-    let rest = rest.split(['?', '#']).next()?;
-
-    let (authority, path) = match rest.split_once('/') {
-        Some((a, p)) => (a, p),
-        None => (rest, ""),
-    };
-
-    let authority = authority.rsplit_once('@').map(|(_, r)| r).unwrap_or(authority);
-    let host = authority.split(':').next()?.trim().to_ascii_lowercase();
-
-    if host.is_empty() {
-        return None;
-    }
-
-    let segments = path.split('/').filter(|s| !s.is_empty()).map(str::to_string).collect();
-    Ok::<_, ()>((host, segments)).ok()
-}
-
-/// Wie gut passt der Eintrag zur angefragten Adresse?
-///
-/// `None` heißt: gar nicht. Sonst gilt: je größer, desto genauer.
-///
-/// # Die Reihenfolge, in der gesucht wird
-///
-/// Zuerst die genaue Adresse, dann Stück für Stück gröber:
-///
-/// ```text
-/// https://shop.example.com/kunden/login     angefragt
-///
-///   shop.example.com/kunden/login    genau              120
-///   shop.example.com/kunden          Pfad ein Stück ab  110
-///   shop.example.com                 nur der Rechner    100
-///   example.com                      eine Ebene höher    90
-/// ```
-///
-/// Ein Eintrag mit abweichendem Pfad — etwa `/impressum` — fällt nicht
-/// heraus, sondern nur ans Ende. Sonst käme man an einen Eintrag, den man
-/// für die Domain angelegt hat, auf einer Unterseite nicht mehr heran.
-///
-/// Zurückgegeben wird alles Passende, nach Genauigkeit sortiert. Die
-/// Auswahl trifft der Nutzer danach in der Liste, die die Erweiterung
-/// selbst in die Seite zeichnet.
-fn match_score(entry_url: &str, wanted_host: &str, wanted_path: &[String]) -> Option<u32> {
-    let (host, path) = split_url(entry_url)?;
-
-    // Der Rechner entscheidet, ob es überhaupt passt.
-    let host_score = if host == wanted_host {
-        100
-    } else if let Some(rest) = wanted_host.strip_suffix(&format!(".{host}")) {
-        // Je mehr Unterebenen dazwischen liegen, desto entfernter.
-        let ebenen = rest.matches('.').count() as u32 + 1;
-        90u32.saturating_sub((ebenen - 1) * 10)
-    } else {
-        return None;
-    };
-
-    // Der Pfad verfeinert nur noch.
-    let gemeinsam = entry_path_prefix(&path, wanted_path);
-
-    Some(match gemeinsam {
-        // Kein Pfad am Eintrag: gilt für die ganze Seite, ohne Abzug.
-        Some(0) => host_score,
-        Some(n) => host_score + 10 + n.min(2) as u32 * 5,
-        // Pfad passt nicht — trotzdem behalten, aber ganz hinten.
-        None => host_score.saturating_sub(50),
-    })
-}
-
-/// Wie viele Pfadstücke des Eintrags am Anfang der Anfrage stehen.
-///
-/// `None`, wenn der Eintrag einen Pfad hat, der nicht dazu passt.
-fn entry_path_prefix(entry: &[String], wanted: &[String]) -> Option<usize> {
-    if entry.is_empty() {
-        return Some(0);
-    }
-    if entry.len() > wanted.len() {
-        return None;
-    }
-    entry
-        .iter()
-        .zip(wanted)
-        .all(|(a, b)| a == b)
-        .then_some(entry.len())
 }
 
 
@@ -1480,15 +1384,7 @@ fn matching_entries(
             continue;
         }
 
-        let urls = std::iter::once(entry.get_url().unwrap_or_default().to_string())
-            .chain(
-                entry
-                    .fields
-                    .iter()
-                    .filter(|(name, _)| name.starts_with("KP_ADDITIONAL_URL"))
-                    .map(|(_, value)| value.to_string()),
-            )
-            .collect::<Vec<_>>();
+        let urls = entry_urls(&entry);
 
         // Der beste Treffer unter allen Adressen des Eintrags zählt.
         let Some(score) = urls.iter().filter_map(|u| match_score(u, host, path)).max() else {
@@ -1530,22 +1426,6 @@ fn matching_entries(
 
     Ok(out)
 }
-
-/// Der gerade gültige TOTP-Code eines Eintrags, falls einer hinterlegt ist.
-fn current_totp(raw: &str) -> Option<String> {
-    let uri = if raw.starts_with("otpauth://") {
-        raw.to_string()
-    } else {
-        format!(
-            "otpauth://totp/WKeePass?secret={}&digits=6&period=30&algorithm=SHA1",
-            raw.trim().replace(' ', "")
-        )
-    };
-
-    let totp: keepass::db::TOTP = uri.parse().ok()?;
-    totp.value_now().ok().map(|code| code.code)
-}
-
 
 /* =========================================================
    Die übrigen Aktionen

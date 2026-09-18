@@ -159,55 +159,82 @@ pub fn herkunft(path: &str) -> String {
 mod uri {
     use std::io::{Read, Write};
 
-    use tauri_plugin_fs::{FilePath, FsExt, OpenOptions};
+    /// `contentResolver.openFileDescriptor(uri, modus)` — und der
+    /// Dateideskriptor wandert als gewöhnliche `File` nach Rust.
+    ///
+    /// Bewusst nicht über `tauri-plugin-fs`: Das öffnet auf dem Hauptfaden,
+    /// und Nextcloud muss die Datei dabei erst aus dem Netz holen. Android
+    /// verbietet Netzwerk auf dem Hauptfaden
+    /// (`NetworkOnMainThreadException`) — die Datenbank ging nie auf, und es
+    /// blieb nur die Offline-Kopie. Hier läuft der Aufruf auf dem
+    /// Arbeitsfaden, auf dem der Kern ohnehin gerade liest oder schreibt.
+    ///
+    /// `modus` wie bei Android: `r`, `w`, `wt`, `rw`, `rwt`.
+    fn oeffnen(path: &str, modus: &str) -> Result<std::fs::File, String> {
+        use std::os::fd::FromRawFd;
 
-    fn oeffnen(path: &str, opts: OpenOptions) -> Result<std::fs::File, String> {
-        let app = crate::app_handle().ok_or("Die Anwendung läuft noch nicht.")?;
-        let uri: FilePath = path
-            .parse()
-            .map_err(|_| format!("Adresse nicht lesbar: {path}"))?;
+        // Immer ein eigener Faden: Synchrone Tauri-Befehle — etwa das
+        // Speichern — laufen auf dem Hauptfaden, und von dort käme der
+        // Aufruf sonst wieder genau dort an, wo er verboten ist.
+        let (path_owned, modus_owned) = (path.to_string(), modus.to_string());
+        let fd = std::thread::spawn(move || oeffnen_im_faden(&path_owned, &modus_owned))
+            .join()
+            .map_err(|_| "Öffnen abgestürzt.".to_string())??;
 
-        app.fs().open(uri, opts).map_err(|e| {
+        if fd < 0 {
+            return Err("Der Anbieter hat die Datei nicht herausgegeben.".into());
+        }
+        Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+    }
+
+    fn oeffnen_im_faden(path: &str, modus: &str) -> Result<i32, String> {
+        use jni::objects::JValue;
+
+        crate::java::mit_java(|env, activity| {
+            let resolver = env
+                .call_method(activity, "getContentResolver", "()Landroid/content/ContentResolver;", &[])?
+                .l()?;
+            let uri = parse_uri(env, path)?;
+            let modus = env.new_string(modus)?;
+            let pfd = env
+                .call_method(
+                    resolver,
+                    "openFileDescriptor",
+                    "(Landroid/net/Uri;Ljava/lang/String;)Landroid/os/ParcelFileDescriptor;",
+                    &[JValue::Object(&uri), JValue::Object(&modus.into())],
+                )?
+                .l()?;
+            if pfd.is_null() {
+                return Ok(-1);
+            }
+            // `detachFd`: Ab jetzt gehört der Deskriptor uns, und `File`
+            // schließt ihn — beim Schließen lädt Nextcloud auch hoch.
+            env.call_method(&pfd, "detachFd", "()I", &[])?.i()
+        })
+        .map_err(|e| {
             // Ins Protokoll, weil die Meldung auf dem Bildschirm abgeschnitten
             // wird und genau hier die Ursache steht (`adb logcat`).
-            eprintln!("[storage] {path} nicht zu öffnen: {e}");
+            eprintln!("[storage] {path} nicht zu öffnen ({modus}): {e}");
             format!("Datei nicht erreichbar: {e}")
         })
     }
 
     /// `contentResolver.takePersistableUriPermission(uri, lesen | schreiben)`
     ///
-    /// Über JNI, weil es dafür keine Rust-Schnittstelle gibt: Der Weg führt
-    /// über die Activity, die uns tao bereitstellt.
+    /// Über JNI, weil es dafür keine Rust-Schnittstelle gibt. Klappt nur bei
+    /// Dateien, die über `ACTION_OPEN_DOCUMENT` oder `ACTION_CREATE_DOCUMENT`
+    /// kamen — bei allen anderen wirft Android eine `SecurityException`.
+    /// Die ist hier kein Fehler, sondern nur ein „geht bei dieser Datei
+    /// nicht": ins Protokoll, weiter. Abgeräumt wird sie von `mit_java`;
+    /// ohne das riss sie früher die ganze App mit.
     pub fn remember(path: &str) {
-        use jni::objects::{JObject, JValue};
-        use tao::platform::android::prelude::main_android_context;
+        use jni::objects::JValue;
 
-        let Some(ctx) = main_android_context() else { return };
-
-        let ergebnis = (|| -> Result<(), jni::errors::Error> {
-            let vm = unsafe { jni::JavaVM::from_raw(ctx.java_vm.cast()) }?;
-            let mut env = vm.attach_current_thread()?;
-            let activity = unsafe { JObject::from_raw(ctx.context_jobject.cast()) };
-
+        let ergebnis = crate::java::mit_java(|env, activity| {
             let resolver = env
-                .call_method(
-                    &activity,
-                    "getContentResolver",
-                    "()Landroid/content/ContentResolver;",
-                    &[],
-                )?
+                .call_method(activity, "getContentResolver", "()Landroid/content/ContentResolver;", &[])?
                 .l()?;
-
-            let text = env.new_string(path)?;
-            let uri = env
-                .call_static_method(
-                    "android/net/Uri",
-                    "parse",
-                    "(Ljava/lang/String;)Landroid/net/Uri;",
-                    &[JValue::Object(&text.into())],
-                )?
-                .l()?;
+            let uri = parse_uri(env, path)?;
 
             // FLAG_GRANT_READ_URI_PERMISSION | FLAG_GRANT_WRITE_URI_PERMISSION
             let flags = 0x0000_0001 | 0x0000_0002;
@@ -217,15 +244,8 @@ mod uri {
                 "(Landroid/net/Uri;I)V",
                 &[JValue::Object(&uri), JValue::Int(flags)],
             )?;
-
-            // Eine Ausnahme auf der Java-Seite muss abgeräumt werden, sonst
-            // stolpert der nächste JNI-Aufruf darüber.
-            if env.exception_check()? {
-                env.exception_clear()?;
-                return Err(jni::errors::Error::JavaException);
-            }
             Ok(())
-        })();
+        });
 
         if let Err(e) = ergebnis {
             eprintln!("[storage] Erlaubnis für {path} nicht dauerhaft: {e}");
@@ -240,28 +260,12 @@ mod uri {
     /// Anbieter selbst, und den fragt man über den ContentResolver.
     pub fn display_name(path: &str) -> Option<String> {
         use jni::objects::{JObject, JObjectArray, JString, JValue};
-        use tao::platform::android::prelude::main_android_context;
 
-        let ctx = main_android_context()?;
-
-        let hole = || -> Result<Option<String>, jni::errors::Error> {
-            let vm = unsafe { jni::JavaVM::from_raw(ctx.java_vm.cast()) }?;
-            let mut env = vm.attach_current_thread()?;
-            let activity = unsafe { JObject::from_raw(ctx.context_jobject.cast()) };
-
+        let ergebnis = crate::java::mit_java(|env, activity| {
             let resolver = env
-                .call_method(&activity, "getContentResolver", "()Landroid/content/ContentResolver;", &[])?
+                .call_method(activity, "getContentResolver", "()Landroid/content/ContentResolver;", &[])?
                 .l()?;
-
-            let text = env.new_string(path)?;
-            let uri = env
-                .call_static_method(
-                    "android/net/Uri",
-                    "parse",
-                    "(Ljava/lang/String;)Landroid/net/Uri;",
-                    &[JValue::Object(&text.into())],
-                )?
-                .l()?;
+            let uri = parse_uri(env, path)?;
 
             let spalte = env.new_string("_display_name")?;
             let spalten: JObjectArray = env.new_object_array(1, "java/lang/String", &spalte)?;
@@ -294,9 +298,9 @@ mod uri {
             }
             env.call_method(&cursor, "close", "()V", &[])?;
             Ok(name)
-        };
+        });
 
-        match hole() {
+        match ergebnis {
             Ok(name) => name,
             Err(e) => {
                 eprintln!("[storage] Name zu {path} nicht ermittelbar: {e}");
@@ -305,8 +309,20 @@ mod uri {
         }
     }
 
+    fn parse_uri<'a>(env: &mut jni::JNIEnv<'a>, path: &str) -> Result<jni::objects::JObject<'a>, jni::errors::Error> {
+        use jni::objects::JValue;
+        let text = env.new_string(path)?;
+        env.call_static_method(
+            "android/net/Uri",
+            "parse",
+            "(Ljava/lang/String;)Landroid/net/Uri;",
+            &[JValue::Object(&text.into())],
+        )?
+        .l()
+    }
+
     pub fn read(path: &str) -> Result<Vec<u8>, String> {
-        let mut file = oeffnen(path, OpenOptions::new().read(true).clone())?;
+        let mut file = oeffnen(path, "r")?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)
             .map_err(|e| format!("Datei nicht lesbar: {e}"))?;
@@ -318,12 +334,7 @@ mod uri {
         // Anbieter verschieden: Der Download-Speicher lehnt „wt" ab, andere
         // brauchen genau das, damit vom längeren alten Inhalt nichts
         // stehenbleibt. Deshalb der Reihe nach probieren.
-        let modi = [
-            OpenOptions::new().write(true).truncate(true).clone(),
-            OpenOptions::new().read(true).write(true).truncate(true).clone(),
-            OpenOptions::new().write(true).clone(),
-            OpenOptions::new().read(true).write(true).clone(),
-        ];
+        let modi = ["wt", "rwt", "w", "rw"];
 
         let mut letzter = String::from("Datei nicht beschreibbar.");
         for modus in modi {

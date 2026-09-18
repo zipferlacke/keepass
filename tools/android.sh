@@ -44,20 +44,6 @@ geraet_waehlen() {
   return 0
 }
 
-# Was Android selbst verlangt und Tauri nicht erzeugt: unsere Kotlin-Klassen
-# und die Regel, die sie vor dem Optimierer schützt. Sie liegen unter
-# keepass-android/ und werden bei jedem Bauen frisch hineinkopiert — gen/
-# ist Wegwerfware und wird nie dort bearbeitet.
-#
-# Der Autofill-Ordner ist noch nicht fertig und bleibt deshalb außen vor.
-eigene_dateien() {
-  local ziel="$PROJEKT/src-tauri/gen/android/app"
-  mkdir -p "$ziel/src/main/java/de/wuefl/wkeepass"
-  cp -r "$PROJEKT/keepass-android/kotlin/de/wuefl/wkeepass/sicherheit" \
-        "$ziel/src/main/java/de/wuefl/wkeepass/"
-  cp "$PROJEKT/keepass-android/proguard-wkeepass.pro" "$ziel/"
-}
-
 bauen() {
   cd "$PROJEKT/src-tauri"
   # Das Android-Projekt liegt unter gen/ und steht nicht im Repository.
@@ -66,7 +52,8 @@ bauen() {
     cargo tauri android init
     cp -r icons/android/. gen/android/app/src/main/res/
   fi
-  eigene_dateien
+  # Kotlin-Klassen, Manifest-Block, Abhängigkeiten — siehe dort.
+  python3 "$PROJEKT/tools/android-einbinden.py"
   echo "==> Bauen"
   # Ohne das wiegt allein die Rust-Bibliothek über 250 MB — reine
   # Fehlersuchsymbole, die auf dem Handy niemand liest. Über WLAN bricht die

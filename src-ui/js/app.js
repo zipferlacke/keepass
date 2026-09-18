@@ -1,7 +1,7 @@
 import * as vault from './vault.js';
 import * as settings from './settings.js';
 import { parseOtpauth, buildOtpauth } from './totp.js';
-import { checkPwnedByHash, checkEmailBreached, passwordStrength as localStrength } from './security.js';
+import { checkPwnedByHash, checkEmailBreached, breachAnalytics, accountDeletionIndex, findDeletion, passwordStrength as localStrength } from './security.js';
 import { applyAppearance, applyTheme, applyPrimary, resolvedColor } from './theme.js';
 import { avatarMarkup, refreshEpoch, hostFromUrl } from './icons.js';
 import * as qr from './qr.js';
@@ -74,6 +74,22 @@ async function boot() {
   // Abrufe über die Browser-Erweiterung zählen ebenfalls als Nutzung.
   await listen('entries-used', ev => markUsed(ev?.payload ?? []));
 
+  // Android: Autofill und Passkeys schreiben in die offene Datenbank, ohne
+  // dass die Oberfläche beteiligt ist. Danach die Liste nachziehen — und
+  // wenn das Zurückschreiben scheitert, muss man es erfahren.
+  await listen('vault-changed', async () => {
+    if (state.locked) return;
+    await refreshFromVault();
+    renderAll({ includeSettings: false });
+  });
+  await listen('autofill-saved', ev => {
+    const n = Number(ev?.payload ?? 0);
+    banner(n === 1 ? 'Ein Zugang aus dem Autofill wurde gespeichert.' : `${n} Zugänge aus dem Autofill wurden gespeichert.`, 'success', 5000);
+  });
+  await listen('save-failed', ev => {
+    banner(`Änderung nicht gespeichert: ${ev?.payload ?? ''}`, 'error', 10000);
+  });
+
   // Auswahlfelder bekommen das Aussehen der übrigen Oberfläche.
   selectPicker();
 
@@ -104,6 +120,7 @@ async function boot() {
 
   // Beim allerersten Start einmal durch die Einrichtung führen.
   if (!settings.get('ui.welcomeSeen', false)) await showWelcome();
+  if (isMobile && !settings.get('android.setupSeen', false)) await showAndroidSetup();
   renderLockscreen();
 
   // Ist die Datenbank an das Gerät gebunden (Windows Hello), wird gleich
@@ -449,12 +466,13 @@ function renderLockscreen(message) {
 async function openUnlockDialog() {
   const u = state.unlock;
   const fields = captureFields('pin', 'pw');
+  const bioWeg = biometrieWeg(u);
 
   const res = await dialog({
     title: 'Entsperren',
     content: `
       ${u.biometric ? `<button type="button" class="button hightlight" data-shape="full" id="dlg-bio">
-        <span class="msr">fingerprint</span>&nbsp;Mit Fingerabdruck entsperren</button>` : ''}
+        <span class="msr">fingerprint</span>&nbsp;Mit Biometrie entsperren</button>` : ''}
 
       ${u.pin ? `<label class="field-label">App-PIN</label>
         ${passwordField('pin', 'PIN', { required: false })}` : ''}
@@ -462,10 +480,12 @@ async function openUnlockDialog() {
       <label class="field-label">Master-Passwort${u.pin ? ' (falls die PIN nicht passt)' : ''}</label>
       ${passwordField('pw', 'Master-Passwort', { required: !u.pin })}
 
-      ${u.deviceAvailable && !u.device ? `<div class="setting">
-        <div class="setting-label"><strong>Künftig mit ${esc(deviceName())} öffnen</strong>
-          <small>Ersetzt PIN und Master-Passwort auf diesem Gerät</small></div>
-        <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberDevice"
+      ${bioWeg ? `<div class="setting">
+        <div class="setting-label"><strong>Künftig mit Biometrie öffnen</strong>
+          <small>${bioWeg === 'device'
+            ? 'Ersetzt das Master-Passwort — der Schlüssel liegt im Sicherheitschip'
+            : `Der Finger weist dich aus, der Schlüssel liegt im Schlüsselbund${u.pinSet ? '' : ' — dafür wird eine App-PIN festgelegt'}`}</small></div>
+        <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberBio"
           ${settings.get('unlock.biometrics', true) ? 'checked' : ''}></div>
       </div>` : ''}
 
@@ -473,12 +493,6 @@ async function openUnlockDialog() {
         <div class="setting-label"><strong>Künftig auch mit PIN öffnen</strong>
           ${u.pinSet ? '' : '<small>Dafür wird gleich eine App-PIN festgelegt</small>'}</div>
         <div class="setting-control"><input type="checkbox" data-shape="toggle" name="remember"></div>
-      </div>`}
-
-      ${u.device || u.biometric || !u.biometricAvailable || !u.keyring ? '' : `<div class="setting">
-        <div class="setting-label"><strong>Künftig auch mit Fingerabdruck öffnen</strong>
-          <small>Der Fingerabdruck weist dich aus; der Schlüssel kommt aus dem Schlüsselbund</small></div>
-        <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberBio"></div>
       </div>`}`,
     confirmText: 'Entsperren',
     cancelText: 'Abbrechen',
@@ -500,8 +514,11 @@ async function openUnlockDialog() {
   if (!d.pw) { banner('Bitte PIN oder Master-Passwort eingeben.', 'warning'); return; }
 
   const wantsPin = fieldChecked(res.data, 'remember');
-  const wantsBio = fieldChecked(res.data, 'rememberBio');
-  const wantsDevice = fieldChecked(res.data, 'rememberDevice');
+  const wantsBioSwitch = fieldChecked(res.data, 'rememberBio');
+  // Ein Schalter, der beste Weg: der Chip, wo es ihn gibt, sonst der
+  // Schlüsselbund mit dem Finger als Ausweis.
+  const wantsDevice = wantsBioSwitch && bioWeg === 'device';
+  const wantsBio = wantsBioSwitch && bioWeg === 'keyring';
 
   // PIN und Fingerabdruck hängen beide am App-Schlüssel, und der entsteht
   // erst mit der PIN des Programms. Ohne sie geht keins von beidem.
@@ -523,6 +540,22 @@ async function openUnlockDialog() {
         }
       : null
   });
+}
+
+/**
+ * Welcher Biometrie-Weg für diese Datenbank noch einzurichten ist.
+ *
+ * `device`   Der Chip gibt den Schlüssel nur nach der Prüfung heraus
+ *            (Android-Keystore, Windows Hello). Ersetzt das Master-Passwort.
+ * `keyring`  Der Finger ist nur Ausweis, der Schlüssel liegt im
+ *            Schlüsselbund, und es braucht die App-PIN (Linux, macOS).
+ * `null`     Nichts möglich — oder schon eingerichtet.
+ */
+function biometrieWeg(u) {
+  if (u.device || u.biometric) return null;
+  if (u.deviceAvailable) return 'device';
+  if (u.biometricAvailable && u.keyring) return 'keyring';
+  return null;
 }
 
 /** Kleine Nachfrage nach der App-PIN, wenn sie zum Bestätigen gebraucht wird. */
@@ -704,6 +737,9 @@ async function pickDatabase() {
 
   const name = dbName(picked);
   await rememberDatabase({ name, path: picked });
+  // Die Entsperrwege gehören zur Datei. Ohne das bot der Dialog noch PIN
+  // und Fingerabdruck der vorher gewählten Datenbank an.
+  state.unlock = await unlockMethods(picked);
   renderLockscreen();
 }
 
@@ -1498,6 +1534,10 @@ function markUsed(ids) {
   const list = [ids].flat().filter(Boolean);
   if (!list.length || !path) return;
 
+  // Auch in der Datei (LastAccessTime) — daraus entsteht „Inaktive
+  // Einträge", und KeePassXC sieht denselben Zeitpunkt.
+  vault.markAccessed(list).catch(() => {});
+
   const now = Date.now();
   const map = usageMap(now);
   for (const id of list) {
@@ -1535,7 +1575,7 @@ function countProblems() {
     if (state.reused.has(e.id)) n++;
     if (expiryState(e)) n++;
   }
-  return n + state.emailFindings.reduce((a, f) => a + f.breaches.length, 0);
+  return n + state.emailFindings.reduce((a, f) => a + openBreaches(f).length, 0);
 }
 
 /* ---------- Eintrags-Zeile ---------- */
@@ -2267,14 +2307,16 @@ function renderSecurity() {
     : [];
   const reused = live.filter(e => state.reused.has(e.id));
   const expiring = live.filter(e => expiryState(e));
-  const mailCount = state.emailFindings.reduce((a, f) => a + f.breaches.length, 0);
+  const inactive = inactiveEntries(live);
+  const mailCount = state.emailFindings.reduce((a, f) => a + openBreaches(f).length, 0);
 
   const stats = [
     { key: 'leaked', num: pwCheck ? leaked.length : '–', label: 'geleakte Passwörter', tone: leaked.length ? 'bad' : 'ok' },
     { key: 'weak', num: weak.length, label: 'schwache Passwörter', tone: weak.length ? 'warn' : 'ok' },
     { key: 'reused', num: reused.length, label: 'mehrfach genutzt', tone: reused.length ? 'warn' : 'ok' },
     { key: 'expiring', num: expiring.length, label: 'abgelaufen / bald fällig', tone: expiring.length ? 'warn' : 'ok' },
-    { key: 'mail', num: mailCheck ? mailCount : '–', label: 'E-Mail-Leaks', tone: mailCount ? 'bad' : 'ok' }
+    { key: 'mail', num: mailCheck ? mailCount : '–', label: 'E-Mail-Leaks', tone: mailCount ? 'bad' : 'ok' },
+    { key: 'inactive', num: inactive.length, label: 'lange nicht genutzt', tone: inactive.length ? 'warn' : 'ok' }
   ];
 
   const last = settings.get('checks.lastRunAt', null);
@@ -2326,15 +2368,8 @@ function renderSecurity() {
 
       <div class="security-findings">
         ${groups.map(g => group(g.id, g.title, g.items, g.empty)).join('')}
-        ${mailCheck ? `
-          <div class="section-label" id="sec-mail">E-Mail-Datenlecks</div>
-          ${state.emailFindings.filter(f => f.breaches.length).length
-            ? state.emailFindings.filter(f => f.breaches.length).map(f => `
-              <div class="finding" data-tone="bad">
-                <div class="finding-title"><span class="msr">mail</span>${esc(f.email)}</div>
-                <div class="finding-text">Betroffen von: ${esc(f.breaches.map(b => b.name).join(', '))}</div>
-              </div>`).join('')
-            : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>Keine Treffer</div></div>`}` : ''}
+        ${mailCheck ? renderMailFindings() : ''}
+        ${renderInactive(inactive)}
       </div>
     </div>`;
 
@@ -2353,6 +2388,252 @@ function renderSecurity() {
   // Direkt aus dem Befund heraus bearbeiten
   $$('#security-body [data-edit]').forEach(btn =>
     btn.addEventListener('click', () => openEntryDialog(btn.dataset.edit)));
+
+  // Lecks einer Adresse als erledigt abhaken
+  $$('#security-body [data-ack]').forEach(btn => btn.addEventListener('click', async () => {
+    const f = state.emailFindings.find(x => x.email === btn.dataset.ack);
+    if (!f) return;
+    const ack = { ...settings.get('checks.breachAck', {}) };
+    ack[f.email] = [...new Set([...(ack[f.email] ?? []), ...f.breaches.map(b => b.name)])];
+    await settings.set('checks.breachAck', ack, { silent: true });
+    renderSecurity();
+    renderHome();
+  }));
+
+  // Inaktive Einträge: noch in Gebrauch, oder weg damit
+  $$('#security-body [data-still-used]').forEach(btn => btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      await vault.markAccessed([btn.dataset.stillUsed], true);
+      await refreshFromVault();
+      renderSecurity();
+      banner('Vermerkt — der Eintrag gilt wieder als genutzt.', 'success', 3000);
+    } catch (err) {
+      btn.disabled = false;
+      banner(err.message, 'error', 6000);
+    }
+  }));
+  $$('#security-body [data-remove]').forEach(btn =>
+    btn.addEventListener('click', () => runRowAction('delete', btn.dataset.remove)));
+  $$('#security-body [data-account-delete]').forEach(btn =>
+    btn.addEventListener('click', () => deleteAccountFlow(btn.dataset.accountDelete, btn.dataset.url)));
+}
+
+/* ---------- E-Mail-Datenlecks ---------- */
+
+/** Die Lecks einer Adresse, die noch nicht als erledigt abgehakt sind. */
+function openBreaches(f) {
+  const done = settings.get('checks.breachAck', {})[f.email] ?? [];
+  return f.breaches.filter(b => !done.includes(b.name));
+}
+
+/** Was die Leck-Datenbank auf Englisch meldet, auf Deutsch. */
+const LEAK_DATA = {
+  'Email addresses': 'E-Mail-Adresse', 'Passwords': 'Passwort', 'Usernames': 'Benutzername',
+  'Names': 'Name', 'Phone numbers': 'Telefonnummer', 'Physical addresses': 'Postanschrift',
+  'Dates of birth': 'Geburtsdatum', 'IP addresses': 'IP-Adresse', 'Genders': 'Geschlecht',
+  'Geographic locations': 'Wohnort', 'Credit cards': 'Kreditkarte', 'Partial credit card data': 'Teile der Kreditkarte',
+  'Bank account numbers': 'Kontonummer', 'Security questions and answers': 'Sicherheitsfragen',
+  'Auth Tokens': 'Anmelde-Token', 'Social media profiles': 'Social-Media-Profil', 'Private Messages': 'Private Nachrichten',
+  'Browser user agent details': 'Browserdaten', 'Purchases': 'Einkäufe', 'Job titles': 'Beruf', 'Employers': 'Arbeitgeber'
+};
+
+/** Einträge, die zum Dienst eines Lecks gehören — dort ist etwas zu tun. */
+function entriesForBreach(b) {
+  const domain = (b.domain || '').toLowerCase();
+  const name = (b.name || '').toLowerCase();
+  return liveEntries().filter(e => {
+    const host = (() => { try { return new URL(e.url.includes('://') ? e.url : `https://${e.url}`).hostname.toLowerCase(); } catch { return ''; } })();
+    return (domain && host && (host === domain || host.endsWith(`.${domain}`)))
+      || (name.length > 3 && e.name.toLowerCase().includes(name));
+  });
+}
+
+/**
+ * Je Adresse: welche Lecks, was dabei abgeflossen ist, was zu tun ist —
+ * und der Knopf zum passenden Eintrag.
+ *
+ * Die Adresse selbst kann man nicht „ändern" wie ein Passwort, und das muss
+ * man auch nicht. Gefährlich ist, was **mit** ihr abgeflossen ist. Darum
+ * richtet sich der Rat nach den Daten jedes einzelnen Lecks.
+ */
+function renderMailFindings() {
+  const affected = state.emailFindings.filter(f => openBreaches(f).length);
+  const done = state.emailFindings.filter(f => f.breaches.length && !openBreaches(f).length);
+
+  const breachRow = b => {
+    const data = (b.data ?? []).map(d => LEAK_DATA[d] ?? d);
+    const pw = (b.data ?? []).includes('Passwords');
+    const plain = ['plaintext', 'easytocrack'].includes(b.passwordRisk);
+    const entries = entriesForBreach(b);
+    const todo = [];
+    if (pw) todo.push(plain
+      ? '<strong>Passwort sofort ändern</strong> — es war im Klartext oder leicht zu knacken gespeichert.'
+      : 'Passwort ändern — es lag verschlüsselt vor, sicher ist das aber nicht.');
+    if (pw && entries.some(e => state.reused.has(e.id))) todo.push('Dasselbe Passwort nutzt du noch woanders — dort ebenfalls ändern.');
+    if ((b.data ?? []).some(d => /Phone/.test(d))) todo.push('Mit SMS- und Anruf-Betrug im Namen dieses Dienstes rechnen.');
+    if ((b.data ?? []).some(d => /Physical|Dates of birth/.test(d))) todo.push('Anschrift oder Geburtsdatum sind bekannt — bei Rückfragen „zur Bestätigung" skeptisch sein.');
+    if ((b.data ?? []).some(d => /credit|Bank/i.test(d))) todo.push('Kontoauszüge und Kreditkarte auf fremde Buchungen prüfen.');
+    if (!pw && !todo.length) todo.push('Kein Passwort betroffen. Wichtig ist hier vor allem: Mails im Namen dieses Dienstes kritisch lesen.');
+
+    return `<div class="breach">
+      <div class="breach-head"><span>${esc(b.name)}</span><span class="breach-meta">${esc(b.year || '')}</span></div>
+      ${data.length ? `<div class="breach-meta">Abgeflossen: ${esc(data.join(', '))}</div>` : ''}
+      <ul class="finding-advice">${todo.map(t => `<li>${t}</li>`).join('')}</ul>
+      ${entries.length ? `<div class="finding-actions">${entries.map(e =>
+        `<button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;${esc(e.name)} öffnen</button>`).join('')}</div>` : ''}
+    </div>`;
+  };
+
+  return `
+    <div class="section-label" id="sec-mail">E-Mail-Datenlecks</div>
+    ${affected.length ? `
+      <details class="finding" data-tone="info">
+        <summary class="finding-title"><span class="msr">help</span>Was bedeutet ein Treffer — und was ist zu tun?</summary>
+        <div class="finding-advice">
+          Deine Adresse stand in Daten, die bei einem Dienst gestohlen und veröffentlicht wurden. Das heißt nicht, dass jemand
+          in deinem Postfach war. Die Adresse lässt sich nicht zurückholen — das musst du auch nicht. Entscheidend ist, <em>was</em>
+          zusammen mit ihr abgeflossen ist; danach richtet sich unten der Rat zu jedem einzelnen Leck.
+          <ol>
+            <li>Beim betroffenen Dienst das Passwort ändern — und überall dort, wo du dasselbe benutzt.</li>
+            <li>Wo möglich die Zwei-Faktor-Anmeldung einschalten. WKeePass kann die Codes gleich mit verwalten.</li>
+            <li>Mit Phishing rechnen: Angreifer schreiben gezielt an geleakte Adressen, gern im Namen genau dieses Dienstes.</li>
+            <li>Konten, die du nicht mehr brauchst, beim Dienst löschen — ein vergessenes Konto ist ein offenes Konto.</li>
+            <li>Für neue Anmeldungen Alias-Adressen nutzen, wenn dein Mail-Anbieter das kann. Dann trifft ein Leck nur noch eine davon.</li>
+          </ol>
+          Hast du alles erledigt, hake die Adresse ab. Neue Lecks meldet die nächste Prüfung wieder.
+        </div>
+      </details>
+      ${affected.map(f => `
+        <div class="finding" data-tone="bad">
+          <div class="finding-title"><span class="msr">mail</span>${esc(f.email)}
+            <small>&nbsp;· ${openBreaches(f).length === 1 ? 'ein Leck' : `${openBreaches(f).length} Lecks`}</small></div>
+          <div class="breach-list">${openBreaches(f).map(breachRow).join('')}</div>
+          <div class="finding-actions">
+            <button type="button" class="button" data-ack="${esc(f.email)}"><span class="msr">task_alt</span>&nbsp;Erledigt</button>
+          </div>
+        </div>`).join('')}`
+    : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>Keine offenen Treffer</div></div>`}
+    ${done.length ? `<p class="security-last">Erledigt: ${done.map(f => esc(f.email)).join(', ')}</p>` : ''}`;
+}
+
+/* ---------- Inaktive Einträge ---------- */
+
+/** Nach so langer Zeit ohne Nutzung gilt ein Eintrag als inaktiv. */
+const INACTIVE_AFTER = 2 * 365 * 24 * 60 * 60 * 1000;
+
+/** Wann ein Eintrag zuletzt benutzt wurde — das Neueste aus Datei und App. */
+function lastUsed(e) {
+  return Math.max(
+    Date.parse(e.accessed) || 0,
+    Date.parse(e.modified) || 0,
+    usageMap()[e.id]?.at || 0
+  );
+}
+
+function inactiveEntries(live) {
+  const now = Date.now();
+  return live
+    .filter(e => { const t = lastUsed(e); return t > 0 && now - t > INACTIVE_AFTER; })
+    .sort((a, b) => lastUsed(a) - lastUsed(b));
+}
+
+/** Wie mühsam das Löschen laut JustDeleteMe ist. */
+const LOESCH_AUFWAND = {
+  easy: 'geht direkt auf der Seite',
+  medium: 'ein paar Schritte mehr',
+  hard: 'nur über den Support',
+  impossible: 'bietet keine Löschung an'
+};
+
+/**
+ * Zugänge, die seit über zwei Jahren niemand angefasst hat. Entweder
+ * braucht man sie nicht mehr — dann Konto beim Dienst löschen und Eintrag
+ * entfernen —, oder sie werden noch gebraucht, dann ein Klick.
+ *
+ * Für bekannte Dienste führt ein Knopf direkt auf deren Löschseite
+ * (Liste von JustDeleteMe, siehe security.js). Kommt der Nutzer von dort
+ * zurück, fragt die App, ob auch der Eintrag weg soll.
+ */
+function renderInactive(items) {
+  const when = e => new Date(lastUsed(e)).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const host = url => { try { return new URL(url.includes('://') ? url : `https://${url}`).hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+  // Die Löschliste kommt aus dem Netz; beim ersten Zeichnen ist sie noch
+  // nicht da. Dann nachladen und die Seite einmal neu zeichnen.
+  if (items.length && !state.deletionIndex) {
+    accountDeletionIndex().then(index => {
+      state.deletionIndex = index;
+      if (state.view === 'security') renderSecurity();
+    });
+  }
+
+  return `
+    <div class="section-label" id="sec-inactive">Lange nicht genutzt</div>
+    ${items.length ? `
+      <p class="section-note">Diese Zugänge hast du seit über zwei Jahren nicht benutzt. Brauchst du einen nicht mehr, lösche zuerst
+        das Konto beim Dienst und dann den Eintrag — ein vergessenes Konto mit altem Passwort ist ein beliebtes Ziel.
+        Wird er noch gebraucht, genügt „Noch in Gebrauch".</p>
+      ${items.map(e => {
+        const del = findDeletion(state.deletionIndex, e.url);
+        const site = host(e.url || '');
+        return `
+        <div class="finding inactive-item" data-tone="warn">
+          <div class="inactive-head">
+            <div class="finding-title"><span class="msr">schedule</span>${esc(e.name)}</div>
+            <div class="inactive-meta">
+              ${e.username ? `<span><span class="msr">person</span>${esc(e.username)}</span>` : ''}
+              ${site ? `<span><span class="msr">link</span>${esc(site)}</span>` : ''}
+            </div>
+          </div>
+          <div class="finding-text">Zuletzt genutzt: ${esc(when(e))}${del ? ` · Konto löschen ${esc(LOESCH_AUFWAND[del.difficulty] ?? '')}` : ''}</div>
+          <div class="finding-actions">
+            <button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;Öffnen</button>
+            <button type="button" class="button" data-still-used="${e.id}"><span class="msr">check</span>&nbsp;Noch in Gebrauch</button>
+            ${del && del.difficulty !== 'impossible'
+              ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(del.url)}"><span class="msr">person_remove</span>&nbsp;Konto löschen</button>`
+              : site ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(e.url.includes('://') ? e.url : `https://${e.url}`)}"><span class="msr">open_in_new</span>&nbsp;Zur Seite</button>` : ''}
+            <button type="button" class="button" data-remove="${e.id}"><span class="msr">delete</span>&nbsp;Eintrag löschen</button>
+          </div>
+        </div>`;
+      }).join('')}`
+    : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>Alles in Gebrauch</div></div>`}`;
+}
+
+/**
+ * Auf die Löschseite des Dienstes springen. Kommt der Nutzer zurück, die
+ * Frage, ob das Konto weg ist — dann gleich auch den Eintrag entfernen.
+ * Das Passwort braucht man dort meist noch einmal; deshalb erst danach.
+ */
+async function deleteAccountFlow(id, url) {
+  const entry = vault.getEntry(id);
+  if (!entry) return;
+  try { await vault.openLink(url); } catch (err) { banner(err.message, 'error', 6000); return; }
+
+  await new Promise(resolve => {
+    const back = () => {
+      if (document.visibilityState !== 'visible') return;
+      document.removeEventListener('visibilitychange', back);
+      window.removeEventListener('focus', back);
+      resolve();
+    };
+    // Kurz warten: Direkt nach dem Öffnen meldet der Webview noch „sichtbar".
+    setTimeout(() => {
+      document.addEventListener('visibilitychange', back);
+      window.addEventListener('focus', back);
+    }, 1500);
+  });
+
+  const res = await dialog({
+    title: 'Konto gelöscht?',
+    content: `<p>Hast du das Konto bei <strong>${esc(entry.name)}</strong> gelöscht? Dann kann auch der Eintrag weg.</p>
+      <p class="dlg-note">Er landet im Papierkorb der Datenbank, falls du ihn doch noch brauchst.</p>`,
+    confirmText: 'Eintrag löschen',
+    cancelText: 'Noch nicht'
+  });
+  if (!(res?.submit ?? res)) return;
+  await vault.deleteEntry(id);
+  return afterStructureChange('Konto erledigt — Eintrag gelöscht.');
 }
 
 async function runSecurityCheck({ silent = false } = {}) {
@@ -2384,6 +2665,10 @@ async function runSecurityCheck({ silent = false } = {}) {
     for (const mail of addresses) {
       const r = await checkEmailBreached(mail);
       if (r.error) errors.push(`E-Mail-Check: ${r.error}`);
+      if (r.breaches.length) {
+        const details = await breachAnalytics(mail);
+        r.breaches = r.breaches.map(b => ({ ...b, ...(details.get(b.name) ?? {}) }));
+      }
       state.emailFindings.push(r);
     }
   } else state.emailFindings = [];
@@ -2492,6 +2777,13 @@ function settingsMarkup() {
         </div>
       </div>
     </div>
+
+    ${isMobile ? `<div class="settings-group">
+      <div class="section-label">Android</div>
+      <div class="settings-card" id="android-card">
+        <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+      </div>
+    </div>` : ''}
 
     ${isMobile ? '' : `<div class="settings-group">
       <div class="section-label">Browser-Erweiterung</div>
@@ -2631,6 +2923,104 @@ function renderSettings() {
   // sonst aufhalten.
   renderBrowserSection();
   renderDatabaseSection();
+  renderAndroidSection($('#android-card'));
+}
+
+/* =========================================================
+   Android: Passwortmanager, Passkeys, Kamera
+   ---------------------------------------------------------
+   Drei Freigaben, die nur der Nutzer erteilen kann — jeweils in einer
+   anderen Ecke der Systemeinstellungen. Hier steht, was davon steht, und
+   ein Knopf führt genau dorthin, wo es fehlt.
+   ========================================================= */
+
+const ANDROID_FREIGABEN = [
+  { key: 'autofill', icon: 'password', title: 'Passwortmanager',
+    text: 'Füllt Anmeldungen in Apps und im Browser aus und bietet an, neue Zugänge zu speichern.',
+    action: 'Als Standard festlegen' },
+  { key: 'passkeys', icon: 'passkey', title: 'Passkeys',
+    text: 'Anmelden ohne Passwort. Die Passkeys liegen in deiner Datenbank, nicht bei Google.',
+    action: 'Aktivieren', missing: 'Erst ab Android 14' },
+  { key: 'kamera', icon: 'photo_camera', title: 'Kamera',
+    text: 'Nur für den QR-Scanner: Zwei-Faktor-Codes einrichten, ohne das Geheimnis abzutippen.',
+    action: 'Erlauben' }
+];
+
+/**
+ * Zeichnet die drei Freigaben in `card`. Nach einem Klick fragt es eine
+ * Weile nach — der Nutzer kommt aus den Systemeinstellungen zurück, ohne
+ * dass die Seite davon erfährt.
+ */
+async function renderAndroidSection(card) {
+  if (!card) return;
+  let status;
+  try { status = await vault.androidSetupStatus(); } catch { status = null; }
+  if (!status) { card.innerHTML = ''; return; }
+
+  card.innerHTML = ANDROID_FREIGABEN.map(f => {
+    const s = status[f.key] ?? {};
+    const control = s.aktiv
+      ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Aktiv</span>`
+      : !s.moeglich
+        ? `<span class="setting-state">${esc(f.missing ?? 'Nicht verfügbar')}</span>`
+        : `<button type="button" class="button hightlight" data-setup="${f.key}">
+            ${s.gesperrt ? 'In App-Einstellungen erlauben' : esc(f.action)}</button>`;
+    return `<div class="setting">
+      <div class="setting-label"><strong><span class="msr">${f.icon}</span> ${esc(f.title)}</strong><small>${esc(f.text)}</small></div>
+      <div class="setting-control">${control}</div>
+    </div>`;
+  }).join('');
+
+  card.querySelectorAll('[data-setup]').forEach(btn => btn.addEventListener('click', async () => {
+    await vault.androidSetupOpen(btn.dataset.setup);
+    watchAndroidSetup(card, JSON.stringify(status));
+  }));
+}
+
+/** Fragt eine Minute lang jede Sekunde nach und zeichnet bei Änderung neu. */
+function watchAndroidSetup(card, before) {
+  clearInterval(card._watch);
+  let rounds = 0;
+  card._watch = setInterval(async () => {
+    if (++rounds > 60 || !card.isConnected) { clearInterval(card._watch); return; }
+    const now = await vault.androidSetupStatus().catch(() => null);
+    if (now && JSON.stringify(now) !== before) {
+      clearInterval(card._watch);
+      renderAndroidSection(card);
+    }
+  }, 1000);
+}
+
+/**
+ * Beim ersten Start auf Android: sagen, wozu die Freigaben gut sind, und
+ * sie gleich einrichten lassen. Überspringen geht jederzeit — alles steht
+ * danach auch in den Einstellungen.
+ */
+async function showAndroidSetup() {
+  return new Promise(resolve => {
+    $('#welcome').hidden = false;
+    $('#welcome-card').innerHTML = `
+      ${BRAND_MARK}
+      <h2>Drei Freigaben für den Alltag</h2>
+      <p class="lock-sub">Damit WKeePass nicht nur Tresor ist, sondern dir beim Anmelden hilft, braucht es die Erlaubnis von Android.
+        Nichts davon schickt Daten irgendwohin — die Passwörter bleiben in deiner Datei.</p>
+      <div class="settings-card" id="android-setup"></div>
+      <div class="lock-actions">
+        <button type="button" class="button hightlight" data-shape="full" id="as-done"><span class="msr">check</span>&nbsp;Weiter</button>
+        <button type="button" class="button" data-shape="full" id="as-later">Später in den Einstellungen</button>
+      </div>`;
+
+    renderAndroidSection($('#android-setup'));
+
+    const done = async () => {
+      clearInterval($('#android-setup')?._watch);
+      await settings.set('android.setupSeen', true, { silent: true });
+      $('#welcome').hidden = true;
+      resolve();
+    };
+    $('#as-done').onclick = done;
+    $('#as-later').onclick = done;
+  });
 }
 
 /** Die drei Stufen der Schlüsselableitung, wie sie der Kern kennt. */
@@ -3277,6 +3667,19 @@ async function placeTotp(parsed) {
     (parsed.issuer && e.name.toLowerCase().includes(parsed.issuer.toLowerCase())) ||
     (parsed.issuer && e.url.toLowerCase().includes(parsed.issuer.toLowerCase())));
 
+  // Kein vorhandener Eintrag passt zum Aussteller? Dann gibt es nichts zu
+  // wählen — gleich den neuen Eintrag öffnen, vorausgefüllt.
+  const config0 = { digits: parsed.digits, period: parsed.period, algorithm: parsed.algorithm };
+  if (!suggestion || suggestion.hasTotp) {
+    openEntryDialog(null, {
+      name: parsed.issuer || parsed.name,
+      username: parsed.name,
+      totpSecret: parsed.secret,
+      totpConfig: config0
+    });
+    return;
+  }
+
   const res = await dialog({
     title: 'TOTP hinzufügen',
     content: `
@@ -3331,6 +3734,8 @@ async function placeTotp(parsed) {
     await refreshFromVault();
     renderAll({ includeSettings: false });
     banner(`TOTP zu „${entry.name}“ hinzugefügt.`, 'success');
+    // Gleich zeigen, wo er gelandet ist.
+    openEntryDialog(entry.id);
     return;
   }
 
@@ -3880,20 +4285,29 @@ function scannerHint() {
     : 'Dieser Browser kann keine QR-Codes lesen — in der Desktop- und App-Version übernimmt das Rust. Füge die otpauth://-URI hier als Text ein.';
 }
 
-/** Kamera-Scan in einem eigenen Dialog. */
+/**
+ * Kamera-Scan in einem eigenen Dialog.
+ *
+ * Kein „Fertig" zum Drücken: Ist ein Code erkannt, leuchtet der Rahmen auf,
+ * und der Dialog schließt sich von selbst — weiter geht es dort, wo der
+ * Code hingehört. Der einzige Knopf ist „Abbrechen".
+ */
 async function scanWithCamera() {
   let controller = null;
   let resolved = null;
 
-  const res = await dialog({
+  await dialog({
     title: 'QR-Code scannen',
     content: `<div class="qr-scanner">
-        <video id="qr-video" muted playsinline></video>
-        <p class="empty-state" id="qr-hint" style="padding:0.5rem">Richte die Kamera auf den QR-Code.<br>
-          <small>Auswertung: Rust (rqrr)</small></p>
+        <div class="qr-frame">
+          <video id="qr-video" muted playsinline></video>
+          <div class="qr-sucher"></div>
+          <div class="qr-check"><span class="msr">check</span></div>
+        </div>
+        <p class="qr-hint" id="qr-hint">Code in den Rahmen halten</p>
       </div>`,
-    confirmText: 'Fertig',
-    cancelText: 'Abbrechen',
+    confirmText: 'Abbrechen',
+    onlyConfirm: true,
     onInsert: () => queueMicrotask(async () => {
       const video = document.getElementById('qr-video');
       const hint = document.getElementById('qr-hint');
@@ -3901,8 +4315,12 @@ async function scanWithCamera() {
       try {
         controller = await qr.scanCamera(video);
         resolved = await controller.promise;
-        if (hint) hint.textContent = 'Code erkannt.';
-        document.querySelector('dialog[open] button[value="ok"], dialog[open] .dialog-submit')?.click();
+        if (hint) hint.textContent = 'Erkannt';
+        video.closest('.qr-scanner')?.classList.add('found');
+        navigator.vibrate?.(40);
+        // Das Aufleuchten kurz stehen lassen, dann von selbst weiter.
+        await new Promise(r => setTimeout(r, 650));
+        closeHostDialog(video, true);
       } catch (err) {
         if (hint && err.message !== 'abgebrochen') hint.textContent = `Kamera nicht verfügbar: ${err.message}`;
       }
@@ -3910,7 +4328,7 @@ async function scanWithCamera() {
   });
 
   controller?.stop();
-  if (!(res?.submit ?? res)) throw new Error('abgebrochen');
+  if (!resolved) throw new Error('abgebrochen');
   return resolved;
 }
 
@@ -4474,4 +4892,21 @@ function scheduleClipboardClear() {
   clipboardTimer = setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), secs * 1000);
 }
 
-boot();
+/**
+ * Scheitert der Start, bleibt der Sperrbildschirm stehen und sagt, warum —
+ * statt stumm eine leere Hauptseite zu zeigen, die nach offener Datenbank
+ * aussieht.
+ */
+boot().catch(err => {
+  console.error('Start fehlgeschlagen', err);
+  $('#lockscreen').hidden = false;
+  $('#lock-card').innerHTML = `
+    ${BRAND_MARK}
+    <h2>WKeePass konnte nicht starten</h2>
+    <p class="lock-sub">${esc(err?.message ?? err)}</p>
+    <div class="lock-actions">
+      <button type="button" class="button hightlight" data-shape="full" id="boot-retry">
+        <span class="msr">refresh</span>&nbsp;Neu laden</button>
+    </div>`;
+  $('#boot-retry').addEventListener('click', () => location.reload());
+});

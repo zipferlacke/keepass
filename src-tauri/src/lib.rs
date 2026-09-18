@@ -24,6 +24,7 @@ mod entries;
 #[cfg(desktop)]
 mod keepass_extension;
 mod keystore;
+mod matching;
 mod offline;
 mod passkey;
 mod qr;
@@ -32,6 +33,10 @@ mod secrets;
 mod settings;
 mod state;
 mod storage;
+#[cfg(target_os = "android")]
+mod java;
+#[cfg(target_os = "android")]
+mod android_services;
 mod system;
 mod util;
 mod webview;
@@ -123,6 +128,7 @@ pub fn run() {
         .manage(Vault::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_persisted_scope::init())
         // Nur mobil: Das Plugin deckt ausdrücklich nur Android und iOS ab.
@@ -246,6 +252,10 @@ pub fn run() {
             // System
             system::startup_database,
             system::path_label,
+            system::open_link,
+            system::android_setup_status,
+            system::android_setup_open,
+            entries::vault_mark_accessed,
             system::pick_database_file,
             system::pick_save_path,
             system::fetch_page_title,
@@ -271,6 +281,7 @@ pub fn run() {
             keepass_extension::api::browser_forget,
             // QR
             qr::decode_qr_bytes,
+            qr::decode_qr_gray,
             qr::decode_qr_rgba,
             qr::decode_qr_path,
         ])

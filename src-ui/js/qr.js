@@ -9,11 +9,11 @@
  * Ohne Kern gibt es folglich keinen Scanner; die Oberfläche meldet das.
  */
 
-import { isTauri, invoke } from './platform.js';
+import { isTauri, isMobile, invoke } from './platform.js';
 import { renderQrCode } from './ui.js';
 
 const MAX_EDGE = 800;        // Frames vor dem Senden herunterskalieren
-const SCAN_INTERVAL_MS = 200; // ~5 Bilder pro Sekunde reichen für QR
+const SCAN_INTERVAL_MS = 60;  // Pause zwischen zwei Prüfungen; die Prüfung selbst dauert länger
 
 /** Kann in dieser Umgebung überhaupt gescannt werden? */
 export function scannerAvailable() {
@@ -35,6 +35,53 @@ export async function cameraAvailable() {
 /** Dekodiert ein Bild aus Rohbytes (PNG/JPEG). */
 async function decodeBytes(bytes) {
   const result = await invoke('decode_qr_bytes', { bytes: Array.from(bytes) });
+  return result || null;
+}
+
+/** Kantenlänge des Ausschnitts, der je Kamerabild geprüft wird. */
+const SCAN_EDGE = 640;
+
+/** Ein Canvas für alle Bilder — neu anlegen kostet bei 10 Bildern je Sekunde. */
+let scanCanvas = null;
+
+/**
+ * Prüft ein Kamerabild auf einen QR-Code.
+ *
+ * Schnell, weil ohne Umwege: Graustufen direkt aus dem Canvas, als rohe
+ * Bytes an Rust — kein JPEG kodieren und wieder entpacken, keine JSON-Liste
+ * mit Hunderttausenden Zahlen. Das war der Grund, warum das Erkennen früher
+ * Sekunden dauerte.
+ *
+ * `center`: nur das mittlere Quadrat, dort wo der Sucherrahmen hinzeigt —
+ * kleiner, also schneller, und der Code füllt es besser aus. Sonst das
+ * ganze Bild, falls jemand nicht mittig hält.
+ */
+async function decodeFrame(video, center) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const side = center ? Math.min(vw, vh) * 0.75 : Math.max(vw, vh);
+  const sx = center ? (vw - side) / 2 : 0;
+  const sy = center ? (vh - side) / 2 : 0;
+  const sw = center ? side : vw;
+  const sh = center ? side : vh;
+
+  const scale = Math.min(1, SCAN_EDGE / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * scale));
+  const h = Math.max(1, Math.round(sh * scale));
+
+  scanCanvas ??= document.createElement('canvas');
+  scanCanvas.width = w;
+  scanCanvas.height = h;
+  const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+
+  const rgba = ctx.getImageData(0, 0, w, h).data;
+  const gray = new Uint8Array(w * h);
+  for (let i = 0, j = 0; j < gray.length; i += 4, j++) {
+    gray[j] = (rgba[i] * 77 + rgba[i + 1] * 150 + rgba[i + 2] * 29) >> 8;
+  }
+
+  const result = await invoke('decode_qr_gray', gray, { headers: { 'x-width': String(w) } });
   return result || null;
 }
 
@@ -89,10 +136,23 @@ export async function scanFile(file) {
  * aus, was das Gerät wirklich kann. Der Wunsch nach der rückwärtigen Kamera
  * kommt danach — auf einem Telefon ist er richtig, dort greift er dann.
  */
-const CAMERA_ATTEMPTS = [
+const DESKTOP_ATTEMPTS = [
   { label: 'Standardkamera', constraints: { video: true, audio: false } },
   { label: 'rückwärtige Kamera', constraints: { video: { facingMode: 'environment' }, audio: false } }
 ];
+
+/**
+ * Auf dem Telefon umgekehrt: Dort ist die „Standardkamera" des Webviews
+ * die vordere — und mit der fotografiert niemand einen QR-Code auf dem
+ * Bildschirm. Also zuerst ausdrücklich die rückwärtige.
+ */
+const MOBILE_ATTEMPTS = [
+  { label: 'rückwärtige Kamera', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
+  { label: 'rückwärtige Kamera (Wunsch)', constraints: { video: { facingMode: 'environment' }, audio: false } },
+  { label: 'Standardkamera', constraints: { video: true, audio: false } }
+];
+
+const CAMERA_ATTEMPTS = isMobile ? MOBILE_ATTEMPTS : DESKTOP_ATTEMPTS;
 
 /** So lange wird auf das erste Bild gewartet, bevor der nächste Versuch kommt. */
 const FIRST_FRAME_TIMEOUT_MS = 4000;
@@ -156,16 +216,16 @@ export async function scanCamera(video) {
     video.srcObject = null;
   };
 
+  let round = 0;
+
   const promise = new Promise((resolve, reject) => {
     const tick = async () => {
       if (stopped) return reject(new Error('abgebrochen'));
 
       try {
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-
-        if (w && h) {
-          const value = await decodeBytes(await sourceToBytes(video, w, h));
+        if (video.videoWidth && video.videoHeight) {
+          // Meist die Mitte, jedes dritte Mal das ganze Bild.
+          const value = await decodeFrame(video, ++round % 3 !== 0);
           if (value) { stop(); return resolve(value); }
         }
       } catch {

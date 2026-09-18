@@ -119,3 +119,86 @@ pub async fn fetch_page_title(url: String) -> Result<Option<String>, String> {
     let _ = target;
     Ok(None)
 }
+
+/// Was auf Android eingerichtet ist: Autofill, Passkeys, Kamera.
+///
+/// `{ autofill: {moeglich, aktiv}, passkeys: {…}, kamera: {…, gesperrt} }`,
+/// auf anderen Systemen `null` — dort gibt es nichts davon einzurichten.
+#[tauri::command]
+pub async fn android_setup_status() -> Result<serde_json::Value, String> {
+    #[cfg(target_os = "android")]
+    {
+        let text = tauri::async_runtime::spawn_blocking(|| einrichtung("status", None))
+            .await
+            .map_err(|e| e.to_string())??;
+        return serde_json::from_str(&text).map_err(|e| e.to_string());
+    }
+    #[cfg(not(target_os = "android"))]
+    Ok(serde_json::Value::Null)
+}
+
+/// Springt in die Systemeinstellung für `what`: `autofill`, `passkeys`,
+/// `kamera` (fragt die Berechtigung an) oder `app`.
+#[tauri::command]
+pub async fn android_setup_open(what: String) -> Result<bool, String> {
+    #[cfg(target_os = "android")]
+    {
+        let text = tauri::async_runtime::spawn_blocking(move || einrichtung("oeffnen", Some(&what)))
+            .await
+            .map_err(|e| e.to_string())??;
+        return Ok(text == "true");
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = what;
+        Ok(false)
+    }
+}
+
+/// Ruft `Einrichtung.status(activity)` bzw. `Einrichtung.oeffnen(activity, was)`.
+#[cfg(target_os = "android")]
+fn einrichtung(methode: &str, was: Option<&str>) -> Result<String, String> {
+    use jni::objects::{JString, JValue};
+
+    crate::java::mit_java(|env, activity| {
+        let klasse = crate::java::klasse(env, activity, "de.wuefl.wkeepass.system.Einrichtung")?;
+        match was {
+            None => {
+                let text = env
+                    .call_static_method(&klasse, methode, "(Landroid/app/Activity;)Ljava/lang/String;", &[JValue::Object(activity)])?
+                    .l()?;
+                Ok(env.get_string(&JString::from(text))?.into())
+            }
+            Some(was) => {
+                let was = env.new_string(was)?;
+                let ok = env
+                    .call_static_method(
+                        &klasse,
+                        methode,
+                        "(Landroid/app/Activity;Ljava/lang/String;)Z",
+                        &[JValue::Object(activity), JValue::Object(&was.into())],
+                    )?
+                    .z()?;
+                Ok(ok.to_string())
+            }
+        }
+    })
+}
+
+/// Öffnet eine Webadresse im Browser des Systems.
+///
+/// Bewusst nur `http` und `https`: Eine Adresse kommt hier aus Einträgen und
+/// aus einer Liste aus dem Netz. `file:`, `intent:` oder ein eigenes Schema
+/// könnten sonst Programme starten statt Seiten zeigen.
+#[tauri::command]
+pub fn open_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+
+    let lower = url.trim().to_ascii_lowercase();
+    if !(lower.starts_with("https://") || lower.starts_with("http://")) {
+        return Err("Nur Webadressen lassen sich öffnen.".into());
+    }
+    app.opener()
+        .open_url(url.trim(), None::<&str>)
+        .map_err(|e| format!("Adresse nicht geöffnet: {e}"))
+}

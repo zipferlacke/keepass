@@ -73,8 +73,10 @@
       </section>
     </main>
 
-    <!-- Sperrbildschirm: liegt über allem, solange nichts geöffnet ist -->
-    <div class="lockscreen" id="lockscreen" hidden>
+    <!-- Sperrbildschirm: liegt über allem, solange nichts geöffnet ist.
+         Von Anfang an sichtbar — erst das Entsperren blendet ihn aus. Bricht
+         der Start ab, bleibt er stehen, statt eine leere Hauptseite zu zeigen. -->
+    <div class="lockscreen" id="lockscreen">
       <div class="lock-topbar">
         <button class="lock-settings" id="lock-gear" title="Einstellungen" aria-label="Einstellungen">
           <span class="msr">settings</span>

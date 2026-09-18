@@ -8,6 +8,22 @@
 
     "changelog":[
         {
+            "version":"0.1.0",
+            "date":"2026-09-18",
+            "changes":[
+                "Android: Entsperren mit Fingerabdruck über den Hardware-Schlüsselspeicher – ersetzt das Master-Passwort",
+                "Android: WKeePass als Passwortmanager (Autofill) mit Kontoauswahl, TOTP-Codes und Speichern neuer Zugänge",
+                "Android: Passkeys anlegen und damit anmelden",
+                "Android: Datenbanken aus Nextcloud und Downloads öffnen, ohne Absturz",
+                "Android: Freigaben für Passwortmanager, Passkeys und Kamera beim ersten Start und in den Einstellungen",
+                "Entsperren: ein einziger Biometrie-Schalter, der automatisch den sichersten Weg wählt",
+                "QR-Scanner: Rückkamera, schnellere Erkennung, Aufleuchten und direkter Sprung zum Eintrag",
+                "Sicherheitscheck: E-Mail-Lecks mit Erklärung und Handlungsrat je Leck",
+                "Sicherheitscheck: Bereich „Lange nicht genutzt“ mit Link zum Löschen des Kontos beim Dienst",
+                "Start: Fehler behoben, durch den die Datenbankauswahl fehlte"
+            ]
+        },
+        {
             "version":"0.0.2",
             "date":"2026-09-17",
             "changes":[

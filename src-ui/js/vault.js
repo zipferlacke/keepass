@@ -372,3 +372,15 @@ export const browserForget = name => invoke('browser_forget', { name });
 
 /** Mit welcher Datei wurde die Anwendung aufgerufen? (Doppelklick auf .kdbx) */
 export const startupDatabase = () => invoke('startup_database');
+
+/** Vermerkt die Nutzung im Eintrag selbst (LastAccessTime) — für „Inaktive Einträge". */
+export const markAccessed = (ids, persist = false) => invoke('vault_mark_accessed', { ids, persist });
+
+/** Android: Stand von Autofill, Passkeys und Kamera; `null` auf anderen Systemen. */
+export const androidSetupStatus = () => invoke('android_setup_status');
+
+/** Android: in die passende Systemeinstellung springen. */
+export const androidSetupOpen = what => invoke('android_setup_open', { what });
+
+/** Öffnet eine Webadresse im Browser des Systems (nur http/https). */
+export const openLink = url => invoke('open_link', { url });

@@ -162,6 +162,10 @@ pub async fn vault_unlock(
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
 
+    // Was Autofill während der Sperre speichern wollte, jetzt eintragen.
+    #[cfg(target_os = "android")]
+    crate::android_services::nach_entsperren(&app);
+
     if let Some(note) = pin_note {
         return Err(format!("Geöffnet, aber die Freigabe wurde nicht gespeichert: {note}"));
     }

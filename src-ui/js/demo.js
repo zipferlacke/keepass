@@ -198,6 +198,22 @@ const commands = {
   },
 
   /** Im Browser gibt es keine Dateien — die Demo tut nur so. */
+  async vault_mark_accessed({ ids }) {
+    return (ids ?? []).length;
+  },
+
+  async open_link({ url }) {
+    window.open(url, '_blank', 'noopener');
+  },
+
+  async android_setup_status() {
+    return null;
+  },
+
+  async android_setup_open() {
+    return false;
+  },
+
   async vault_security() {
     await ensureLoaded();
     return {
