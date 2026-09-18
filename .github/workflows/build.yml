@@ -83,11 +83,13 @@ jobs:
 
       - uses: ./.github/actions/wuefl-libs
 
+      # xdg-utils: Tauri legt xdg-open ins AppImage (Links im Browser
+      # öffnen); auf dem ARM-Runner fehlt es von Haus aus.
       - name: Systembibliotheken
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-            librsvg2-dev libssl-dev libdbus-1-dev patchelf file
+            librsvg2-dev libssl-dev libdbus-1-dev patchelf file xdg-utils
 
       - uses: dtolnay/rust-toolchain@stable
 
