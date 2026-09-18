@@ -123,9 +123,6 @@ export const forget = path => invoke('vault_forget', { path });
  * Die PIN gilt hier immer, sobald eine festgelegt ist: Zum Entsperren ist
  * sie ein Schlüssel, hier nur ein Nachweis.
  */
-export const confirmPresence = (reason, method = 'pin', secret = null) =>
-  invoke('confirm_presence', { reason, method, secret });
-
 /** Setzt die Ruhezeit der Selbstsperre neu. `0` schaltet sie ab. */
 export const setAutoLock = minutes => invoke('vault_set_auto_lock', { minutes });
 
@@ -152,6 +149,14 @@ export async function commit() {
 }
 
 export function hasUnsavedChanges() { return dirty; }
+
+/** Holt Änderungen, die ein anderes Gerät in die Datei geschrieben hat. */
+export async function sync() {
+  if (!opened) return false;
+  const changed = await invoke('vault_sync');
+  if (changed) await refresh();
+  return changed;
+}
 
 /** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
 export const security = () => invoke('vault_security');
@@ -253,15 +258,9 @@ export function reorderFolder(path, referencePath, position = 'before') {
    ---------------------------------------------------------
    Angelegt wird ein Passkey nie hier, sondern von der Gegenstelle: auf dem
    Desktop über den Native-Messaging-Host der Browser-Erweiterung, auf
-   Android über den CredentialProviderService. Diese Aufrufe sind die
-   Gegenstelle dazu — die Oberfläche zeigt nur an, was vorhanden ist.
+   Android über den CredentialProviderService. Die Oberfläche zeigt nur an,
+   was vorhanden ist.
    ========================================================= */
-
-export const listPasskeys = () => invoke('passkey_list');
-export const createPasskey = request => mutate('passkey_create', { request });
-export const assertPasskey = (rpId, challenge, credentialId = null, origin = null) =>
-  invoke('passkey_assert', { rpId, challenge, credentialId, origin });
-export const deletePasskey = credentialId => mutate('passkey_delete', { credentialId });
 
 /** Stellt sicher, dass es den Passkey-Ordner gibt. */
 export async function ensurePasskeyFolder() {
@@ -372,3 +371,21 @@ export const browserForget = name => invoke('browser_forget', { name });
 
 /** Mit welcher Datei wurde die Anwendung aufgerufen? (Doppelklick auf .kdbx) */
 export const startupDatabase = () => invoke('startup_database');
+
+/** Vermerkt die Nutzung im Eintrag selbst (LastAccessTime) — für „Inaktive Einträge". */
+export const markAccessed = (ids, persist = false) => invoke('vault_mark_accessed', { ids, persist });
+
+/** Android: Stand von Autofill, Passkeys und Kamera; `null` auf anderen Systemen. */
+export const androidSetupStatus = () => invoke('android_setup_status');
+
+/** Android: in die passende Systemeinstellung springen. */
+export const androidSetupOpen = what => invoke('android_setup_open', { what });
+
+/** Öffnet eine Webadresse im Browser des Systems (nur http/https). */
+export const openLink = url => invoke('open_link', { url });
+
+/**
+ * Website-Icons im Hintergrund holen und in der Datenbank ablegen.
+ * `ids` null = alle, denen eines fehlt; `force` lädt auch vorhandene neu.
+ */
+export const fetchIcons = (ids = null, force = false) => invoke('vault_fetch_icons', { ids, force });

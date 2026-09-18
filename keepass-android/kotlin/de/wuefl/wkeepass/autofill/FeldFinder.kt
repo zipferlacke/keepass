@@ -27,7 +27,12 @@ object FeldFinder {
         val benutzer: AutofillId? = null,
         val passwort: AutofillId? = null,
         /** Die Webadresse, falls die App eine mitgeschickt hat. */
-        val webAdresse: String? = null
+        val webAdresse: String? = null,
+        /** Was in den Feldern steht — nur beim Speichern gefragt. */
+        val benutzerWert: String? = null,
+        val passwortWert: String? = null,
+        /** Feld für den Einmalcode (TOTP) — meist auf einer eigenen Seite. */
+        val code: AutofillId? = null,
     ) {
         /**
          * Ohne Passwortfeld ist nichts zu holen.
@@ -37,7 +42,10 @@ object FeldFinder {
          * zu wissen, ob überhaupt ein Passwort folgt, führt zu Vorschlägen
          * an Stellen, wo sie stören.
          */
-        val brauchbar: Boolean get() = passwort != null
+        val brauchbar: Boolean get() = passwort != null || code != null
+
+        /** Alle Felder, die ein Vorschlag bedienen kann. */
+        val ids: List<AutofillId> get() = listOfNotNull(benutzer, passwort, code)
     }
 
     /** Bezeichner, die auf ein Benutzernamensfeld hindeuten. */
@@ -69,8 +77,13 @@ object FeldFinder {
         val id = knoten.autofillId
         if (id != null) {
             when (deute(knoten)) {
-                Art.BENUTZER -> if (stand.benutzer == null) stand = stand.copy(benutzer = id)
-                Art.PASSWORT -> if (stand.passwort == null) stand = stand.copy(passwort = id)
+                Art.BENUTZER -> if (stand.benutzer == null) {
+                    stand = stand.copy(benutzer = id, benutzerWert = wert(knoten))
+                }
+                Art.PASSWORT -> if (stand.passwort == null) {
+                    stand = stand.copy(passwort = id, passwortWert = wert(knoten))
+                }
+                Art.CODE -> if (stand.code == null) stand = stand.copy(code = id)
                 Art.UNBEKANNT -> {}
             }
         }
@@ -88,11 +101,24 @@ object FeldFinder {
         return stand
     }
 
-    private enum class Art { BENUTZER, PASSWORT, UNBEKANNT }
+    private fun wert(knoten: AssistStructure.ViewNode): String? =
+        knoten.autofillValue?.takeIf { it.isText }?.textValue?.toString()?.takeIf { it.isNotEmpty() }
+
+    private enum class Art { BENUTZER, PASSWORT, CODE, UNBEKANNT }
+
+    /** Bezeichner, die auf ein Feld für den Einmalcode hindeuten. */
+    private val CODE_WORTE = listOf(
+        "one-time-code", "onetimecode", "one_time", "otp", "totp", "2fa", "mfa", "tfa",
+        "einmal", "authenticator", "verification_code", "verificationcode", "auth_code", "authcode"
+    )
 
     private fun deute(knoten: AssistStructure.ViewNode): Art {
         // 1. Die App sagt es selbst.
         knoten.autofillHints?.forEach { hinweis ->
+            // Die Hinweise für Einmalcodes haben in `View` keine Konstante,
+            // nur in androidx: `smsOTPCode`, `2faAppOTPCode`, … — und Seiten
+            // melden `one-time-code` über ihr autocomplete-Attribut.
+            if (hinweis.contains("otp", ignoreCase = true) || hinweis == "one-time-code") return Art.CODE
             when (hinweis) {
                 View.AUTOFILL_HINT_PASSWORD -> return Art.PASSWORT
                 View.AUTOFILL_HINT_USERNAME,
@@ -121,13 +147,18 @@ object FeldFinder {
         }
         if (istPasswort) return Art.PASSWORT
 
-        // 3. Raten. Alles, woran die App sich erkennen lässt, in einen Topf.
-        val worte = listOfNotNull(
+        // 3. Raten. Alles, woran die App sich erkennen lässt, in einen Topf —
+        // bei Webseiten auch die HTML-Attribute (name, id, autocomplete).
+        val html = knoten.htmlInfo?.attributes.orEmpty()
+            .filter { it.first in setOf("name", "id", "autocomplete", "placeholder", "aria-label") }
+            .map { it.second }
+        val worte = (listOfNotNull(
             knoten.idEntry,
             knoten.hint,
             knoten.contentDescription?.toString()
-        ).joinToString(" ").lowercase()
+        ) + html).joinToString(" ").lowercase()
 
+        if (CODE_WORTE.any { worte.contains(it) }) return Art.CODE
         if (BENUTZER_WORTE.any { worte.contains(it) }) return Art.BENUTZER
 
         return Art.UNBEKANNT

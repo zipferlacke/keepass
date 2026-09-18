@@ -39,7 +39,10 @@
 
 use zeroize::Zeroizing;
 
+// Android hat seinen eigenen Weg (unten), dort gibt es keinen Schlüsselbund.
+#[cfg(not(target_os = "android"))]
 const SERVICE: &str = "de.wuefl.wkeepass";
+#[cfg(not(target_os = "android"))]
 const ACCOUNT: &str = "master-key";
 
 /// In welchem Zustand ist der Schlüsselbund?
@@ -52,7 +55,9 @@ pub enum Availability {
     Ready,
     /// Es gibt einen, aber er ist zu. Das passiert unter Linux, wenn man
     /// sich per Fingerabdruck oder automatisch anmeldet — dann bekommt der
-    /// Dienst nie ein Passwort zum Entschlüsseln.
+    /// Dienst nie ein Passwort zum Entschlüsseln. Auf Android gibt es den
+    /// Fall nicht.
+    #[cfg_attr(target_os = "android", allow(dead_code))]
     Locked,
     /// Gar keiner da: minimale Installation, Android, oder kein Dienst
     /// auf dem Bus.

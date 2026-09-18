@@ -18,12 +18,14 @@ mod biometric;
 mod database;
 mod dto;
 mod entries;
+mod favicon;
 // Die Browser-Erweiterung gibt es nur auf dem Desktop. Auf Android füllt das
 // System selbst aus (AutofillService, siehe keepass-android/) — dort wird
 // dieses Modul gar nicht erst übersetzt.
 #[cfg(desktop)]
 mod keepass_extension;
 mod keystore;
+mod matching;
 mod offline;
 mod passkey;
 mod qr;
@@ -32,7 +34,12 @@ mod secrets;
 mod settings;
 mod state;
 mod storage;
+#[cfg(target_os = "android")]
+mod java;
+#[cfg(target_os = "android")]
+mod android_services;
 mod system;
+mod web;
 mod util;
 mod webview;
 
@@ -123,8 +130,24 @@ pub fn run() {
         .manage(Vault::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_deep_link::init())
+        // Muss als erstes Plugin laufen wollen, steht aber nur auf dem Desktop:
+        // Startet jemand eine zweite Ausgabe (Doppelklick auf eine .kdbx),
+        // bekommt die laufende deren Argumente und holt sich nach vorn.
+        .plugin({
+            #[cfg(desktop)]
+            {
+                tauri_plugin_single_instance::init(|app, args, _cwd| {
+                    system::datei_uebergeben(app, args.iter().skip(1).cloned());
+                })
+            }
+            #[cfg(not(desktop))]
+            { tauri_plugin_persisted_scope::init() }
+        })
         // Nur mobil: Das Plugin deckt ausdrücklich nur Android und iOS ab.
         // Desktop-Biometrie steckt in biometric.rs.
         .plugin({
@@ -206,6 +229,7 @@ pub fn run() {
             database::vault_list_entries,
             database::vault_folders,
             database::vault_commit,
+            database::vault_sync,
             database::vault_security,
             database::vault_set_security,
             database::vault_lock,
@@ -246,9 +270,16 @@ pub fn run() {
             // System
             system::startup_database,
             system::path_label,
+            system::open_link,
+            system::android_setup_status,
+            system::android_setup_open,
+            entries::vault_mark_accessed,
+            favicon::vault_fetch_icons,
+            favicon::vault_clear_icon,
             system::pick_database_file,
             system::pick_save_path,
             system::fetch_page_title,
+            system::database_modified,
             // Passkeys
             passkey::passkey_list,
             passkey::passkey_create,
@@ -271,9 +302,23 @@ pub fn run() {
             keepass_extension::api::browser_forget,
             // QR
             qr::decode_qr_bytes,
+            qr::decode_qr_gray,
             qr::decode_qr_rgba,
             qr::decode_qr_path,
         ])
-        .run(tauri::generate_context!())
-        .expect("Anwendung konnte nicht gestartet werden");
+        .build(tauri::generate_context!())
+        .expect("Anwendung konnte nicht gestartet werden")
+        .run(|app, event| {
+            // macOS reicht eine doppelgeklickte Datei nicht als Argument
+            // weiter, sondern als eigenes Ereignis.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            if let tauri::RunEvent::Opened { urls } = event {
+                system::datei_uebergeben(
+                    app,
+                    urls.into_iter().filter_map(|u| u.to_file_path().ok()).map(|p| p.to_string_lossy().to_string()),
+                );
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+            let _ = (app, event);
+        });
 }

@@ -1,0 +1,28 @@
+WKeePass ist ein moderner Passwortmanager auf Basis des bewährten KeePass-Formats. Ihre Zugangsdaten liegen verschlüsselt in einer Datei, die Ihnen gehört – nicht in der Cloud eines Anbieters. Kein Konto, kein Abo, keine Werbung.
+
+Alles in einer App
+• Passwörter in Ordnern, mit Tags, Suche, Passwortgenerator und Stärke-Anzeige
+• 2FA-Codes (TOTP) direkt neben dem Passwort – QR-Code mit der Kamera scannen, auch Exporte aus dem Google Authenticator
+• Passkeys für die passwortlose Anmeldung – WKeePass ist als Passkey-Anbieter des Systems nutzbar
+• Autofill: Benutzername und Passwort direkt in Apps und im Browser einfügen
+• Dateiablage: Ausweise, Verträge oder Wiederherstellungscodes verschlüsselt ablegen und ansehen
+• Website-Symbole und Einträge, die automatisch wie der Dienst heißen
+
+KeePass-kompatibel
+WKeePass liest und schreibt KDBX 4.1. Dieselbe Datei öffnen Sie auch mit KeePassXC, KeePassDX oder Strongbox – Sie sind an keinen Anbieter gebunden.
+
+Auf allen Geräten
+Legen Sie die Datenbank in einen Cloud-Ordner, den Sie ohnehin nutzen – etwa Nextcloud, Dropbox, Google Drive oder OneDrive. Ändern Sie auf zwei Geräten gleichzeitig etwas, führt WKeePass beide Stände Eintrag für Eintrag zusammen: Die neuere Fassung gewinnt, die ältere bleibt im Verlauf. Ist der Ordner nicht erreichbar, arbeiten Sie mit einer Offline-Kopie weiter. WKeePass gibt es auch für Linux, Windows und macOS.
+
+Sicherheit
+• Verschlüsselung nach KeePass-Standard mit Argon2
+• Passwörter werden im Kern der App verarbeitet, die Oberfläche sieht nie den Klartext
+• Entsperren mit Fingerabdruck, Gesichtserkennung oder PIN – das Master-Passwort bleibt geschützt
+• Selbstsperre nach einer Weile ohne Nutzung, Zwischenablage wird automatisch geleert
+• Sicherheitscheck: schwache, doppelte und abgelaufene Passwörter; Abgleich mit bekannten Datenlecks (Have I Been Pwned), ohne dass Ihr Passwort das Gerät verlässt
+
+Umzug leicht gemacht
+Import aus Bitwarden, 1Password, LastPass, Proton Pass, Chrome, Firefox, KeePass-XML, 2FAS, Aegis, andOTP und Proton Authenticator. Bei CSV-Dateien ordnen Sie die Spalten selbst zu.
+
+Open Source
+WKeePass ist Open Source unter der Apache-Lizenz 2.0: https://github.com/zipferlacke/keepass

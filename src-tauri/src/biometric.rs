@@ -366,16 +366,18 @@ mod imp {
     /// Kotlin-Datei.
     #[cfg(target_os = "android")]
     mod keystore {
-        use jni::objects::{JByteArray, JObject, JString, JValue};
-        use tao::platform::android::prelude::main_android_context;
+        use jni::objects::{JByteArray, JString, JValue};
         use zeroize::Zeroizing;
 
-        const CLASS: &str = "de/wuefl/wkeepass/sicherheit/Geraeteschluessel";
+        use crate::java::mit_java;
+
+        const CLASS: &str = "de.wuefl.wkeepass.sicherheit.Geraeteschluessel";
 
         pub fn device_key_available() -> bool {
             let ergebnis = mit_java(|env, activity| {
+                let klasse = crate::java::klasse(env, activity, CLASS)?;
                 env.call_static_method(
-                    CLASS,
+                    &klasse,
                     "verfuegbar",
                     "(Landroid/content/Context;)Z",
                     &[JValue::Object(activity)],
@@ -400,10 +402,11 @@ mod imp {
         /// läuft auf dem Hauptfaden, und würden wir den anhalten, käme er nie.
         pub fn device_key(challenge: &[u8]) -> Result<Zeroizing<[u8; 32]>, String> {
             let bytes = mit_java(|env, activity| {
+                let klasse = crate::java::klasse(env, activity, CLASS)?;
                 let wert = env.byte_array_from_slice(challenge)?;
                 let antwort = env
                     .call_static_method(
-                        CLASS,
+                        &klasse,
                         "ableiten",
                         "(Landroid/app/Activity;[B)[B",
                         &[JValue::Object(activity), JValue::Object(&wert)],
@@ -417,7 +420,7 @@ mod imp {
 
                 // Leer heißt Fehlschlag; den Grund hält die Klasse bereit.
                 let grund = env
-                    .call_static_method(CLASS, "letzterFehler", "()Ljava/lang/String;", &[])?
+                    .call_static_method(&klasse, "letzterFehler", "()Ljava/lang/String;", &[])?
                     .l()?;
                 let grund: String = env.get_string(&JString::from(grund))?.into();
                 Ok(Err(grund))
@@ -428,31 +431,6 @@ mod imp {
                 .try_into()
                 .map_err(|_| "Der Geräteschlüssel hat die falsche Länge.".to_string())?;
             Ok(Zeroizing::new(key))
-        }
-
-        /// Faden anhängen, Activity holen, aufrufen — und hinterher eine
-        /// offene Java-Ausnahme abräumen, sonst stolpert der nächste Aufruf
-        /// darüber.
-        fn mit_java<T>(
-            f: impl FnOnce(&mut jni::JNIEnv, &JObject) -> Result<T, jni::errors::Error>,
-        ) -> Result<T, String> {
-            let ctx = main_android_context().ok_or("Die Anwendung läuft noch nicht.")?;
-
-            let vm = unsafe { jni::JavaVM::from_raw(ctx.java_vm.cast()) }
-                .map_err(|e| format!("Keine Java-Umgebung: {e}"))?;
-            let mut env = vm
-                .attach_current_thread()
-                .map_err(|e| format!("Faden nicht angehängt: {e}"))?;
-            let activity = unsafe { JObject::from_raw(ctx.context_jobject.cast()) };
-
-            let ergebnis = f(&mut env, &activity);
-
-            if env.exception_check().unwrap_or(false) {
-                let _ = env.exception_describe();
-                let _ = env.exception_clear();
-            }
-
-            ergebnis.map_err(|e| format!("Der Geräteschlüssel antwortet nicht: {e}"))
         }
     }
 }

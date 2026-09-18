@@ -83,7 +83,7 @@ pub async fn vault_unlock(
     let worker = app.clone();
     let target = path.clone();
 
-    let Opened { db, raw, master, format, read_only, offline } =
+    let Opened { db, raw, master, keyfile, format, read_only, offline } =
         tauri::async_runtime::spawn_blocking(move || open_blocking(&worker, &target, &method, secret, keyfile))
             .await
             .map_err(|e| format!("Entsperren abgebrochen: {e}"))??;
@@ -147,7 +147,9 @@ pub async fn vault_unlock(
     vault.db = Some(db);
     vault.path = Some(path.clone().into());
     vault.master = Some(master);
+    vault.keyfile = keyfile;
     vault.opened_hash = Some(digest(&raw));
+    vault.seen_modified = crate::storage::modified_ms(&path);
     vault.read_only = read_only;
     vault.offline = offline.is_some();
     vault.auto_lock_minutes = auto_lock_minutes;
@@ -162,6 +164,10 @@ pub async fn vault_unlock(
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
 
+    // Was Autofill während der Sperre speichern wollte, jetzt eintragen.
+    #[cfg(target_os = "android")]
+    crate::android_services::nach_entsperren(&app);
+
     if let Some(note) = pin_note {
         return Err(format!("Geöffnet, aber die Freigabe wurde nicht gespeichert: {note}"));
     }
@@ -175,6 +181,9 @@ struct Opened {
     db: Database,
     raw: Vec<u8>,
     master: Zeroizing<String>,
+    /// Inhalt der Schlüsseldatei, falls eine dazugehört — gebraucht beim
+    /// Zurückschreiben und beim Einlesen fremder Änderungen.
+    keyfile: Option<Zeroizing<Vec<u8>>>,
     format: String,
     read_only: bool,
     /// Gesetzt, wenn statt der Datei die Offline-Kopie geöffnet wurde:
@@ -209,14 +218,15 @@ fn open_blocking(
         return Err("Ohne Master-Passwort geht es nicht.".into());
     }
 
-    let mut key = DatabaseKey::new().with_password(&master);
-    if let Some(keyfile) = &keyfile {
-        let mut file = std::fs::File::open(keyfile)
-            .map_err(|e| format!("Schlüsseldatei nicht lesbar: {e}"))?;
-        key = key
-            .with_keyfile(&mut file)
-            .map_err(|e| format!("Schlüsseldatei nicht verwendbar: {e}"))?;
-    }
+    // Einmal eingelesen und im Kern behalten: Die Datei muss beim Speichern
+    // nicht mehr da sein, und die Datenbank bleibt mit ihr verschlüsselt.
+    let keyfile = match &keyfile {
+        Some(path) => Some(Zeroizing::new(
+            std::fs::read(path).map_err(|e| format!("Schlüsseldatei nicht lesbar: {e}"))?,
+        )),
+        None => None,
+    };
+    let key = key_of(&master, keyfile.as_deref().map(|k| k.as_slice()))?;
 
     // Einmal komplett lesen: Daraus entsteht sowohl die Datenbank als auch
     // der Fingerabdruck, gegen den beim Speichern geprüft wird. Ist der Ort
@@ -244,7 +254,7 @@ fn open_blocking(
         crate::offline::Source::Cached { saved_at, reason } => Some((saved_at, reason)),
     };
 
-    Ok(Opened { db, raw, master, format, read_only, offline })
+    Ok(Opened { db, raw, master, keyfile, format, read_only, offline })
 }
 
 /// Legt eine neue, leere Datenbank an und öffnet sie gleich.
@@ -561,6 +571,9 @@ fn read_entry(db: &Database, entry: &EntryRef<'_>) -> RawEntry {
             totp_config,
 
             passkey: entry.get(PASSKEY_FIELD).is_some() || entry.get("Passkey") == Some("True"),
+            passkey_site: entry.get("KPEX_PASSKEY_RELYING_PARTY").map(str::to_string),
+            passkey_user: entry.get(PASSKEY_FIELD).map(str::to_string),
+            icon: crate::favicon::data_url(&entry),
             expires,
             attachments,
             recycled: is_recycled(db, entry.parent().id()),
@@ -710,6 +723,11 @@ pub fn vault_commit(app: tauri::AppHandle, state: tauri::State<'_, Vault>) -> Re
 /// Steht als eigene Funktion da, weil nicht nur die Oberfläche schreibt: Die
 /// Browser-Anbindung legt Verknüpfungen und Einträge an, und die wären beim
 /// nächsten Start weg, wenn sie nur im Arbeitsspeicher stünden.
+///
+/// Hat seit dem Öffnen ein anderes Gerät geschrieben — die Datei liegt in
+/// Nextcloud und wird auch von KeePassXC angefasst —, wird dessen Stand erst
+/// eingelesen und mit dem eigenen zusammengeführt (`merge`). Geschrieben
+/// wird dann beides; verloren geht keine Seite.
 pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.touch();
@@ -722,14 +740,13 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
         );
     }
 
-    let path = vault.path.clone().ok_or("Keine Datenbank geöffnet.")?;
+    let ziel = vault.path.clone().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
 
     // Geöffnet ist nur die Offline-Kopie. Zurückschreiben geht erst, wenn
     // die Datei wieder lesbar ist — sonst entstünde am Ort womöglich eine
     // neue Datei neben einer, die gerade nur nicht erreichbar ist.
-    let ziel = path.to_string_lossy().to_string();
-
-    if vault.offline && crate::storage::read(&ziel).is_err() {
+    let current = crate::storage::read(&ziel);
+    if vault.offline && current.is_err() {
         return Err(
             "Der Speicherort ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie. \
              Gespeichert werden kann erst, wenn die Datei wieder da ist."
@@ -737,37 +754,173 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
         );
     }
 
-    // Hat in der Zwischenzeit jemand anderes geschrieben? Die Datei liegt in
-    // Nextcloud und wird auch von KeePassXC angefasst. Lieber abbrechen als
-    // die Änderung des anderen Geräts stillschweigend wegwerfen.
-    if let Some(expected) = vault.opened_hash {
-        if let Ok(current) = crate::storage::read(&ziel) {
-            if digest(&current) != expected {
-                return Err(
-                    "Die Datei wurde seit dem Öffnen von außen geändert — vermutlich durch \
-                     KeePassXC oder die Synchronisierung. Es wurde nichts geschrieben. \
-                     Sperre die Datenbank und öffne sie neu."
-                        .into(),
-                );
-            }
+    let mut merged = false;
+    if let Ok(current) = current {
+        if vault.opened_hash != Some(digest(&current)) {
+            let theirs = parse_foreign(&vault, &current)?;
+            merged = merge(vault.database_mut()?, &theirs)?.0;
         }
     }
 
+    write_back(app, &mut vault, &ziel)?;
+    drop(vault);
+
+    if merged {
+        use tauri::Emitter;
+        let _ = app.emit("vault-merged", ());
+    }
+    Ok(true)
+}
+
+/// Holt Änderungen, die ein anderes Gerät in die Datei geschrieben hat.
+///
+/// Die Oberfläche ruft das, wenn die App wieder in den Vordergrund kommt,
+/// und in Abständen, solange sie offen ist. Ist die Datei unverändert,
+/// kostet das nur einen Blick aufs Änderungsdatum. Sonst wird sie
+/// entschlüsselt und eingemischt; zurückgeschrieben wird nur, wenn der
+/// eigene Stand etwas enthält, das der Datei fehlt — sonst schöben sich
+/// zwei Geräte die Datei gegenseitig endlos zu.
+///
+/// `true`, wenn sich an den Einträgen etwas geändert hat.
+#[tauri::command]
+pub async fn vault_sync(app: tauri::AppHandle) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || sync_blocking(&app))
+        .await
+        .map_err(|e| format!("Abgleich abgebrochen: {e}"))?
+}
+
+fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
+    use tauri::Manager;
+    let state = app.state::<Vault>();
+
+    // Erst nachsehen, ohne den Kern festzuhalten: Lesen und Entschlüsseln
+    // dauern, und so lange soll die Oberfläche weiterarbeiten können.
+    let (ziel, before, seen, master, keyfile) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let (Some(path), Some(master)) = (&vault.path, &vault.master) else { return Ok(false) };
+        if vault.db.is_none() {
+            return Ok(false);
+        }
+        (
+            path.to_string_lossy().to_string(),
+            vault.opened_hash,
+            vault.seen_modified,
+            master.clone(),
+            vault.keyfile.clone(),
+        )
+    };
+
+    let modified = crate::storage::modified_ms(&ziel);
+    if modified.is_some() && modified == seen {
+        return Ok(false);
+    }
+
+    let Ok(current) = crate::storage::read(&ziel) else { return Ok(false) };
+    let hash = digest(&current);
+    if Some(hash) == before {
+        if let Ok(mut vault) = state.lock() {
+            vault.seen_modified = modified;
+        }
+        return Ok(false);
+    }
+
+    let theirs = parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &current)?;
+
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    // Inzwischen selbst gespeichert? Dann ist dieser Stand schon drin oder
+    // wird beim nächsten Mal geholt.
+    if vault.opened_hash != before || vault.db.is_none() {
+        return Ok(false);
+    }
+
+    let (changed, ours_ahead) = merge(vault.database_mut()?, &theirs)?;
+
+    if ours_ahead && !vault.read_only {
+        write_back(app, &mut vault, &ziel)?;
+    } else {
+        vault.opened_hash = Some(hash);
+        vault.seen_modified = modified;
+        vault.offline = false;
+        crate::offline::store(app, &ziel, &current);
+    }
+    Ok(changed)
+}
+
+/// Mischt `theirs` in `ours`: Einträge und Ordner werden über ihre UUID
+/// einander zugeordnet, von zwei Fassungen gilt die jüngere, die ältere
+/// landet im Verlauf; Löschvermerke werden beachtet. Das ist derselbe
+/// Abgleich, den KeePassXC beim Zusammenführen macht.
+///
+/// Zurück kommt (hat sich `ours` geändert, fehlt `theirs` etwas von `ours`).
+pub(crate) fn merge(ours: &mut Database, theirs: &Database) -> Result<(bool, bool), String> {
+    let log = ours.merge(theirs).map_err(merge_error)?;
+
+    // Umgekehrt noch einmal auf einer Kopie: Kommt dabei nichts heraus,
+    // steht in der Datei schon alles, und sie muss nicht neu geschrieben werden.
+    let mut probe = theirs.clone();
+    let back = probe.merge(ours).map_err(merge_error)?;
+
+    Ok((!log.events.is_empty(), !back.events.is_empty()))
+}
+
+fn merge_error(e: keepass::db::merge::MergeError) -> String {
+    format!(
+        "Die Datei wurde auf einem anderen Gerät geändert und lässt sich nicht mit diesem \
+         Stand zusammenführen ({e}). Es wurde nichts geschrieben."
+    )
+}
+
+/// Entschlüsselt die Datei, wie sie gerade auf der Platte liegt, mit dem
+/// Schlüssel der offenen Datenbank.
+fn parse_foreign(vault: &crate::state::VaultState, bytes: &[u8]) -> Result<Database, String> {
     let master = vault.master.as_ref().ok_or("Kein Master-Passwort im Kern.")?;
+    parse_with(master, vault.keyfile.as_deref().map(|k| k.as_slice()), bytes)
+}
+
+fn parse_with(master: &str, keyfile: Option<&[u8]>, bytes: &[u8]) -> Result<Database, String> {
+    Database::parse(bytes, key_of(master, keyfile)?).map_err(|e| match e {
+        keepass::error::DatabaseOpenError::Key(_) => "Die Datei wurde auf einem anderen Gerät \
+            geändert und lässt sich mit dem bisherigen Master-Passwort nicht mehr öffnen — \
+            vermutlich wurde es dort geändert. Es wurde nichts geschrieben. Sperre die \
+            Datenbank und öffne sie mit dem neuen Passwort."
+            .to_string(),
+        other => format!("Die geänderte Datei ist nicht lesbar: {other}. Es wurde nichts geschrieben."),
+    })
+}
+
+/// Master-Passwort plus, falls vorhanden, Schlüsseldatei.
+fn key_of(master: &str, keyfile: Option<&[u8]>) -> Result<DatabaseKey, String> {
+    let mut key = DatabaseKey::new();
+    if !master.is_empty() {
+        key = key.with_password(master);
+    }
+    if let Some(mut bytes) = keyfile {
+        key = key
+            .with_keyfile(&mut bytes)
+            .map_err(|e| format!("Schlüsseldatei nicht verwendbar: {e}"))?;
+    }
+    Ok(key)
+}
+
+/// Verschlüsselt den Stand im Kern und schreibt ihn an `ziel`.
+fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel: &str) -> Result<(), String> {
+    let master = vault.master.as_ref().ok_or("Kein Master-Passwort im Kern.")?;
+    let key = key_of(master, vault.keyfile.as_deref().map(|k| k.as_slice()))?;
 
     let mut bytes: Vec<u8> = Vec::new();
     vault
         .database()?
-        .save(&mut bytes, DatabaseKey::new().with_password(master))
+        .save(&mut bytes, key)
         .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
 
-    crate::storage::write(&ziel, &bytes)?;
+    crate::storage::write(ziel, &bytes)?;
 
     // Ab jetzt ist unser eigener Stand der maßgebliche.
     vault.opened_hash = Some(digest(&bytes));
+    vault.seen_modified = crate::storage::modified_ms(ziel);
     vault.offline = false;
-    crate::offline::store(app, &ziel, &bytes);
-    Ok(true)
+    crate::offline::store(app, ziel, &bytes);
+    Ok(())
 }
 
 #[tauri::command]
@@ -854,5 +1007,127 @@ pub fn apply_plain_fields(entry: &mut keepass::db::EntryMut<'_>, input: &dto::En
             .ok();
         }
         None => entry.times.expires = Some(false),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use keepass::db::{fields, EntryId, Value};
+
+    fn am(tag: u32) -> NaiveDateTime {
+        chrono::NaiveDate::from_ymd_opt(2026, 1, tag).unwrap().and_hms_opt(12, 0, 0).unwrap()
+    }
+
+    fn add(db: &mut Database, title: &str, attachment: Option<&[u8]>) -> EntryId {
+        let root = db.root().id();
+        let id = db.group_mut(root).unwrap().add_entry().id();
+        let mut e = db.entry_mut(id).unwrap();
+        e.set_unprotected(fields::TITLE, title);
+        if let Some(data) = attachment {
+            e.add_attachment(format!("{title}.bin"), Value::Unprotected(data.to_vec()));
+        }
+        e.times.last_modification = Some(am(1));
+        e.times.location_changed = Some(am(1));
+        id
+    }
+
+    fn roundtrip(db: &Database) -> Database {
+        let mut bytes = Vec::new();
+        db.save(&mut bytes, key_of("test", None).unwrap()).unwrap();
+        parse_with("test", None, &bytes).unwrap()
+    }
+
+    fn title(db: &Database, id: EntryId) -> String {
+        db.entry(id).unwrap().get(fields::TITLE).unwrap_or_default().to_string()
+    }
+
+    fn attachment(db: &Database, id: EntryId) -> Vec<Vec<u8>> {
+        db.entry(id).unwrap().attachments().map(|a| a.data.get().to_vec()).collect()
+    }
+
+    fn edit(db: &mut Database, id: EntryId, new_title: &str, when: NaiveDateTime) {
+        let mut e = db.entry_mut(id).unwrap();
+        e.set_unprotected(fields::TITLE, new_title);
+        e.times.last_modification = Some(when);
+    }
+
+    /// Zwei Geräte ändern dieselbe Datei, jedes an einer anderen Stelle —
+    /// nach dem Abgleich steht beides drin, auch die Anhänge.
+    #[test]
+    fn zwei_geraete_werden_zusammengefuehrt() {
+        let mut base = Database::new();
+        let a = add(&mut base, "A", Some(b"anhang a"));
+        let b = add(&mut base, "B", None);
+        let weg = add(&mut base, "Weg", None);
+        let bild = add(&mut base, "Bild", Some(b"alt"));
+        let base = roundtrip(&base);
+
+        // Gerät 1: A umbenannt, C mit Anhang neu.
+        let mut eins = base.clone();
+        edit(&mut eins, a, "A neu", am(2));
+        let c = add(&mut eins, "C", Some(b"anhang c"));
+
+        // Gerät 2: B umbenannt, D mit Anhang neu, „Weg" gelöscht,
+        // Anhang von „Bild" ersetzt.
+        let mut zwei = base.clone();
+        edit(&mut zwei, b, "B neu", am(3));
+        let d = add(&mut zwei, "D", Some(b"anhang d"));
+        zwei.entry_mut(weg).unwrap().track_changes().remove();
+        {
+            let mut e = zwei.entry_mut(bild).unwrap();
+            e.remove_attachment_by_name("Bild.bin");
+            e.add_attachment("Bild.bin", Value::Unprotected(b"neu".to_vec()));
+            e.times.last_modification = Some(am(4));
+        }
+        let datei = roundtrip(&zwei);
+
+        let (changed, ahead) = merge(&mut eins, &datei).unwrap();
+        assert!(changed && ahead);
+
+        let ergebnis = roundtrip(&eins);
+        assert_eq!(title(&ergebnis, a), "A neu");
+        assert_eq!(title(&ergebnis, b), "B neu");
+        assert_eq!(attachment(&ergebnis, a), vec![b"anhang a".to_vec()]);
+        assert_eq!(attachment(&ergebnis, c), vec![b"anhang c".to_vec()]);
+        assert_eq!(attachment(&ergebnis, d), vec![b"anhang d".to_vec()]);
+        assert_eq!(attachment(&ergebnis, bild), vec![b"neu".to_vec()]);
+        assert!(ergebnis.entry(weg).is_none());
+
+        // Das andere Gerät holt sich den gemeinsamen Stand und hat danach
+        // nichts mehr, was der Datei fehlt — es schreibt nicht zurück.
+        let mut zwei = datei;
+        let (changed, ahead) = merge(&mut zwei, &ergebnis).unwrap();
+        assert!(changed && !ahead);
+
+        let (changed, ahead) = merge(&mut zwei, &ergebnis).unwrap();
+        assert!(!changed && !ahead);
+    }
+
+    /// Beide ändern denselben Eintrag: Der jüngere Stand gilt, der ältere
+    /// bleibt im Verlauf.
+    #[test]
+    fn juengere_aenderung_gewinnt() {
+        let mut base = Database::new();
+        let a = add(&mut base, "A", None);
+        let base = roundtrip(&base);
+
+        let mut eins = base.clone();
+        edit(&mut eins, a, "von Gerät 1", am(2));
+        let mut zwei = base;
+        edit(&mut zwei, a, "von Gerät 2", am(3));
+
+        merge(&mut eins, &roundtrip(&zwei)).unwrap();
+        let ergebnis = roundtrip(&eins);
+        assert_eq!(title(&ergebnis, a), "von Gerät 2");
+
+        let verlauf: Vec<String> = ergebnis
+            .entry(a)
+            .unwrap()
+            .history
+            .as_ref()
+            .map(|h| h.get_entries().iter().filter_map(|e| e.get(fields::TITLE).map(str::to_string)).collect())
+            .unwrap_or_default();
+        assert!(verlauf.contains(&"von Gerät 1".to_string()), "{verlauf:?}");
     }
 }

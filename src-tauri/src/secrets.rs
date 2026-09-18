@@ -558,3 +558,18 @@ fn looks_like_a_year(pw: &str) -> bool {
         && (pw.starts_with("19") || pw.starts_with("20"))
         && pw.chars().all(|c| c.is_ascii_digit())
 }
+
+/// Der gerade gültige TOTP-Code eines Eintrags, falls einer hinterlegt ist.
+pub fn current_totp(raw: &str) -> Option<String> {
+    let uri = if raw.starts_with("otpauth://") {
+        raw.to_string()
+    } else {
+        format!(
+            "otpauth://totp/WKeePass?secret={}&digits=6&period=30&algorithm=SHA1",
+            raw.trim().replace(' ', "")
+        )
+    };
+
+    let totp: keepass::db::TOTP = uri.parse().ok()?;
+    totp.value_now().ok().map(|code| code.code)
+}

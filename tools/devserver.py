@@ -44,6 +44,11 @@ HOST = os.environ.get("TAURI_DEV_HOST", "127.0.0.1")
 PORT = 1420
 ROOT = "src-ui"
 
+# Bilder liegen in appdata/ — ausgeliefert unter ihrem Namen in der Wurzel.
+# Die gebaute Fassung bekommt sie über build.rs nach src-ui/ kopiert.
+APPDATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "appdata")
+BILDER = {"/logo.svg", "/logo.png"}
+
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     """Wie der eingebaute Handler, nur ohne Zwischenspeicher."""
@@ -56,6 +61,12 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         super().end_headers()
+
+    def translate_path(self, path):
+        rein = path.split("?", 1)[0].split("#", 1)[0]
+        if rein in BILDER:
+            return os.path.join(APPDATA, rein.lstrip("/"))
+        return super().translate_path(path)
 
     def log_message(self, fmt, *args):
         # Jede einzelne Datei zu protokollieren macht die Ausgabe von

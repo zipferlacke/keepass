@@ -35,6 +35,9 @@
 //! durch Code, den eine Website beeinflussen kann. Ist die Datenbank zu,
 //! wartet die Anfrage und das eigene Fenster fragt.
 
+use crate::secrets::current_totp;
+use crate::matching::{entry_urls, host_of, match_score, split_url};
+#[cfg(not(windows))]
 use std::io::{Read, Write};
 use std::sync::Mutex;
 
@@ -114,9 +117,124 @@ pub fn start(app: tauri::AppHandle) {
     });
 
     #[cfg(windows)]
-    {
-        // Benannte Pipes brauchen eine eigene Anbindung; noch nicht gebaut.
-        let _ = app;
+    tauri::async_runtime::spawn(async move {
+        if let Err(err) = pipe::listen(app).await {
+            eprintln!("Browser-Anbindung nicht gestartet: {err}");
+        }
+    });
+}
+
+/// Hängt der Kanal gerade? Unter Windows lässt sich das nicht am Pfad
+/// ablesen: Wer `\\.\pipe\…` nachschlägt, verbindet sich damit.
+static LISTENING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/* ---------------------------------------------------------
+   Windows: benannte Pipe
+   ---------------------------------------------------------
+   Dasselbe wie der Unix-Socket darunter, nur mit tokio: Eine Pipe mit
+   einfachem Handle kann nicht gleichzeitig lesen und schreiben — ein
+   wartendes `read` hielte jede Antwort fest. tokio öffnet sie überlappend,
+   dann geht beides.
+   --------------------------------------------------------- */
+#[cfg(windows)]
+mod pipe {
+    use std::sync::{Arc, Mutex};
+
+    use serde_json::Value;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, WriteHalf};
+    use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
+
+    use super::{route, trace, Connection};
+
+    type Writer = Arc<tokio::sync::Mutex<WriteHalf<NamedPipeServer>>>;
+
+    /// Eine Pipe-Instanz je Verbindung. Die nächste wird angelegt, **bevor**
+    /// die verbundene weitergegeben wird — sonst gäbe es einen Augenblick
+    /// ohne Instanz, und ein Browser bekäme „nicht gefunden".
+    fn create(first: bool) -> std::io::Result<NamedPipeServer> {
+        ServerOptions::new()
+            // Legt jemand anderes die Pipe zuerst an, gehört sie ihm — dann
+            // lieber nicht lauschen, als ihm Anfragen abzunehmen.
+            .first_pipe_instance(first)
+            // Nur dieser Rechner. Über das Netz spricht niemand mit uns.
+            .reject_remote_clients(true)
+            .create(route::socket_path())
+    }
+
+    pub async fn listen(app: tauri::AppHandle) -> Result<(), String> {
+        let name = route::socket_path();
+        let mut server = create(true).map_err(|e| {
+            format!("Kanal {} nicht belegbar (läuft WKeePass schon?): {e}", name.display())
+        })?;
+        super::LISTENING.store(true, std::sync::atomic::Ordering::Relaxed);
+
+        loop {
+            if server.connect().await.is_err() {
+                // Der Browser war schneller wieder weg, als wir annehmen
+                // konnten. Instanz neu anlegen und weiter.
+                server = create(false).map_err(|e| e.to_string())?;
+                continue;
+            }
+            let connected = std::mem::replace(&mut server, create(false).map_err(|e| e.to_string())?);
+            tauri::async_runtime::spawn(serve(app.clone(), connected));
+        }
+    }
+
+    /// Wie `serve` für den Unix-Socket — die Begründungen stehen dort.
+    async fn serve(app: tauri::AppHandle, pipe: NamedPipeServer) {
+        let (mut reader, writer) = tokio::io::split(pipe);
+        let writer: Writer = Arc::new(tokio::sync::Mutex::new(writer));
+        let connection = Arc::new(Mutex::new(Connection::new()));
+
+        let mut buffer = vec![0u8; 64 * 1024];
+        let mut incoming = crate::keepass_extension::JsonStream::new();
+
+        loop {
+            let read = match reader.read(&mut buffer).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => n,
+            };
+
+            for message in incoming.push(&buffer[..read]) {
+                trace("→", &message);
+
+                let action = message.get("action").and_then(Value::as_str).unwrap_or_default();
+                if action == "change-public-keys" {
+                    let answer = match connection.lock() {
+                        Ok(mut c) => c.change_public_keys(&message),
+                        Err(_) => return,
+                    };
+                    if send(&writer, &answer).await.is_err() {
+                        return;
+                    }
+                    continue;
+                }
+
+                let app = app.clone();
+                let connection = Arc::clone(&connection);
+                let writer = Arc::clone(&writer);
+                tauri::async_runtime::spawn(async move {
+                    // Die Bearbeitung wartet womöglich lange auf den Nutzer —
+                    // das gehört nicht auf einen Faden der Laufzeit.
+                    let answer = tauri::async_runtime::spawn_blocking(move || {
+                        Connection::process(&connection, &app, &message)
+                    })
+                    .await;
+                    if let Ok(answer) = answer {
+                        trace("←", &answer);
+                        let _ = send(&writer, &answer).await;
+                    }
+                });
+            }
+        }
+    }
+
+    async fn send(writer: &Writer, answer: &Value) -> std::io::Result<()> {
+        let text = serde_json::to_vec(answer)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let mut writer = writer.lock().await;
+        writer.write_all(&text).await?;
+        writer.flush().await
     }
 }
 
@@ -153,6 +271,7 @@ fn listen(app: tauri::AppHandle) -> Result<(), String> {
 
     let listener = UnixListener::bind(&path)
         .map_err(|e| format!("Kanal {} nicht belegbar: {e}", path.display()))?;
+    LISTENING.store(true, std::sync::atomic::Ordering::Relaxed);
 
     // Nur der Benutzer selbst. Ohne das dürfte jeder andere Benutzer des
     // Rechners Zugangsdaten anfragen.
@@ -612,6 +731,8 @@ impl Connection {
         // Für „Zuletzt genutzt": Die Oberfläche zählt mit, der Kern meldet
         // nur, welche Einträge herausgegangen sind.
         let _ = app.emit("entries-used", offen.iter().map(|c| c.uuid.clone()).collect::<Vec<_>>());
+        // Jetzt ist die Seite sicher erreichbar — ein guter Moment für ihr Icon.
+        crate::favicon::im_hintergrund(app, offen.iter().map(|c| c.uuid.clone()).collect(), false);
 
         let entries: Vec<Value> = offen
             .iter()
@@ -1344,16 +1465,6 @@ struct Candidate {
 /// dieselben Freigaben wieder.
 const DECISION_PREFIX: &str = "KP_BROWSER_";
 
-/// Der Rechnername einer Adresse, ohne Anmeldedaten, Port und Pfad.
-fn host_of(url: &str) -> Option<String> {
-    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
-    let rest = rest.split(['/', '?', '#']).next()?;
-    let rest = rest.rsplit_once('@').map(|(_, r)| r).unwrap_or(rest);
-    let host = rest.split(':').next()?.trim().to_ascii_lowercase();
-
-    (!host.is_empty()).then_some(host)
-}
-
 /// Wie `host_of`, aber für Stellen, die einen geliehenen Wert brauchen.
 fn host_of_str(url: &str) -> Option<&str> {
     let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
@@ -1361,94 +1472,6 @@ fn host_of_str(url: &str) -> Option<&str> {
     let host = rest.split(':').next()?;
 
     (!host.is_empty()).then_some(host)
-}
-
-/// Rechnername und Pfad einer Adresse, ohne Anmeldedaten, Port und Anhängsel.
-fn split_url(url: &str) -> Option<(String, Vec<String>)> {
-    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
-    let rest = rest.split(['?', '#']).next()?;
-
-    let (authority, path) = match rest.split_once('/') {
-        Some((a, p)) => (a, p),
-        None => (rest, ""),
-    };
-
-    let authority = authority.rsplit_once('@').map(|(_, r)| r).unwrap_or(authority);
-    let host = authority.split(':').next()?.trim().to_ascii_lowercase();
-
-    if host.is_empty() {
-        return None;
-    }
-
-    let segments = path.split('/').filter(|s| !s.is_empty()).map(str::to_string).collect();
-    Ok::<_, ()>((host, segments)).ok()
-}
-
-/// Wie gut passt der Eintrag zur angefragten Adresse?
-///
-/// `None` heißt: gar nicht. Sonst gilt: je größer, desto genauer.
-///
-/// # Die Reihenfolge, in der gesucht wird
-///
-/// Zuerst die genaue Adresse, dann Stück für Stück gröber:
-///
-/// ```text
-/// https://shop.example.com/kunden/login     angefragt
-///
-///   shop.example.com/kunden/login    genau              120
-///   shop.example.com/kunden          Pfad ein Stück ab  110
-///   shop.example.com                 nur der Rechner    100
-///   example.com                      eine Ebene höher    90
-/// ```
-///
-/// Ein Eintrag mit abweichendem Pfad — etwa `/impressum` — fällt nicht
-/// heraus, sondern nur ans Ende. Sonst käme man an einen Eintrag, den man
-/// für die Domain angelegt hat, auf einer Unterseite nicht mehr heran.
-///
-/// Zurückgegeben wird alles Passende, nach Genauigkeit sortiert. Die
-/// Auswahl trifft der Nutzer danach in der Liste, die die Erweiterung
-/// selbst in die Seite zeichnet.
-fn match_score(entry_url: &str, wanted_host: &str, wanted_path: &[String]) -> Option<u32> {
-    let (host, path) = split_url(entry_url)?;
-
-    // Der Rechner entscheidet, ob es überhaupt passt.
-    let host_score = if host == wanted_host {
-        100
-    } else if let Some(rest) = wanted_host.strip_suffix(&format!(".{host}")) {
-        // Je mehr Unterebenen dazwischen liegen, desto entfernter.
-        let ebenen = rest.matches('.').count() as u32 + 1;
-        90u32.saturating_sub((ebenen - 1) * 10)
-    } else {
-        return None;
-    };
-
-    // Der Pfad verfeinert nur noch.
-    let gemeinsam = entry_path_prefix(&path, wanted_path);
-
-    Some(match gemeinsam {
-        // Kein Pfad am Eintrag: gilt für die ganze Seite, ohne Abzug.
-        Some(0) => host_score,
-        Some(n) => host_score + 10 + n.min(2) as u32 * 5,
-        // Pfad passt nicht — trotzdem behalten, aber ganz hinten.
-        None => host_score.saturating_sub(50),
-    })
-}
-
-/// Wie viele Pfadstücke des Eintrags am Anfang der Anfrage stehen.
-///
-/// `None`, wenn der Eintrag einen Pfad hat, der nicht dazu passt.
-fn entry_path_prefix(entry: &[String], wanted: &[String]) -> Option<usize> {
-    if entry.is_empty() {
-        return Some(0);
-    }
-    if entry.len() > wanted.len() {
-        return None;
-    }
-    entry
-        .iter()
-        .zip(wanted)
-        .all(|(a, b)| a == b)
-        .then_some(entry.len())
 }
 
 
@@ -1480,15 +1503,7 @@ fn matching_entries(
             continue;
         }
 
-        let urls = std::iter::once(entry.get_url().unwrap_or_default().to_string())
-            .chain(
-                entry
-                    .fields
-                    .iter()
-                    .filter(|(name, _)| name.starts_with("KP_ADDITIONAL_URL"))
-                    .map(|(_, value)| value.to_string()),
-            )
-            .collect::<Vec<_>>();
+        let urls = entry_urls(&entry);
 
         // Der beste Treffer unter allen Adressen des Eintrags zählt.
         let Some(score) = urls.iter().filter_map(|u| match_score(u, host, path)).max() else {
@@ -1530,22 +1545,6 @@ fn matching_entries(
 
     Ok(out)
 }
-
-/// Der gerade gültige TOTP-Code eines Eintrags, falls einer hinterlegt ist.
-fn current_totp(raw: &str) -> Option<String> {
-    let uri = if raw.starts_with("otpauth://") {
-        raw.to_string()
-    } else {
-        format!(
-            "otpauth://totp/WKeePass?secret={}&digits=6&period=30&algorithm=SHA1",
-            raw.trim().replace(' ', "")
-        )
-    };
-
-    let totp: keepass::db::TOTP = uri.parse().ok()?;
-    totp.value_now().ok().map(|code| code.code)
-}
-
 
 /* =========================================================
    Die übrigen Aktionen
@@ -1609,6 +1608,7 @@ fn set_login(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
     node.set_protected(keepass::db::fields::PASSWORD, password);
 
     persist(app);
+    crate::favicon::im_hintergrund(app, vec![id.uuid().to_string()], false);
     Ok(json!({ "count": 1, "entries": [] }))
 }
 
@@ -1766,7 +1766,7 @@ pub fn browser_status(state: tauri::State<'_, Vault>) -> Result<Status, String> 
     for target in route::targets().into_iter().filter(route::Target::installed) {
         // „Von uns eingetragen" heißt: Das Manifest zeigt auf unser Programm.
         // Zeigt es woandershin, gehört es KeePassXC.
-        let ours = program.as_ref().is_some_and(|p| route::points_at(&target.file(), p));
+        let ours = program.as_ref().is_some_and(|p| target.is_ours(p));
 
         if ours { installed.push(target.name.to_string()) } else { available.push(target.name.to_string()) }
     }
@@ -1785,7 +1785,7 @@ pub fn browser_status(state: tauri::State<'_, Vault>) -> Result<Status, String> 
     };
 
     Ok(Status {
-        listening: socket.exists(),
+        listening: LISTENING.load(std::sync::atomic::Ordering::Relaxed),
         socket: socket.to_string_lossy().to_string(),
         installed,
         available,

@@ -12,6 +12,7 @@
 //! anderen Ordner zu ziehen wirkt, die genaue Position darin nicht.
 
 use keepass::db::{EntryId, GroupId};
+use keepass::Database;
 
 use crate::database::{apply_plain_fields, entry_id_of};
 use crate::dto;
@@ -69,6 +70,7 @@ pub fn vault_save_entry(
                     let mut node = db.entry_mut(id).ok_or("Eintrag verschwunden.")?;
                     node.move_to(target)
                         .map_err(|e| format!("Verschieben fehlgeschlagen: {e}"))?;
+                    node.times.location_changed = Some(keepass::db::Times::now());
                 }
                 id
             }
@@ -290,10 +292,7 @@ pub fn vault_delete_entry(state: tauri::State<'_, Vault>, id: String) -> Result<
     }
 
     let bin = ensure_recycle_bin(db);
-    db.entry_mut(entry_id)
-        .ok_or("Eintrag verschwunden.")?
-        .move_to(bin)
-        .map_err(|e| format!("Verschieben in den Papierkorb fehlgeschlagen: {e}"))?;
+    moved_entry(db, entry_id, bin)?;
     Ok(true)
 }
 
@@ -327,14 +326,25 @@ pub fn vault_empty_recycle_bin(state: tauri::State<'_, Vault>) -> Result<u32, St
         .collect();
 
     for group in nested {
-        if let Some(g) = db.group_mut(group) {
-            g.remove();
+        if let Some(mut g) = db.group_mut(group) {
+            // Mit Löschvermerk, sonst brächte der Abgleich den Ordner zurück.
+            g.track_changes().remove().ok();
         }
     }
 
     // Erst jetzt, wenn die Ausleihe der Datenbank beendet ist.
     vault.field_tokens.retain(|(id, _), _| !gone.contains(id));
     Ok(gone.len() as u32)
+}
+
+/// Verschiebt einen Eintrag und vermerkt, wann. Die Bibliothek setzt
+/// `location_changed` dabei nicht — ohne den Zeitpunkt wüsste der Abgleich
+/// mit einem anderen Gerät nicht, welcher Ordner der neuere ist.
+fn moved_entry(db: &mut Database, id: EntryId, target: GroupId) -> Result<(), String> {
+    let mut node = db.entry_mut(id).ok_or("Eintrag verschwunden.")?;
+    node.move_to(target).map_err(|e| format!("Verschieben fehlgeschlagen: {e}"))?;
+    node.times.location_changed = Some(keepass::db::Times::now());
+    Ok(())
 }
 
 #[tauri::command]
@@ -349,10 +359,7 @@ pub fn vault_move_entry(
     let Some(entry_id) = entry_id_of(db, &id) else { return Ok(false) };
     let target = ensure_group(db, &folder);
 
-    db.entry_mut(entry_id)
-        .ok_or("Eintrag verschwunden.")?
-        .move_to(target)
-        .map_err(|e| format!("Verschieben fehlgeschlagen: {e}"))?;
+    moved_entry(db, entry_id, target)?;
     Ok(true)
 }
 
@@ -375,10 +382,7 @@ pub fn vault_reorder_entry(
 
     let target = db.entry(reference).map(|e| e.parent().id()).ok_or("Bezugseintrag verschwunden.")?;
 
-    db.entry_mut(entry_id)
-        .ok_or("Eintrag verschwunden.")?
-        .move_to(target)
-        .map_err(|e| format!("Verschieben fehlgeschlagen: {e}"))?;
+    moved_entry(db, entry_id, target)?;
     Ok(true)
 }
 
@@ -407,7 +411,9 @@ pub fn vault_rename_folder(
     let db = vault.database_mut()?;
 
     let Some(group) = resolve_editable(db, &path)? else { return Ok(false) };
-    db.group_mut(group).ok_or("Ordner verschwunden.")?.name = name;
+    let mut node = db.group_mut(group).ok_or("Ordner verschwunden.")?;
+    node.name = name;
+    node.times.last_modification = Some(keepass::db::Times::now());
     Ok(true)
 }
 
@@ -423,10 +429,7 @@ pub fn vault_move_folder(
     let Some(group) = resolve_editable(db, &path)? else { return Ok(false) };
     let target = ensure_group(db, &parent);
 
-    db.group_mut(group)
-        .ok_or("Ordner verschwunden.")?
-        .move_to(target)
-        .map_err(|e| format!("Verschieben fehlgeschlagen: {e}"))?;
+    moved_group(db, group, target)?;
     Ok(true)
 }
 
@@ -453,10 +456,7 @@ pub fn vault_remove_folder(state: tauri::State<'_, Vault>, path: String) -> Resu
     }
 
     let bin = ensure_recycle_bin(db);
-    db.group_mut(group)
-        .ok_or("Ordner verschwunden.")?
-        .move_to(bin)
-        .map_err(|e| format!("Verschieben in den Papierkorb fehlgeschlagen: {e}"))?;
+    moved_group(db, group, bin)?;
     Ok(true)
 }
 
@@ -479,6 +479,14 @@ pub fn vault_reorder_folder(
 /* =========================================================
    Helfer
    ========================================================= */
+
+/// Wie `moved_entry`, für Ordner.
+fn moved_group(db: &mut Database, group: GroupId, target: GroupId) -> Result<(), String> {
+    let mut node = db.group_mut(group).ok_or("Ordner verschwunden.")?;
+    node.move_to(target).map_err(|e| format!("Verschieben fehlgeschlagen: {e}"))?;
+    node.times.location_changed = Some(keepass::db::Times::now());
+    Ok(())
+}
 
 /// Sucht die Gruppe zum Pfad und weist die Wurzel zurück — die lässt sich
 /// weder umbenennen noch verschieben noch löschen.
@@ -638,4 +646,43 @@ mod tests {
 
         assert_eq!(anhaenge(&vault, id), vec![("alt.txt".to_string(), b"Inhalt".to_vec())]);
     }
+}
+
+/// Vermerkt, dass Einträge gerade benutzt wurden (`LastAccessTime`).
+///
+/// Daraus entsteht im Sicherheitscheck die Liste der inaktiven Einträge —
+/// und KeePassXC zeigt denselben Zeitpunkt an. Geschrieben wird er mit dem
+/// nächsten Speichern; nur bei `persist` sofort, etwa wenn der Nutzer
+/// ausdrücklich „wird noch genutzt" sagt.
+#[tauri::command]
+pub fn vault_mark_accessed(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    ids: Vec<String>,
+    persist: Option<bool>,
+) -> Result<usize, String> {
+    let zahl = {
+        let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        mark_accessed(&mut vault, &ids)?
+    };
+    if persist.unwrap_or(false) && zahl > 0 {
+        crate::database::commit(&app, &state)?;
+    }
+    Ok(zahl)
+}
+
+pub fn mark_accessed(vault: &mut crate::state::VaultState, ids: &[String]) -> Result<usize, String> {
+    let db = vault.database_mut()?;
+    let treffer: Vec<_> = db
+        .iter_all_entries()
+        .filter(|e| ids.iter().any(|id| *id == e.id().uuid().to_string()))
+        .map(|e| e.id())
+        .collect();
+    let jetzt = keepass::db::Times::now();
+    for id in &treffer {
+        if let Some(mut entry) = db.entry_mut(*id) {
+            entry.times.last_access = Some(jetzt);
+        }
+    }
+    Ok(treffer.len())
 }

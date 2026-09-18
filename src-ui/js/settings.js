@@ -78,10 +78,6 @@ export async function set(path, value, { silent = false } = {}) {
 }
 
 /** Kopie der Standardwerte — z. B. um nur einen Teilbereich zurückzusetzen. */
-export async function defaultsSnapshot() {
-  return structuredClone(await loadDefaults());
-}
-
 export async function resetSettings() {
   const def = await loadDefaults();
   // Vollständig ersetzen statt zu mischen — sonst überleben Schlüssel
@@ -146,10 +142,6 @@ export async function setForDatabase(path, key, value, options = {}) {
 }
 
 /** Wirft die Einstellungen einer Datenbank weg. */
-export async function forgetDatabase(path) {
-  await set('databases', (getSettings().databases ?? []).filter(d => d.path !== path));
-}
-
 export function onSettingsChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);

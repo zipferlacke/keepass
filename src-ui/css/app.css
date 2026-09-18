@@ -789,13 +789,227 @@
     flex-direction: column;
     gap: 0.6rem;
 
-    video {
-      width: 100%;
-      max-height: 55dvh;
+    /* Quadratisch und nie höher als der Platz — der Dialog soll nicht
+       scrollen, sonst verrutscht das Bild beim Zielen. */
+    .qr-frame {
+      position: relative;
+      width: min(100%, 60dvh);
+      aspect-ratio: 1;
+      margin-inline: auto;
       border-radius: var(--br-default);
+      overflow: hidden;
       background: #000;
-      object-fit: cover;
+      transition: box-shadow 0.3s;
     }
+
+    video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+
+    /* Der Sucher: das mittlere Quadrat, das zuerst geprüft wird (qr.js).
+       Außen abgedunkelt, damit klar ist, wohin der Code gehört. */
+    .qr-sucher {
+      position: absolute;
+      inset: 12.5%;
+      border: 3px solid rgb(255 255 255 / 0.85);
+      border-radius: 18px;
+      box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.35);
+      pointer-events: none;
+      transition: border-color 0.2s, box-shadow 0.3s;
+    }
+
+    .qr-hint {
+      margin: 0;
+      text-align: center;
+      font-size: var(--fs-200);
+      opacity: 0.8;
+    }
+
+    .qr-check {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      pointer-events: none;
+
+      .msr {
+        font-size: 4.5rem;
+        color: #fff;
+        background: var(--clr-primary);
+        border-radius: 50%;
+        padding: 0.4rem;
+        box-shadow: 0 0 32px 8px var(--clr-primary);
+      }
+    }
+
+    /* Erkannt: Der Sucher leuchtet grün, das Bild glüht, ein Haken springt auf. */
+    &.found {
+      .qr-frame { animation: qr-glow 0.65s ease-out both; }
+      .qr-sucher {
+        border-color: var(--clr-primary);
+        box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45), 0 0 28px 8px var(--clr-primary), inset 0 0 28px 6px var(--clr-primary);
+      }
+      .qr-check { animation: qr-haken 0.65s cubic-bezier(.2, 1.4, .4, 1) both; }
+      .qr-hint { color: var(--clr-primary); opacity: 1; font-weight: 600; }
+    }
+  }
+
+  @keyframes qr-glow {
+    0% { box-shadow: 0 0 0 0 var(--clr-primary); }
+    40% { box-shadow: 0 0 36px 10px var(--clr-primary); }
+    100% { box-shadow: 0 0 18px 4px var(--clr-primary); }
+  }
+
+  @keyframes qr-haken {
+    0% { opacity: 0; transform: scale(0.3); }
+    60% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  /* Stand einer Freigabe in den Einstellungen („Aktiv", „Erst ab …") */
+  .setting-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--fs-200);
+    color: var(--clr-neutral);
+    white-space: nowrap;
+
+    &[data-tone="ok"] { color: var(--clr-success); }
+  }
+
+  /* Sicherheitscheck: je Befundart ein aufklappbarer Block. Leer bleibt er
+     zu, und die Zusammenfassung sagt klein, dass nichts zu tun ist. */
+  .sec-group {
+    margin-bottom: 0.5rem;
+
+    > summary {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 0.75rem;
+      cursor: pointer;
+      list-style: none;
+      border-radius: var(--br-default);
+      font-weight: 600;
+
+      &::-webkit-details-marker { display: none; }
+      &::before {
+        content: 'chevron_right';
+        font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', sans-serif;
+        font-weight: normal;
+        font-size: 1.2rem;
+        transition: transform 0.15s;
+      }
+      &:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+    }
+    &[open] > summary::before { transform: rotate(90deg); }
+
+    .sec-count {
+      margin-inline-start: auto;
+      min-width: 1.6rem;
+      padding: 0 0.45rem;
+      border-radius: 999px;
+      text-align: center;
+      font-size: var(--fs-200);
+      background: color-mix(in srgb, var(--clr-danger) 18%, transparent);
+    }
+
+    .sec-ok {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-inline-start: auto;
+      font-weight: normal;
+      font-size: var(--fs-100);
+      color: var(--clr-success);
+
+      .msr { font-size: 1rem; }
+    }
+
+    .sec-body { padding-top: 0.3rem; }
+  }
+
+  /* Erklärtext über einer Befundgruppe — schlichter Text, kein Kasten */
+  .section-note {
+    margin: 0 0.75rem 0.6rem;
+    font-size: var(--fs-200);
+    line-height: 1.5;
+    color: var(--text-hover);
+  }
+
+  /* Lange nicht genutzt: Name links, Benutzer und Seite rechts daneben —
+     auf dem Handy alles untereinander, sonst wird die Zeile zu breit. */
+  .inactive-item {
+    .inactive-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.4rem 1rem;
+      min-width: 0;
+    }
+
+    .inactive-meta {
+      display: flex;
+      gap: 0.3rem 1rem;
+      min-width: 0;
+      font-size: var(--fs-100);
+      color: var(--text-hover);
+
+      > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .msr { font-size: 1rem; }
+    }
+
+    @media (max-width: 640px) {
+      .inactive-head { flex-direction: column; align-items: flex-start; }
+      .inactive-meta { flex-direction: column; }
+      .finding-actions .button { flex: 1 1 auto; }
+    }
+  }
+
+  /* Hinweiskasten: Was ein Befund bedeutet und was zu tun ist */
+  .finding-advice {
+    margin-top: 0.5rem;
+    font-size: var(--fs-200);
+    line-height: 1.5;
+
+    ol, ul { margin: 0.3rem 0 0; padding-inline-start: 1.2rem; }
+    li + li { margin-top: 0.2rem; }
+  }
+
+  .finding-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+  }
+
+  .breach-list {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .breach {
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--br-default);
+    background: color-mix(in srgb, var(--clr-danger) 8%, transparent);
+
+    .breach-head { display: flex; justify-content: space-between; gap: 0.5rem; font-weight: 600; }
+    .breach-meta { font-size: var(--fs-200); opacity: 0.8; }
   }
 
   .qr-output {
@@ -1190,6 +1404,24 @@
         & .lock-actions { opacity: 0.6; }
       }
 
+      .lock-dots {
+        display: flex;
+        justify-content: center;
+        gap: 0.45rem;
+        height: 1.4rem;
+        align-items: flex-end;
+
+        i {
+          width: 0.55rem;
+          height: 0.55rem;
+          border-radius: 50%;
+          background: var(--clr-primary);
+          animation: lock-dot 1s ease-in-out infinite;
+        }
+        i:nth-child(2) { animation-delay: 0.15s; }
+        i:nth-child(3) { animation-delay: 0.3s; }
+      }
+
       input[type="password"] { text-align: start; }
     }
   }
@@ -1356,6 +1588,36 @@
       &:first-child { border-top: none; }
       span { color: var(--text-hover); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     }
+  }
+
+  /* Welche CSV-Spalte was bedeutet */
+  .import-mapping {
+    margin-top: 0.75rem;
+    text-align: start;
+
+    summary { cursor: pointer; font-weight: 600; font-size: var(--fs-200); }
+  }
+
+  .import-columns {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    max-height: 16rem;
+    overflow-y: auto;
+  }
+
+  .import-column {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 12rem);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--clr-neutral-200);
+    border-radius: var(--br-default);
+
+    > span { display: grid; min-width: 0; }
+    strong { font-size: var(--fs-100); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    small { font-size: var(--fs-100); color: var(--text-hover); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
 
   /* ============================================================
@@ -2550,4 +2812,16 @@
       }
     }
   }
+}
+
+/* Befunde und Übersicht: nichts herausziehen (Links, Icons) */
+.findings-table :is(a, img), #recent-list :is(a, img) { -webkit-user-drag: none; user-drag: none; }
+
+@keyframes lock-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-0.7rem); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lock-dots i { animation-duration: 2s; }
 }

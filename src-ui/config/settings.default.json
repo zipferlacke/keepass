@@ -6,8 +6,7 @@
   },
   "database": {
     "current": null,
-    "recent": [],
-    "autoSync": true
+    "recent": []
   },
   "unlock": {
     "biometrics": true,
@@ -17,6 +16,9 @@
   "icons": {
     "download": true
   },
+  "names": {
+    "fromWebsite": true
+  },
   "checks": {
     "passwordStrength": true,
     "reuseDetection": true,
@@ -24,7 +26,8 @@
     "passwordBreach": true,
     "emailBreach": true,
     "automatic": "weekly",
-    "lastRunAt": null
+    "lastRunAt": null,
+    "notify": true
   },
   "ui": {
     "welcomeSeen": false,
@@ -34,7 +37,6 @@
   },
   "databases": [],
   "databaseDefaults": {
-    "autoSync": true,
     "iconsDownload": true,
     "expiryWarnDays": 14
   },

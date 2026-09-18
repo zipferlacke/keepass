@@ -198,6 +198,26 @@ const commands = {
   },
 
   /** Im Browser gibt es keine Dateien — die Demo tut nur so. */
+  async vault_fetch_icons() {
+    return null;
+  },
+
+  async vault_mark_accessed({ ids }) {
+    return (ids ?? []).length;
+  },
+
+  async open_link({ url }) {
+    window.open(url, '_blank', 'noopener');
+  },
+
+  async android_setup_status() {
+    return null;
+  },
+
+  async android_setup_open() {
+    return false;
+  },
+
   async vault_security() {
     await ensureLoaded();
     return {
@@ -287,6 +307,10 @@ const commands = {
   /** In der Demo wird nichts geschrieben — die Änderungen bleiben im Speicher. */
   async vault_commit() {
     return true;
+  },
+
+  async vault_sync() {
+    return false;
   },
 
   async vault_lock() {
@@ -628,6 +652,7 @@ const commands = {
 
   /** Fremde Seiten sperren den Abruf per CORS aus — im Browser also nichts. */
   async fetch_page_title() { return null; },
+  async database_modified() { return Date.now() - 3600_000; },
 
   /* ---------- QR ---------- */
 

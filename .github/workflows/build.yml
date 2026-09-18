@@ -1,12 +1,13 @@
-# Baut WKeePass für Windows, macOS, als Flatpak (x86_64 + aarch64) und als
-# Android-APK.
+# Baut WKeePass für Windows, macOS, Linux (Flatpak, RPM,
+# AppImage — je x86_64 und aarch64) und Android (APK + AAB).
 #
 # wuefl-libs kommt dabei von GitHub (siehe .github/actions/wuefl-libs) —
 # lokal ist es nur ein Symlink auf das Nachbarprojekt.
 #
 # Start: von Hand unter „Actions" (workflow_dispatch) oder durch einen Tag
-# wie `v0.1.0`. Bei einem Tag landen alle Dateien zusätzlich in einem
-# Release-Entwurf, den man vor dem Veröffentlichen noch prüfen kann.
+# wie `v0.1.0` (siehe git-release: der Tag entsteht aus dem obersten Eintrag
+# in appdata/messages.json). Bei einem Tag wird daraus ein Release: Titel
+# und Text kommen aus der Tag-Beschreibung, alle gebauten Dateien hängen dran.
 
 name: Build
 
@@ -35,7 +36,7 @@ jobs:
             output: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: ./.github/actions/wuefl-libs
 
@@ -47,7 +48,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -60,6 +61,67 @@ jobs:
         with:
           name: wkeepass-${{ matrix.name }}
           path: ${{ matrix.output }}
+
+  # RPM und AppImage. Gebaut auf Ubuntu 22.04: Das AppImage läuft nur auf
+  # Systemen mit mindestens der glibc, gegen die es gebaut wurde — die
+  # ältere hält es breit nutzbar. Das RPM braucht kein rpmbuild, Tauri
+  # schreibt es selbst. Die Dateien bekommen feste Namen, damit die
+  # Webseite über releases/latest/download/… direkt darauf zeigen kann.
+  linux:
+    name: Linux ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/wuefl-libs
+
+      # xdg-utils: Tauri legt xdg-open ins AppImage (Links im Browser
+      # öffnen); auf dem ARM-Runner fehlt es von Haus aus.
+      - name: Systembibliotheken
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libdbus-1-dev patchelf file xdg-utils
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: linux-${{ matrix.arch }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Bauen
+        working-directory: src-tauri
+        env:
+          # linuxdeploy ist selbst ein AppImage; ohne FUSE auf dem Runner
+          # muss es sich zum Starten entpacken.
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: npx --yes @tauri-apps/cli@2 build --bundles rpm,appimage
+
+      - name: Feste Dateinamen
+        run: |
+          B=src-tauri/target/release/bundle
+          cp $B/rpm/*.rpm wkeepass-${{ matrix.arch }}.rpm
+          cp $B/appimage/*.AppImage wkeepass-${{ matrix.arch }}.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wkeepass-Linux-${{ matrix.arch }}
+          path: |
+            wkeepass-${{ matrix.arch }}.rpm
+            wkeepass-${{ matrix.arch }}.AppImage
 
   flatpak:
     name: Flatpak ${{ matrix.arch }}
@@ -76,7 +138,7 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-49
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: ./.github/actions/wuefl-libs
 
@@ -91,13 +153,13 @@ jobs:
     name: Android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: ./.github/actions/wuefl-libs
 
       # Android-SDK und NDK liegen auf dem Runner schon bereit
       # (ANDROID_HOME, ANDROID_NDK_LATEST_HOME) — nur Java muss passen.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -110,30 +172,42 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
+      # Gradle ruft beim Bauen die Tauri-CLI selbst noch einmal auf — über
+      # `npm run tauri`, wenn das Projekt mit npm erzeugt wurde. Mit npx
+      # allein fehlt dafür die package.json, und der Schritt
+      # rustBuild…Release bricht mit „Could not read package.json" ab.
+      - name: Tauri-CLI über npm
+        working-directory: src-tauri
+        run: |
+          echo '{"private":true,"scripts":{"tauri":"tauri"}}' > package.json
+          npm install --no-audit --no-fund --save-dev @tauri-apps/cli@2
+
       # gen/ steht nicht im Repository — das Android-Projekt entsteht hier
-      # jedes Mal neu. Die Symbole dafür liegen fertig unter icons/android.
+      # jedes Mal neu. Die Symbole kommen aus appdata/icons/android.
       - name: Android-Projekt erzeugen
         working-directory: src-tauri
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
-          npx --yes @tauri-apps/cli@2 android init --ci
-          cp -r icons/android/. gen/android/app/src/main/res/
-          # Unsere eigenen Kotlin-Klassen (Keystore-Schlüssel für die
-          # Biometrie) und die Regel, die sie vor dem Optimierer schützt —
+          npm run tauri -- android init --ci
+          # Unsere Kotlin-Klassen (Biometrie, Dateiauswahl, Autofill,
+          # Passkeys), die App-Symbole, ihr Manifest-Block und ihre Abhängigkeiten —
           # derselbe Schritt wie in tools/android.sh.
-          cp -r ../keepass-android/kotlin/de/wuefl/wkeepass/sicherheit \
-                gen/android/app/src/main/java/de/wuefl/wkeepass/
-          cp ../keepass-android/proguard-wkeepass.pro gen/android/app/
+          python3 ../tools/android-einbinden.py
 
+      # Das AAB enthält alle Prozessortypen — der Play Store liefert jedem
+      # Gerät nur seinen Teil. Die APKs zum direkten Herunterladen gibt es
+      # je Typ einzeln, sonst trüge jede alle drei Bibliotheken mit sich.
       - name: Bauen
         working-directory: src-tauri
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
-          npx --yes @tauri-apps/cli@2 android build --ci --apk \
+          npm run tauri -- android build --ci --aab \
+            --target aarch64 --target armv7 --target x86_64
+          npm run tauri -- android build --ci --apk --split-per-abi \
             --target aarch64 --target armv7 --target x86_64
 
       # Eine unsignierte APK lässt sich nicht installieren.
@@ -155,8 +229,6 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-release-unsigned.apk' | head -1)
-          test -n "$APK" || { echo "Keine APK gefunden"; exit 1; }
 
           if [ -n "$KEYSTORE" ]; then
             echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
@@ -169,29 +241,71 @@ jobs:
               -dname "CN=WKeePass Test"
           fi
 
-          "$TOOLS/zipalign" -f 4 "$APK" "$RUNNER_TEMP/aligned.apk"
-          "$TOOLS/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass "pass:$KEYSTORE_PASSWORD" --out wkeepass-android.apk "$RUNNER_TEMP/aligned.apk"
+          # arm64 (fast alle Handys) heißt schlicht wkeepass-android.apk —
+          # darauf zeigt die Webseite. Die anderen tragen ihren Typ im Namen.
+          find src-tauri/gen/android/app/build/outputs/apk -name '*-release-unsigned.apk' > apks.txt
+          test -s apks.txt || { echo "Keine APK gefunden"; exit 1; }
+          while read -r APK; do
+            case "$APK" in
+              *arm64*)  OUT=wkeepass-android.apk ;;
+              *x86_64*) OUT=wkeepass-android-x86_64.apk ;;
+              *arm*)    OUT=wkeepass-android-armv7.apk ;;
+              *)        OUT=wkeepass-android-universal.apk ;;
+            esac
+            "$TOOLS/zipalign" -f 4 "$APK" "$RUNNER_TEMP/aligned.apk"
+            "$TOOLS/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass "pass:$KEYSTORE_PASSWORD" --out "$OUT" "$RUNNER_TEMP/aligned.apk"
+          done < apks.txt
+          ls -lh wkeepass-android*.apk
+
+          # Das AAB signiert jarsigner, nicht apksigner. Im Play Store ist
+          # das der Upload-Schlüssel; Google signiert für die Geräte neu.
+          AAB=$(find src-tauri/gen/android/app/build/outputs/bundle -name '*.aab' | head -1)
+          test -n "$AAB" || { echo "Kein AAB gefunden"; exit 1; }
+          cp "$AAB" wkeepass-android.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" \
+            -sigalg SHA256withRSA -digestalg SHA-256 wkeepass-android.aab "$KEY_ALIAS"
           rm -f "$RUNNER_TEMP/release.jks"
 
       - uses: actions/upload-artifact@v4
         with:
           name: wkeepass-Android
-          path: wkeepass-android.apk
+          path: |
+            wkeepass-android*.apk
+            wkeepass-android.aab
 
+  # Läuft auch, wenn einzelne Builds scheitern: Das Release enthält dann,
+  # was fertig wurde, statt ganz auszufallen. Abgebrochene Läufe nicht.
   release:
-    name: Release-Entwurf
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [desktop, flatpak, android]
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/') && !cancelled()
+    needs: [desktop, linux, flatpak, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+
+      # checkout holt beim flachen Klonen nur den Commit, nicht das
+      # Tag-Objekt mit seiner Beschreibung — also ausdrücklich nachladen.
+      - name: Beschreibung aus dem Tag
+        run: |
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          # Erste Zeile („Version 0.1.0") wird der Titel, der Rest die
+          # Änderungen — je Zeile ein Punkt.
+          TITLE=$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents:subject)')
+          git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents:body)' \
+            | sed '/^-----BEGIN PGP SIGNATURE-----/,$d' \
+            | sed '/^[[:space:]]*$/d; s/^[-*][[:space:]]*//; s/^/- /' > release-notes.md
+          echo "TITLE=WKeePass ${TITLE:-$GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          cat release-notes.md
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
 
       - uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          name: ${{ env.TITLE }}
+          body_path: release-notes.md
           files: dist/**/*

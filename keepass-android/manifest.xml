@@ -1,47 +1,64 @@
 <!--
-  Der Block, der in AndroidManifest.xml gehört.
+  Der Block, der in AndroidManifest.xml gehört — innerhalb von <application>.
 
-  Keine eigenständige Datei — Android liest nur das Manifest des Projekts
-  unter `gen/android/app/src/main/`. Hier steht er, damit er versioniert ist
-  und nicht bei jedem `cargo tauri android init` neu erfunden werden muss.
-
-  Einzusetzen innerhalb von <application>.
+  Keine eigenständige Datei: Android liest nur das Manifest des Projekts
+  unter `gen/android/app/src/main/`. Hier steht er, damit er versioniert ist;
+  `tools/android-einbinden.py` setzt ihn bei jedem Bauen ein. Alles
+  zwischen den beiden Markierungen dort wird dabei ersetzt.
 -->
 
+<!--
+  Autofill. `permission` und `exported` gehören zusammen: Der Dienst muss
+  von außen erreichbar sein, sonst findet ihn das System nicht — aber nur
+  für das System. Die Berechtigung hält jeden anderen Aufrufer fern.
+-->
 <service
     android:name="de.wuefl.wkeepass.autofill.WKeePassAutofillService"
     android:label="WKeePass"
     android:permission="android.permission.BIND_AUTOFILL_SERVICE"
     android:exported="true">
-
-    <!--
-      `permission` und `exported` gehören zusammen: Der Dienst muss von außen
-      erreichbar sein, sonst findet ihn das System nicht — aber nur für das
-      System. Die Berechtigung hält jeden anderen Aufrufer fern.
-    -->
-
     <intent-filter>
         <action android:name="android.service.autofill.AutofillService" />
     </intent-filter>
-
     <meta-data
         android:name="android.autofill"
         android:resource="@xml/autofill_service" />
 </service>
 
 <!--
-  Die Activity, die beim Antippen eines Vorschlags aufgeht.
+  Passkeys, ab Android 14. Gleiches Muster wie Autofill, eigene Berechtigung.
+-->
+<service
+    android:name="de.wuefl.wkeepass.passkey.WKeePassCredentialService"
+    android:label="WKeePass"
+    android:icon="@mipmap/ic_launcher"
+    android:enabled="true"
+    android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.service.credentials.CredentialProviderService" />
+    </intent-filter>
+    <meta-data
+        android:name="android.credentials.provider"
+        android:resource="@xml/provider" />
+</service>
 
-  `exported="false"`: Gestartet wird sie ausschließlich über den
-  PendingIntent, den der Dienst dem System übergibt. Von außen aufrufbar
-  wäre sie ein Weg, an der Legitimation vorbeizukommen.
+<!--
+  Die beiden Activities, die beim Antippen eines Vorschlags aufgehen.
 
-  `excludeFromRecents` und der durchsichtige Stil, weil sie kein Fenster
-  ist, das man später wiederfinden will — sie erscheint über der fremden
-  App und verschwindet wieder.
+  `exported="false"`: Gestartet werden sie ausschließlich über die
+  PendingIntents der Dienste. Von außen aufrufbar wären sie ein Weg an der
+  Auswahl vorbei. Durchsichtig und ohne Eintrag in „Zuletzt verwendet",
+  weil sie über der fremden App erscheinen und wieder verschwinden.
 -->
 <activity
     android:name="de.wuefl.wkeepass.autofill.AusfuellActivity"
+    android:exported="false"
+    android:excludeFromRecents="true"
+    android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+<activity
+    android:name="de.wuefl.wkeepass.passkey.PasskeyActivity"
     android:exported="false"
     android:excludeFromRecents="true"
     android:theme="@android:style/Theme.Translucent.NoTitleBar" />

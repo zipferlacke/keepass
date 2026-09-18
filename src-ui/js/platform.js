@@ -51,11 +51,12 @@ async function resolveDemo() {
  * merken, wenn etwas nicht geht, statt stillschweigend mit `null`
  * weiterzurechnen.
  */
-export async function invoke(command, args = {}) {
+export async function invoke(command, args = {}, options = undefined) {
   try {
     if (isTauri) {
       const fn = await resolveInvoke();
-      return await fn(command, args);
+      // `options` für Rohdaten mit Kopfzeilen (siehe qr.js) — sonst leer.
+      return await (options ? fn(command, args, options) : fn(command, args));
     }
 
     const demo = await resolveDemo();

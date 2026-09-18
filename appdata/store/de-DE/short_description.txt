@@ -1,0 +1,1 @@
+Passwörter, 2FA-Codes und Passkeys – lokal im KeePass-Format, ohne Konto

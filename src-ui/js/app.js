@@ -1,12 +1,13 @@
 import * as vault from './vault.js';
 import * as settings from './settings.js';
 import { parseOtpauth, buildOtpauth } from './totp.js';
-import { checkPwnedByHash, checkEmailBreached, passwordStrength as localStrength } from './security.js';
+import { checkPwnedByHash, checkEmailBreached, breachAnalytics, accountDeletionIndex, findDeletion, passwordStrength as localStrength } from './security.js';
 import { applyAppearance, applyTheme, applyPrimary, resolvedColor } from './theme.js';
-import { avatarMarkup, refreshEpoch, hostFromUrl } from './icons.js';
+import { avatarMarkup, hostFromUrl } from './icons.js';
 import * as qr from './qr.js';
 import * as preview from './preview.js';
 import { enableDragMove } from './dragmove.js';
+import { parseImport, itemsFromCsv, CSV_FIELDS } from './import.js';
 import * as pick from './multiselect.js';
 import { isTauri, isMobile, invoke, unlockMethods, pickDatabaseFile, pickSavePath, listen } from './platform.js';
 import { dialog, banner, closeHostDialog, tableview, selectPicker} from './ui.js';
@@ -71,8 +72,67 @@ async function boot() {
     showLockscreen(String(ev?.payload ?? 'Wegen Untätigkeit gesperrt.'));
   });
 
+  // Lesen, Scrollen und Tippen rufen keinen Befehl im Kern auf — ohne diese
+  // Meldung sperrte er mitten im Lesen. Höchstens alle 30 s.
+  let lastTouch = 0;
+  const activity = () => {
+    if (state.locked || Date.now() - lastTouch < 30_000) return;
+    lastTouch = Date.now();
+    vault.touch().catch(() => {});
+  };
+  for (const type of ['pointerdown', 'keydown', 'wheel', 'touchmove']) {
+    window.addEventListener(type, activity, { capture: true, passive: true });
+  }
+
   // Abrufe über die Browser-Erweiterung zählen ebenfalls als Nutzung.
   await listen('entries-used', ev => markUsed(ev?.payload ?? []));
+
+  // Android: Autofill und Passkeys schreiben in die offene Datenbank, ohne
+  // dass die Oberfläche beteiligt ist. Danach die Liste nachziehen — und
+  // wenn das Zurückschreiben scheitert, muss man es erfahren.
+  await listen('vault-changed', async () => {
+    if (state.locked) return;
+    await refreshFromVault();
+    renderAll({ includeSettings: false });
+  });
+
+  // Ein anderes Gerät hat in die Datei geschrieben, und der Kern hat den
+  // Stand beim Speichern eingemischt — auch bei Browser und Autofill.
+  await listen('vault-merged', () => takeForeign());
+
+  // Fremde Änderungen holen: sobald die App wieder vorn ist, und jede
+  // Minute, solange sie sichtbar ist. Ist die Datei unverändert, schaut der
+  // Kern nur aufs Änderungsdatum.
+  const syncNow = () => {
+    if (!state.locked && document.visibilityState === 'visible') syncFromFile();
+  };
+  document.addEventListener('visibilitychange', syncNow);
+  window.addEventListener('focus', syncNow);
+  setInterval(syncNow, 60_000);
+
+  await listen('autofill-saved', ev => {
+    const n = Number(ev?.payload ?? 0);
+    banner(n === 1 ? 'Ein Zugang aus dem Autofill wurde gespeichert.' : `${n} Zugänge aus dem Autofill wurden gespeichert.`, 'success', 5000);
+  });
+  await listen('save-failed', ev => {
+    banner(`Änderung nicht gespeichert: ${ev?.payload ?? ''}`, 'error', 10000);
+  });
+
+  // Doppelklick auf eine .kdbx, während die App läuft (single-instance,
+  // macOS: Ereignis des Systems): Sperrbildschirm für genau diese Datei.
+  await listen('open-database', async ev => {
+    const path = String(ev?.payload ?? '');
+    if (!path) return;
+    await vault.startupDatabase().catch(() => null);   // abholen, sonst käme sie beim nächsten Start nochmal
+    if (!state.locked && path === settings.get('database.current', null)) return;
+    if (!state.locked) await lockDatabase();
+    await settings.set('database.current', path, { silent: true });
+    await rememberDatabase({ name: dbName(path), path });
+    state.unlock = await unlockMethods(path);
+    renderLockscreen();
+  });
+
+  await bindOtpLinks();
 
   // Auswahlfelder bekommen das Aussehen der übrigen Oberfläche.
   selectPicker();
@@ -104,12 +164,36 @@ async function boot() {
 
   // Beim allerersten Start einmal durch die Einrichtung führen.
   if (!settings.get('ui.welcomeSeen', false)) await showWelcome();
+  if (isMobile && !settings.get('android.setupSeen', false)) await showAndroidSetup();
+  if (isTauri && !isMobile && !settings.get('browser.setupSeen', false)) await showBrowserSetupPage();
   renderLockscreen();
 
   // Ist die Datenbank an das Gerät gebunden (Windows Hello), wird gleich
   // gefragt — das ersetzt PIN und Master-Passwort. Nur beim Programmstart:
   // Nach einem Sperren von Hand soll nicht sofort wieder etwas aufgehen.
   if (state.unlock.device && settings.get('database.current', null)) unlock({ method: 'device' });
+}
+
+/**
+ * otpauth://-Codes aus anderen Apps (Android: „Öffnen mit WKeePass" in der
+ * Kamera-App). Über das Deep-Link-Plugin: beim Kaltstart liegt die Adresse
+ * bereit, sonst kommt sie als Ereignis. Ist die Datenbank zu, wartet sie
+ * bis nach dem Entsperren.
+ */
+async function bindOtpLinks() {
+  if (!isTauri) return;
+  const take = urls => {
+    const uri = [urls].flat().map(String).find(u => /^otpauth(-migration)?:/i.test(u));
+    if (!uri) return;
+    if (state.locked) {
+      state.pendingOtp = uri;
+      banner('Entsperren — danach wird der Code übernommen.', 'info', 6000);
+    } else {
+      handleScan(uri);
+    }
+  };
+  try { take(await invoke('plugin:deep-link|get_current') ?? []); } catch { /* Plugin fehlt */ }
+  try { await listen('deep-link://new-url', ev => take(ev?.payload ?? [])); } catch { /* dito */ }
 }
 
 /** Wie der gerätegebundene Weg heißt, etwa „Windows Hello". */
@@ -189,6 +273,33 @@ async function bindBrowserRequests() {
 }
 
 /** Holt Metadaten, Stärkewerte und Mehrfachnutzung neu aus dem Kern. */
+let syncing = false;
+let lastSyncError = '';
+
+/** Holt, was ein anderes Gerät in die Datei geschrieben hat, und mischt es ein. */
+async function syncFromFile() {
+  if (syncing) return;
+  syncing = true;
+  try {
+    if (await vault.sync()) await takeForeign();
+    lastSyncError = '';
+  } catch (err) {
+    // Jede Minute dieselbe Meldung wäre nur lästig.
+    const message = err?.message ?? String(err);
+    if (message !== lastSyncError) banner(message, 'error', 10000);
+    lastSyncError = message;
+  } finally {
+    syncing = false;
+  }
+}
+
+async function takeForeign() {
+  if (state.locked) return;
+  await refreshFromVault();
+  renderAll({ includeSettings: false });
+  banner('Änderungen von einem anderen Gerät übernommen.', 'success', 4000);
+}
+
 async function refreshFromVault() {
   state.entries = await vault.listEntries();
   state.strength = settings.get('checks.passwordStrength', true)
@@ -197,6 +308,7 @@ async function refreshFromVault() {
   state.reused = settings.get('checks.reuseDetection', true)
     ? await vault.reusedIds()
     : new Set();
+  queueMicrotask(() => autoRetitle());
 }
 
 /**
@@ -380,7 +492,6 @@ function renderLockscreen(message) {
   const list = recentDatabases();
   const current = settings.get('database.current', null);
   const active = list.find(d => d.path === current);
-  const others = list.filter(d => d.path !== current);
 
   $('#lock-card').innerHTML = `
     ${BRAND_MARK}
@@ -449,12 +560,13 @@ function renderLockscreen(message) {
 async function openUnlockDialog() {
   const u = state.unlock;
   const fields = captureFields('pin', 'pw');
+  const bioWeg = biometrieWeg(u);
 
   const res = await dialog({
     title: 'Entsperren',
     content: `
       ${u.biometric ? `<button type="button" class="button hightlight" data-shape="full" id="dlg-bio">
-        <span class="msr">fingerprint</span>&nbsp;Mit Fingerabdruck entsperren</button>` : ''}
+        <span class="msr">fingerprint</span>&nbsp;Mit Biometrie entsperren</button>` : ''}
 
       ${u.pin ? `<label class="field-label">App-PIN</label>
         ${passwordField('pin', 'PIN', { required: false })}` : ''}
@@ -462,10 +574,12 @@ async function openUnlockDialog() {
       <label class="field-label">Master-Passwort${u.pin ? ' (falls die PIN nicht passt)' : ''}</label>
       ${passwordField('pw', 'Master-Passwort', { required: !u.pin })}
 
-      ${u.deviceAvailable && !u.device ? `<div class="setting">
-        <div class="setting-label"><strong>Künftig mit ${esc(deviceName())} öffnen</strong>
-          <small>Ersetzt PIN und Master-Passwort auf diesem Gerät</small></div>
-        <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberDevice"
+      ${bioWeg ? `<div class="setting">
+        <div class="setting-label"><strong>Künftig mit Biometrie öffnen</strong>
+          <small>${bioWeg === 'device'
+            ? 'Ersetzt das Master-Passwort — der Schlüssel liegt im Sicherheitschip'
+            : `Der Finger weist dich aus, der Schlüssel liegt im Schlüsselbund${u.pinSet ? '' : ' — dafür wird eine App-PIN festgelegt'}`}</small></div>
+        <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberBio"
           ${settings.get('unlock.biometrics', true) ? 'checked' : ''}></div>
       </div>` : ''}
 
@@ -473,12 +587,6 @@ async function openUnlockDialog() {
         <div class="setting-label"><strong>Künftig auch mit PIN öffnen</strong>
           ${u.pinSet ? '' : '<small>Dafür wird gleich eine App-PIN festgelegt</small>'}</div>
         <div class="setting-control"><input type="checkbox" data-shape="toggle" name="remember"></div>
-      </div>`}
-
-      ${u.device || u.biometric || !u.biometricAvailable || !u.keyring ? '' : `<div class="setting">
-        <div class="setting-label"><strong>Künftig auch mit Fingerabdruck öffnen</strong>
-          <small>Der Fingerabdruck weist dich aus; der Schlüssel kommt aus dem Schlüsselbund</small></div>
-        <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberBio"></div>
       </div>`}`,
     confirmText: 'Entsperren',
     cancelText: 'Abbrechen',
@@ -500,8 +608,11 @@ async function openUnlockDialog() {
   if (!d.pw) { banner('Bitte PIN oder Master-Passwort eingeben.', 'warning'); return; }
 
   const wantsPin = fieldChecked(res.data, 'remember');
-  const wantsBio = fieldChecked(res.data, 'rememberBio');
-  const wantsDevice = fieldChecked(res.data, 'rememberDevice');
+  const wantsBioSwitch = fieldChecked(res.data, 'rememberBio');
+  // Ein Schalter, der beste Weg: der Chip, wo es ihn gibt, sonst der
+  // Schlüsselbund mit dem Finger als Ausweis.
+  const wantsDevice = wantsBioSwitch && bioWeg === 'device';
+  const wantsBio = wantsBioSwitch && bioWeg === 'keyring';
 
   // PIN und Fingerabdruck hängen beide am App-Schlüssel, und der entsteht
   // erst mit der PIN des Programms. Ohne sie geht keins von beidem.
@@ -523,6 +634,22 @@ async function openUnlockDialog() {
         }
       : null
   });
+}
+
+/**
+ * Welcher Biometrie-Weg für diese Datenbank noch einzurichten ist.
+ *
+ * `device`   Der Chip gibt den Schlüssel nur nach der Prüfung heraus
+ *            (Android-Keystore, Windows Hello). Ersetzt das Master-Passwort.
+ * `keyring`  Der Finger ist nur Ausweis, der Schlüssel liegt im
+ *            Schlüsselbund, und es braucht die App-PIN (Linux, macOS).
+ * `null`     Nichts möglich — oder schon eingerichtet.
+ */
+function biometrieWeg(u) {
+  if (u.device || u.biometric) return null;
+  if (u.deviceAvailable) return 'device';
+  if (u.biometricAvailable && u.keyring) return 'keyring';
+  return null;
 }
 
 /** Kleine Nachfrage nach der App-PIN, wenn sie zum Bestätigen gebraucht wird. */
@@ -704,6 +831,9 @@ async function pickDatabase() {
 
   const name = dbName(picked);
   await rememberDatabase({ name, path: picked });
+  // Die Entsperrwege gehören zur Datei. Ohne das bot der Dialog noch PIN
+  // und Fingerabdruck der vorher gewählten Datenbank an.
+  state.unlock = await unlockMethods(picked);
   renderLockscreen();
 }
 
@@ -1114,12 +1244,24 @@ async function enterUnlocked() {
 
   await refreshFromVault();
   await vault.ensurePasskeyFolder();
+  restoreCheck();
 
   renderAll();
   showView(settings.get('ui.startView', 'home'));
 
   startTicker();
   maybeAutoCheck();
+
+  // Fehlende Website-Icons nachholen — im Hintergrund, der Kern speichert sie
+  // in der Datenbank und meldet sich mit `vault-changed`.
+  vault.fetchIcons().catch(() => {});
+
+  // Kam ein otpauth://-Code aus der Kamera-App, während gesperrt war?
+  if (state.pendingOtp) {
+    const uri = state.pendingOtp;
+    state.pendingOtp = null;
+    handleScan(uri);
+  }
 }
 
 /**
@@ -1209,7 +1351,15 @@ function markUnlocking(on) {
   const before = hint?.textContent;
   if (on && hint) hint.textContent = 'Wird entschlüsselt … das dauert einen Moment.';
 
+  // Drei springende Punkte — sichtbar, dass gerechnet wird.
+  const dots = document.createElement('div');
+  dots.className = 'lock-dots';
+  dots.setAttribute('aria-hidden', 'true');
+  dots.innerHTML = '<i></i><i></i><i></i>';
+  if (on) (hint ?? $('#lock-card h2'))?.after(dots);
+
   return () => {
+    dots.remove();
     card?.removeAttribute('data-busy');
     $$('#lock-card button, #lock-card input').forEach(el => { el.disabled = false; });
     if (hint && before != null) hint.textContent = before;
@@ -1224,6 +1374,8 @@ async function lockDatabase() {
   state.strength.clear();
   state.codes.clear();
   state.pwned.clear();
+  state.emailFindings = [];
+  state.lastCheck = null;
   state.reused = new Set();
   await showLockscreen('Gesperrt — die Werte wurden aus dem Speicher entfernt.');
   banner('Datenbank gesperrt.', 'info');
@@ -1487,16 +1639,17 @@ function usageMap(now = Date.now()) {
   return map;
 }
 
-/** Wie oft ein Eintrag in den letzten 7 Tagen genutzt wurde. */
-function usesThisWeek(id) {
-  return usageMap()[id]?.week.length ?? 0;
-}
-
 /** Vermerkt, dass Einträge gerade benutzt wurden — eine UUID oder mehrere. */
 function markUsed(ids) {
   const path = settings.get('database.current', null);
   const list = [ids].flat().filter(Boolean);
   if (!list.length || !path) return;
+
+  // Auch in der Datei (LastAccessTime) — daraus entsteht „Inaktive
+  // Einträge", und KeePassXC sieht denselben Zeitpunkt.
+  vault.markAccessed(list).catch(() => {});
+  // Wer einen Eintrag benutzt, ist meist gerade im passenden Netz.
+  vault.fetchIcons(list).catch(() => {});
 
   const now = Date.now();
   const map = usageMap(now);
@@ -1535,23 +1688,26 @@ function countProblems() {
     if (state.reused.has(e.id)) n++;
     if (expiryState(e)) n++;
   }
-  return n + state.emailFindings.reduce((a, f) => a + f.breaches.length, 0);
+  return n + state.emailFindings.reduce((a, f) => a + openBreaches(f).length, 0);
 }
 
 /* ---------- Eintrags-Zeile ---------- */
-function wireEntryRows(root) {
+function wireEntryRows(root, { select = true } = {}) {
   root.querySelectorAll('[data-open]').forEach(el =>
     el.addEventListener('click', () => openEntryDialog(el.dataset.open)));
 
   // In der Tabelle öffnet ein Klick auf die Zeile den Eintrag —
   // außer man trifft einen der Knöpfe oder Marker.
   // Erst die Auswahl: Sie entscheidet mit, ob ein Klick öffnen darf.
-  pick.wireSelection(root, id => vault.getEntry(id)?.folder ?? '');
+  // Auswählen und gemeinsam Verschieben nur in der Passwortliste — in
+  // Befunden und Übersicht gibt es nichts zu ordnen.
+  if (select) pick.wireSelection(root, id => vault.getEntry(id)?.folder ?? '');
+  else root.addEventListener('dragstart', ev => ev.preventDefault());
 
   root.querySelectorAll('tr[data-id]').forEach(row => {
     row.addEventListener('click', ev => {
       if (ev.target.closest('button, .marker')) return;
-      if (pick.selectionActive()) return;
+      if (select && pick.selectionActive()) return;
       openEntryDialog(row.dataset.id);
     });
 
@@ -1779,9 +1935,7 @@ async function runRowAction(action, id) {
     }
 
     case 'refresh-icon':
-      refreshEpoch();
-      renderPasswords();
-      renderHome();
+      await vault.fetchIcons([entry.id], true);
       return banner('Icon wird neu geladen.', 'info', 2000);
 
     case 'refresh-title':
@@ -1824,6 +1978,58 @@ async function invokeTitle(url) {
   try {
     return await invoke('fetch_page_title', { url });
   } catch { return null; }
+}
+
+/**
+ * Steht als Name nur eine Adresse da — „https://login.example.com/…“,
+ * „www.example.com“ oder genau der Hostname? So legen Browser-Erweiterung,
+ * Autofill und manche Importe Einträge an.
+ */
+function nameIsAddress(e) {
+  const name = String(e.name ?? '').trim();
+  if (!name || name === 'Ohne Namen') return true;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(name) || /^www\./i.test(name)) return true;
+  const host = hostFromUrl(e.url);
+  if (host && [host, host.replace(/^www\./, '')].includes(name.toLowerCase())) return true;
+  return /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(name) && !/\s/.test(name) && Boolean(hostFromUrl(name));
+}
+
+/**
+ * Benennt Einträge, deren Name nur eine Adresse ist, nach ihrem Dienst —
+ * im Hintergrund, abschaltbar in den Einstellungen. Jeder Eintrag wird je
+ * Sitzung nur einmal versucht, auch wenn die Seite nicht antwortet.
+ */
+const retitleTried = new Set();
+let retitling = false;
+
+async function autoRetitle() {
+  if (retitling || state.locked || !isTauri || !settings.get('names.fromWebsite', true)) return;
+  const due = state.entries.filter(e => !e.recycled && !retitleTried.has(e.id) && nameIsAddress(e)
+    && hostFromUrl(e.url || e.name));
+  if (!due.length) return;
+
+  retitling = true;
+  let changed = 0;
+  try {
+    for (const e of due) {
+      retitleTried.add(e.id);
+      const url = e.url || e.name;
+      const title = await fetchTitle(url);
+      if (state.locked) return;
+      if (!title || title === e.name) continue;
+      await vault.saveEntry({ ...e, name: title, url: e.url || url });
+      changed++;
+    }
+  } catch (err) {
+    console.warn('Namen übernehmen:', err);
+  } finally {
+    retitling = false;
+  }
+
+  if (!changed || state.locked) return;
+  await vault.commit();
+  await refreshFromVault();
+  renderAll({ includeSettings: false });
 }
 
 async function adoptTitles(entries) {
@@ -1993,7 +2199,7 @@ function cellHtml(col, e, { iconsOn }) {
 }
 
 function entryRowHtml(e, cols, opts) {
-  const box = pick.selectionActive()
+  const box = opts.drag && pick.selectionActive()
     ? `<td class="pick-cell"><span class="pick-box ${pick.isSelected(e.id) ? 'on' : ''}"><span class="msr">${
         pick.isSelected(e.id) ? 'check_box' : 'check_box_outline_blank'}</span></span></td>`
     : '';
@@ -2001,11 +2207,14 @@ function entryRowHtml(e, cols, opts) {
   // Gelöschte bleiben sichtbar, werden aber als das kenntlich gemacht,
   // was sie sind — und bei den Auswertungen ausgelassen.
   const recycled = e.recycled ? ' data-recycled title="Liegt im Papierkorb"' : '';
-  return `<tr data-id="${e.id}" data-drag-id="entry:${e.id}" data-drag-label="${esc(e.name)}"${recycled}>${box}${cols.map(c => cellHtml(c, e, opts)).join('')}</tr>`;
+  // Ziehen nur in der Passwortliste — in Befunden und Übersicht hat
+  // Umsortieren keinen Sinn.
+  const drag = opts.drag ? ` data-drag-id="entry:${e.id}" data-drag-label="${esc(e.name)}"` : '';
+  return `<tr data-id="${e.id}"${drag}${recycled}>${box}${cols.map(c => cellHtml(c, e, opts)).join('')}</tr>`;
 }
 
-function headerHtml(cols, sortable) {
-  const box = pick.selectionActive() ? '<th class="pick-cell"></th>' : '';
+function headerHtml(cols, sortable, pickable) {
+  const box = pickable && pick.selectionActive() ? '<th class="pick-cell"></th>' : '';
   return box + cols.map(col => {
     const h = HEADERS[col] ?? { label: '' };
     const attrs = sortable && h.sort ? h.sort : '';
@@ -2024,8 +2233,8 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false } 
   return `
     <div class="table-scroll">
       <table class="entry-table" data-variant="${variant}" ${search ? 't-search' : ''}>
-        <thead><tr>${headerHtml(cols, sortable)}</tr></thead>
-        <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn })).join('')}</tbody>
+        <thead><tr>${headerHtml(cols, sortable, variant === 'full')}</tr></thead>
+        <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn, drag: variant === 'full' })).join('')}</tbody>
       </table>
     </div>`;
 }
@@ -2036,7 +2245,7 @@ function renderEntryTable(host, list, options = {}) {
     return;
   }
   host.innerHTML = tableHtml(list, options);
-  wireEntryRows(host);
+  wireEntryRows(host, { select: (options.variant ?? 'full') === 'full' });
   if (options.sortable) ensureTableview();
   tickTotp();
 }
@@ -2267,36 +2476,22 @@ function renderSecurity() {
     : [];
   const reused = live.filter(e => state.reused.has(e.id));
   const expiring = live.filter(e => expiryState(e));
-  const mailCount = state.emailFindings.reduce((a, f) => a + f.breaches.length, 0);
+  const inactive = inactiveEntries(live);
+  const mailCount = state.emailFindings.reduce((a, f) => a + openBreaches(f).length, 0);
 
   const stats = [
     { key: 'leaked', num: pwCheck ? leaked.length : '–', label: 'geleakte Passwörter', tone: leaked.length ? 'bad' : 'ok' },
     { key: 'weak', num: weak.length, label: 'schwache Passwörter', tone: weak.length ? 'warn' : 'ok' },
     { key: 'reused', num: reused.length, label: 'mehrfach genutzt', tone: reused.length ? 'warn' : 'ok' },
     { key: 'expiring', num: expiring.length, label: 'abgelaufen / bald fällig', tone: expiring.length ? 'warn' : 'ok' },
-    { key: 'mail', num: mailCheck ? mailCount : '–', label: 'E-Mail-Leaks', tone: mailCount ? 'bad' : 'ok' }
+    { key: 'mail', num: mailCheck ? mailCount : '–', label: 'E-Mail-Leaks', tone: mailCount ? 'bad' : 'ok' },
+    { key: 'inactive', num: inactive.length, label: 'lange nicht genutzt', tone: inactive.length ? 'warn' : 'ok' }
   ];
 
   const last = settings.get('checks.lastRunAt', null);
 
-  const findings = e => {
-    const s = state.strength.get(e.id);
-    const p = state.pwned.get(e.id);
-    const x = expiryState(e);
-    const parts = [];
-    if (p?.found) parts.push(`${p.count.toLocaleString('de-DE')}× in Leaks`);
-    if (s && s.score < 2) parts.push(`Stärke: ${s.label}`);
-    if (state.reused.has(e.id)) parts.push('mehrfach genutzt');
-    if (x?.kind === 'expired') parts.push(`seit ${Math.abs(x.days)} Tagen abgelaufen`);
-    if (x?.kind === 'expiring') parts.push(`läuft in ${x.days} Tagen ab`);
-    return parts.join(' · ');
-  };
-
-  const group = (id, title, items, empty) => `
-    <div class="section-label" id="sec-${id}">${title}</div>
-    ${items.length
-      ? `<div class="findings-table" data-list="${id}"></div>`
-      : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>${empty}</div></div>`}`;
+  const group = (id, title, items) =>
+    secSection(id, title, items.length, `<div class="findings-table" data-list="${id}"></div>`);
 
   const groups = [
     pwCheck ? { id: 'leaked', title: 'Geleakte Passwörter', items: leaked, empty: 'Keine Treffer' } : null,
@@ -2325,16 +2520,9 @@ function renderSecurity() {
       </aside>
 
       <div class="security-findings">
-        ${groups.map(g => group(g.id, g.title, g.items, g.empty)).join('')}
-        ${mailCheck ? `
-          <div class="section-label" id="sec-mail">E-Mail-Datenlecks</div>
-          ${state.emailFindings.filter(f => f.breaches.length).length
-            ? state.emailFindings.filter(f => f.breaches.length).map(f => `
-              <div class="finding" data-tone="bad">
-                <div class="finding-title"><span class="msr">mail</span>${esc(f.email)}</div>
-                <div class="finding-text">Betroffen von: ${esc(f.breaches.map(b => b.name).join(', '))}</div>
-              </div>`).join('')
-            : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>Keine Treffer</div></div>`}` : ''}
+        ${groups.map(g => group(g.id, g.title, g.items)).join('')}
+        ${mailCheck ? renderMailFindings() : ''}
+        ${renderInactive(inactive)}
       </div>
     </div>`;
 
@@ -2347,12 +2535,323 @@ function renderSecurity() {
   $('#btn-run-check')?.addEventListener('click', () => runSecurityCheck());
 
   $$('#security-body [data-jump]').forEach(btn => btn.addEventListener('click', () => {
-    document.getElementById(btn.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const target = document.getElementById(btn.dataset.jump);
+    if (target?.tagName === 'DETAILS') target.open = true;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
 
   // Direkt aus dem Befund heraus bearbeiten
   $$('#security-body [data-edit]').forEach(btn =>
     btn.addEventListener('click', () => openEntryDialog(btn.dataset.edit)));
+
+  // Lecks einer Adresse als erledigt abhaken
+  $$('#security-body [data-ack]').forEach(btn => btn.addEventListener('click', async () => {
+    const f = state.emailFindings.find(x => x.email === btn.dataset.ack);
+    if (!f) return;
+    const ack = { ...settings.get('checks.breachAck', {}) };
+    ack[f.email] = [...new Set([...(ack[f.email] ?? []), ...f.breaches.map(b => b.name)])];
+    await settings.set('checks.breachAck', ack, { silent: true });
+    renderSecurity();
+    renderHome();
+  }));
+
+  // Inaktive Einträge: noch in Gebrauch, oder weg damit
+  $$('#security-body [data-still-used]').forEach(btn => btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      await vault.markAccessed([btn.dataset.stillUsed], true);
+      await refreshFromVault();
+      renderSecurity();
+      banner('Vermerkt — der Eintrag gilt wieder als genutzt.', 'success', 3000);
+    } catch (err) {
+      btn.disabled = false;
+      banner(err.message, 'error', 6000);
+    }
+  }));
+  $$('#security-body [data-remove]').forEach(btn =>
+    btn.addEventListener('click', () => runRowAction('delete', btn.dataset.remove)));
+  $$('#security-body [data-account-delete]').forEach(btn =>
+    btn.addEventListener('click', () => deleteAccountFlow(btn.dataset.accountDelete, btn.dataset.url)));
+}
+
+/**
+ * Ein Abschnitt des Sicherheitschecks: aufgeklappt, wenn etwas drinsteht,
+ * sonst zu — dann steht klein daneben, dass nichts zu tun ist.
+ */
+function secSection(id, title, count, body) {
+  return `
+    <details class="sec-group" id="sec-${id}" ${count ? 'open' : ''}>
+      <summary>
+        <span class="sec-title">${title}</span>
+        ${count
+          ? `<span class="sec-count">${count}</span>`
+          : `<small class="sec-ok"><span class="msr">check_circle</span>Keine Treffer – nichts zu tun</small>`}
+      </summary>
+      ${count ? `<div class="sec-body">${body}</div>` : ''}
+    </details>`;
+}
+
+/* ---------- E-Mail-Datenlecks ---------- */
+
+/** Die Lecks einer Adresse, die noch nicht als erledigt abgehakt sind. */
+function openBreaches(f) {
+  const done = settings.get('checks.breachAck', {})[f.email] ?? [];
+  return f.breaches.filter(b => !done.includes(b.name));
+}
+
+/** Was die Leck-Datenbank auf Englisch meldet, auf Deutsch. */
+const LEAK_DATA = {
+  'Email addresses': 'E-Mail-Adresse', 'Passwords': 'Passwort', 'Usernames': 'Benutzername',
+  'Names': 'Name', 'Phone numbers': 'Telefonnummer', 'Physical addresses': 'Postanschrift',
+  'Dates of birth': 'Geburtsdatum', 'IP addresses': 'IP-Adresse', 'Genders': 'Geschlecht',
+  'Geographic locations': 'Wohnort', 'Credit cards': 'Kreditkarte', 'Partial credit card data': 'Teile der Kreditkarte',
+  'Bank account numbers': 'Kontonummer', 'Security questions and answers': 'Sicherheitsfragen',
+  'Auth Tokens': 'Anmelde-Token', 'Social media profiles': 'Social-Media-Profil', 'Private Messages': 'Private Nachrichten',
+  'Browser user agent details': 'Browserdaten', 'Purchases': 'Einkäufe', 'Job titles': 'Beruf', 'Employers': 'Arbeitgeber'
+};
+
+/** Einträge, die zum Dienst eines Lecks gehören — dort ist etwas zu tun. */
+function entriesForBreach(b) {
+  const domain = (b.domain || '').toLowerCase();
+  const name = (b.name || '').toLowerCase();
+  return liveEntries().filter(e => {
+    const host = (() => { try { return new URL(e.url.includes('://') ? e.url : `https://${e.url}`).hostname.toLowerCase(); } catch { return ''; } })();
+    return (domain && host && (host === domain || host.endsWith(`.${domain}`)))
+      || (name.length > 3 && e.name.toLowerCase().includes(name));
+  });
+}
+
+/**
+ * Je Adresse: welche Lecks, was dabei abgeflossen ist, was zu tun ist —
+ * und der Knopf zum passenden Eintrag.
+ *
+ * Die Adresse selbst kann man nicht „ändern" wie ein Passwort, und das muss
+ * man auch nicht. Gefährlich ist, was **mit** ihr abgeflossen ist. Darum
+ * richtet sich der Rat nach den Daten jedes einzelnen Lecks.
+ */
+function renderMailFindings() {
+  const affected = state.emailFindings.filter(f => openBreaches(f).length);
+  const done = state.emailFindings.filter(f => f.breaches.length && !openBreaches(f).length);
+
+  const breachRow = b => {
+    const data = (b.data ?? []).map(d => LEAK_DATA[d] ?? d);
+    const pw = (b.data ?? []).includes('Passwords');
+    const plain = ['plaintext', 'easytocrack'].includes(b.passwordRisk);
+    const entries = entriesForBreach(b);
+    const todo = [];
+    if (pw) todo.push(plain
+      ? '<strong>Passwort sofort ändern</strong> — es war im Klartext oder leicht zu knacken gespeichert.'
+      : 'Passwort ändern — es lag verschlüsselt vor, sicher ist das aber nicht.');
+    if (pw && entries.some(e => state.reused.has(e.id))) todo.push('Dasselbe Passwort nutzt du noch woanders — dort ebenfalls ändern.');
+    if ((b.data ?? []).some(d => /Phone/.test(d))) todo.push('Mit SMS- und Anruf-Betrug im Namen dieses Dienstes rechnen.');
+    if ((b.data ?? []).some(d => /Physical|Dates of birth/.test(d))) todo.push('Anschrift oder Geburtsdatum sind bekannt — bei Rückfragen „zur Bestätigung" skeptisch sein.');
+    if ((b.data ?? []).some(d => /credit|Bank/i.test(d))) todo.push('Kontoauszüge und Kreditkarte auf fremde Buchungen prüfen.');
+    if (!pw && !todo.length) todo.push('Kein Passwort betroffen. Wichtig ist hier vor allem: Mails im Namen dieses Dienstes kritisch lesen.');
+
+    return `<div class="breach">
+      <div class="breach-head"><span>${esc(b.name)}</span><span class="breach-meta">${esc(b.year || '')}</span></div>
+      ${data.length ? `<div class="breach-meta">Abgeflossen: ${esc(data.join(', '))}</div>` : ''}
+      <ul class="finding-advice">${todo.map(t => `<li>${t}</li>`).join('')}</ul>
+      ${entries.length ? `<div class="finding-actions">${entries.map(e =>
+        `<button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;${esc(e.name)} öffnen</button>`).join('')}</div>` : ''}
+    </div>`;
+  };
+
+  const count = affected.reduce((n, f) => n + openBreaches(f).length, 0);
+  return secSection('mail', 'E-Mail-Datenlecks', count, `
+      <details class="finding" data-tone="info">
+        <summary class="finding-title"><span class="msr">help</span>Was bedeutet ein Treffer — und was ist zu tun?</summary>
+        <div class="finding-advice">
+          Deine Adresse stand in Daten, die bei einem Dienst gestohlen und veröffentlicht wurden. Das heißt nicht, dass jemand
+          in deinem Postfach war. Die Adresse lässt sich nicht zurückholen — das musst du auch nicht. Entscheidend ist, <em>was</em>
+          zusammen mit ihr abgeflossen ist; danach richtet sich unten der Rat zu jedem einzelnen Leck.
+          <ol>
+            <li>Beim betroffenen Dienst das Passwort ändern — und überall dort, wo du dasselbe benutzt.</li>
+            <li>Wo möglich die Zwei-Faktor-Anmeldung einschalten. WKeePass kann die Codes gleich mit verwalten.</li>
+            <li>Mit Phishing rechnen: Angreifer schreiben gezielt an geleakte Adressen, gern im Namen genau dieses Dienstes.</li>
+            <li>Konten, die du nicht mehr brauchst, beim Dienst löschen — ein vergessenes Konto ist ein offenes Konto.</li>
+            <li>Für neue Anmeldungen Alias-Adressen nutzen, wenn dein Mail-Anbieter das kann. Dann trifft ein Leck nur noch eine davon.</li>
+          </ol>
+          Hast du alles erledigt, hake die Adresse ab. Neue Lecks meldet die nächste Prüfung wieder.
+        </div>
+      </details>
+      ${affected.map(f => `
+        <div class="finding" data-tone="bad">
+          <div class="finding-title"><span class="msr">mail</span>${esc(f.email)}
+            <small>&nbsp;· ${openBreaches(f).length === 1 ? 'ein Leck' : `${openBreaches(f).length} Lecks`}</small></div>
+          <div class="breach-list">${openBreaches(f).map(breachRow).join('')}</div>
+          <div class="finding-actions">
+            <button type="button" class="button" data-ack="${esc(f.email)}"><span class="msr">task_alt</span>&nbsp;Erledigt</button>
+          </div>
+        </div>`).join('')}
+    ${done.length ? `<p class="security-last">Erledigt: ${done.map(f => esc(f.email)).join(', ')}</p>` : ''}`);
+}
+
+/* ---------- Inaktive Einträge ---------- */
+
+/** Nach so langer Zeit ohne Nutzung gilt ein Eintrag als inaktiv. */
+const INACTIVE_AFTER = 2 * 365 * 24 * 60 * 60 * 1000;
+
+/** Wann ein Eintrag zuletzt benutzt wurde — das Neueste aus Datei und App. */
+function lastUsed(e) {
+  return Math.max(
+    Date.parse(e.accessed) || 0,
+    Date.parse(e.modified) || 0,
+    usageMap()[e.id]?.at || 0
+  );
+}
+
+function inactiveEntries(live) {
+  const now = Date.now();
+  return live
+    .filter(e => { const t = lastUsed(e); return t > 0 && now - t > INACTIVE_AFTER; })
+    .sort((a, b) => lastUsed(a) - lastUsed(b));
+}
+
+/** Wie mühsam das Löschen laut JustDeleteMe ist. */
+const LOESCH_AUFWAND = {
+  easy: 'geht direkt auf der Seite',
+  medium: 'ein paar Schritte mehr',
+  hard: 'nur über den Support',
+  impossible: 'bietet keine Löschung an'
+};
+
+/**
+ * Zugänge, die seit über zwei Jahren niemand angefasst hat. Entweder
+ * braucht man sie nicht mehr — dann Konto beim Dienst löschen und Eintrag
+ * entfernen —, oder sie werden noch gebraucht, dann ein Klick.
+ *
+ * Für bekannte Dienste führt ein Knopf direkt auf deren Löschseite
+ * (Liste von JustDeleteMe, siehe security.js). Kommt der Nutzer von dort
+ * zurück, fragt die App, ob auch der Eintrag weg soll.
+ */
+function renderInactive(items) {
+  const when = e => new Date(lastUsed(e)).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const host = url => { try { return new URL(url.includes('://') ? url : `https://${url}`).hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+  // Die Löschliste kommt aus dem Netz; beim ersten Zeichnen ist sie noch
+  // nicht da. Dann nachladen und die Seite einmal neu zeichnen.
+  if (items.length && !state.deletionIndex) {
+    accountDeletionIndex().then(index => {
+      state.deletionIndex = index;
+      if (state.view === 'security') renderSecurity();
+    });
+  }
+
+  return secSection('inactive', 'Lange nicht genutzt', items.length, `
+      <p class="section-note">Diese Zugänge hast du seit über zwei Jahren nicht benutzt. Brauchst du einen nicht mehr, lösche zuerst
+        das Konto beim Dienst und dann den Eintrag — ein vergessenes Konto mit altem Passwort ist ein beliebtes Ziel.
+        Wird er noch gebraucht, genügt „Noch in Gebrauch".</p>
+      ${items.map(e => {
+        const del = findDeletion(state.deletionIndex, e.url);
+        const site = host(e.url || '');
+        return `
+        <div class="finding inactive-item" data-tone="warn">
+          <div class="inactive-head">
+            <div class="finding-title"><span class="msr">schedule</span>${esc(e.name)}</div>
+            <div class="inactive-meta">
+              ${e.username ? `<span><span class="msr">person</span>${esc(e.username)}</span>` : ''}
+              ${site ? `<span><span class="msr">link</span>${esc(site)}</span>` : ''}
+            </div>
+          </div>
+          <div class="finding-text">Zuletzt genutzt: ${esc(when(e))}${del ? ` · Konto löschen ${esc(LOESCH_AUFWAND[del.difficulty] ?? '')}` : ''}</div>
+          <div class="finding-actions">
+            <button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;Öffnen</button>
+            <button type="button" class="button" data-still-used="${e.id}"><span class="msr">check</span>&nbsp;Noch in Gebrauch</button>
+            ${del && del.difficulty !== 'impossible'
+              ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(del.url)}"><span class="msr">person_remove</span>&nbsp;Konto löschen</button>`
+              : site ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(e.url.includes('://') ? e.url : `https://${e.url}`)}"><span class="msr">open_in_new</span>&nbsp;Zur Seite</button>` : ''}
+            <button type="button" class="button" data-remove="${e.id}"><span class="msr">delete</span>&nbsp;Eintrag löschen</button>
+          </div>
+        </div>`;
+      }).join('')}`);
+}
+
+/**
+ * Auf die Löschseite des Dienstes springen. Kommt der Nutzer zurück, die
+ * Frage, ob das Konto weg ist — dann gleich auch den Eintrag entfernen.
+ * Das Passwort braucht man dort meist noch einmal; deshalb erst danach.
+ */
+async function deleteAccountFlow(id, url) {
+  const entry = vault.getEntry(id);
+  if (!entry) return;
+  try { await vault.openLink(url); } catch (err) { banner(err.message, 'error', 6000); return; }
+
+  await new Promise(resolve => {
+    const back = () => {
+      if (document.visibilityState !== 'visible') return;
+      document.removeEventListener('visibilitychange', back);
+      window.removeEventListener('focus', back);
+      resolve();
+    };
+    // Kurz warten: Direkt nach dem Öffnen meldet der Webview noch „sichtbar".
+    setTimeout(() => {
+      document.addEventListener('visibilitychange', back);
+      window.addEventListener('focus', back);
+    }, 1500);
+  });
+
+  const res = await dialog({
+    title: 'Konto gelöscht?',
+    content: `<p>Hast du das Konto bei <strong>${esc(entry.name)}</strong> gelöscht? Dann kann auch der Eintrag weg.</p>
+      <p class="dlg-note">Er landet im Papierkorb der Datenbank, falls du ihn doch noch brauchst.</p>`,
+    confirmText: 'Eintrag löschen',
+    cancelText: 'Noch nicht'
+  });
+  if (!(res?.submit ?? res)) return;
+  await vault.deleteEntry(id);
+  return afterStructureChange('Konto erledigt — Eintrag gelöscht.');
+}
+
+/**
+ * Das Ergebnis des letzten Sicherheitschecks dieser Datenbank.
+ *
+ * Gespeichert wird nur, was sich nicht aus der Datei selbst ergibt: welche
+ * Einträge in Leaks stehen, die E-Mail-Funde und der Zeitpunkt. Schwache
+ * und mehrfach genutzte Passwörter rechnet der Kern beim Öffnen neu aus.
+ * Ohne das stand nach jedem Neustart „noch nicht geprüft", und die Zahlen
+ * der Lecks waren weg.
+ */
+function restoreCheck() {
+  const path = settings.get('database.current', null);
+  const saved = path ? settings.forDatabase(path).securityCheck : null;
+  if (!saved) return;
+  state.lastCheck = saved.at ?? null;
+  state.pwned = new Map(Object.entries(saved.pwned ?? {}));
+  state.emailFindings = saved.emails ?? [];
+}
+
+async function storeCheck() {
+  const path = settings.get('database.current', null);
+  if (!path) return;
+  const pwned = {};
+  for (const [id, r] of state.pwned) if (r?.found) pwned[id] = { found: true, count: r.count };
+  await settings.setForDatabase(path, 'securityCheck', {
+    at: state.lastCheck,
+    pwned,
+    emails: state.emailFindings.map(f => ({ email: f.email, breaches: f.breaches ?? [] }))
+  }, { silent: true });
+}
+
+/** Was eine Prüfung gefunden hat — zum Vergleich mit der nächsten. */
+function findingKeys() {
+  const keys = new Set();
+  for (const [id, r] of state.pwned) if (r?.found) keys.add(`pw:${id}`);
+  for (const f of state.emailFindings) for (const b of f.breaches ?? []) keys.add(`mail:${f.email}:${b.name}`);
+  return keys;
+}
+
+/**
+ * Hinweis des Systems. Das Notification-Plugin setzt die Web-API auf die
+ * Benachrichtigungen von Android, Windows, macOS und Linux um.
+ */
+async function notify(title, body) {
+  try {
+    if (!('Notification' in window)) return;
+    let permission = Notification.permission;
+    if (permission !== 'granted') permission = await Notification.requestPermission();
+    if (permission === 'granted') new Notification(title, { body });
+  } catch { /* ohne Hinweis weiter */ }
 }
 
 async function runSecurityCheck({ silent = false } = {}) {
@@ -2361,6 +2860,7 @@ async function runSecurityCheck({ silent = false } = {}) {
   renderSecurity();
 
   const errors = [];
+  const before = state.lastCheck ? findingKeys() : null;
 
   if (settings.get('checks.passwordBreach', true)) {
     // Der Kern liefert nur Hashes; nach außen geht davon bloß das Präfix.
@@ -2380,17 +2880,42 @@ async function runSecurityCheck({ silent = false } = {}) {
   if (settings.get('checks.emailBreach', true)) {
     const configured = [];
     const addresses = configured.length ? configured : vault.collectEmails();
+    const previous = new Map(state.emailFindings.map(f => [f.email, f]));
     state.emailFindings = [];
     for (const mail of addresses) {
       const r = await checkEmailBreached(mail);
-      if (r.error) errors.push(`E-Mail-Check: ${r.error}`);
+      if (r.error) {
+        errors.push(`E-Mail-Check: ${r.error}`);
+        // Dienst gerade nicht erreichbar: den letzten Stand behalten, statt
+        // die Adresse plötzlich als sauber zu zeigen.
+        if (previous.has(mail)) { state.emailFindings.push(previous.get(mail)); continue; }
+      }
+      if (r.breaches.length) {
+        const details = await breachAnalytics(mail);
+        r.breaches = r.breaches.map(b => ({ ...b, ...(details.get(b.name) ?? {}) }));
+      }
       state.emailFindings.push(r);
     }
   } else state.emailFindings = [];
 
   state.lastCheck = Date.now();
   await settings.set('checks.lastRunAt', state.lastCheck, { silent: true });
+  await storeCheck();
   state.checkRunning = false;
+
+  // Neues seit der letzten Prüfung? Dann Bescheid geben — gerade bei der
+  // automatischen, die ohne Zutun im Hintergrund läuft.
+  if (before && settings.get('checks.notify', true)) {
+    const fresh = [...findingKeys()].filter(k => !before.has(k));
+    const pw = fresh.filter(k => k.startsWith('pw:')).length;
+    const mail = fresh.length - pw;
+    if (fresh.length) {
+      notify('WKeePass: neue Funde im Sicherheitscheck', [
+        pw ? `${pw} ${pw === 1 ? 'Passwort steht' : 'Passwörter stehen'} neu in einem Leak.` : '',
+        mail ? `${mail} ${mail === 1 ? 'neues Datenleck' : 'neue Datenlecks'} bei deinen E-Mail-Adressen.` : ''
+      ].filter(Boolean).join(' '));
+    }
+  }
   renderSecurity();
   renderHome();
   renderPasswords();
@@ -2493,6 +3018,13 @@ function settingsMarkup() {
       </div>
     </div>
 
+    ${isMobile ? `<div class="settings-group">
+      <div class="section-label">Android</div>
+      <div class="settings-card" id="android-card">
+        <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+      </div>
+    </div>` : ''}
+
     ${isMobile ? '' : `<div class="settings-group">
       <div class="section-label">Browser-Erweiterung</div>
       <div class="settings-card" id="browser-card">
@@ -2506,7 +3038,8 @@ function settingsMarkup() {
         <div class="setting">
           <div class="setting-label">
             <strong>Icons der Websites laden</strong>
-            <small>Direkt von der jeweiligen Domain, ohne Sammeldienst. Die Domain sieht dabei deine IP-Adresse.</small>
+            <small>Einmal direkt von der jeweiligen Seite, ohne Sammeldienst — am besten beim Anmelden, wenn sie erreichbar ist.
+              Danach liegt das Icon in der Datenbank und steht auch offline und auf allen Geräten bereit.</small>
           </div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="icons.download" name="icons.download" ${s.icons?.download ? 'checked' : ''}></div>
         </div>
@@ -2518,13 +3051,13 @@ function settingsMarkup() {
       <div class="settings-card">
         <div class="setting">
           <div class="setting-label"><strong>${esc(current?.name ?? 'Geöffnete Datenbank')}</strong>
-            <small>${esc(current?.path ?? '')}</small></div>
+            <small>${esc(current?.path ?? '')}</small>
+            <small id="db-modified" hidden></small></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Automatisch synchronisieren</strong></div>
-          <div class="setting-control">
-            <input type="checkbox" data-shape="toggle" data-set-db="autoSync" name="db.autoSync" ${dbSettings.autoSync ? 'checked' : ''}>
-          </div>
+          <div class="setting-label"><strong>Aus anderen Apps importieren</strong>
+            <small>Passwörter und 2FA-Codes aus Bitwarden, 1Password, LastPass, Browsern, Aegis, 2FAS …</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-import-entries">Importieren …</button></div>
         </div>
         <div class="setting">
           <div class="setting-label"><strong>Warnen vor Ablauf</strong><small>Tage im Voraus</small></div>
@@ -2541,11 +3074,16 @@ function settingsMarkup() {
           <div class="setting-control"><button type="button" class="button" id="btn-access">Wählen …</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Alle Icons neu abrufen</strong><small>Umgeht den Zwischenspeicher</small></div>
+          <div class="setting-label"><strong>Alle Icons neu abrufen</strong><small>Ersetzt die gespeicherten durch frisch geladene</small></div>
           <div class="setting-control"><button type="button" class="button" id="btn-refresh-icons"><span class="msr">refresh</span>&nbsp;Neu laden</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Namen von den Websites übernehmen</strong><small>Setzt bei allen Einträgen mit URL den Seitentitel als Namen</small></div>
+          <div class="setting-label"><strong>Namen automatisch setzen</strong>
+            <small>Steht als Name nur eine Adresse (https://…), heißt der Eintrag danach wie der Dienst — etwa „GitHub“ statt „https://github.com/login“</small></div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="names.fromWebsite" name="names.fromWebsite" ${s.names?.fromWebsite ?? true ? 'checked' : ''}></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>Alle Namen von den Websites übernehmen</strong><small>Setzt bei allen Einträgen mit URL den Namen des Dienstes</small></div>
           <div class="setting-control"><button type="button" class="button" id="btn-adopt-titles"><span class="msr">title</span>&nbsp;Übernehmen</button></div>
         </div>
         <div class="setting">
@@ -2577,6 +3115,10 @@ function settingsMarkup() {
         <div class="setting">
           <div class="setting-label"><strong>E-Mail-Adressen prüfen</strong><small>Über XposedOrNot</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.emailBreach" name="checks.emailBreach" ${s.checks?.emailBreach ? 'checked' : ''}></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>Bei neuen Funden benachrichtigen</strong><small>Wenn eine Prüfung ein neues Leck findet — auch bei der automatischen</small></div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.notify" name="checks.notify" ${s.checks?.notify !== false ? 'checked' : ''}></div>
         </div>
         <div class="setting">
           <div class="setting-label">
@@ -2631,6 +3173,104 @@ function renderSettings() {
   // sonst aufhalten.
   renderBrowserSection();
   renderDatabaseSection();
+  renderAndroidSection($('#android-card'));
+}
+
+/* =========================================================
+   Android: Passwortmanager, Passkeys, Kamera
+   ---------------------------------------------------------
+   Drei Freigaben, die nur der Nutzer erteilen kann — jeweils in einer
+   anderen Ecke der Systemeinstellungen. Hier steht, was davon steht, und
+   ein Knopf führt genau dorthin, wo es fehlt.
+   ========================================================= */
+
+const ANDROID_FREIGABEN = [
+  { key: 'autofill', icon: 'password', title: 'Passwortmanager',
+    text: 'Füllt Anmeldungen in Apps und im Browser aus und bietet an, neue Zugänge zu speichern.',
+    action: 'Als Standard festlegen' },
+  { key: 'passkeys', icon: 'passkey', title: 'Passkeys',
+    text: 'Anmelden ohne Passwort. Die Passkeys liegen in deiner Datenbank, nicht bei Google.',
+    action: 'Aktivieren', missing: 'Erst ab Android 14' },
+  { key: 'kamera', icon: 'photo_camera', title: 'Kamera',
+    text: 'Nur für den QR-Scanner: Zwei-Faktor-Codes einrichten, ohne das Geheimnis abzutippen.',
+    action: 'Erlauben' }
+];
+
+/**
+ * Zeichnet die drei Freigaben in `card`. Nach einem Klick fragt es eine
+ * Weile nach — der Nutzer kommt aus den Systemeinstellungen zurück, ohne
+ * dass die Seite davon erfährt.
+ */
+async function renderAndroidSection(card) {
+  if (!card) return;
+  let status;
+  try { status = await vault.androidSetupStatus(); } catch { status = null; }
+  if (!status) { card.innerHTML = ''; return; }
+
+  card.innerHTML = ANDROID_FREIGABEN.map(f => {
+    const s = status[f.key] ?? {};
+    const control = s.aktiv
+      ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Aktiv</span>`
+      : !s.moeglich
+        ? `<span class="setting-state">${esc(f.missing ?? 'Nicht verfügbar')}</span>`
+        : `<button type="button" class="button hightlight" data-setup="${f.key}">
+            ${s.gesperrt ? 'In App-Einstellungen erlauben' : esc(f.action)}</button>`;
+    return `<div class="setting">
+      <div class="setting-label"><strong><span class="msr">${f.icon}</span> ${esc(f.title)}</strong><small>${esc(f.text)}</small></div>
+      <div class="setting-control">${control}</div>
+    </div>`;
+  }).join('');
+
+  card.querySelectorAll('[data-setup]').forEach(btn => btn.addEventListener('click', async () => {
+    await vault.androidSetupOpen(btn.dataset.setup);
+    watchAndroidSetup(card, JSON.stringify(status));
+  }));
+}
+
+/** Fragt eine Minute lang jede Sekunde nach und zeichnet bei Änderung neu. */
+function watchAndroidSetup(card, before) {
+  clearInterval(card._watch);
+  let rounds = 0;
+  card._watch = setInterval(async () => {
+    if (++rounds > 60 || !card.isConnected) { clearInterval(card._watch); return; }
+    const now = await vault.androidSetupStatus().catch(() => null);
+    if (now && JSON.stringify(now) !== before) {
+      clearInterval(card._watch);
+      renderAndroidSection(card);
+    }
+  }, 1000);
+}
+
+/**
+ * Beim ersten Start auf Android: sagen, wozu die Freigaben gut sind, und
+ * sie gleich einrichten lassen. Überspringen geht jederzeit — alles steht
+ * danach auch in den Einstellungen.
+ */
+async function showAndroidSetup() {
+  return new Promise(resolve => {
+    $('#welcome').hidden = false;
+    $('#welcome-card').innerHTML = `
+      ${BRAND_MARK}
+      <h2>Drei Freigaben für den Alltag</h2>
+      <p class="lock-sub">Damit WKeePass nicht nur Tresor ist, sondern dir beim Anmelden hilft, braucht es die Erlaubnis von Android.
+        Nichts davon schickt Daten irgendwohin — die Passwörter bleiben in deiner Datei.</p>
+      <div class="settings-card" id="android-setup"></div>
+      <div class="lock-actions">
+        <button type="button" class="button hightlight" data-shape="full" id="as-done"><span class="msr">check</span>&nbsp;Weiter</button>
+        <button type="button" class="button" data-shape="full" id="as-later">Später in den Einstellungen</button>
+      </div>`;
+
+    renderAndroidSection($('#android-setup'));
+
+    const done = async () => {
+      clearInterval($('#android-setup')?._watch);
+      await settings.set('android.setupSeen', true, { silent: true });
+      $('#welcome').hidden = true;
+      resolve();
+    };
+    $('#as-done').onclick = done;
+    $('#as-later').onclick = done;
+  });
 }
 
 /** Die drei Stufen der Schlüsselableitung, wie sie der Kern kennt. */
@@ -2779,6 +3419,15 @@ async function renderBrowserSection() {
     </div>
     <div class="setting">
       <div class="setting-label">
+        <strong>Erweiterung</strong>
+        <small>KeePassXC-Browser — WKeePass spricht dasselbe Protokoll.</small>
+      </div>
+      <div class="setting-control finding-actions" style="margin:0">
+        ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
+      </div>
+    </div>
+    <div class="setting">
+      <div class="setting-label">
         <strong>Eingetragen bei</strong>
         <small>${esc(eingerichtet)}</small>
       </div>
@@ -2800,6 +3449,8 @@ async function renderBrowserSection() {
     }));
 
   card.querySelector('#btn-browser-install')?.addEventListener('click', () => browserSetup(true));
+  card.querySelectorAll('[data-store]').forEach(btn => btn.addEventListener('click', () =>
+    vault.openLink(BROWSER_STORES[btn.dataset.store].url).catch(err => banner(err.message, 'error', 6000))));
   card.querySelector('#btn-browser-remove')?.addEventListener('click', () => browserSetup(false));
 
   card.querySelectorAll('[data-forget]').forEach(btn =>
@@ -2816,6 +3467,86 @@ async function renderBrowserSection() {
 }
 
 /** Trägt uns bei den Browsern ein — oder nimmt es zurück. */
+/** Wo es keepassxc-browser gibt — WKeePass spricht dasselbe Protokoll. */
+const BROWSER_STORES = [
+  { name: 'Firefox', url: 'https://addons.mozilla.org/firefox/addon/keepassxc-browser/' },
+  { name: 'Chrome, Brave, Vivaldi', url: 'https://chromewebstore.google.com/detail/keepassxc-browser/oboonakemofpalcgghocfoadofidjkkk' },
+  { name: 'Edge', url: 'https://microsoftedge.microsoft.com/addons/detail/keepassxcbrowser/pdffhmdngciaglkoonimfcmckehcpafo' }
+];
+
+/**
+ * Beim ersten Start am Rechner: die Browser-Erweiterung vorstellen und
+ * gleich einrichten lassen. Drei Schritte — bei den Browsern eintragen,
+ * Erweiterung installieren, im Browser verbinden. Überspringen geht; alles
+ * steht danach auch in den Einstellungen.
+ */
+async function showBrowserSetupPage() {
+  return new Promise(resolve => {
+    $('#welcome').hidden = false;
+    const card = $('#welcome-card');
+
+    const render = async () => {
+      let status = null;
+      try { status = await vault.browserStatus(); } catch { /* ohne Stand weiter */ }
+      const found = status ? [...status.installed, ...status.available] : [];
+      const done = status?.installed ?? [];
+
+      card.innerHTML = `
+        ${BRAND_MARK}
+        <h2>Passwörter direkt im Browser</h2>
+        <p class="lock-sub">Mit der Erweiterung <b>KeePassXC-Browser</b> füllt WKeePass Anmeldungen auf Webseiten aus,
+          bietet neue Zugänge zum Speichern an und meldet dich mit Passkeys an. Die Passwörter bleiben in deiner Datei —
+          der Browser fragt jedes Mal bei WKeePass nach.</p>
+
+        <div class="settings-card">
+          <div class="setting">
+            <div class="setting-label"><strong>1. Bei den Browsern eintragen</strong>
+              <small>${found.length
+                ? found.map(b => `${esc(b)}${done.includes(b) ? ' ✓' : ''}`).join(' · ')
+                : 'Kein Browser gefunden — nach der Installation eines Browsers geht das in den Einstellungen.'}</small></div>
+            <div class="setting-control">${found.length && done.length === found.length
+              ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Erledigt</span>`
+              : `<button type="button" class="button hightlight" id="bs-install" ${found.length ? '' : 'disabled'}>Eintragen</button>`}</div>
+          </div>
+          <div class="setting">
+            <div class="setting-label"><strong>2. Erweiterung installieren</strong>
+              <small>Kostenlos aus dem Store deines Browsers.</small></div>
+            <div class="setting-control finding-actions" style="margin:0">
+              ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
+            </div>
+          </div>
+          <div class="setting">
+            <div class="setting-label"><strong>3. Im Browser verbinden</strong>
+              <small>Browser neu starten, auf das Symbol der Erweiterung klicken und „Verbinden“ wählen.
+                WKeePass fragt dann nach einem Namen für diesen Browser.</small></div>
+          </div>
+        </div>
+
+        <div class="lock-actions">
+          <button type="button" class="button hightlight" data-shape="full" id="bs-done"><span class="msr">check</span>&nbsp;Weiter</button>
+          <button type="button" class="button" data-shape="full" id="bs-later">Später in den Einstellungen</button>
+        </div>`;
+
+      card.querySelector('#bs-install')?.addEventListener('click', async () => {
+        await browserSetup(true);
+        render();
+      });
+      card.querySelectorAll('[data-store]').forEach(btn => btn.addEventListener('click', () =>
+        vault.openLink(BROWSER_STORES[btn.dataset.store].url).catch(err => banner(err.message, 'error', 6000))));
+
+      const finish = async () => {
+        await settings.set('browser.setupSeen', true, { silent: true });
+        $('#welcome').hidden = true;
+        resolve();
+      };
+      card.querySelector('#bs-done').onclick = finish;
+      card.querySelector('#bs-later').onclick = finish;
+    };
+
+    render();
+  });
+}
+
 async function browserSetup(install) {
   try {
     const results = install ? await vault.browserInstall() : await vault.browserUninstall();
@@ -2901,6 +3632,7 @@ function wireSettings(root = $('#settings-body')) {
     if (el.dataset.set === 'unlock.autoLockMinutes' && !state.locked) {
       await vault.setAutoLock(Number(value) || 0);
     }
+    if (el.dataset.set === 'names.fromWebsite' && value) autoRetitle();
 
     banner('Einstellung gespeichert.', 'success', 1600);
   }));
@@ -2911,11 +3643,9 @@ function wireSettings(root = $('#settings-body')) {
       updateSettingsPreview();
     }));
 
-  root.querySelector('#btn-refresh-icons')?.addEventListener('click', () => {
-    refreshEpoch();
-    renderPasswords();
-    renderHome();
-    banner('Icons werden neu abgerufen.', 'success');
+  root.querySelector('#btn-refresh-icons')?.addEventListener('click', async () => {
+    await vault.fetchIcons(null, true);
+    banner('Icons werden neu abgerufen — sie erscheinen, sobald sie da sind.', 'success');
   });
 
   root.querySelector('#btn-adopt-titles')?.addEventListener('click', async () => {
@@ -2924,7 +3654,7 @@ function wireSettings(root = $('#settings-body')) {
 
     const res = await dialog({
       title: 'Namen übernehmen',
-      content: `Bei <strong>${withUrl.length}</strong> Einträgen wird der Name durch den Titel der Website ersetzt.
+      content: `Bei <strong>${withUrl.length}</strong> Einträgen wird der Name durch den Namen des Dienstes ersetzt.
                 ${isTauri ? '' : '<br><br>Im Browser blockiert die Sicherheitsrichtlinie fremder Seiten den Abruf — dort wird ersatzweise der Hostname verwendet.'}`,
       confirmText: 'Übernehmen',
       cancelText: 'Abbrechen'
@@ -2932,6 +3662,20 @@ function wireSettings(root = $('#settings-body')) {
     if (!(res?.submit ?? res)) return;
     await adoptTitles(withUrl);
   });
+
+  root.querySelector('#btn-import-entries')?.addEventListener('click', () => importFromOtherApps());
+
+  // Änderungsdatum der Datei — fragt je nach Ort das Dateisystem oder den
+  // Cloud-Anbieter, darum nachgereicht statt beim Zeichnen.
+  const dbPath = settings.get('database.current', null);
+  const modifiedEl = root.querySelector('#db-modified');
+  if (dbPath && modifiedEl) {
+    invoke('database_modified', { path: dbPath }).then(ms => {
+      if (!ms) return;
+      modifiedEl.textContent = `Datei zuletzt geändert: ${new Date(ms).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}`;
+      modifiedEl.hidden = false;
+    }).catch(() => {});
+  }
 
   root.querySelector('#btn-export')?.addEventListener('click', () => {
     settings.downloadSettings();
@@ -3166,7 +3910,7 @@ async function afterStructureChange(message) {
 async function startCreation() {
   const scannable = qr.scannerAvailable();
 
-  const res = await dialog({
+  await dialog({
     title: 'Neu anlegen',
     content: `
       <div class="choice-grid">
@@ -3184,6 +3928,11 @@ async function startCreation() {
           <span class="msr">create_new_folder</span>
           <strong>Ordner anlegen</strong>
           <small>Zum Sortieren der Einträge</small>
+        </button>
+        <button type="button" class="choice" data-choice="import">
+          <span class="msr">download</span>
+          <strong>Importieren</strong>
+          <small>Passwörter und 2FA-Codes aus anderen Apps übernehmen</small>
         </button>
         <button type="button" class="choice" data-choice="camera" ${scannable ? '' : 'disabled'}>
           <span class="msr">qr_code_scanner</span>
@@ -3214,6 +3963,7 @@ async function startCreation() {
   if (choice === 'manual') { openEntryDialog(null); return; }
   if (choice === 'files') { openEntryDialog(null, {}, { mode: 'files' }); return; }
   if (choice === 'folder') { openFolderDialog(); return; }
+  if (choice === 'import') { importFromOtherApps(); return; }
 
   try {
     const value = choice === 'camera' ? await scanWithCamera() : await scanFromFile();
@@ -3277,6 +4027,19 @@ async function placeTotp(parsed) {
     (parsed.issuer && e.name.toLowerCase().includes(parsed.issuer.toLowerCase())) ||
     (parsed.issuer && e.url.toLowerCase().includes(parsed.issuer.toLowerCase())));
 
+  // Kein vorhandener Eintrag passt zum Aussteller? Dann gibt es nichts zu
+  // wählen — gleich den neuen Eintrag öffnen, vorausgefüllt.
+  const config0 = { digits: parsed.digits, period: parsed.period, algorithm: parsed.algorithm };
+  if (!suggestion || suggestion.hasTotp) {
+    openEntryDialog(null, {
+      name: parsed.issuer || parsed.name,
+      username: parsed.name,
+      totpSecret: parsed.secret,
+      totpConfig: config0
+    });
+    return;
+  }
+
   const res = await dialog({
     title: 'TOTP hinzufügen',
     content: `
@@ -3331,6 +4094,8 @@ async function placeTotp(parsed) {
     await refreshFromVault();
     renderAll({ includeSettings: false });
     banner(`TOTP zu „${entry.name}“ hinzugefügt.`, 'success');
+    // Gleich zeigen, wo er gelandet ist.
+    openEntryDialog(entry.id);
     return;
   }
 
@@ -3383,6 +4148,160 @@ async function importMigration(accounts) {
 
   const skipped = accounts.length - created;
   banner(`${created} Einträge angelegt${skipped ? `, ${skipped} übersprungen (kein TOTP)` : ''}.`, 'success', 5000);
+}
+
+/* =========================================================
+   Import aus anderen Programmen (Formate: siehe import.js)
+   ========================================================= */
+
+function pickFile(accept) {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.addEventListener('change', () => resolve(input.files?.[0] ?? null));
+    input.click();
+  });
+}
+
+async function importFromOtherApps() {
+  if (state.locked) { banner('Erst die Datenbank entsperren.', 'info'); return; }
+
+  const file = await pickFile('.csv,.json,.txt,.2fas,.xml,.zip,text/csv,application/json,text/plain,text/xml,application/zip');
+  if (!file) return;
+
+  let result;
+  try { result = await parseImport(file); }
+  catch (err) { banner(`Import nicht möglich: ${err.message}`, 'error', 8000); return; }
+
+  // Was es schon gibt (gleicher Name, Benutzer und Adresse), wird ausgelassen —
+  // so schadet es nicht, denselben Export zweimal einzulesen.
+  const key = e => [e.name, e.username, e.url].map(v => String(v ?? '').trim().toLowerCase()).join('\u0001');
+  const known = new Set(state.entries.map(key));
+  const folder = `Importiert/${result.source.replace(/\//g, '-')}`;
+
+  let items = result.items;
+  let fresh = [];
+  let dupes = 0;
+  const count = () => {
+    fresh = items.filter(i => !known.has(key(i)));
+    dupes = items.length - fresh.length;
+  };
+  count();
+
+  // Bei CSV lässt sich festlegen, welche Spalte was bedeutet. Ohne erkannte
+  // Passwort- oder 2FA-Spalte ist die Zuordnung gleich aufgeklappt.
+  const csv = result.csv;
+  const mapping = csv ? [...csv.mapping] : null;
+  const needsMapping = csv && !mapping.some(f => f === 'password' || f === 'totp');
+
+  if (!csv && !fresh.length) {
+    banner(`Alle ${items.length} Einträge aus ${result.source} sind schon vorhanden.`, 'info', 6000);
+    return;
+  }
+
+  const summary = () => {
+    if (!items.length) {
+      return `<p class="dlg-note">Noch keine Einträge — ordne unten mindestens Passwort, Benutzername, Adresse oder 2FA-Schlüssel einer Spalte zu.</p>`;
+    }
+    const withPw = fresh.filter(i => i.password).length;
+    const withTotp = fresh.filter(i => i.totp).length;
+    return `
+      <p class="dlg-note"><strong>${fresh.length}</strong> Einträge — ${withPw} mit Passwort, ${withTotp} mit 2FA-Code${
+        dupes ? `, ${dupes} schon vorhanden und ausgelassen` : ''}. Sie landen im Ordner <strong>${esc(folder)}</strong>.</p>
+      <ul class="import-list">
+        ${fresh.slice(0, 200).map(i => `<li><strong>${esc(i.name)}</strong><span>${esc(i.username)}${
+          i.totp ? ' · <span class="msr" title="2FA-Code">timer</span>' : ''}</span></li>`).join('')}
+        ${fresh.length > 200 ? `<li><span>… und ${fresh.length - 200} weitere</span></li>` : ''}
+      </ul>`;
+  };
+
+  // Beispielwert je Spalte — Passwörter und 2FA-Schlüssel nur als Punkte.
+  const sample = i => {
+    const v = csv.rows.map(r => (r[i] ?? '').trim()).find(Boolean) ?? '';
+    if (!v) return '—';
+    if (mapping[i] === 'password' || mapping[i] === 'totp') return '••••••';
+    return v.length > 40 ? `${v.slice(0, 40)}…` : v;
+  };
+  const columns = csv ? `
+      <details class="import-mapping" ${needsMapping ? 'open' : ''}>
+        <summary>Spalten zuordnen</summary>
+        <div class="import-columns">
+          ${csv.header.map((h, i) => `
+            <div class="import-column">
+              <span><strong>${esc(h || `Spalte ${i + 1}`)}</strong><small data-sample="${i}">${esc(sample(i))}</small></span>
+              <select data-col="${i}" data-sp-picker data-sp-search="false" aria-label="${esc(h || `Spalte ${i + 1}`)}">
+                ${CSV_FIELDS.map(([v, label]) => `<option value="${v}" ${mapping[i] === v ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+              </select>
+            </div>`).join('')}
+        </div>
+      </details>` : '';
+
+  const confirmLabel = () => (fresh.length ? `${fresh.length} Einträge importieren` : 'Importieren');
+
+  const res = await dialog({
+    title: `Import aus ${esc(result.source)}`,
+    content: `
+      <div id="import-summary">${summary()}</div>
+      ${columns}
+      <p class="dlg-note"><small>Die Exportdatei enthält alles im Klartext — danach am besten löschen.</small></p>`,
+    confirmText: confirmLabel(),
+    cancelText: 'Abbrechen',
+    onInsert: id => {
+      const host = document.getElementById(String(id));
+      const submit = host?.querySelector('.dialog_submit');
+      if (submit) submit.disabled = !fresh.length;
+      host?.querySelectorAll('select[data-col]').forEach(sel => sel.addEventListener('change', () => {
+        const i = Number(sel.dataset.col);
+        mapping[i] = sel.value;
+        items = itemsFromCsv(csv, mapping);
+        count();
+        host.querySelector('#import-summary').innerHTML = summary();
+        host.querySelector(`[data-sample="${i}"]`).textContent = sample(i);
+        if (submit) {
+          submit.textContent = confirmLabel();
+          submit.disabled = !fresh.length;
+        }
+      }));
+    }
+  });
+  if (!(res?.submit ?? res) || !fresh.length) return;
+
+  let created = 0;
+  const failed = [];
+  for (const i of fresh) {
+    try {
+      const passwordToken = i.password ? await vault.setSecret(null, i.password) : null;
+      const totpToken = i.totp ? await vault.setSecret(null, i.totp.secret) : null;
+      await vault.saveEntry({
+        id: null,
+        name: i.name,
+        folder: i.folder ? `${folder}/${i.folder.replace(/^\/+|\/+$/g, '')}` : folder,
+        username: i.username,
+        url: i.url, notes: i.notes, tags: i.tags,
+        passkey: false, expires: null,
+        hasPassword: Boolean(passwordToken), passwordToken,
+        hasTotp: Boolean(totpToken), totpToken,
+        totpConfig: i.totp ? { digits: i.totp.digits, period: i.totp.period, algorithm: i.totp.algorithm } : {},
+        attachments: []
+      });
+      created++;
+    } catch (err) {
+      failed.push(`${i.name}: ${err.message ?? err}`);
+    }
+  }
+
+  await vault.commit();
+  await refreshFromVault();
+  renderAll({ includeSettings: false });
+  vault.fetchIcons?.().catch?.(() => {});
+
+  if (failed.length) {
+    console.warn('Import: nicht übernommen', failed);
+    banner(`${created} importiert, ${failed.length} nicht übernommen (${esc(failed[0])}${failed.length > 1 ? ' …' : ''}).`, 'warning', 10000);
+  } else {
+    banner(`${created} Einträge aus ${result.source} importiert. Die Exportdatei jetzt am besten löschen.`, 'success', 8000);
+  }
 }
 
 /* =========================================================
@@ -3546,10 +4465,12 @@ async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {
     <details class="dlg-section" data-only="full" ${e.passkey ? 'open' : ''}>
       <summary><span class="msr">passkey</span>Passkey<span class="dlg-section-hint">${e.passkey ? 'hinterlegt' : 'keiner'}</span></summary>
       <div class="dlg-section-body">
-        <div class="setting" style="padding:0;border:none">
-          <div class="setting-label"><strong>Passkey hinterlegt</strong><small>Wird später von der Rust-Anbindung gesetzt</small></div>
-          <div class="setting-control"><input type="checkbox" data-shape="toggle" name="passkey" ${e.passkey ? 'checked' : ''}></div>
-        </div>
+        ${e.passkey ? `<div class="setting" style="padding:0;border:none">
+          <div class="setting-label"><strong>${esc(e.passkeySite || 'Passkey')}</strong>
+            <small>${e.passkeyUser ? `Konto: ${esc(e.passkeyUser)} · ` : ''}Anmelden ohne Passwort — der geheime Schlüssel liegt nur in dieser Datenbank.</small></div>
+        </div>`
+        : `<p class="dlg-note" style="margin:0">Einen Passkey legst du direkt beim Dienst an („Passkey erstellen“). Browser-Erweiterung oder Android
+            fragen dann WKeePass, und er landet von selbst in einem Eintrag.</p>`}
       </div>
     </details>
 
@@ -3619,7 +4540,7 @@ async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {
     url: String(d.url ?? ''),
     notes: String(d.notes ?? ''),
     tags: String(d.tags ?? '').split(',').map(x => x.trim()).filter(Boolean),
-    passkey: d.passkey === true || d.passkey === 'true' || d.passkey === 'on',
+    passkey: Boolean(e.passkey),
     expires: String(d.expires ?? '') || null,
     hasPassword: Boolean(passwordToken),
     passwordToken,
@@ -3880,37 +4801,81 @@ function scannerHint() {
     : 'Dieser Browser kann keine QR-Codes lesen — in der Desktop- und App-Version übernimmt das Rust. Füge die otpauth://-URI hier als Text ein.';
 }
 
-/** Kamera-Scan in einem eigenen Dialog. */
+/**
+ * Kamera-Scan in einem eigenen Dialog.
+ *
+ * Kein „Fertig" zum Drücken: Ist ein Code erkannt, leuchtet der Rahmen auf,
+ * und der Dialog schließt sich von selbst — weiter geht es dort, wo der
+ * Code hingehört. Der einzige Knopf ist „Abbrechen".
+ */
 async function scanWithCamera() {
   let controller = null;
   let resolved = null;
 
-  const res = await dialog({
+  await dialog({
     title: 'QR-Code scannen',
     content: `<div class="qr-scanner">
-        <video id="qr-video" muted playsinline></video>
-        <p class="empty-state" id="qr-hint" style="padding:0.5rem">Richte die Kamera auf den QR-Code.<br>
-          <small>Auswertung: Rust (rqrr)</small></p>
+        <div class="qr-frame">
+          <video id="qr-video" muted playsinline></video>
+          <div class="qr-sucher"></div>
+          <div class="qr-check"><span class="msr">check</span></div>
+        </div>
+        <p class="qr-hint" id="qr-hint">Code in den Rahmen halten</p>
+        <button type="button" class="button" id="qr-photo"><span class="msr">photo_camera</span>&nbsp;Klappt nicht? Foto aufnehmen</button>
       </div>`,
-    confirmText: 'Fertig',
-    cancelText: 'Abbrechen',
+    confirmText: 'Abbrechen',
+    onlyConfirm: true,
     onInsert: () => queueMicrotask(async () => {
       const video = document.getElementById('qr-video');
       const hint = document.getElementById('qr-hint');
       if (!video) return;
+
+      // Rückfallweg für dichte Codes: ein richtiges Foto, scharf gestellt
+      // von der Kamera-App — und dann genauso weiter wie beim Treffer.
+      document.getElementById('qr-photo')?.addEventListener('click', () => {
+        // Die Kamera-App braucht die Kamera für sich — Vorschau vorher aus.
+        controller?.stop();
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.setAttribute('capture', 'environment');
+        input.addEventListener('change', async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          if (hint) hint.textContent = 'Foto wird ausgewertet …';
+          try {
+            resolved = await qr.scanPhoto(file);
+            controller?.stop();
+            video.closest('.qr-scanner')?.classList.add('found');
+            navigator.vibrate?.(40);
+            await new Promise(r => setTimeout(r, 650));
+            closeHostDialog(video, true);
+          } catch (err) {
+            if (hint) hint.textContent = err.message;
+          }
+        });
+        input.click();
+      });
+
       try {
         controller = await qr.scanCamera(video);
-        resolved = await controller.promise;
-        if (hint) hint.textContent = 'Code erkannt.';
-        document.querySelector('dialog[open] button[value="ok"], dialog[open] .dialog-submit')?.click();
+        const found = await controller.promise;
+        if (resolved) return;          // schon über das Foto erkannt
+        resolved = found;
+        if (hint) hint.textContent = 'Erkannt';
+        video.closest('.qr-scanner')?.classList.add('found');
+        navigator.vibrate?.(40);
+        // Das Aufleuchten kurz stehen lassen, dann von selbst weiter.
+        await new Promise(r => setTimeout(r, 650));
+        closeHostDialog(video, true);
       } catch (err) {
-        if (hint && err.message !== 'abgebrochen') hint.textContent = `Kamera nicht verfügbar: ${err.message}`;
+        if (hint && err.message !== 'abgebrochen') hint.textContent = err.message.startsWith("Auswertung") ? err.message : `Kamera nicht verfügbar: ${err.message}`;
       }
     })
   });
 
   controller?.stop();
-  if (!(res?.submit ?? res)) throw new Error('abgebrochen');
+  if (!resolved) throw new Error('abgebrochen');
   return resolved;
 }
 
@@ -4408,15 +5373,6 @@ async function saveAttachment(att) {
   }
 }
 
-function fileIcon(type, name = '') {
-  if (type.startsWith('video/')) return 'movie';
-  if (type.startsWith('audio/')) return 'audio_file';
-  if (type === 'application/pdf') return 'picture_as_pdf';
-  if (/\.(zip|tar|gz|7z|rar)$/i.test(name)) return 'folder_zip';
-  if (/\.(txt|md|json|xml|csv)$/i.test(name) || type.startsWith('text/')) return 'description';
-  return 'draft';
-}
-
 function formatBytes(n) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`;
@@ -4474,4 +5430,21 @@ function scheduleClipboardClear() {
   clipboardTimer = setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), secs * 1000);
 }
 
-boot();
+/**
+ * Scheitert der Start, bleibt der Sperrbildschirm stehen und sagt, warum —
+ * statt stumm eine leere Hauptseite zu zeigen, die nach offener Datenbank
+ * aussieht.
+ */
+boot().catch(err => {
+  console.error('Start fehlgeschlagen', err);
+  $('#lockscreen').hidden = false;
+  $('#lock-card').innerHTML = `
+    ${BRAND_MARK}
+    <h2>WKeePass konnte nicht starten</h2>
+    <p class="lock-sub">${esc(err?.message ?? err)}</p>
+    <div class="lock-actions">
+      <button type="button" class="button hightlight" data-shape="full" id="boot-retry">
+        <span class="msr">refresh</span>&nbsp;Neu laden</button>
+    </div>`;
+  $('#boot-retry').addEventListener('click', () => location.reload());
+});

@@ -2,6 +2,7 @@
 name = "wkeepass"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
 # Vorgabe der keepass-Crate
 rust-version = "1.85"
 
@@ -15,15 +16,28 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-fs = "2"
+# Links im Browser öffnen — etwa die Seite zum Löschen eines alten Kontos.
+# Nur über unseren eigenen Befehl `open_link`, der nichts außer http(s)
+# durchlässt; der Webview bekommt keine eigene Berechtigung dafür.
+tauri-plugin-opener = "2"
 tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-persisted-scope = "2"
+# Hinweise bei neuen Funden im Sicherheitscheck. Das Plugin ersetzt die
+# `Notification`-API des Webviews durch die des Systems — die Oberfläche
+# benutzt schlicht `new Notification(…)`.
+tauri-plugin-notification = "2"
+# Android: WKeePass als Ziel für otpauth://-Codes aus der Kamera-App.
+tauri-plugin-deep-link = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # QR-Dekodierung
 rqrr = "0.9"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+# ZXing in Rust: liest dichte Codes (otpauth) aus echten Kamerabildern, an
+# denen rqrr scheitert — rqrr bleibt als zweiter Versuch.
+rxing = { version = "0.9", default-features = false, features = ["qrcode", "decoders", "encoding_rs"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "ico", "gif", "bmp"] }
 
 # Datenbankkern
 # Lokale Kopie statt crates.io: Die Bibliothek stolpert über echte
@@ -31,9 +45,12 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 # aufeinanderfolgen ("duplicate field `String`"). Der Eingriff steckt in
 # vendor/keepass/src/format/xml_db/normalise.rs. Dazu ein Fehler beim
 # Schreiben: Anhang-Verweise zeigten nach Ersetzen oder Löschen auf die
-# falsche Stelle (vendor/keepass/src/format/xml_db/entry.rs) — sonst
-# unverändert.
-keepass = { path = "vendor/keepass", features = ["totp", "save_kdbx4"] }
+# falsche Stelle (vendor/keepass/src/format/xml_db/entry.rs). Und im
+# Abgleich zweier Stände (vendor/keepass/src/db/merge.rs): Anhänge werden
+# übernommen statt als fremde Nummern mitkopiert, und der überholte Stand
+# eines Eintrags landet auch dann im Verlauf, wenn der noch leer war —
+# sonst unverändert.
+keepass = { path = "vendor/keepass", features = ["totp", "save_kdbx4", "_merge"] }
 chrono = "0.4"
 
 # Versiegeltes Master-Passwort (PIN / Biometrie)
@@ -61,6 +78,12 @@ p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
 ciborium = "0.2"
 
+# Website-Icons und -Titel abrufen (web.rs). Aus dem Webview geht das
+# nicht, fremde Seiten sperren ihre Bilder per CORS gegen das Auslesen.
+# rustls statt OpenSSL — dasselbe auf allen Systemen, auch auf Android.
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
+url = "2"
+
 sha1 = "0.10"
 sha2 = "0.10"
 zeroize = { version = "1", features = ["derive"] }
@@ -75,6 +98,12 @@ tauri-plugin-biometric = "2"
 # übernehmen (`takePersistableUriPermission`, siehe storage.rs). Ohne das ist
 # eine ausgewählte Datei nach dem nächsten Start nicht mehr erreichbar.
 # Die Fassungen müssen zu denen passen, die tauri/wry ohnehin einbinden.
+# Desktop: Ein Doppelklick auf eine .kdbx landet in der laufenden Ausgabe,
+# statt eine zweite zu starten (die hätte keinen Browser-Kanal und eine
+# eigene, gesperrte Datenbank).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 tao = "0.35"
@@ -95,6 +124,14 @@ block2 = "0.6"
 # entspricht der, die tauri/wry ohnehin einbinden.
 [target.'cfg(windows)'.dependencies]
 windows-future = "0.2"
+# Browser-Anbindung: benannte Pipes. Nur tokio kann auf **einer** Pipe
+# gleichzeitig lesen und schreiben (überlappende E/A) — mit den einfachen
+# Handles der Standardbibliothek blockierte ein wartendes Lesen jedes
+# Schreiben. tokio und winreg binden tauri bzw. dessen Werkzeuge ohnehin ein.
+tokio = { version = "1", features = ["net", "io-util", "io-std", "rt", "sync", "time"] }
+# Manifeste der Browser-Anbindung: Unter Windows findet ein Browser sie
+# über die Registry, nicht über einen festen Ordner.
+winreg = "0.55"
 windows = { version = "0.61", features = [
     "Foundation",
     "Security_Credentials",
@@ -125,6 +162,8 @@ gtk = "0.18"
 
 [dev-dependencies]
 quick-xml = { version = "0.38", features = ["serialize"] }
+# Nur für Tests des QR-Scanners (qr.rs): Codes erzeugen, die rqrr lesen soll.
+qrcode = { version = "0.14", default-features = false }
 
 [features]
 default = []
@@ -140,3 +179,12 @@ agent = ["dep:tauri-agent-plugin"]
 # damit das Neuübersetzen schnell bleibt.
 [profile.dev.package."*"]
 opt-level = 3
+
+# So klein wie möglich, ohne langsamer zu werden: Symbole raus, über
+# Crate-Grenzen hinweg optimieren. opt-level bleibt 3 — die
+# Schlüsselableitung (Argon2) beim Öffnen soll nicht bremsen. panic=abort
+# geht nicht: android_services.rs und webview.rs fangen Panics ab.
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

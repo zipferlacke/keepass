@@ -27,12 +27,12 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/32x32.png",
-      "icons/64x64.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "../appdata/icons/32x32.png",
+      "../appdata/icons/64x64.png",
+      "../appdata/icons/128x128.png",
+      "../appdata/icons/128x128@2x.png",
+      "../appdata/icons/icon.icns",
+      "../appdata/icons/icon.ico"
     ],
     "category": "Utility",
     "shortDescription": "Passwortverwaltung für KeePass-Datenbanken",
@@ -49,5 +49,18 @@
         "rank": "Alternate"
       }
     ]
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        {
+          "scheme": [
+            "otpauth",
+            "otpauth-migration"
+          ],
+          "appLink": false
+        }
+      ]
+    }
   }
 }

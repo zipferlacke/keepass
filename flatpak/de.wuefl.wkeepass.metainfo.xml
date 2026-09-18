@@ -4,8 +4,7 @@
   <name>WKeePass</name>
   <summary>Passwortverwaltung für KeePass-Datenbanken</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <!-- TODO: echte Lizenz eintragen -->
-  <project_license>LicenseRef-proprietary</project_license>
+  <project_license>Apache-2.0</project_license>
   <developer id="de.wuefl">
     <name>wuefl</name>
   </developer>
@@ -18,6 +17,6 @@
   <launchable type="desktop-id">de.wuefl.wkeepass.desktop</launchable>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="0.1.0" date="2026-09-17"/>
+    <release version="0.1.0" date="2026-09-18"/>
   </releases>
 </component>

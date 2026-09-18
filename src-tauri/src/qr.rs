@@ -19,6 +19,48 @@ pub fn decode_qr_bytes(bytes: Vec<u8>) -> Result<Option<String>, String> {
     Ok(decode_dynamic(&img))
 }
 
+/// Dekodiert ein Kamerabild in Graustufen — ein Byte je Pixel.
+///
+/// Zwei Wege, dieselben Daten:
+///
+/// * **Rohdaten** (Desktop): Die Bytes sind der Anfragekörper, die Breite
+///   steht in `x-width`. Kein JPEG, keine Zahlenliste im JSON.
+/// * **JSON** (Android): Dort kommt ein roher Körper nicht als solcher an —
+///   die Android-Brücke von Tauri reicht nur JSON durch. Dann steht
+///   `{ width, data }` darin, `data` als Base64. Früher scheiterte hier
+///   jedes Bild still, und der Scanner sah nie einen Code.
+#[tauri::command]
+pub fn decode_qr_gray(request: tauri::ipc::Request<'_>) -> Result<Option<String>, String> {
+    let (width, data): (u32, std::borrow::Cow<'_, [u8]>) = match request.body() {
+        tauri::ipc::InvokeBody::Raw(data) => {
+            let width = request
+                .headers()
+                .get("x-width")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.parse().ok())
+                .ok_or("Die Bildbreite fehlt.")?;
+            (width, data.as_slice().into())
+        }
+        tauri::ipc::InvokeBody::Json(value) => {
+            use base64::Engine;
+            let width = value.get("width").and_then(|w| w.as_u64()).ok_or("Die Bildbreite fehlt.")? as u32;
+            let text = value.get("data").and_then(|d| d.as_str()).ok_or("Die Bilddaten fehlen.")?;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(text)
+                .map_err(|e| format!("Bilddaten nicht lesbar: {e}"))?;
+            (width, bytes.into())
+        }
+    };
+    if width == 0 {
+        return Err("Die Bildbreite fehlt.".into());
+    }
+    let height = data.len() as u32 / width;
+
+    let bild = image::GrayImage::from_raw(width, height, data[..(width * height) as usize].to_vec())
+        .ok_or_else(|| "Pixeldaten passen nicht zur angegebenen Größe.".to_string())?;
+    Ok(detect(bild))
+}
+
 /// Dekodiert aus rohen RGBA-Pixeln, falls der Webview kein JPEG erzeugen kann.
 #[tauri::command]
 pub fn decode_qr_rgba(width: u32, height: u32, data: Vec<u8>) -> Result<Option<String>, String> {
@@ -54,6 +96,16 @@ fn decode_dynamic(img: &image::DynamicImage) -> Option<String> {
 }
 
 fn detect(luma: image::GrayImage) -> Option<String> {
+    // Zuerst ZXing: Es binarisiert je Bildbereich (Schatten, Spiegelungen
+    // auf dem Bildschirm) und findet auch leicht schräge Codes.
+    let (w, h) = luma.dimensions();
+    if let Ok(treffer) = rxing::helpers::detect_in_luma_slice(luma.as_raw(), w, h, Some(rxing::BarcodeFormat::QR_CODE)) {
+        let text = treffer.getText();
+        if !text.is_empty() {
+            return Some(text.to_string());
+        }
+    }
+
     let mut prepared = rqrr::PreparedImage::prepare(luma);
     for grid in prepared.detect_grids() {
         if let Ok((_meta, content)) = grid.decode() {
@@ -63,4 +115,53 @@ fn detect(luma: image::GrayImage) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Ein QR-Code als Graustufenbild: `modul` Pixel je Modul, weißer Rand.
+    fn bild(text: &str, modul: u32) -> image::GrayImage {
+        let code = qrcode::QrCode::new(text.as_bytes()).unwrap();
+        let breite = code.width() as u32;
+        let rand = 4 * modul;
+        let kante = breite * modul + 2 * rand;
+        let farben = code.to_colors();
+        image::GrayImage::from_fn(kante, kante, |x, y| {
+            let (x, y) = (x as i64 - rand as i64, y as i64 - rand as i64);
+            let innen = x >= 0 && y >= 0 && (x as u32) < breite * modul && (y as u32) < breite * modul;
+            let dunkel = innen && farben[(y as u32 / modul * breite + x as u32 / modul) as usize] == qrcode::Color::Dark;
+            image::Luma([if dunkel { 0 } else { 255 }])
+        })
+    }
+
+    const OTP: &str = "otpauth://totp/GitHub:flo%40example.org?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=GitHub&algorithm=SHA1&digits=6&period=30";
+
+    #[test]
+    fn otpauth_wird_in_allen_groessen_erkannt() {
+        for modul in [2, 3, 4, 6] {
+            assert_eq!(detect(bild(OTP, modul)).as_deref(), Some(OTP), "Modulgröße {modul}");
+        }
+    }
+
+    #[test]
+    fn zxing_liest_otpauth_auch_bei_schlechtem_licht() {
+        // Verlauf von hell nach grau, dazu weiche Kanten — wie ein
+        // abfotografierter Bildschirm.
+        let scharf = bild(OTP, 4);
+        let (w, h) = scharf.dimensions();
+        let mut trueb = image::imageops::blur(&scharf, 1.2);
+        for (x, _, p) in trueb.enumerate_pixels_mut() {
+            p.0[0] = (p.0[0] as u32 * (255 - 90 * x / w) / 255 + 30).min(255) as u8;
+        }
+        let text = rxing::helpers::detect_in_luma_slice(trueb.as_raw(), w, h, Some(rxing::BarcodeFormat::QR_CODE))
+            .map(|r| r.getText().to_string());
+        assert_eq!(text.ok().as_deref(), Some(OTP));
+    }
+
+    #[test]
+    fn link_wird_erkannt() {
+        assert_eq!(detect(bild("https://github.com/login", 3)).as_deref(), Some("https://github.com/login"));
+    }
 }

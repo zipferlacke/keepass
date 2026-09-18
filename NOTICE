@@ -1,0 +1,12 @@
+WKeePass
+Copyright 2026 Florian Wüllner (wuefl)
+
+Lizenziert unter der Apache License, Version 2.0 (siehe LICENSE).
+
+Enthält eine angepasste Fassung von keepass-rs
+(https://github.com/sseemayer/keepass-rs), MIT-Lizenz — siehe
+src-tauri/vendor/keepass/LICENSE.
+
+Bitte (unverbindlich, keine Lizenzbedingung):
+Wer WKeePass kommerziell nutzt oder in ein kommerzielles Produkt einbaut,
+wird um eine kleine Spende an den Entwickler gebeten.

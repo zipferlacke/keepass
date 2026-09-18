@@ -43,6 +43,13 @@ pub struct VaultState {
     /// verschlüsseln. Verlässt den Kern nie.
     pub master: Option<Zeroizing<String>>,
 
+    /// Inhalt der Schlüsseldatei, wenn die Datenbank eine braucht.
+    pub keyfile: Option<Zeroizing<Vec<u8>>>,
+
+    /// Änderungsdatum der Datei beim letzten Blick (ms seit 1970). Solange
+    /// es sich nicht ändert, spart sich `vault_sync` das Lesen.
+    pub seen_modified: Option<i64>,
+
     /// Klartextwerte, adressiert über ihren Token.
     pub secrets: HashMap<String, Zeroizing<String>>,
 
@@ -118,6 +125,8 @@ impl VaultState {
         self.db = None;
         self.path = None;
         self.master = None;
+        self.keyfile = None;
+        self.seen_modified = None;
         self.opened_hash = None;
         self.read_only = false;
         self.offline = false;

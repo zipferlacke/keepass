@@ -43,6 +43,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::state::ensure_group;
+use crate::state::VaultState;
 use crate::Vault;
 
 /// Ordner, in dem Passkeys liegen.
@@ -113,10 +114,18 @@ pub struct AssertResponse {
 #[tauri::command]
 pub fn passkey_list(state: tauri::State<'_, Vault>) -> Result<Vec<PasskeyInfo>, String> {
     let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    list_in(&vault, None)
+}
+
+/// Alle Passkeys, auf Wunsch nur die einer Gegenstelle.
+pub fn list_in(vault: &VaultState, rp_id: Option<&str>) -> Result<Vec<PasskeyInfo>, String> {
     let db = vault.database()?;
+    let bin = crate::state::recycle_bin(db);
 
     Ok(db
         .iter_all_entries()
+        .filter(|e| !bin.is_some_and(|b| e.parent().id() == b))
+        .filter(|e| rp_id.is_none_or(|rp| e.get(F_RP) == Some(rp)))
         .filter_map(|e| {
             Some(PasskeyInfo {
                 credential_id: e.get(F_ID)?.to_string(),
@@ -158,6 +167,23 @@ pub fn passkey_create(
     request: CreateRequest,
 ) -> Result<CreateResponse, String> {
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    create_in(&mut vault, request).map(|c| c.response)
+}
+
+/// Was beim Anlegen entsteht — mehr, als die Browser-Erweiterung braucht:
+/// Android will authenticatorData und den öffentlichen Schlüssel zusätzlich
+/// einzeln in der Antwort sehen.
+#[cfg_attr(desktop, allow(dead_code))] // die Einzelteile braucht nur Android
+pub struct Created {
+    pub response: CreateResponse,
+    pub authenticator_data: Vec<u8>,
+    /// SubjectPublicKeyInfo, DER.
+    pub public_key_der: Vec<u8>,
+}
+
+/// Legt einen Passkey an. Speichert **nicht** — das macht der Aufrufer.
+pub fn create_in(vault: &mut VaultState, request: CreateRequest) -> Result<Created, String> {
+    use p256::pkcs8::EncodePublicKey;
 
     // ES256, also P-256 mit SHA-256 — das, was jede Gegenstelle versteht.
     let signing = SigningKey::random(&mut rand_core::OsRng);
@@ -203,10 +229,21 @@ pub fn passkey_create(
         entry.times.last_modification = Some(keepass::db::Times::now());
     }
 
-    Ok(CreateResponse {
-        credential_id,
-        attestation_object: B64URL.encode(attestation),
-        client_data_json: B64URL.encode(client_data),
+    let public_key_der = signing
+        .verifying_key()
+        .to_public_key_der()
+        .map_err(|e| format!("Öffentlicher Schlüssel nicht darstellbar: {e}"))?
+        .as_bytes()
+        .to_vec();
+
+    Ok(Created {
+        response: CreateResponse {
+            credential_id,
+            attestation_object: B64URL.encode(attestation),
+            client_data_json: B64URL.encode(client_data),
+        },
+        authenticator_data: auth_data,
+        public_key_der,
     })
 }
 
@@ -223,13 +260,32 @@ pub fn passkey_assert(
     origin: Option<String>,
 ) -> Result<AssertResponse, String> {
     let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    let erlaubt: Vec<String> = credentialId.into_iter().collect();
+    assert_in(&vault, &rpId, &challenge, &erlaubt, origin.as_deref(), None)
+}
+
+/// Meldet mit einem hinterlegten Passkey an.
+///
+/// `allowed` leer heißt: irgendeiner für diese Gegenstelle. `client_hash`
+/// ist gesetzt, wenn der Aufrufer das clientDataJSON selbst gebaut hat —
+/// so machen es Browser auf Android. Dann wird über dessen Hash signiert,
+/// und unser eigenes clientDataJSON ist nur Beiwerk, das der Browser
+/// ersetzt.
+pub fn assert_in(
+    vault: &VaultState,
+    rp_id: &str,
+    challenge: &str,
+    allowed: &[String],
+    origin: Option<&str>,
+    client_hash: Option<[u8; 32]>,
+) -> Result<AssertResponse, String> {
     let db = vault.database()?;
 
     let entry = db
         .iter_all_entries()
         .find(|e| {
-            e.get(F_RP) == Some(rpId.as_str())
-                && credentialId.as_deref().is_none_or(|id| e.get(F_ID) == Some(id))
+            e.get(F_RP) == Some(rp_id)
+                && (allowed.is_empty() || e.get(F_ID).is_some_and(|id| allowed.iter().any(|a| a == id)))
         })
         .ok_or("Für diese Gegenstelle ist kein Passkey hinterlegt.")?;
 
@@ -237,12 +293,13 @@ pub fn passkey_assert(
     let signing = SigningKey::from_pkcs8_pem(pem)
         .map_err(|e| format!("Schlüssel nicht lesbar: {e}"))?;
 
-    let client_data = client_data("webauthn.get", &challenge, origin.as_deref(), &rpId);
-    let auth_data = authenticator_data(&rpId, None);
+    let client_data = client_data("webauthn.get", challenge, origin, rp_id);
+    let auth_data = authenticator_data(rp_id, None);
 
     // Signiert wird über authenticatorData ‖ SHA-256(clientDataJSON).
+    let hash: [u8; 32] = client_hash.unwrap_or_else(|| Sha256::digest(&client_data).into());
     let mut message = auth_data.clone();
-    message.extend_from_slice(&Sha256::digest(&client_data));
+    message.extend_from_slice(&hash);
 
     let signature: Signature = signing.sign(&message);
 
