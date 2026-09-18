@@ -115,13 +115,23 @@ jobs:
         with:
           node-version: 22
 
+      # Gradle ruft beim Bauen die Tauri-CLI selbst noch einmal auf — über
+      # `npm run tauri`, wenn das Projekt mit npm erzeugt wurde. Mit npx
+      # allein fehlt dafür die package.json, und der Schritt
+      # rustBuild…Release bricht mit „Could not read package.json" ab.
+      - name: Tauri-CLI über npm
+        working-directory: src-tauri
+        run: |
+          echo '{"private":true,"scripts":{"tauri":"tauri"}}' > package.json
+          npm install --no-audit --no-fund --save-dev @tauri-apps/cli@2
+
       # gen/ steht nicht im Repository — das Android-Projekt entsteht hier
       # jedes Mal neu. Die Symbole kommen aus appdata/icons/android.
       - name: Android-Projekt erzeugen
         working-directory: src-tauri
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
-          npx --yes @tauri-apps/cli@2 android init --ci
+          npm run tauri -- android init --ci
           # Unsere Kotlin-Klassen (Biometrie, Dateiauswahl, Autofill,
           # Passkeys), die App-Symbole, ihr Manifest-Block und ihre Abhängigkeiten —
           # derselbe Schritt wie in tools/android.sh.
@@ -131,7 +141,7 @@ jobs:
         working-directory: src-tauri
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
-          npx --yes @tauri-apps/cli@2 android build --ci --apk \
+          npm run tauri -- android build --ci --apk \
             --target aarch64 --target armv7 --target x86_64
 
       # Eine unsignierte APK lässt sich nicht installieren.
