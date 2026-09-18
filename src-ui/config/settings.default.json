@@ -17,6 +17,9 @@
   "icons": {
     "download": true
   },
+  "names": {
+    "fromWebsite": true
+  },
   "checks": {
     "passwordStrength": true,
     "reuseDetection": true,

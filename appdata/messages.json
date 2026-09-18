@@ -39,7 +39,8 @@
                 "Kamera: klare Meldung, wenn nur ein schwarzes Bild kommt",
                 "Entsperren: animierte Punkte, solange die Datenbank entschlüsselt wird",
                 "Selbstsperre greift nicht mehr mitten im Lesen",
-                "Sicherheitscheck: keine Auswahl und kein Verschieben mehr in den Befunden"
+                "Sicherheitscheck: keine Auswahl und kein Verschieben mehr in den Befunden",
+                "Einträge heißen automatisch wie der Dienst (z. B. „GitHub“) statt nach ihrer Adresse – abschaltbar in den Einstellungen"
             ]
         },
         {

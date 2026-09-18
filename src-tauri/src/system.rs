@@ -170,7 +170,7 @@ pub fn datei_uebergeben(app: &tauri::AppHandle, args: impl IntoIterator<Item = S
     let _ = app.emit("open-database", path);
 }
 
-/// Holt den Titel einer Website.
+/// Holt den Namen des Dienstes hinter einer Adresse (siehe `web::dienstname`).
 ///
 /// Aus dem Webview heraus geht das nicht — fremde Seiten verbieten den
 /// Zugriff per CORS. Rust hat diese Einschränkung nicht.
@@ -181,7 +181,7 @@ pub async fn fetch_page_title(url: String) -> Result<Option<String>, String> {
     // Zeitlimit, Weiterleitungen und Größe regelt web.rs; Cookies gehen nie mit.
     tauri::async_runtime::spawn_blocking(move || {
         let seite = crate::web::get(&target, 512 * 1024).map_err(|e| e.to_string())?;
-        Ok(crate::web::title(&String::from_utf8_lossy(&seite.body)))
+        Ok(crate::web::dienstname(&String::from_utf8_lossy(&seite.body), &seite.url))
     })
     .await
     .map_err(|e| e.to_string())?

@@ -196,6 +196,74 @@ pub fn title(html: &str) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
+/// Der Name des Dienstes — für den Namen eines Eintrags.
+///
+/// Der Seitentitel allein taugt selten: „Anmelden – Amazon.de“ oder
+/// „GitHub · Build and ship software on a single, collaborative platform“.
+/// Deshalb der Reihe nach:
+///
+/// 1. was die Seite selbst als ihren Namen angibt (`og:site_name`,
+///    `application-name`, `apple-mobile-web-app-title`),
+/// 2. aus dem Titel das Stück, in dem die Domain steckt,
+/// 3. ein kurzer Titel ohne Trenner,
+/// 4. die Domain selbst: `github.com` → „Github“.
+pub fn dienstname(html: &str, seite: &str) -> Option<String> {
+    let basis = domain_basis(seite);
+
+    for tag in tags(html, "meta") {
+        let attr = attribute(tag);
+        let get = |n: &str| attr.iter().find(|(k, _)| k == n).map(|(_, v)| v.trim().to_string());
+        let art = get("property").or_else(|| get("name")).unwrap_or_default().to_ascii_lowercase();
+        if matches!(art.as_str(), "og:site_name" | "application-name" | "apple-mobile-web-app-title") {
+            if let Some(name) = get("content").filter(|c| !c.is_empty() && c.chars().count() <= 40) {
+                return Some(name);
+            }
+        }
+    }
+
+    if let Some(titel) = title(html) {
+        const TRENNER: [&str; 8] = [" | ", " – ", " — ", " - ", " · ", " • ", " :: ", " » "];
+        let mut teile = vec![titel.clone()];
+        for t in TRENNER {
+            teile = teile.iter().flat_map(|x| x.split(t).map(str::trim).map(String::from).collect::<Vec<_>>()).collect();
+        }
+        teile.retain(|t| !t.is_empty());
+
+        if let Some(b) = basis.as_deref() {
+            let passt = |t: &str| {
+                let klein: String = t.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect();
+                klein.contains(b) || (klein.len() >= 3 && b.contains(&klein))
+            };
+            if let Some(t) = teile.iter().filter(|t| passt(t)).min_by_key(|t| t.chars().count()) {
+                if t.chars().count() <= 40 {
+                    return Some(t.clone());
+                }
+            }
+        }
+        if teile.len() == 1 && titel.chars().count() <= 30 {
+            return Some(titel);
+        }
+    }
+
+    basis.map(|b| {
+        let mut c = b.chars();
+        c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+    })
+}
+
+/// `https://login.example.co.uk/x` → `example`: der Teil vor der Endung.
+fn domain_basis(seite: &str) -> Option<String> {
+    let host = url::Url::parse(seite).ok()?.host_str()?.to_ascii_lowercase();
+    let teile: Vec<&str> = host.split('.').filter(|t| !t.is_empty()).collect();
+    if teile.len() < 2 {
+        return teile.first().map(|t| t.to_string());
+    }
+    // Zweistufige Endungen (co.uk, com.au …): dann eins weiter vorn
+    let zweistufig = teile.len() >= 3 && teile[teile.len() - 2].len() <= 3 && teile[teile.len() - 1].len() == 2;
+    let i = if zweistufig { teile.len() - 3 } else { teile.len() - 2 };
+    Some(teile[i].to_string())
+}
+
 /// Die gängigen HTML-Entitäten zurück in Zeichen.
 fn entities(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -252,6 +320,18 @@ mod tests {
             "https://cdn.example.org/32.png",
             "https://example.org/favicon.ico",
         ]);
+    }
+
+    #[test]
+    fn dienstname_statt_seitentitel() {
+        let og = r#"<meta property="og:site_name" content="GitHub"><title>GitHub · Build and ship software</title>"#;
+        assert_eq!(dienstname(og, "https://github.com/login").as_deref(), Some("GitHub"));
+        let lang = "<title>Anmelden – Amazon.de</title>";
+        assert_eq!(dienstname(lang, "https://www.amazon.de/ap/signin").as_deref(), Some("Amazon.de"));
+        let kurz = "<title>Nextcloud</title>";
+        assert_eq!(dienstname(kurz, "https://cloud.example.org").as_deref(), Some("Nextcloud"));
+        let nichts = "<title>Willkommen auf unserer Seite, schön dass Sie da sind</title>";
+        assert_eq!(dienstname(nichts, "https://shop.example.co.uk/").as_deref(), Some("Example"));
     }
 
     #[test]

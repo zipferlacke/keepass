@@ -266,6 +266,7 @@ async function refreshFromVault() {
   state.reused = settings.get('checks.reuseDetection', true)
     ? await vault.reusedIds()
     : new Set();
+  queueMicrotask(() => autoRetitle());
 }
 
 /**
@@ -1937,6 +1938,58 @@ async function invokeTitle(url) {
   } catch { return null; }
 }
 
+/**
+ * Steht als Name nur eine Adresse da — „https://login.example.com/…“,
+ * „www.example.com“ oder genau der Hostname? So legen Browser-Erweiterung,
+ * Autofill und manche Importe Einträge an.
+ */
+function nameIsAddress(e) {
+  const name = String(e.name ?? '').trim();
+  if (!name || name === 'Ohne Namen') return true;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(name) || /^www\./i.test(name)) return true;
+  const host = hostFromUrl(e.url);
+  if (host && [host, host.replace(/^www\./, '')].includes(name.toLowerCase())) return true;
+  return /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(name) && !/\s/.test(name) && Boolean(hostFromUrl(name));
+}
+
+/**
+ * Benennt Einträge, deren Name nur eine Adresse ist, nach ihrem Dienst —
+ * im Hintergrund, abschaltbar in den Einstellungen. Jeder Eintrag wird je
+ * Sitzung nur einmal versucht, auch wenn die Seite nicht antwortet.
+ */
+const retitleTried = new Set();
+let retitling = false;
+
+async function autoRetitle() {
+  if (retitling || state.locked || !isTauri || !settings.get('names.fromWebsite', true)) return;
+  const due = state.entries.filter(e => !e.recycled && !retitleTried.has(e.id) && nameIsAddress(e)
+    && hostFromUrl(e.url || e.name));
+  if (!due.length) return;
+
+  retitling = true;
+  let changed = 0;
+  try {
+    for (const e of due) {
+      retitleTried.add(e.id);
+      const url = e.url || e.name;
+      const title = await fetchTitle(url);
+      if (state.locked) return;
+      if (!title || title === e.name) continue;
+      await vault.saveEntry({ ...e, name: title, url: e.url || url });
+      changed++;
+    }
+  } catch (err) {
+    console.warn('Namen übernehmen:', err);
+  } finally {
+    retitling = false;
+  }
+
+  if (!changed || state.locked) return;
+  await vault.commit();
+  await refreshFromVault();
+  renderAll({ includeSettings: false });
+}
+
 async function adoptTitles(entries) {
   let changed = 0;
 
@@ -2988,7 +3041,12 @@ function settingsMarkup() {
           <div class="setting-control"><button type="button" class="button" id="btn-refresh-icons"><span class="msr">refresh</span>&nbsp;Neu laden</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Namen von den Websites übernehmen</strong><small>Setzt bei allen Einträgen mit URL den Seitentitel als Namen</small></div>
+          <div class="setting-label"><strong>Namen automatisch setzen</strong>
+            <small>Steht als Name nur eine Adresse (https://…), heißt der Eintrag danach wie der Dienst — etwa „GitHub“ statt „https://github.com/login“</small></div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="names.fromWebsite" name="names.fromWebsite" ${s.names?.fromWebsite ?? true ? 'checked' : ''}></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>Alle Namen von den Websites übernehmen</strong><small>Setzt bei allen Einträgen mit URL den Namen des Dienstes</small></div>
           <div class="setting-control"><button type="button" class="button" id="btn-adopt-titles"><span class="msr">title</span>&nbsp;Übernehmen</button></div>
         </div>
         <div class="setting">
@@ -3537,6 +3595,7 @@ function wireSettings(root = $('#settings-body')) {
     if (el.dataset.set === 'unlock.autoLockMinutes' && !state.locked) {
       await vault.setAutoLock(Number(value) || 0);
     }
+    if (el.dataset.set === 'names.fromWebsite' && value) autoRetitle();
 
     banner('Einstellung gespeichert.', 'success', 1600);
   }));
@@ -3558,7 +3617,7 @@ function wireSettings(root = $('#settings-body')) {
 
     const res = await dialog({
       title: 'Namen übernehmen',
-      content: `Bei <strong>${withUrl.length}</strong> Einträgen wird der Name durch den Titel der Website ersetzt.
+      content: `Bei <strong>${withUrl.length}</strong> Einträgen wird der Name durch den Namen des Dienstes ersetzt.
                 ${isTauri ? '' : '<br><br>Im Browser blockiert die Sicherheitsrichtlinie fremder Seiten den Abruf — dort wird ersatzweise der Hostname verwendet.'}`,
       confirmText: 'Übernehmen',
       cancelText: 'Abbrechen'
