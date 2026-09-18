@@ -22,6 +22,12 @@ tauri-plugin-opener = "2"
 tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-persisted-scope = "2"
+# Hinweise bei neuen Funden im Sicherheitscheck. Das Plugin ersetzt die
+# `Notification`-API des Webviews durch die des Systems — die Oberfläche
+# benutzt schlicht `new Notification(…)`.
+tauri-plugin-notification = "2"
+# Android: WKeePass als Ziel für otpauth://-Codes aus der Kamera-App.
+tauri-plugin-deep-link = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
@@ -85,6 +91,12 @@ tauri-plugin-biometric = "2"
 # übernehmen (`takePersistableUriPermission`, siehe storage.rs). Ohne das ist
 # eine ausgewählte Datei nach dem nächsten Start nicht mehr erreichbar.
 # Die Fassungen müssen zu denen passen, die tauri/wry ohnehin einbinden.
+# Desktop: Ein Doppelklick auf eine .kdbx landet in der laufenden Ausgabe,
+# statt eine zweite zu starten (die hätte keinen Browser-Kanal und eine
+# eigene, gesperrte Datenbank).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 tao = "0.35"
@@ -143,6 +155,8 @@ gtk = "0.18"
 
 [dev-dependencies]
 quick-xml = { version = "0.38", features = ["serialize"] }
+# Nur für Tests des QR-Scanners (qr.rs): Codes erzeugen, die rqrr lesen soll.
+qrcode = { version = "0.14", default-features = false }
 
 [features]
 default = []

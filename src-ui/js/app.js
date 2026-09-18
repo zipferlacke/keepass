@@ -90,6 +90,22 @@ async function boot() {
     banner(`Änderung nicht gespeichert: ${ev?.payload ?? ''}`, 'error', 10000);
   });
 
+  // Doppelklick auf eine .kdbx, während die App läuft (single-instance,
+  // macOS: Ereignis des Systems): Sperrbildschirm für genau diese Datei.
+  await listen('open-database', async ev => {
+    const path = String(ev?.payload ?? '');
+    if (!path) return;
+    await vault.startupDatabase().catch(() => null);   // abholen, sonst käme sie beim nächsten Start nochmal
+    if (!state.locked && path === settings.get('database.current', null)) return;
+    if (!state.locked) await lockDatabase();
+    await settings.set('database.current', path, { silent: true });
+    await rememberDatabase({ name: dbName(path), path });
+    state.unlock = await unlockMethods(path);
+    renderLockscreen();
+  });
+
+  await bindOtpLinks();
+
   // Auswahlfelder bekommen das Aussehen der übrigen Oberfläche.
   selectPicker();
 
@@ -128,6 +144,28 @@ async function boot() {
   // gefragt — das ersetzt PIN und Master-Passwort. Nur beim Programmstart:
   // Nach einem Sperren von Hand soll nicht sofort wieder etwas aufgehen.
   if (state.unlock.device && settings.get('database.current', null)) unlock({ method: 'device' });
+}
+
+/**
+ * otpauth://-Codes aus anderen Apps (Android: „Öffnen mit WKeePass" in der
+ * Kamera-App). Über das Deep-Link-Plugin: beim Kaltstart liegt die Adresse
+ * bereit, sonst kommt sie als Ereignis. Ist die Datenbank zu, wartet sie
+ * bis nach dem Entsperren.
+ */
+async function bindOtpLinks() {
+  if (!isTauri) return;
+  const take = urls => {
+    const uri = [urls].flat().map(String).find(u => /^otpauth(-migration)?:/i.test(u));
+    if (!uri) return;
+    if (state.locked) {
+      state.pendingOtp = uri;
+      banner('Entsperren — danach wird der Code übernommen.', 'info', 6000);
+    } else {
+      handleScan(uri);
+    }
+  };
+  try { take(await invoke('plugin:deep-link|get_current') ?? []); } catch { /* Plugin fehlt */ }
+  try { await listen('deep-link://new-url', ev => take(ev?.payload ?? [])); } catch { /* dito */ }
 }
 
 /** Wie der gerätegebundene Weg heißt, etwa „Windows Hello". */
@@ -1151,6 +1189,7 @@ async function enterUnlocked() {
 
   await refreshFromVault();
   await vault.ensurePasskeyFolder();
+  restoreCheck();
 
   renderAll();
   showView(settings.get('ui.startView', 'home'));
@@ -1161,6 +1200,13 @@ async function enterUnlocked() {
   // Fehlende Website-Icons nachholen — im Hintergrund, der Kern speichert sie
   // in der Datenbank und meldet sich mit `vault-changed`.
   vault.fetchIcons().catch(() => {});
+
+  // Kam ein otpauth://-Code aus der Kamera-App, während gesperrt war?
+  if (state.pendingOtp) {
+    const uri = state.pendingOtp;
+    state.pendingOtp = null;
+    handleScan(uri);
+  }
 }
 
 /**
@@ -1265,6 +1311,8 @@ async function lockDatabase() {
   state.strength.clear();
   state.codes.clear();
   state.pwned.clear();
+  state.emailFindings = [];
+  state.lastCheck = null;
   state.reused = new Set();
   await showLockscreen('Gesperrt — die Werte wurden aus dem Speicher entfernt.');
   banner('Datenbank gesperrt.', 'info');
@@ -2046,7 +2094,10 @@ function entryRowHtml(e, cols, opts) {
   // Gelöschte bleiben sichtbar, werden aber als das kenntlich gemacht,
   // was sie sind — und bei den Auswertungen ausgelassen.
   const recycled = e.recycled ? ' data-recycled title="Liegt im Papierkorb"' : '';
-  return `<tr data-id="${e.id}" data-drag-id="entry:${e.id}" data-drag-label="${esc(e.name)}"${recycled}>${box}${cols.map(c => cellHtml(c, e, opts)).join('')}</tr>`;
+  // Ziehen nur in der Passwortliste — in Befunden und Übersicht hat
+  // Umsortieren keinen Sinn.
+  const drag = opts.drag ? ` data-drag-id="entry:${e.id}" data-drag-label="${esc(e.name)}"` : '';
+  return `<tr data-id="${e.id}"${drag}${recycled}>${box}${cols.map(c => cellHtml(c, e, opts)).join('')}</tr>`;
 }
 
 function headerHtml(cols, sortable) {
@@ -2070,7 +2121,7 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false } 
     <div class="table-scroll">
       <table class="entry-table" data-variant="${variant}" ${search ? 't-search' : ''}>
         <thead><tr>${headerHtml(cols, sortable)}</tr></thead>
-        <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn })).join('')}</tbody>
+        <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn, drag: variant === 'full' })).join('')}</tbody>
       </table>
     </div>`;
 }
@@ -2339,11 +2390,8 @@ function renderSecurity() {
     return parts.join(' · ');
   };
 
-  const group = (id, title, items, empty) => `
-    <div class="section-label" id="sec-${id}">${title}</div>
-    ${items.length
-      ? `<div class="findings-table" data-list="${id}"></div>`
-      : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>${empty}</div></div>`}`;
+  const group = (id, title, items) =>
+    secSection(id, title, items.length, `<div class="findings-table" data-list="${id}"></div>`);
 
   const groups = [
     pwCheck ? { id: 'leaked', title: 'Geleakte Passwörter', items: leaked, empty: 'Keine Treffer' } : null,
@@ -2372,7 +2420,7 @@ function renderSecurity() {
       </aside>
 
       <div class="security-findings">
-        ${groups.map(g => group(g.id, g.title, g.items, g.empty)).join('')}
+        ${groups.map(g => group(g.id, g.title, g.items)).join('')}
         ${mailCheck ? renderMailFindings() : ''}
         ${renderInactive(inactive)}
       </div>
@@ -2387,7 +2435,9 @@ function renderSecurity() {
   $('#btn-run-check')?.addEventListener('click', () => runSecurityCheck());
 
   $$('#security-body [data-jump]').forEach(btn => btn.addEventListener('click', () => {
-    document.getElementById(btn.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const target = document.getElementById(btn.dataset.jump);
+    if (target?.tagName === 'DETAILS') target.open = true;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
 
   // Direkt aus dem Befund heraus bearbeiten
@@ -2422,6 +2472,23 @@ function renderSecurity() {
     btn.addEventListener('click', () => runRowAction('delete', btn.dataset.remove)));
   $$('#security-body [data-account-delete]').forEach(btn =>
     btn.addEventListener('click', () => deleteAccountFlow(btn.dataset.accountDelete, btn.dataset.url)));
+}
+
+/**
+ * Ein Abschnitt des Sicherheitschecks: aufgeklappt, wenn etwas drinsteht,
+ * sonst zu — dann steht klein daneben, dass nichts zu tun ist.
+ */
+function secSection(id, title, count, body) {
+  return `
+    <details class="sec-group" id="sec-${id}" ${count ? 'open' : ''}>
+      <summary>
+        <span class="sec-title">${title}</span>
+        ${count
+          ? `<span class="sec-count">${count}</span>`
+          : `<small class="sec-ok"><span class="msr">check_circle</span>Keine Treffer – nichts zu tun</small>`}
+      </summary>
+      ${count ? `<div class="sec-body">${body}</div>` : ''}
+    </details>`;
 }
 
 /* ---------- E-Mail-Datenlecks ---------- */
@@ -2490,9 +2557,8 @@ function renderMailFindings() {
     </div>`;
   };
 
-  return `
-    <div class="section-label" id="sec-mail">E-Mail-Datenlecks</div>
-    ${affected.length ? `
+  const count = affected.reduce((n, f) => n + openBreaches(f).length, 0);
+  return secSection('mail', 'E-Mail-Datenlecks', count, `
       <details class="finding" data-tone="info">
         <summary class="finding-title"><span class="msr">help</span>Was bedeutet ein Treffer — und was ist zu tun?</summary>
         <div class="finding-advice">
@@ -2517,9 +2583,8 @@ function renderMailFindings() {
           <div class="finding-actions">
             <button type="button" class="button" data-ack="${esc(f.email)}"><span class="msr">task_alt</span>&nbsp;Erledigt</button>
           </div>
-        </div>`).join('')}`
-    : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>Keine offenen Treffer</div></div>`}
-    ${done.length ? `<p class="security-last">Erledigt: ${done.map(f => esc(f.email)).join(', ')}</p>` : ''}`;
+        </div>`).join('')}
+    ${done.length ? `<p class="security-last">Erledigt: ${done.map(f => esc(f.email)).join(', ')}</p>` : ''}`);
 }
 
 /* ---------- Inaktive Einträge ---------- */
@@ -2573,9 +2638,7 @@ function renderInactive(items) {
     });
   }
 
-  return `
-    <div class="section-label" id="sec-inactive">Lange nicht genutzt</div>
-    ${items.length ? `
+  return secSection('inactive', 'Lange nicht genutzt', items.length, `
       <p class="section-note">Diese Zugänge hast du seit über zwei Jahren nicht benutzt. Brauchst du einen nicht mehr, lösche zuerst
         das Konto beim Dienst und dann den Eintrag — ein vergessenes Konto mit altem Passwort ist ein beliebtes Ziel.
         Wird er noch gebraucht, genügt „Noch in Gebrauch".</p>
@@ -2601,8 +2664,7 @@ function renderInactive(items) {
             <button type="button" class="button" data-remove="${e.id}"><span class="msr">delete</span>&nbsp;Eintrag löschen</button>
           </div>
         </div>`;
-      }).join('')}`
-    : `<div class="finding" data-tone="ok"><div class="finding-title"><span class="msr">check_circle</span>Alles in Gebrauch</div></div>`}`;
+      }).join('')}`);
 }
 
 /**
@@ -2641,12 +2703,64 @@ async function deleteAccountFlow(id, url) {
   return afterStructureChange('Konto erledigt — Eintrag gelöscht.');
 }
 
+/**
+ * Das Ergebnis des letzten Sicherheitschecks dieser Datenbank.
+ *
+ * Gespeichert wird nur, was sich nicht aus der Datei selbst ergibt: welche
+ * Einträge in Leaks stehen, die E-Mail-Funde und der Zeitpunkt. Schwache
+ * und mehrfach genutzte Passwörter rechnet der Kern beim Öffnen neu aus.
+ * Ohne das stand nach jedem Neustart „noch nicht geprüft", und die Zahlen
+ * der Lecks waren weg.
+ */
+function restoreCheck() {
+  const path = settings.get('database.current', null);
+  const saved = path ? settings.forDatabase(path).securityCheck : null;
+  if (!saved) return;
+  state.lastCheck = saved.at ?? null;
+  state.pwned = new Map(Object.entries(saved.pwned ?? {}));
+  state.emailFindings = saved.emails ?? [];
+}
+
+async function storeCheck() {
+  const path = settings.get('database.current', null);
+  if (!path) return;
+  const pwned = {};
+  for (const [id, r] of state.pwned) if (r?.found) pwned[id] = { found: true, count: r.count };
+  await settings.setForDatabase(path, 'securityCheck', {
+    at: state.lastCheck,
+    pwned,
+    emails: state.emailFindings.map(f => ({ email: f.email, breaches: f.breaches ?? [] }))
+  }, { silent: true });
+}
+
+/** Was eine Prüfung gefunden hat — zum Vergleich mit der nächsten. */
+function findingKeys() {
+  const keys = new Set();
+  for (const [id, r] of state.pwned) if (r?.found) keys.add(`pw:${id}`);
+  for (const f of state.emailFindings) for (const b of f.breaches ?? []) keys.add(`mail:${f.email}:${b.name}`);
+  return keys;
+}
+
+/**
+ * Hinweis des Systems. Das Notification-Plugin setzt die Web-API auf die
+ * Benachrichtigungen von Android, Windows, macOS und Linux um.
+ */
+async function notify(title, body) {
+  try {
+    if (!('Notification' in window)) return;
+    let permission = Notification.permission;
+    if (permission !== 'granted') permission = await Notification.requestPermission();
+    if (permission === 'granted') new Notification(title, { body });
+  } catch { /* ohne Hinweis weiter */ }
+}
+
 async function runSecurityCheck({ silent = false } = {}) {
   if (state.checkRunning) return;
   state.checkRunning = true;
   renderSecurity();
 
   const errors = [];
+  const before = state.lastCheck ? findingKeys() : null;
 
   if (settings.get('checks.passwordBreach', true)) {
     // Der Kern liefert nur Hashes; nach außen geht davon bloß das Präfix.
@@ -2666,10 +2780,16 @@ async function runSecurityCheck({ silent = false } = {}) {
   if (settings.get('checks.emailBreach', true)) {
     const configured = [];
     const addresses = configured.length ? configured : vault.collectEmails();
+    const previous = new Map(state.emailFindings.map(f => [f.email, f]));
     state.emailFindings = [];
     for (const mail of addresses) {
       const r = await checkEmailBreached(mail);
-      if (r.error) errors.push(`E-Mail-Check: ${r.error}`);
+      if (r.error) {
+        errors.push(`E-Mail-Check: ${r.error}`);
+        // Dienst gerade nicht erreichbar: den letzten Stand behalten, statt
+        // die Adresse plötzlich als sauber zu zeigen.
+        if (previous.has(mail)) { state.emailFindings.push(previous.get(mail)); continue; }
+      }
       if (r.breaches.length) {
         const details = await breachAnalytics(mail);
         r.breaches = r.breaches.map(b => ({ ...b, ...(details.get(b.name) ?? {}) }));
@@ -2680,7 +2800,22 @@ async function runSecurityCheck({ silent = false } = {}) {
 
   state.lastCheck = Date.now();
   await settings.set('checks.lastRunAt', state.lastCheck, { silent: true });
+  await storeCheck();
   state.checkRunning = false;
+
+  // Neues seit der letzten Prüfung? Dann Bescheid geben — gerade bei der
+  // automatischen, die ohne Zutun im Hintergrund läuft.
+  if (before && settings.get('checks.notify', true)) {
+    const fresh = [...findingKeys()].filter(k => !before.has(k));
+    const pw = fresh.filter(k => k.startsWith('pw:')).length;
+    const mail = fresh.length - pw;
+    if (fresh.length) {
+      notify('WKeePass: neue Funde im Sicherheitscheck', [
+        pw ? `${pw} ${pw === 1 ? 'Passwort steht' : 'Passwörter stehen'} neu in einem Leak.` : '',
+        mail ? `${mail} ${mail === 1 ? 'neues Datenleck' : 'neue Datenlecks'} bei deinen E-Mail-Adressen.` : ''
+      ].filter(Boolean).join(' '));
+    }
+  }
   renderSecurity();
   renderHome();
   renderPasswords();
@@ -2875,6 +3010,10 @@ function settingsMarkup() {
         <div class="setting">
           <div class="setting-label"><strong>E-Mail-Adressen prüfen</strong><small>Über XposedOrNot</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.emailBreach" name="checks.emailBreach" ${s.checks?.emailBreach ? 'checked' : ''}></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>Bei neuen Funden benachrichtigen</strong><small>Wenn eine Prüfung ein neues Leck findet — auch bei der automatischen</small></div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.notify" name="checks.notify" ${s.checks?.notify !== false ? 'checked' : ''}></div>
         </div>
         <div class="setting">
           <div class="setting-label">
@@ -4402,6 +4541,7 @@ async function scanWithCamera() {
           <div class="qr-check"><span class="msr">check</span></div>
         </div>
         <p class="qr-hint" id="qr-hint">Code in den Rahmen halten</p>
+        <button type="button" class="button" id="qr-photo"><span class="msr">photo_camera</span>&nbsp;Klappt nicht? Foto aufnehmen</button>
       </div>`,
     confirmText: 'Abbrechen',
     onlyConfirm: true,
@@ -4409,9 +4549,39 @@ async function scanWithCamera() {
       const video = document.getElementById('qr-video');
       const hint = document.getElementById('qr-hint');
       if (!video) return;
+
+      // Rückfallweg für dichte Codes: ein richtiges Foto, scharf gestellt
+      // von der Kamera-App — und dann genauso weiter wie beim Treffer.
+      document.getElementById('qr-photo')?.addEventListener('click', () => {
+        // Die Kamera-App braucht die Kamera für sich — Vorschau vorher aus.
+        controller?.stop();
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.setAttribute('capture', 'environment');
+        input.addEventListener('change', async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          if (hint) hint.textContent = 'Foto wird ausgewertet …';
+          try {
+            resolved = await qr.scanPhoto(file);
+            controller?.stop();
+            video.closest('.qr-scanner')?.classList.add('found');
+            navigator.vibrate?.(40);
+            await new Promise(r => setTimeout(r, 650));
+            closeHostDialog(video, true);
+          } catch (err) {
+            if (hint) hint.textContent = err.message;
+          }
+        });
+        input.click();
+      });
+
       try {
         controller = await qr.scanCamera(video);
-        resolved = await controller.promise;
+        const found = await controller.promise;
+        if (resolved) return;          // schon über das Foto erkannt
+        resolved = found;
         if (hint) hint.textContent = 'Erkannt';
         video.closest('.qr-scanner')?.classList.add('found');
         navigator.vibrate?.(40);

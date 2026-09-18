@@ -50,19 +50,27 @@ export function secondsRemaining(period = 30, at = Date.now()) {
 }
 
 /** Parst otpauth://totp/... URIs (QR-Code-Import). */
+/**
+ * Zerlegt `otpauth://totp/Aussteller:Konto?secret=…&issuer=…`.
+ *
+ * Bewusst ohne `new URL()`: Für ein fremdes Schema wie `otpauth:` liefern
+ * die Webviews Unterschiedliches — mal steht `totp` im Rechnernamen, mal im
+ * Pfad. Von Hand zerlegt ist es überall gleich.
+ */
 export function parseOtpauth(uri) {
+  const m = /^otpauth:\/\/(totp|hotp)\/([^?#]*)(?:\?([^#]*))?/i.exec(String(uri ?? '').trim());
+  if (!m) return null;
   try {
-    const u = new URL(uri);
-    if (u.protocol !== 'otpauth:') return null;
-    const label = decodeURIComponent(u.pathname.replace(/^\/+/, ''));
-    const [maybeIssuer, account] = label.includes(':') ? label.split(':') : [null, label];
+    const params = new URLSearchParams(m[3] ?? '');
+    const label = decodeURIComponent(m[2].replace(/\+/g, ' '));
+    const [maybeIssuer, account] = label.includes(':') ? [label.slice(0, label.indexOf(':')), label.slice(label.indexOf(':') + 1)] : [null, label];
     return {
       name: account?.trim() || label,
-      issuer: u.searchParams.get('issuer') || maybeIssuer || '',
-      secret: u.searchParams.get('secret') || '',
-      digits: parseInt(u.searchParams.get('digits') || '6', 10),
-      period: parseInt(u.searchParams.get('period') || '30', 10),
-      algorithm: (u.searchParams.get('algorithm') || 'SHA1').toUpperCase()
+      issuer: params.get('issuer') || maybeIssuer?.trim() || '',
+      secret: (params.get('secret') || '').replace(/\s+/g, '').toUpperCase(),
+      digits: parseInt(params.get('digits') || '6', 10),
+      period: parseInt(params.get('period') || '30', 10),
+      algorithm: (params.get('algorithm') || 'SHA1').toUpperCase()
     };
   } catch { return null; }
 }

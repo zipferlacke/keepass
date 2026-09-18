@@ -38,8 +38,20 @@ async function decodeBytes(bytes) {
   return result || null;
 }
 
-/** Kantenlänge des Ausschnitts, der je Kamerabild geprüft wird. */
-const SCAN_EDGE = 640;
+/**
+ * Kantenlänge, auf die ein Ausschnitt höchstens verkleinert wird. Nicht
+ * kleiner: Ein TOTP-Code (otpauth://… mit Secret und Aussteller) hat
+ * doppelt so viele Module wie ein Link. Bei zu wenigen Pixeln je Modul
+ * erkennt rqrr den Link noch, den TOTP-Code nicht mehr.
+ */
+const SCAN_EDGE = 900;
+
+/**
+ * Welcher Anteil der kürzeren Bildseite je Durchgang geprüft wird. Der
+ * Sucherrahmen deckt 75 % ab; enger (50 %) holt einen kleinen Code näher
+ * heran, `1` ist das ganze Bild für den, der nicht mittig hält.
+ */
+const CROPS = [0.75, 0.5, 0.75, 1];
 
 /** Ein Canvas für alle Bilder — neu anlegen kostet bei 10 Bildern je Sekunde. */
 let scanCanvas = null;
@@ -56,16 +68,17 @@ let scanCanvas = null;
  * kleiner, also schneller, und der Code füllt es besser aus. Sonst das
  * ganze Bild, falls jemand nicht mittig hält.
  */
-async function decodeFrame(video, center) {
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  const side = center ? Math.min(vw, vh) * 0.75 : Math.max(vw, vh);
+async function decodeFrame(video, crop, edge = SCAN_EDGE) {
+  const vw = video.videoWidth ?? video.width;
+  const vh = video.videoHeight ?? video.height;
+  const center = crop < 1;
+  const side = Math.min(vw, vh) * crop;
   const sx = center ? (vw - side) / 2 : 0;
   const sy = center ? (vh - side) / 2 : 0;
   const sw = center ? side : vw;
   const sh = center ? side : vh;
 
-  const scale = Math.min(1, SCAN_EDGE / Math.max(sw, sh));
+  const scale = Math.min(1, edge / Math.max(sw, sh));
   const w = Math.max(1, Math.round(sw * scale));
   const h = Math.max(1, Math.round(sh * scale));
 
@@ -129,6 +142,28 @@ export async function scanFile(file) {
   return value;
 }
 
+/**
+ * Ein Foto (etwa frisch aus der Kamera-App) nach einem Code absuchen.
+ *
+ * Das Foto ist scharf gestellt und hoch aufgelöst — der sichere Weg, wenn
+ * die Vorschau einen dichten Code nicht packt. Verkleinert wird hier im
+ * Webview; das volle Bild als Zahlenliste an den Kern zu schicken, dauerte
+ * auf dem Telefon Sekunden.
+ */
+export async function scanPhoto(file) {
+  if (!scannerAvailable()) throw new Error('Diese Umgebung kann keine QR-Codes lesen.');
+  const bitmap = await createImageBitmap(file);
+  try {
+    for (const crop of [1, 0.6]) {
+      const value = await decodeFrame(bitmap, crop, 1600);
+      if (value) return value;
+    }
+  } finally {
+    bitmap.close?.();
+  }
+  throw new Error('Kein QR-Code im Foto gefunden.');
+}
+
 /* =========================================================
    Kamera scannen
    ========================================================= */
@@ -162,7 +197,7 @@ const DESKTOP_ATTEMPTS = [
  * Bildschirm. Also zuerst ausdrücklich die rückwärtige.
  */
 const MOBILE_ATTEMPTS = [
-  { label: 'rückwärtige Kamera (HD)', constraints: { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false } },
+  { label: 'rückwärtige Kamera (HD)', constraints: { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false } },
   { label: 'rückwärtige Kamera', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
   { label: 'rückwärtige Kamera (Wunsch)', constraints: { video: { facingMode: 'environment' }, audio: false } },
   { label: 'Standardkamera', constraints: { video: true, audio: false } }
@@ -257,8 +292,8 @@ export async function scanCamera(video) {
 
       try {
         if (video.videoWidth && video.videoHeight) {
-          // Meist die Mitte, jedes dritte Mal das ganze Bild.
-          const value = await decodeFrame(video, ++round % 3 !== 0);
+          // Reihum verschiedene Ausschnitte, siehe CROPS.
+          const value = await decodeFrame(video, CROPS[round++ % CROPS.length]);
           failures = 0;
           if (value) { stop(); return resolve(value); }
         }

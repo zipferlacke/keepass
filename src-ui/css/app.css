@@ -883,6 +883,58 @@
     &[data-tone="ok"] { color: var(--clr-success); }
   }
 
+  /* Sicherheitscheck: je Befundart ein aufklappbarer Block. Leer bleibt er
+     zu, und die Zusammenfassung sagt klein, dass nichts zu tun ist. */
+  .sec-group {
+    margin-bottom: 0.5rem;
+
+    > summary {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 0.75rem;
+      cursor: pointer;
+      list-style: none;
+      border-radius: var(--br-default);
+      font-weight: 600;
+
+      &::-webkit-details-marker { display: none; }
+      &::before {
+        content: 'chevron_right';
+        font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', sans-serif;
+        font-weight: normal;
+        font-size: 1.2rem;
+        transition: transform 0.15s;
+      }
+      &:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+    }
+    &[open] > summary::before { transform: rotate(90deg); }
+
+    .sec-count {
+      margin-inline-start: auto;
+      min-width: 1.6rem;
+      padding: 0 0.45rem;
+      border-radius: 999px;
+      text-align: center;
+      font-size: var(--fs-200);
+      background: color-mix(in srgb, var(--clr-danger) 18%, transparent);
+    }
+
+    .sec-ok {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-inline-start: auto;
+      font-weight: normal;
+      font-size: var(--fs-100);
+      color: var(--clr-success);
+
+      .msr { font-size: 1rem; }
+    }
+
+    .sec-body { padding-top: 0.3rem; }
+  }
+
   /* Erklärtext über einer Befundgruppe — schlichter Text, kein Kasten */
   .section-note {
     margin: 0 0.75rem 0.6rem;

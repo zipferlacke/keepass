@@ -24,7 +24,15 @@
                 "Browser-Erweiterung jetzt auch unter Windows und macOS, mit Einrichtung beim ersten Start",
                 "Website-Icons werden einmal geladen und in der Datenbank gespeichert – offline und auf allen Geräten",
                 "Android: QR-Scanner erkennt Codes wieder, mit Autofokus",
-                "Passkey-Bereich im Eintrag zeigt Seite und Konto statt eines Platzhalters"
+                "Passkey-Bereich im Eintrag zeigt Seite und Konto statt eines Platzhalters",
+                "QR-Scanner: dichte 2FA-Codes (otpauth) werden zuverlässiger erkannt, Foto als Rückfallweg",
+                "Android: otpauth-Codes aus der Kamera-App lassen sich direkt in WKeePass öffnen",
+                "Android: Datenbanken aus Nextcloud bleiben auch nach einem Neustart zugänglich",
+                "Sicherheitscheck: Ergebnis bleibt gespeichert, Bereiche klappen nur bei Treffern auf",
+                "Sicherheitscheck: Benachrichtigung bei neuen Funden (Android, Windows, macOS, Linux)",
+                "Sicherheitscheck: Einträge lassen sich dort nicht mehr versehentlich verschieben",
+                ".kdbx-Dateien per Doppelklick öffnen – auch in der bereits laufenden App",
+                "Android: App-Symbol mit ausreichend Rand"
             ]
         },
         {

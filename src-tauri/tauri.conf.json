@@ -49,5 +49,18 @@
         "rank": "Alternate"
       }
     ]
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        {
+          "scheme": [
+            "otpauth",
+            "otpauth-migration"
+          ],
+          "appLink": false
+        }
+      ]
+    }
   }
 }

@@ -133,6 +133,21 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_deep_link::init())
+        // Muss als erstes Plugin laufen wollen, steht aber nur auf dem Desktop:
+        // Startet jemand eine zweite Ausgabe (Doppelklick auf eine .kdbx),
+        // bekommt die laufende deren Argumente und holt sich nach vorn.
+        .plugin({
+            #[cfg(desktop)]
+            {
+                tauri_plugin_single_instance::init(|app, args, _cwd| {
+                    system::datei_uebergeben(app, args.iter().skip(1).cloned());
+                })
+            }
+            #[cfg(not(desktop))]
+            { tauri_plugin_persisted_scope::init() }
+        })
         // Nur mobil: Das Plugin deckt ausdrücklich nur Android und iOS ab.
         // Desktop-Biometrie steckt in biometric.rs.
         .plugin({
@@ -289,6 +304,19 @@ pub fn run() {
             qr::decode_qr_rgba,
             qr::decode_qr_path,
         ])
-        .run(tauri::generate_context!())
-        .expect("Anwendung konnte nicht gestartet werden");
+        .build(tauri::generate_context!())
+        .expect("Anwendung konnte nicht gestartet werden")
+        .run(|app, event| {
+            // macOS reicht eine doppelgeklickte Datei nicht als Argument
+            // weiter, sondern als eigenes Ereignis.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            if let tauri::RunEvent::Opened { urls } = event {
+                system::datei_uebergeben(
+                    app,
+                    urls.into_iter().filter_map(|u| u.to_file_path().ok()).map(|p| p.to_string_lossy().to_string()),
+                );
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+            let _ = (app, event);
+        });
 }

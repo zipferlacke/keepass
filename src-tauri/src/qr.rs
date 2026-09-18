@@ -106,3 +106,37 @@ fn detect(luma: image::GrayImage) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Ein QR-Code als Graustufenbild: `modul` Pixel je Modul, weißer Rand.
+    fn bild(text: &str, modul: u32) -> image::GrayImage {
+        let code = qrcode::QrCode::new(text.as_bytes()).unwrap();
+        let breite = code.width() as u32;
+        let rand = 4 * modul;
+        let kante = breite * modul + 2 * rand;
+        let farben = code.to_colors();
+        image::GrayImage::from_fn(kante, kante, |x, y| {
+            let (x, y) = (x as i64 - rand as i64, y as i64 - rand as i64);
+            let innen = x >= 0 && y >= 0 && (x as u32) < breite * modul && (y as u32) < breite * modul;
+            let dunkel = innen && farben[(y as u32 / modul * breite + x as u32 / modul) as usize] == qrcode::Color::Dark;
+            image::Luma([if dunkel { 0 } else { 255 }])
+        })
+    }
+
+    const OTP: &str = "otpauth://totp/GitHub:flo%40example.org?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=GitHub&algorithm=SHA1&digits=6&period=30";
+
+    #[test]
+    fn otpauth_wird_in_allen_groessen_erkannt() {
+        for modul in [2, 3, 4, 6] {
+            assert_eq!(detect(bild(OTP, modul)).as_deref(), Some(OTP), "Modulgröße {modul}");
+        }
+    }
+
+    #[test]
+    fn link_wird_erkannt() {
+        assert_eq!(detect(bild("https://github.com/login", 3)).as_deref(), Some("https://github.com/login"));
+    }
+}

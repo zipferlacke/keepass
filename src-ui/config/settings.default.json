@@ -24,7 +24,8 @@
     "passwordBreach": true,
     "emailBreach": true,
     "automatic": "weekly",
-    "lastRunAt": null
+    "lastRunAt": null,
+    "notify": true
   },
   "ui": {
     "welcomeSeen": false,

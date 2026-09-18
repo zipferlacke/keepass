@@ -106,7 +106,7 @@
   ],
   "brand": {
     "name": "WKeePass",
-    "claim": "Passwörter, TOTP-Codes, Passkeys und Dateien — sicher in deiner eigenen KeePass-Datei.",
+    "claim": "Passwortmanger & 2FA Codes in einem mit Passkeys unterstützung und Dateienablage — sicher lokal speichern ohne Konto und bei bedarf geräteübergreifent.",
     "logo": "../src-tauri/icons/icon.png",
     "colors": {
       "from": "#76cc47",
@@ -150,6 +150,81 @@
       ]
     },
     {
+      "out": "../appdata/werbung/handy-8-geraete.png",
+      "formats": ["promo-narrow"],
+      "elements": [
+        {
+          "type": "stack",
+          "top": 7,
+          "left": 8,
+          "right": 8,
+          "bottom": 60,
+          "valign": "top",
+          "align": "left",
+          "gap": 2,
+          "items": [
+            { "type": "text", "style": "caption", "text": "Offen & geräteübergreifend" },
+            { "type": "text", "style": "heading", "text": "Eine Datei, alle Geräte" },
+            { "type": "text", "style": "body", "text": "Open Source auf dem KeePass-Standard: Deine Datenbank öffnet jede KeePass-App — und bleibt auf all deinen Geräten sicher synchron." }
+          ]
+        },
+        {
+          "type": "tablet",
+          "screen": "../appdata/screenshot-wide-2.png",
+          "left": 5,
+          "top": 36,
+          "width": 128
+        },
+        {
+          "type": "phone",
+          "screen": "../appdata/screenshot-narrow-2_light.png",
+          "right": 6,
+          "top": 42,
+          "width": 50
+        }
+      ]
+    },
+    {
+      "out": "../appdata/werbung/breit-8-geraete.png",
+      "formats": ["promo-wide"],
+      "elements": [
+        {
+          "type": "stack",
+          "left": 5,
+          "right": 70,
+          "top": 0,
+          "bottom": 0,
+          "items": [
+            { "type": "text", "style": "caption", "text": "Offen & geräteübergreifend" },
+            { "type": "text", "style": "heading", "text": "Eine Datei, alle Geräte" },
+            { "type": "text", "style": "body", "text": "Open Source auf dem KeePass-Standard: Deine Datenbank öffnet jede KeePass-App — und bleibt auf all deinen Geräten sicher synchron.", "size": 2.8 }
+          ]
+        },
+        {
+          "type": "tablet",
+          "screen": "../appdata/screenshot-wide-2.png",
+          "left": 55,
+          "right": 3,
+          "top": 14,
+          "bottom": 14
+        },
+        {
+          "type": "phone",
+          "screen": "../appdata/screenshot-narrow-3.png",
+          "left": 33,
+          "top": 6,
+          "height": 76
+        },
+        {
+          "type": "phone",
+          "screen": "../appdata/screenshot-narrow-2_light.png",
+          "left": 42,
+          "top": 18,
+          "height": 76
+        }
+      ]
+    },
+    {
       "out": "../appdata/werbung/handy-2-uebersicht.png",
       "formats": ["promo-narrow"],
       "elements": [
@@ -176,7 +251,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Passwörter, Passkeys, TOTP-Codes und Dateien — dazu der Sicherheitscheck und die zuletzt genutzten Einträge."
+              "text": "Passwörter, Passkeys, 2FA-Codes und Dateien — dazu der Sicherheitscheck für Passwörter & Emails."
             }
           ]
         },
@@ -215,7 +290,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Ordner, Tags und eine Ampel, die schwache, doppelte und geleakte Passwörter sofort sichtbar macht."
+              "text": "Ordner und Tags um den Überblick zu behalten eine Ampel um den Passwortstatus: schwach, geleakt, mehrfach genutzt, super immer im Blick zu haben."
             }
           ]
         },
@@ -254,7 +329,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Ausweise, Verträge und Notizen liegen verschlüsselt in deiner KeePass-Datei — ansehen, bearbeiten, umbenennen."
+              "text": "Speichere Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ansehen, bearbeiten, umbenennen."
             }
           ]
         },
@@ -336,7 +411,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Passwörter, Passkeys, TOTP-Codes und Dateien — dazu der Sicherheitscheck und die zuletzt genutzten Einträge.",
+              "text": "Passwörter, Passkeys, 2FA-Codes und Dateien — dazu der Sicherheitscheck für Passwörter & Emails.",
               "size": 2.8
             }
           ]
@@ -375,7 +450,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Ordner, Tags und eine Ampel, die schwache, doppelte und geleakte Passwörter sofort sichtbar macht.",
+              "text": "Ordner und Tags um den Überblick zu behalten eine Ampel um den Passwortstatus: schwach, geleakt, mehrfach genutzt, super immer im Blick zu haben.",
               "size": 2.8
             }
           ]
@@ -414,7 +489,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Ausweise, Verträge und Notizen liegen verschlüsselt in deiner KeePass-Datei — ansehen, bearbeiten, umbenennen.",
+              "text": "Speichere Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ansehen, bearbeiten, umbenennen.",
               "size": 2.8
             }
           ]
