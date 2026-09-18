@@ -179,3 +179,12 @@ agent = ["dep:tauri-agent-plugin"]
 # damit das Neuübersetzen schnell bleibt.
 [profile.dev.package."*"]
 opt-level = 3
+
+# So klein wie möglich, ohne langsamer zu werden: Symbole raus, über
+# Crate-Grenzen hinweg optimieren. opt-level bleibt 3 — die
+# Schlüsselableitung (Argon2) beim Öffnen soll nicht bremsen. panic=abort
+# geht nicht: android_services.rs und webview.rs fangen Panics ab.
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

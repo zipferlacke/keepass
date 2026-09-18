@@ -354,6 +354,12 @@ pub fn program_path() -> Result<PathBuf, String> {
     if let Some(launcher) = flatpak_launcher() {
         return Ok(launcher);
     }
+    // Ein AppImage läuft aus einem Einhängepunkt unter /tmp, der bei jedem
+    // Start anders heißt — gemeint ist die .AppImage-Datei selbst.
+    #[cfg(target_os = "linux")]
+    if let Some(image) = std::env::var_os("APPIMAGE").filter(|p| !p.is_empty()) {
+        return Ok(PathBuf::from(image));
+    }
     std::env::current_exe().map_err(|e| format!("Eigener Pfad nicht ermittelbar: {e}"))
 }
 
