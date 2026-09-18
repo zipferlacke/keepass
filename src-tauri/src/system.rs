@@ -112,12 +112,13 @@ pub fn startup_database() -> Option<String> {
 pub async fn fetch_page_title(url: String) -> Result<Option<String>, String> {
     let target = if url.starts_with("http") { url } else { format!("https://{url}") };
 
-    // TODO: mit reqwest abrufen (Zeitlimit setzen, Weiterleitungen begrenzen,
-    //       Antwortgröße deckeln) und <title> herausziehen. Wichtig: kein
-    //       eigener User-Agent-Fingerabdruck, keine Cookies mitsenden.
-    //       Solange das fehlt, nimmt die Oberfläche den Hostnamen.
-    let _ = target;
-    Ok(None)
+    // Zeitlimit, Weiterleitungen und Größe regelt web.rs; Cookies gehen nie mit.
+    tauri::async_runtime::spawn_blocking(move || {
+        let seite = crate::web::get(&target, 512 * 1024).map_err(|e| e.to_string())?;
+        Ok(crate::web::title(&String::from_utf8_lossy(&seite.body)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Was auf Android eingerichtet ist: Autofill, Passkeys, Kamera.

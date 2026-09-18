@@ -384,3 +384,9 @@ export const androidSetupOpen = what => invoke('android_setup_open', { what });
 
 /** Öffnet eine Webadresse im Browser des Systems (nur http/https). */
 export const openLink = url => invoke('open_link', { url });
+
+/**
+ * Website-Icons im Hintergrund holen und in der Datenbank ablegen.
+ * `ids` null = alle, denen eines fehlt; `force` lädt auch vorhandene neu.
+ */
+export const fetchIcons = (ids = null, force = false) => invoke('vault_fetch_icons', { ids, force });

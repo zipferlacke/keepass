@@ -1,29 +1,15 @@
 /**
  * icons.js — Website-Icons für Einträge.
  *
- * Datenschutz: geladen wird ausschließlich direkt von der jeweiligen
- * Zieldomain. Es ist bewusst kein Sammeldienst eingebunden — der würde
- * sonst die vollständige Liste deiner Konten mitlesen können. Die
- * Zieldomain selbst sieht beim Laden deine IP-Adresse; wem auch das zu
- * viel ist, schaltet die Option in den Einstellungen ab.
+ * Die Oberfläche lädt selbst nichts aus dem Netz. Das Icon holt der Kern
+ * einmal von der Seite (favicon.rs) und legt es als Custom Icon in die
+ * Datenbank — verschlüsselt, offline verfügbar und auf jedem Gerät, das die
+ * Datei öffnet. Hier kommt es als `entry.icon` (`data:`-Adresse) an.
  *
- * Nicht jede Seite legt ihr Icon unter /favicon.ico ab — verbreitet sind
- * inzwischen auch .svg und .png. Deshalb werden mehrere Kandidaten der
- * Reihe nach probiert, bis einer lädt.
+ * Früher lud jede Anzeige das Icon direkt von der Seite. Das ging bei allem
+ * schief, was nur in einem bestimmten Netz erreichbar ist, und jede
+ * Anzeige verriet der Seite die eigene Adresse.
  */
-
-const CANDIDATES = [
-  '/favicon.ico',
-  '/favicon.svg',
-  '/favicon.png',
-  '/apple-touch-icon.png',
-  '/apple-touch-icon-precomposed.png'
-];
-
-/** Wird hochgezählt, wenn der Nutzer „Icons neu laden" auslöst. */
-let epoch = 0;
-export function refreshEpoch() { epoch++; return epoch; }
-export function currentEpoch() { return epoch; }
 
 export function hostFromUrl(url) {
   if (!url) return null;
@@ -34,34 +20,18 @@ export function hostFromUrl(url) {
   } catch { return null; }
 }
 
-export function iconCandidates(url) {
-  const host = hostFromUrl(url);
-  if (!host) return [];
-  const bust = epoch ? `?r=${epoch}` : '';
-  return CANDIDATES.map(path => `https://${host}${path}${bust}`);
-}
-
 /**
- * Markup für das Symbol eines Eintrags.
- * Schlägt ein Kandidat fehl, rückt der onerror-Handler zum nächsten weiter;
- * ist die Liste erschöpft, bleibt der Buchstabe stehen.
+ * Markup für das Symbol eines Eintrags: das gespeicherte Icon, sonst der
+ * Anfangsbuchstabe. `enabled: false` zeigt immer den Buchstaben.
  */
 export function avatarMarkup(entry, { enabled = true } = {}) {
   const letter = (entry.name ?? '?').trim()[0]?.toUpperCase() ?? '?';
-  const list = enabled ? iconCandidates(entry.url) : [];
+  const icon = enabled && typeof entry.icon === 'string' && entry.icon.startsWith('data:image/') ? entry.icon : null;
 
-  if (!list.length) return `<span class="entry-avatar">${letter}</span>`;
-
-  const remaining = list.slice(1).join('|');
+  if (!icon) return `<span class="entry-avatar">${letter}</span>`;
 
   return `<span class="entry-avatar" data-has-icon>
     <span class="avatar-letter">${letter}</span>
-    <img class="avatar-img" src="${list[0]}" alt="" loading="lazy" referrerpolicy="no-referrer"
-         data-fallbacks="${remaining}"
-         onerror="(function(i){
-           const rest=(i.dataset.fallbacks||'').split('|').filter(Boolean);
-           if(rest.length){ i.src=rest.shift(); i.dataset.fallbacks=rest.join('|'); }
-           else { i.closest('.entry-avatar').removeAttribute('data-has-icon'); i.remove(); }
-         })(this)">
+    <img class="avatar-img" src="${icon}" alt="" onerror="this.closest('.entry-avatar').removeAttribute('data-has-icon'); this.remove()">
   </span>`;
 }

@@ -18,6 +18,7 @@ mod biometric;
 mod database;
 mod dto;
 mod entries;
+mod favicon;
 // Die Browser-Erweiterung gibt es nur auf dem Desktop. Auf Android füllt das
 // System selbst aus (AutofillService, siehe keepass-android/) — dort wird
 // dieses Modul gar nicht erst übersetzt.
@@ -38,6 +39,7 @@ mod java;
 #[cfg(target_os = "android")]
 mod android_services;
 mod system;
+mod web;
 mod util;
 mod webview;
 
@@ -256,6 +258,8 @@ pub fn run() {
             system::android_setup_status,
             system::android_setup_open,
             entries::vault_mark_accessed,
+            favicon::vault_fetch_icons,
+            favicon::vault_clear_icon,
             system::pick_database_file,
             system::pick_save_path,
             system::fetch_page_title,

@@ -19,24 +19,41 @@ pub fn decode_qr_bytes(bytes: Vec<u8>) -> Result<Option<String>, String> {
     Ok(decode_dynamic(&img))
 }
 
-/// Dekodiert ein Kamerabild in Graustufen, als rohe Bytes ohne JSON.
+/// Dekodiert ein Kamerabild in Graustufen — ein Byte je Pixel.
 ///
-/// Der schnelle Weg für den Kamera-Scan: Der Webview schickt ein Byte je
-/// Pixel direkt als Anfragekörper, die Breite steht in `x-width`. Kein
-/// JPEG, das erst entpackt werden müsste, keine Zahlenliste im JSON — das
-/// machte die Erkennung vorher träge.
+/// Zwei Wege, dieselben Daten:
+///
+/// * **Rohdaten** (Desktop): Die Bytes sind der Anfragekörper, die Breite
+///   steht in `x-width`. Kein JPEG, keine Zahlenliste im JSON.
+/// * **JSON** (Android): Dort kommt ein roher Körper nicht als solcher an —
+///   die Android-Brücke von Tauri reicht nur JSON durch. Dann steht
+///   `{ width, data }` darin, `data` als Base64. Früher scheiterte hier
+///   jedes Bild still, und der Scanner sah nie einen Code.
 #[tauri::command]
 pub fn decode_qr_gray(request: tauri::ipc::Request<'_>) -> Result<Option<String>, String> {
-    let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
-        return Err("Erwartet werden rohe Bilddaten.".into());
+    let (width, data): (u32, std::borrow::Cow<'_, [u8]>) = match request.body() {
+        tauri::ipc::InvokeBody::Raw(data) => {
+            let width = request
+                .headers()
+                .get("x-width")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.parse().ok())
+                .ok_or("Die Bildbreite fehlt.")?;
+            (width, data.as_slice().into())
+        }
+        tauri::ipc::InvokeBody::Json(value) => {
+            use base64::Engine;
+            let width = value.get("width").and_then(|w| w.as_u64()).ok_or("Die Bildbreite fehlt.")? as u32;
+            let text = value.get("data").and_then(|d| d.as_str()).ok_or("Die Bilddaten fehlen.")?;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(text)
+                .map_err(|e| format!("Bilddaten nicht lesbar: {e}"))?;
+            (width, bytes.into())
+        }
     };
-    let width: u32 = request
-        .headers()
-        .get("x-width")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse().ok())
-        .filter(|w| *w > 0)
-        .ok_or("Die Bildbreite fehlt.")?;
+    if width == 0 {
+        return Err("Die Bildbreite fehlt.".into());
+    }
     let height = data.len() as u32 / width;
 
     let bild = image::GrayImage::from_raw(width, height, data[..(width * height) as usize].to_vec())

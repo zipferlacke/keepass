@@ -81,8 +81,23 @@ async function decodeFrame(video, center) {
     gray[j] = (rgba[i] * 77 + rgba[i + 1] * 150 + rgba[i + 2] * 29) >> 8;
   }
 
-  const result = await invoke('decode_qr_gray', gray, { headers: { 'x-width': String(w) } });
+  const result = isMobile
+    ? await invoke('decode_qr_gray', { width: w, data: toBase64(gray) })
+    : await invoke('decode_qr_gray', gray, { headers: { 'x-width': String(w) } });
   return result || null;
+}
+
+/**
+ * Bytes als Base64 — für Android, wo die Brücke nur JSON durchlässt.
+ * In Blöcken, weil `String.fromCharCode(...bytes)` bei großen Bildern
+ * den Stapel sprengt.
+ */
+function toBase64(bytes) {
+  let text = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(text);
 }
 
 /** Zeichnet eine Bildquelle skaliert auf ein Canvas und liefert JPEG-Bytes. */
@@ -147,6 +162,7 @@ const DESKTOP_ATTEMPTS = [
  * Bildschirm. Also zuerst ausdrücklich die rückwärtige.
  */
 const MOBILE_ATTEMPTS = [
+  { label: 'rückwärtige Kamera (HD)', constraints: { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false } },
   { label: 'rückwärtige Kamera', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
   { label: 'rückwärtige Kamera (Wunsch)', constraints: { video: { facingMode: 'environment' }, audio: false } },
   { label: 'Standardkamera', constraints: { video: true, audio: false } }
@@ -171,6 +187,20 @@ function waitForFrames(video, timeout) {
     };
     check();
   });
+}
+
+/**
+ * Dauerfokus einschalten, wo die Kamera ihn kann. Ohne ihn bleibt die
+ * Rückkamera eines Telefons oft auf „unendlich" stehen — ein Code eine
+ * Handbreit vor der Linse ist dann nie scharf genug.
+ */
+async function autofocus(stream) {
+  const track = stream.getVideoTracks()[0];
+  const modes = track?.getCapabilities?.().focusMode ?? [];
+  if (!modes.includes('continuous')) return;
+  try {
+    await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+  } catch { /* dann eben mit dem, was die Kamera von sich aus macht */ }
 }
 
 export async function scanCamera(video) {
@@ -206,6 +236,8 @@ export async function scanCamera(video) {
     throw new Error(`Kein Kamerabild. ${problems.join(' — ')}`);
   }
 
+  await autofocus(stream);
+
   let stopped = false;
   let timer = null;
 
@@ -217,6 +249,7 @@ export async function scanCamera(video) {
   };
 
   let round = 0;
+  let failures = 0;
 
   const promise = new Promise((resolve, reject) => {
     const tick = async () => {
@@ -226,10 +259,13 @@ export async function scanCamera(video) {
         if (video.videoWidth && video.videoHeight) {
           // Meist die Mitte, jedes dritte Mal das ganze Bild.
           const value = await decodeFrame(video, ++round % 3 !== 0);
+          failures = 0;
           if (value) { stop(); return resolve(value); }
         }
-      } catch {
-        // einzelne Frames dürfen fehlschlagen
+      } catch (err) {
+        // Einzelne Bilder dürfen scheitern. Scheitert aber jedes, kann der
+        // Scanner nie etwas finden — dann laut werden statt ewig zu suchen.
+        if (++failures >= 15) { stop(); return reject(new Error(`Auswertung fehlgeschlagen: ${err.message ?? err}`)); }
       }
 
       timer = setTimeout(tick, SCAN_INTERVAL_MS);

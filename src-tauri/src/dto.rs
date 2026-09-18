@@ -148,6 +148,16 @@ pub struct Entry {
 
     #[serde(default)]
     pub passkey: bool,
+    /// Für welche Seite der Passkey gilt und für welches Konto — nur zur
+    /// Anzeige, geändert wird ein Passkey nie über den Dialog.
+    #[serde(default)]
+    pub passkey_site: Option<String>,
+    #[serde(default)]
+    pub passkey_user: Option<String>,
+    /// Das Website-Icon aus der Datenbank als `data:`-Adresse (favicon.rs).
+    /// Nur zur Anzeige; gesetzt wird es nie über den Dialog.
+    #[serde(default, skip_deserializing)]
+    pub icon: Option<String>,
     /// `YYYY-MM-DD` oder nichts.
     #[serde(default)]
     pub expires: Option<String>,

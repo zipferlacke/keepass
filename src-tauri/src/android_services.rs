@@ -283,8 +283,13 @@ fn zugang(id: &str, paket: &str, merken: bool) -> Result<Value, String> {
     };
 
     let _ = app.emit("entries-used", [id]);
+    // Beim Anmelden ist die Seite erreichbar — Icon holen, falls es fehlt.
+    crate::favicon::im_hintergrund(&app, vec![id.to_string()], false);
     if geaendert {
         speichern_im_hintergrund(&app);
+    // Neuer Zugang: Welcher Eintrag es ist, weiß `eintragen` — einfacher,
+    // alle nachzuziehen, denen noch ein Icon fehlt.
+    crate::favicon::im_hintergrund(&app, Vec::new(), false);
     }
     Ok(antwort)
 }

@@ -198,6 +198,10 @@ const commands = {
   },
 
   /** Im Browser gibt es keine Dateien — die Demo tut nur so. */
+  async vault_fetch_icons() {
+    return null;
+  },
+
   async vault_mark_accessed({ ids }) {
     return (ids ?? []).length;
   },

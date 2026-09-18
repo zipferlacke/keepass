@@ -565,6 +565,9 @@ fn read_entry(db: &Database, entry: &EntryRef<'_>) -> RawEntry {
             totp_config,
 
             passkey: entry.get(PASSKEY_FIELD).is_some() || entry.get("Passkey") == Some("True"),
+            passkey_site: entry.get("KPEX_PASSKEY_RELYING_PARTY").map(str::to_string),
+            passkey_user: entry.get(PASSKEY_FIELD).map(str::to_string),
+            icon: crate::favicon::data_url(&entry),
             expires,
             attachments,
             recycled: is_recycled(db, entry.parent().id()),

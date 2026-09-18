@@ -3,7 +3,7 @@ import * as settings from './settings.js';
 import { parseOtpauth, buildOtpauth } from './totp.js';
 import { checkPwnedByHash, checkEmailBreached, breachAnalytics, accountDeletionIndex, findDeletion, passwordStrength as localStrength } from './security.js';
 import { applyAppearance, applyTheme, applyPrimary, resolvedColor } from './theme.js';
-import { avatarMarkup, refreshEpoch, hostFromUrl } from './icons.js';
+import { avatarMarkup, hostFromUrl } from './icons.js';
 import * as qr from './qr.js';
 import * as preview from './preview.js';
 import { enableDragMove } from './dragmove.js';
@@ -121,6 +121,7 @@ async function boot() {
   // Beim allerersten Start einmal durch die Einrichtung führen.
   if (!settings.get('ui.welcomeSeen', false)) await showWelcome();
   if (isMobile && !settings.get('android.setupSeen', false)) await showAndroidSetup();
+  if (isTauri && !isMobile && !settings.get('browser.setupSeen', false)) await showBrowserSetupPage();
   renderLockscreen();
 
   // Ist die Datenbank an das Gerät gebunden (Windows Hello), wird gleich
@@ -1156,6 +1157,10 @@ async function enterUnlocked() {
 
   startTicker();
   maybeAutoCheck();
+
+  // Fehlende Website-Icons nachholen — im Hintergrund, der Kern speichert sie
+  // in der Datenbank und meldet sich mit `vault-changed`.
+  vault.fetchIcons().catch(() => {});
 }
 
 /**
@@ -1537,6 +1542,8 @@ function markUsed(ids) {
   // Auch in der Datei (LastAccessTime) — daraus entsteht „Inaktive
   // Einträge", und KeePassXC sieht denselben Zeitpunkt.
   vault.markAccessed(list).catch(() => {});
+  // Wer einen Eintrag benutzt, ist meist gerade im passenden Netz.
+  vault.fetchIcons(list).catch(() => {});
 
   const now = Date.now();
   const map = usageMap(now);
@@ -1819,9 +1826,7 @@ async function runRowAction(action, id) {
     }
 
     case 'refresh-icon':
-      refreshEpoch();
-      renderPasswords();
-      renderHome();
+      await vault.fetchIcons([entry.id], true);
       return banner('Icon wird neu geladen.', 'info', 2000);
 
     case 'refresh-title':
@@ -2798,7 +2803,8 @@ function settingsMarkup() {
         <div class="setting">
           <div class="setting-label">
             <strong>Icons der Websites laden</strong>
-            <small>Direkt von der jeweiligen Domain, ohne Sammeldienst. Die Domain sieht dabei deine IP-Adresse.</small>
+            <small>Einmal direkt von der jeweiligen Seite, ohne Sammeldienst — am besten beim Anmelden, wenn sie erreichbar ist.
+              Danach liegt das Icon in der Datenbank und steht auch offline und auf allen Geräten bereit.</small>
           </div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="icons.download" name="icons.download" ${s.icons?.download ? 'checked' : ''}></div>
         </div>
@@ -2833,7 +2839,7 @@ function settingsMarkup() {
           <div class="setting-control"><button type="button" class="button" id="btn-access">Wählen …</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Alle Icons neu abrufen</strong><small>Umgeht den Zwischenspeicher</small></div>
+          <div class="setting-label"><strong>Alle Icons neu abrufen</strong><small>Ersetzt die gespeicherten durch frisch geladene</small></div>
           <div class="setting-control"><button type="button" class="button" id="btn-refresh-icons"><span class="msr">refresh</span>&nbsp;Neu laden</button></div>
         </div>
         <div class="setting">
@@ -3169,6 +3175,15 @@ async function renderBrowserSection() {
     </div>
     <div class="setting">
       <div class="setting-label">
+        <strong>Erweiterung</strong>
+        <small>KeePassXC-Browser — WKeePass spricht dasselbe Protokoll.</small>
+      </div>
+      <div class="setting-control finding-actions" style="margin:0">
+        ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
+      </div>
+    </div>
+    <div class="setting">
+      <div class="setting-label">
         <strong>Eingetragen bei</strong>
         <small>${esc(eingerichtet)}</small>
       </div>
@@ -3190,6 +3205,8 @@ async function renderBrowserSection() {
     }));
 
   card.querySelector('#btn-browser-install')?.addEventListener('click', () => browserSetup(true));
+  card.querySelectorAll('[data-store]').forEach(btn => btn.addEventListener('click', () =>
+    vault.openLink(BROWSER_STORES[btn.dataset.store].url).catch(err => banner(err.message, 'error', 6000))));
   card.querySelector('#btn-browser-remove')?.addEventListener('click', () => browserSetup(false));
 
   card.querySelectorAll('[data-forget]').forEach(btn =>
@@ -3206,6 +3223,86 @@ async function renderBrowserSection() {
 }
 
 /** Trägt uns bei den Browsern ein — oder nimmt es zurück. */
+/** Wo es keepassxc-browser gibt — WKeePass spricht dasselbe Protokoll. */
+const BROWSER_STORES = [
+  { name: 'Firefox', url: 'https://addons.mozilla.org/firefox/addon/keepassxc-browser/' },
+  { name: 'Chrome, Brave, Vivaldi', url: 'https://chromewebstore.google.com/detail/keepassxc-browser/oboonakemofpalcgghocfoadofidjkkk' },
+  { name: 'Edge', url: 'https://microsoftedge.microsoft.com/addons/detail/keepassxcbrowser/pdffhmdngciaglkoonimfcmckehcpafo' }
+];
+
+/**
+ * Beim ersten Start am Rechner: die Browser-Erweiterung vorstellen und
+ * gleich einrichten lassen. Drei Schritte — bei den Browsern eintragen,
+ * Erweiterung installieren, im Browser verbinden. Überspringen geht; alles
+ * steht danach auch in den Einstellungen.
+ */
+async function showBrowserSetupPage() {
+  return new Promise(resolve => {
+    $('#welcome').hidden = false;
+    const card = $('#welcome-card');
+
+    const render = async () => {
+      let status = null;
+      try { status = await vault.browserStatus(); } catch { /* ohne Stand weiter */ }
+      const found = status ? [...status.installed, ...status.available] : [];
+      const done = status?.installed ?? [];
+
+      card.innerHTML = `
+        ${BRAND_MARK}
+        <h2>Passwörter direkt im Browser</h2>
+        <p class="lock-sub">Mit der Erweiterung <b>KeePassXC-Browser</b> füllt WKeePass Anmeldungen auf Webseiten aus,
+          bietet neue Zugänge zum Speichern an und meldet dich mit Passkeys an. Die Passwörter bleiben in deiner Datei —
+          der Browser fragt jedes Mal bei WKeePass nach.</p>
+
+        <div class="settings-card">
+          <div class="setting">
+            <div class="setting-label"><strong>1. Bei den Browsern eintragen</strong>
+              <small>${found.length
+                ? found.map(b => `${esc(b)}${done.includes(b) ? ' ✓' : ''}`).join(' · ')
+                : 'Kein Browser gefunden — nach der Installation eines Browsers geht das in den Einstellungen.'}</small></div>
+            <div class="setting-control">${found.length && done.length === found.length
+              ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Erledigt</span>`
+              : `<button type="button" class="button hightlight" id="bs-install" ${found.length ? '' : 'disabled'}>Eintragen</button>`}</div>
+          </div>
+          <div class="setting">
+            <div class="setting-label"><strong>2. Erweiterung installieren</strong>
+              <small>Kostenlos aus dem Store deines Browsers.</small></div>
+            <div class="setting-control finding-actions" style="margin:0">
+              ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
+            </div>
+          </div>
+          <div class="setting">
+            <div class="setting-label"><strong>3. Im Browser verbinden</strong>
+              <small>Browser neu starten, auf das Symbol der Erweiterung klicken und „Verbinden“ wählen.
+                WKeePass fragt dann nach einem Namen für diesen Browser.</small></div>
+          </div>
+        </div>
+
+        <div class="lock-actions">
+          <button type="button" class="button hightlight" data-shape="full" id="bs-done"><span class="msr">check</span>&nbsp;Weiter</button>
+          <button type="button" class="button" data-shape="full" id="bs-later">Später in den Einstellungen</button>
+        </div>`;
+
+      card.querySelector('#bs-install')?.addEventListener('click', async () => {
+        await browserSetup(true);
+        render();
+      });
+      card.querySelectorAll('[data-store]').forEach(btn => btn.addEventListener('click', () =>
+        vault.openLink(BROWSER_STORES[btn.dataset.store].url).catch(err => banner(err.message, 'error', 6000))));
+
+      const finish = async () => {
+        await settings.set('browser.setupSeen', true, { silent: true });
+        $('#welcome').hidden = true;
+        resolve();
+      };
+      card.querySelector('#bs-done').onclick = finish;
+      card.querySelector('#bs-later').onclick = finish;
+    };
+
+    render();
+  });
+}
+
 async function browserSetup(install) {
   try {
     const results = install ? await vault.browserInstall() : await vault.browserUninstall();
@@ -3301,11 +3398,9 @@ function wireSettings(root = $('#settings-body')) {
       updateSettingsPreview();
     }));
 
-  root.querySelector('#btn-refresh-icons')?.addEventListener('click', () => {
-    refreshEpoch();
-    renderPasswords();
-    renderHome();
-    banner('Icons werden neu abgerufen.', 'success');
+  root.querySelector('#btn-refresh-icons')?.addEventListener('click', async () => {
+    await vault.fetchIcons(null, true);
+    banner('Icons werden neu abgerufen — sie erscheinen, sobald sie da sind.', 'success');
   });
 
   root.querySelector('#btn-adopt-titles')?.addEventListener('click', async () => {
@@ -3951,10 +4046,12 @@ async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {
     <details class="dlg-section" data-only="full" ${e.passkey ? 'open' : ''}>
       <summary><span class="msr">passkey</span>Passkey<span class="dlg-section-hint">${e.passkey ? 'hinterlegt' : 'keiner'}</span></summary>
       <div class="dlg-section-body">
-        <div class="setting" style="padding:0;border:none">
-          <div class="setting-label"><strong>Passkey hinterlegt</strong><small>Wird später von der Rust-Anbindung gesetzt</small></div>
-          <div class="setting-control"><input type="checkbox" data-shape="toggle" name="passkey" ${e.passkey ? 'checked' : ''}></div>
-        </div>
+        ${e.passkey ? `<div class="setting" style="padding:0;border:none">
+          <div class="setting-label"><strong>${esc(e.passkeySite || 'Passkey')}</strong>
+            <small>${e.passkeyUser ? `Konto: ${esc(e.passkeyUser)} · ` : ''}Anmelden ohne Passwort — der geheime Schlüssel liegt nur in dieser Datenbank.</small></div>
+        </div>`
+        : `<p class="dlg-note" style="margin:0">Einen Passkey legst du direkt beim Dienst an („Passkey erstellen“). Browser-Erweiterung oder Android
+            fragen dann WKeePass, und er landet von selbst in einem Eintrag.</p>`}
       </div>
     </details>
 
@@ -4024,7 +4121,7 @@ async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {
     url: String(d.url ?? ''),
     notes: String(d.notes ?? ''),
     tags: String(d.tags ?? '').split(',').map(x => x.trim()).filter(Boolean),
-    passkey: d.passkey === true || d.passkey === 'true' || d.passkey === 'on',
+    passkey: Boolean(e.passkey),
     expires: String(d.expires ?? '') || null,
     hasPassword: Boolean(passwordToken),
     passwordToken,
@@ -4322,7 +4419,7 @@ async function scanWithCamera() {
         await new Promise(r => setTimeout(r, 650));
         closeHostDialog(video, true);
       } catch (err) {
-        if (hint && err.message !== 'abgebrochen') hint.textContent = `Kamera nicht verfügbar: ${err.message}`;
+        if (hint && err.message !== 'abgebrochen') hint.textContent = err.message.startsWith("Auswertung") ? err.message : `Kamera nicht verfügbar: ${err.message}`;
       }
     })
   });
