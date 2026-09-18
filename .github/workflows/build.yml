@@ -141,7 +141,8 @@ jobs:
         working-directory: src-tauri
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
-          npm run tauri -- android build --ci --apk \
+          # APK zum direkten Installieren, AAB für den Play Store
+          npm run tauri -- android build --ci --apk --aab \
             --target aarch64 --target armv7 --target x86_64
 
       # Eine unsignierte APK lässt sich nicht installieren.
@@ -180,12 +181,22 @@ jobs:
           "$TOOLS/zipalign" -f 4 "$APK" "$RUNNER_TEMP/aligned.apk"
           "$TOOLS/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
             --ks-pass "pass:$KEYSTORE_PASSWORD" --out wkeepass-android.apk "$RUNNER_TEMP/aligned.apk"
+
+          # Das AAB signiert jarsigner, nicht apksigner. Im Play Store ist
+          # das der Upload-Schlüssel; Google signiert für die Geräte neu.
+          AAB=$(find src-tauri/gen/android/app/build/outputs/bundle -name '*.aab' | head -1)
+          test -n "$AAB" || { echo "Kein AAB gefunden"; exit 1; }
+          cp "$AAB" wkeepass-android.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" \
+            -sigalg SHA256withRSA -digestalg SHA-256 wkeepass-android.aab "$KEY_ALIAS"
           rm -f "$RUNNER_TEMP/release.jks"
 
       - uses: actions/upload-artifact@v4
         with:
           name: wkeepass-Android
-          path: wkeepass-android.apk
+          path: |
+            wkeepass-android.apk
+            wkeepass-android.aab
 
   # Läuft auch, wenn einzelne Builds scheitern: Das Release enthält dann,
   # was fertig wurde, statt ganz auszufallen. Abgebrochene Läufe nicht.
