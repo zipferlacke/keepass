@@ -96,6 +96,16 @@ fn decode_dynamic(img: &image::DynamicImage) -> Option<String> {
 }
 
 fn detect(luma: image::GrayImage) -> Option<String> {
+    // Zuerst ZXing: Es binarisiert je Bildbereich (Schatten, Spiegelungen
+    // auf dem Bildschirm) und findet auch leicht schräge Codes.
+    let (w, h) = luma.dimensions();
+    if let Ok(treffer) = rxing::helpers::detect_in_luma_slice(luma.as_raw(), w, h, Some(rxing::BarcodeFormat::QR_CODE)) {
+        let text = treffer.getText();
+        if !text.is_empty() {
+            return Some(text.to_string());
+        }
+    }
+
     let mut prepared = rqrr::PreparedImage::prepare(luma);
     for grid in prepared.detect_grids() {
         if let Ok((_meta, content)) = grid.decode() {
@@ -133,6 +143,21 @@ mod tests {
         for modul in [2, 3, 4, 6] {
             assert_eq!(detect(bild(OTP, modul)).as_deref(), Some(OTP), "Modulgröße {modul}");
         }
+    }
+
+    #[test]
+    fn zxing_liest_otpauth_auch_bei_schlechtem_licht() {
+        // Verlauf von hell nach grau, dazu weiche Kanten — wie ein
+        // abfotografierter Bildschirm.
+        let scharf = bild(OTP, 4);
+        let (w, h) = scharf.dimensions();
+        let mut trueb = image::imageops::blur(&scharf, 1.2);
+        for (x, _, p) in trueb.enumerate_pixels_mut() {
+            p.0[0] = (p.0[0] as u32 * (255 - 90 * x / w) / 255 + 30).min(255) as u8;
+        }
+        let text = rxing::helpers::detect_in_luma_slice(trueb.as_raw(), w, h, Some(rxing::BarcodeFormat::QR_CODE))
+            .map(|r| r.getText().to_string());
+        assert_eq!(text.ok().as_deref(), Some(OTP));
     }
 
     #[test]

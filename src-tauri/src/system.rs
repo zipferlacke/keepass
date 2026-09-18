@@ -153,6 +153,7 @@ static UEBERGEBEN: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None
 ///
 /// Die Oberfläche bekommt `open-database` und zeigt den Sperrbildschirm
 /// dafür; das Fenster kommt nach vorn.
+#[cfg(not(target_os = "android"))]
 pub fn datei_uebergeben(app: &tauri::AppHandle, args: impl IntoIterator<Item = String>) {
     use tauri::{Emitter, Manager};
 

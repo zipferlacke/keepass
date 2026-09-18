@@ -5,6 +5,7 @@
 nicht im Repository. Was Android über Tauri hinaus verlangt, liegt deshalb
 unter `keepass-android/` und kommt bei jedem Bauen hier hinein:
 
+  appdata/icons/android/  → app/src/main/res/ (App-Symbol, bei jedem Bauen)
   kotlin/                 → app/src/main/java/
   res/                    → app/src/main/res/
   proguard-wkeepass.pro   → app/
@@ -45,6 +46,9 @@ BERECHTIGUNGEN = [
 
 
 def kopieren() -> None:
+    # Früher nur beim Anlegen des Projekts kopiert — ein geändertes Symbol
+    # kam dann nie auf dem Handy an.
+    shutil.copytree(PROJEKT / "appdata/icons/android", APP / "src/main/res", dirs_exist_ok=True)
     shutil.copytree(QUELLE / "kotlin", APP / "src/main/java", dirs_exist_ok=True)
     shutil.copytree(QUELLE / "res", APP / "src/main/res", dirs_exist_ok=True)
     shutil.copy2(QUELLE / "proguard-wkeepass.pro", APP / "proguard-wkeepass.pro")

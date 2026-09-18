@@ -32,7 +32,14 @@
                 "Sicherheitscheck: Benachrichtigung bei neuen Funden (Android, Windows, macOS, Linux)",
                 "Sicherheitscheck: Einträge lassen sich dort nicht mehr versehentlich verschieben",
                 ".kdbx-Dateien per Doppelklick öffnen – auch in der bereits laufenden App",
-                "Android: App-Symbol mit ausreichend Rand"
+                "Android: App-Symbol mit ausreichend Rand",
+                "Import aus anderen Apps: Bitwarden, 1Password, LastPass, Proton Pass, Firefox, Chrome, KeePass-XML und weitere",
+                "2FA-Codes importieren aus 2FAS, Aegis, Proton Authenticator, andOTP und Google Authenticator",
+                "QR-Scanner mit neuem Decoder (ZXing): 2FA-Codes werden in der App zuverlässig erkannt",
+                "Kamera: klare Meldung, wenn nur ein schwarzes Bild kommt",
+                "Entsperren: animierte Punkte, solange die Datenbank entschlüsselt wird",
+                "Selbstsperre greift nicht mehr mitten im Lesen",
+                "Sicherheitscheck: keine Auswahl und kein Verschieben mehr in den Befunden"
             ]
         },
         {

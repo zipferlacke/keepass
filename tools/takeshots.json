@@ -4,110 +4,294 @@
     "dark": ""
   },
   "formats": {
-    "narrow": [412, 915, 2],
-    "wide": [1366, 1024, 2],
-    "promo-narrow": [540, 960, 2],
-    "promo-wide": [1920, 1080, 1],
-    "social": [1200, 630, 1]
+    "narrow": [
+      412,
+      915,
+      2
+    ],
+    "wide": [
+      1366,
+      1024,
+      2
+    ],
+    "promo-narrow": [
+      540,
+      960,
+      2
+    ],
+    "promo-wide": [
+      1920,
+      1080,
+      1
+    ],
+    "social": [
+      1200,
+      630,
+      1
+    ]
   },
   "offline": true,
   "shots": [
     {
       "url": "http://localhost:8765/src-ui/index.html",
       "out": "../appdata/screenshot-{format}-1{theme}.png",
-      "formats": ["narrow", "wide"],
+      "formats": [
+        "narrow",
+        "wide"
+      ],
       "steps": [
-        ["click", "#wc-skip"],
-        ["click", "#lock-pick"],
-        ["shot"]
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "shot"
+        ]
       ]
     },
     {
       "url": "http://localhost:8765/src-ui/index.html",
       "out": "../appdata/screenshot-{format}-2{theme}.png",
-      "formats": ["narrow", "wide"],
+      "formats": [
+        "narrow",
+        "wide"
+      ],
       "steps": [
-        ["click", "#wc-skip"],
-        ["click", "#lock-pick"],
-        ["click", "#lock-unlock"],
-        ["fill", "dialog[open] [name=pw]", "demo"],
-        ["click", "dialog[open] .dialog_submit"],
-        ["wait", 2500],
-        ["shot"]
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "click",
+          "#lock-unlock"
+        ],
+        [
+          "fill",
+          "dialog[open] [name=pw]",
+          "demo"
+        ],
+        [
+          "click",
+          "dialog[open] .dialog_submit"
+        ],
+        [
+          "wait",
+          2500
+        ],
+        [
+          "shot"
+        ]
       ]
     },
     {
       "url": "http://localhost:8765/src-ui/index.html",
       "out": "../appdata/screenshot-{format}-3{theme}.png",
-      "formats": ["narrow", "wide"],
+      "formats": [
+        "narrow",
+        "wide"
+      ],
       "steps": [
-        ["click", "#wc-skip"],
-        ["click", "#lock-pick"],
-        ["click", "#lock-unlock"],
-        ["fill", "dialog[open] [name=pw]", "demo"],
-        ["click", "dialog[open] .dialog_submit"],
-        ["wait", 2500],
-        ["click", ".nav-items [data-view=passwords]"],
-        ["click", "#entry-table details.folder[data-folder='Arbeit'] > summary"],
-        ["click", "#entry-table details.folder[data-folder='Privat'] > summary"],
-        ["shot"]
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "click",
+          "#lock-unlock"
+        ],
+        [
+          "fill",
+          "dialog[open] [name=pw]",
+          "demo"
+        ],
+        [
+          "click",
+          "dialog[open] .dialog_submit"
+        ],
+        [
+          "wait",
+          2500
+        ],
+        [
+          "click",
+          ".nav-items [data-view=passwords]"
+        ],
+        [
+          "click",
+          "#entry-table details.folder[data-folder='Arbeit'] > summary"
+        ],
+        [
+          "click",
+          "#entry-table details.folder[data-folder='Privat'] > summary"
+        ],
+        [
+          "shot"
+        ]
       ]
     },
     {
       "url": "http://localhost:8765/src-ui/index.html",
       "out": "../appdata/screenshot-{format}-4{theme}.png",
-      "formats": ["narrow", "wide"],
+      "formats": [
+        "narrow",
+        "wide"
+      ],
       "steps": [
-        ["click", "#wc-skip"],
-        ["click", "#lock-pick"],
-        ["click", "#lock-unlock"],
-        ["fill", "dialog[open] [name=pw]", "demo"],
-        ["click", "dialog[open] .dialog_submit"],
-        ["wait", 2500],
-        ["click", ".nav-items [data-view=totp]"],
-        ["wait", 800],
-        ["shot"]
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "click",
+          "#lock-unlock"
+        ],
+        [
+          "fill",
+          "dialog[open] [name=pw]",
+          "demo"
+        ],
+        [
+          "click",
+          "dialog[open] .dialog_submit"
+        ],
+        [
+          "wait",
+          2500
+        ],
+        [
+          "click",
+          ".nav-items [data-view=totp]"
+        ],
+        [
+          "wait",
+          800
+        ],
+        [
+          "shot"
+        ]
       ]
     },
     {
       "url": "http://localhost:8765/src-ui/index.html",
       "out": "../appdata/screenshot-{format}-5{theme}.png",
-      "formats": ["narrow", "wide"],
+      "formats": [
+        "narrow",
+        "wide"
+      ],
       "steps": [
-        ["click", "#wc-skip"],
-        ["click", "#lock-pick"],
-        ["click", "#lock-unlock"],
-        ["fill", "dialog[open] [name=pw]", "demo"],
-        ["click", "dialog[open] .dialog_submit"],
-        ["wait", 2500],
-        ["click", "#recent-list tr[data-id$='000000000013']"],
-        ["wait", 800],
-        ["shot"]
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "click",
+          "#lock-unlock"
+        ],
+        [
+          "fill",
+          "dialog[open] [name=pw]",
+          "demo"
+        ],
+        [
+          "click",
+          "dialog[open] .dialog_submit"
+        ],
+        [
+          "wait",
+          2500
+        ],
+        [
+          "click",
+          "#recent-list tr[data-id$='000000000013']"
+        ],
+        [
+          "wait",
+          800
+        ],
+        [
+          "shot"
+        ]
       ]
     },
     {
       "url": "http://localhost:8765/src-ui/index.html",
       "out": "../appdata/screenshot-{format}-6{theme}.png",
-      "formats": ["narrow", "wide"],
+      "formats": [
+        "narrow",
+        "wide"
+      ],
       "steps": [
-        ["click", "#wc-skip"],
-        ["click", "#lock-pick"],
-        ["click", "#lock-unlock"],
-        ["fill", "dialog[open] [name=pw]", "demo"],
-        ["click", "dialog[open] .dialog_submit"],
-        ["wait", 2500],
-        ["click", "#recent-list tr[data-id$='000000000013']"],
-        ["wait", 800],
-        ["click", "dialog[open] .file-row"],
-        ["wait", 800],
-        ["shot"]
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "click",
+          "#lock-unlock"
+        ],
+        [
+          "fill",
+          "dialog[open] [name=pw]",
+          "demo"
+        ],
+        [
+          "click",
+          "dialog[open] .dialog_submit"
+        ],
+        [
+          "wait",
+          2500
+        ],
+        [
+          "click",
+          "#recent-list tr[data-id$='000000000013']"
+        ],
+        [
+          "wait",
+          800
+        ],
+        [
+          "click",
+          "dialog[open] .file-row"
+        ],
+        [
+          "wait",
+          800
+        ],
+        [
+          "shot"
+        ]
       ]
     }
   ],
   "brand": {
     "name": "WKeePass",
     "claim": "Passwortmanger & 2FA Codes in einem mit Passkeys unterstützung und Dateienablage — sicher lokal speichern ohne Konto und bei bedarf geräteübergreifent.",
-    "logo": "../src-tauri/icons/icon.png",
+    "logo": "../appdata/icons/icon.png",
     "colors": {
       "from": "#76cc47",
       "via": "#26A269",
@@ -118,7 +302,9 @@
   "compose": [
     {
       "out": "../appdata/werbung/handy-1-titel.png",
-      "formats": ["promo-narrow"],
+      "formats": [
+        "promo-narrow"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -137,13 +323,13 @@
               "type": "text",
               "style": "title",
               "text": "{name}",
-              "size": 17
+              "size": 20.4
             },
             {
               "type": "text",
               "style": "body",
               "text": "{claim}",
-              "size": 5
+              "size": 6.0
             }
           ]
         }
@@ -151,7 +337,9 @@
     },
     {
       "out": "../appdata/werbung/handy-8-geraete.png",
-      "formats": ["promo-narrow"],
+      "formats": [
+        "promo-narrow"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -163,9 +351,24 @@
           "align": "left",
           "gap": 2,
           "items": [
-            { "type": "text", "style": "caption", "text": "Offen & geräteübergreifend" },
-            { "type": "text", "style": "heading", "text": "Eine Datei, alle Geräte" },
-            { "type": "text", "style": "body", "text": "Open Source auf dem KeePass-Standard: Deine Datenbank öffnet jede KeePass-App — und bleibt auf all deinen Geräten sicher synchron." }
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Offen & geräteübergreifend",
+              "size": 2.6
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Eine Datei, alle Geräte",
+              "size": 7.8
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Open Source auf dem KeePass-Standard: Deine Datenbank öffnet jede KeePass-App — und bleibt auf all deinen Geräten sicher synchron.",
+              "size": 3.8
+            }
           ]
         },
         {
@@ -179,14 +382,16 @@
           "type": "phone",
           "screen": "../appdata/screenshot-narrow-2_light.png",
           "right": 6,
-          "top": 42,
+          "top": 39,
           "width": 50
         }
       ]
     },
     {
       "out": "../appdata/werbung/breit-8-geraete.png",
-      "formats": ["promo-wide"],
+      "formats": [
+        "promo-wide"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -195,9 +400,22 @@
           "top": 0,
           "bottom": 0,
           "items": [
-            { "type": "text", "style": "caption", "text": "Offen & geräteübergreifend" },
-            { "type": "text", "style": "heading", "text": "Eine Datei, alle Geräte" },
-            { "type": "text", "style": "body", "text": "Open Source auf dem KeePass-Standard: Deine Datenbank öffnet jede KeePass-App — und bleibt auf all deinen Geräten sicher synchron.", "size": 2.8 }
+            {
+              "type": "text",
+              "style": "caption",
+              "text": "Offen & geräteübergreifend"
+            },
+            {
+              "type": "text",
+              "style": "heading",
+              "text": "Eine Datei, alle Geräte"
+            },
+            {
+              "type": "text",
+              "style": "body",
+              "text": "Open Source auf dem KeePass-Standard: Deine Datenbank öffnet jede KeePass-App — und bleibt auf all deinen Geräten sicher synchron.",
+              "size": 2.8
+            }
           ]
         },
         {
@@ -226,7 +444,9 @@
     },
     {
       "out": "../appdata/werbung/handy-2-uebersicht.png",
-      "formats": ["promo-narrow"],
+      "formats": [
+        "promo-narrow"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -241,17 +461,20 @@
             {
               "type": "text",
               "style": "caption",
-              "text": "Übersicht"
+              "text": "Übersicht",
+              "size": 2.6
             },
             {
               "type": "text",
               "style": "heading",
-              "text": "Alles auf einen Blick"
+              "text": "Alles auf einen Blick",
+              "size": 7.8
             },
             {
               "type": "text",
               "style": "body",
-              "text": "Passwörter, Passkeys, 2FA-Codes und Dateien — dazu der Sicherheitscheck für Passwörter & Emails."
+              "text": "Passwörter, Passkeys, 2FA-Codes und Dateien — dazu der Sicherheitscheck für Passwörter & Emails.",
+              "size": 3.8
             }
           ]
         },
@@ -259,13 +482,17 @@
           "type": "phone",
           "screen": "../appdata/screenshot-narrow-2_light.png",
           "width": 78,
-          "bleed": { "bottom": 30 }
+          "bleed": {
+            "bottom": 30
+          }
         }
       ]
     },
     {
       "out": "../appdata/werbung/handy-3-passwoerter.png",
-      "formats": ["promo-narrow"],
+      "formats": [
+        "promo-narrow"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -280,17 +507,20 @@
             {
               "type": "text",
               "style": "caption",
-              "text": "Passwörter"
+              "text": "Passwörter",
+              "size": 2.6
             },
             {
               "type": "text",
               "style": "heading",
-              "text": "Ordnung, die mitdenkt"
+              "text": "Ordnung, die mitdenkt",
+              "size": 7.8
             },
             {
               "type": "text",
               "style": "body",
-              "text": "Ordner und Tags um den Überblick zu behalten eine Ampel um den Passwortstatus: schwach, geleakt, mehrfach genutzt, super immer im Blick zu haben."
+              "text": "Ordner und Tags um den Überblick zu behalten eine Ampel um den Passwortstatus: schwach, geleakt, mehrfach genutzt, super immer im Blick zu haben.",
+              "size": 3.8
             }
           ]
         },
@@ -298,13 +528,17 @@
           "type": "phone",
           "screen": "../appdata/screenshot-narrow-3.png",
           "width": 78,
-          "bleed": { "bottom": 30 }
+          "bleed": {
+            "bottom": 30
+          }
         }
       ]
     },
     {
       "out": "../appdata/werbung/handy-4-dateien.png",
-      "formats": ["promo-narrow"],
+      "formats": [
+        "promo-narrow"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -319,17 +553,20 @@
             {
               "type": "text",
               "style": "caption",
-              "text": "Dateiablage"
+              "text": "Dateiablage",
+              "size": 2.6
             },
             {
               "type": "text",
               "style": "heading",
-              "text": "Dokumente sicher verwahren"
+              "text": "Dokumente sicher verwahren",
+              "size": 7.8
             },
             {
               "type": "text",
               "style": "body",
-              "text": "Speichere Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ansehen, bearbeiten, umbenennen."
+              "text": "Speichere Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ansehen, bearbeiten, umbenennen.",
+              "size": 3.8
             }
           ]
         },
@@ -337,7 +574,9 @@
           "type": "phone",
           "screen": "../appdata/screenshot-narrow-5_light.png",
           "width": 78,
-          "bleed": { "bottom": 30 }
+          "bleed": {
+            "bottom": 30
+          }
         }
       ]
     },
@@ -355,7 +594,9 @@
     },
     {
       "out": "../appdata/werbung/breit-1-titel.png",
-      "formats": ["promo-wide"],
+      "formats": [
+        "promo-wide"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -389,7 +630,9 @@
     },
     {
       "out": "../appdata/werbung/breit-2-uebersicht.png",
-      "formats": ["promo-wide"],
+      "formats": [
+        "promo-wide"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -428,7 +671,9 @@
     },
     {
       "out": "../appdata/werbung/breit-3-passwoerter.png",
-      "formats": ["promo-wide"],
+      "formats": [
+        "promo-wide"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -467,7 +712,9 @@
     },
     {
       "out": "../appdata/werbung/breit-4-dateien.png",
-      "formats": ["promo-wide"],
+      "formats": [
+        "promo-wide"
+      ],
       "elements": [
         {
           "type": "stack",
@@ -518,7 +765,9 @@
     },
     {
       "out": "../appdata/werbung/social.png",
-      "formats": ["social"],
+      "formats": [
+        "social"
+      ],
       "elements": [
         {
           "type": "stack",

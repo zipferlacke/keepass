@@ -50,7 +50,6 @@ bauen() {
   if [[ ! -d gen/android ]]; then
     echo "==> Android-Projekt anlegen"
     cargo tauri android init
-    cp -r icons/android/. gen/android/app/src/main/res/
   fi
   # Kotlin-Klassen, Manifest-Block, Abhängigkeiten — siehe dort.
   python3 "$PROJEKT/tools/android-einbinden.py"

@@ -116,15 +116,14 @@ jobs:
           node-version: 22
 
       # gen/ steht nicht im Repository — das Android-Projekt entsteht hier
-      # jedes Mal neu. Die Symbole dafür liegen fertig unter icons/android.
+      # jedes Mal neu. Die Symbole kommen aus appdata/icons/android.
       - name: Android-Projekt erzeugen
         working-directory: src-tauri
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npx --yes @tauri-apps/cli@2 android init --ci
-          cp -r icons/android/. gen/android/app/src/main/res/
           # Unsere Kotlin-Klassen (Biometrie, Dateiauswahl, Autofill,
-          # Passkeys), ihr Manifest-Block und ihre Abhängigkeiten —
+          # Passkeys), die App-Symbole, ihr Manifest-Block und ihre Abhängigkeiten —
           # derselbe Schritt wie in tools/android.sh.
           python3 ../tools/android-einbinden.py
 

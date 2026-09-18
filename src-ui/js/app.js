@@ -7,6 +7,7 @@ import { avatarMarkup, hostFromUrl } from './icons.js';
 import * as qr from './qr.js';
 import * as preview from './preview.js';
 import { enableDragMove } from './dragmove.js';
+import { parseImport } from './import.js';
 import * as pick from './multiselect.js';
 import { isTauri, isMobile, invoke, unlockMethods, pickDatabaseFile, pickSavePath, listen } from './platform.js';
 import { dialog, banner, closeHostDialog, tableview, selectPicker} from './ui.js';
@@ -70,6 +71,18 @@ async function boot() {
     if (state.locked) return;
     showLockscreen(String(ev?.payload ?? 'Wegen Untätigkeit gesperrt.'));
   });
+
+  // Lesen, Scrollen und Tippen rufen keinen Befehl im Kern auf — ohne diese
+  // Meldung sperrte er mitten im Lesen. Höchstens alle 30 s.
+  let lastTouch = 0;
+  const activity = () => {
+    if (state.locked || Date.now() - lastTouch < 30_000) return;
+    lastTouch = Date.now();
+    vault.touch().catch(() => {});
+  };
+  for (const type of ['pointerdown', 'keydown', 'wheel', 'touchmove']) {
+    window.addEventListener(type, activity, { capture: true, passive: true });
+  }
 
   // Abrufe über die Browser-Erweiterung zählen ebenfalls als Nutzung.
   await listen('entries-used', ev => markUsed(ev?.payload ?? []));
@@ -436,7 +449,6 @@ function renderLockscreen(message) {
   const list = recentDatabases();
   const current = settings.get('database.current', null);
   const active = list.find(d => d.path === current);
-  const others = list.filter(d => d.path !== current);
 
   $('#lock-card').innerHTML = `
     ${BRAND_MARK}
@@ -1296,7 +1308,15 @@ function markUnlocking(on) {
   const before = hint?.textContent;
   if (on && hint) hint.textContent = 'Wird entschlüsselt … das dauert einen Moment.';
 
+  // Drei springende Punkte — sichtbar, dass gerechnet wird.
+  const dots = document.createElement('div');
+  dots.className = 'lock-dots';
+  dots.setAttribute('aria-hidden', 'true');
+  dots.innerHTML = '<i></i><i></i><i></i>';
+  if (on) (hint ?? $('#lock-card h2'))?.after(dots);
+
   return () => {
+    dots.remove();
     card?.removeAttribute('data-busy');
     $$('#lock-card button, #lock-card input').forEach(el => { el.disabled = false; });
     if (hint && before != null) hint.textContent = before;
@@ -1576,11 +1596,6 @@ function usageMap(now = Date.now()) {
   return map;
 }
 
-/** Wie oft ein Eintrag in den letzten 7 Tagen genutzt wurde. */
-function usesThisWeek(id) {
-  return usageMap()[id]?.week.length ?? 0;
-}
-
 /** Vermerkt, dass Einträge gerade benutzt wurden — eine UUID oder mehrere. */
 function markUsed(ids) {
   const path = settings.get('database.current', null);
@@ -1634,19 +1649,22 @@ function countProblems() {
 }
 
 /* ---------- Eintrags-Zeile ---------- */
-function wireEntryRows(root) {
+function wireEntryRows(root, { select = true } = {}) {
   root.querySelectorAll('[data-open]').forEach(el =>
     el.addEventListener('click', () => openEntryDialog(el.dataset.open)));
 
   // In der Tabelle öffnet ein Klick auf die Zeile den Eintrag —
   // außer man trifft einen der Knöpfe oder Marker.
   // Erst die Auswahl: Sie entscheidet mit, ob ein Klick öffnen darf.
-  pick.wireSelection(root, id => vault.getEntry(id)?.folder ?? '');
+  // Auswählen und gemeinsam Verschieben nur in der Passwortliste — in
+  // Befunden und Übersicht gibt es nichts zu ordnen.
+  if (select) pick.wireSelection(root, id => vault.getEntry(id)?.folder ?? '');
+  else root.addEventListener('dragstart', ev => ev.preventDefault());
 
   root.querySelectorAll('tr[data-id]').forEach(row => {
     row.addEventListener('click', ev => {
       if (ev.target.closest('button, .marker')) return;
-      if (pick.selectionActive()) return;
+      if (select && pick.selectionActive()) return;
       openEntryDialog(row.dataset.id);
     });
 
@@ -2086,7 +2104,7 @@ function cellHtml(col, e, { iconsOn }) {
 }
 
 function entryRowHtml(e, cols, opts) {
-  const box = pick.selectionActive()
+  const box = opts.drag && pick.selectionActive()
     ? `<td class="pick-cell"><span class="pick-box ${pick.isSelected(e.id) ? 'on' : ''}"><span class="msr">${
         pick.isSelected(e.id) ? 'check_box' : 'check_box_outline_blank'}</span></span></td>`
     : '';
@@ -2100,8 +2118,8 @@ function entryRowHtml(e, cols, opts) {
   return `<tr data-id="${e.id}"${drag}${recycled}>${box}${cols.map(c => cellHtml(c, e, opts)).join('')}</tr>`;
 }
 
-function headerHtml(cols, sortable) {
-  const box = pick.selectionActive() ? '<th class="pick-cell"></th>' : '';
+function headerHtml(cols, sortable, pickable) {
+  const box = pickable && pick.selectionActive() ? '<th class="pick-cell"></th>' : '';
   return box + cols.map(col => {
     const h = HEADERS[col] ?? { label: '' };
     const attrs = sortable && h.sort ? h.sort : '';
@@ -2120,7 +2138,7 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false } 
   return `
     <div class="table-scroll">
       <table class="entry-table" data-variant="${variant}" ${search ? 't-search' : ''}>
-        <thead><tr>${headerHtml(cols, sortable)}</tr></thead>
+        <thead><tr>${headerHtml(cols, sortable, variant === 'full')}</tr></thead>
         <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn, drag: variant === 'full' })).join('')}</tbody>
       </table>
     </div>`;
@@ -2132,7 +2150,7 @@ function renderEntryTable(host, list, options = {}) {
     return;
   }
   host.innerHTML = tableHtml(list, options);
-  wireEntryRows(host);
+  wireEntryRows(host, { select: (options.variant ?? 'full') === 'full' });
   if (options.sortable) ensureTableview();
   tickTotp();
 }
@@ -2376,19 +2394,6 @@ function renderSecurity() {
   ];
 
   const last = settings.get('checks.lastRunAt', null);
-
-  const findings = e => {
-    const s = state.strength.get(e.id);
-    const p = state.pwned.get(e.id);
-    const x = expiryState(e);
-    const parts = [];
-    if (p?.found) parts.push(`${p.count.toLocaleString('de-DE')}× in Leaks`);
-    if (s && s.score < 2) parts.push(`Stärke: ${s.label}`);
-    if (state.reused.has(e.id)) parts.push('mehrfach genutzt');
-    if (x?.kind === 'expired') parts.push(`seit ${Math.abs(x.days)} Tagen abgelaufen`);
-    if (x?.kind === 'expiring') parts.push(`läuft in ${x.days} Tagen ab`);
-    return parts.join(' · ');
-  };
 
   const group = (id, title, items) =>
     secSection(id, title, items.length, `<div class="findings-table" data-list="${id}"></div>`);
@@ -2952,6 +2957,11 @@ function settingsMarkup() {
         <div class="setting">
           <div class="setting-label"><strong>${esc(current?.name ?? 'Geöffnete Datenbank')}</strong>
             <small>${esc(current?.path ?? '')}</small></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>Aus anderen Apps importieren</strong>
+            <small>Passwörter und 2FA-Codes aus Bitwarden, 1Password, LastPass, Browsern, Aegis, 2FAS …</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-import-entries">Importieren …</button></div>
         </div>
         <div class="setting">
           <div class="setting-label"><strong>Automatisch synchronisieren</strong></div>
@@ -3557,6 +3567,8 @@ function wireSettings(root = $('#settings-body')) {
     await adoptTitles(withUrl);
   });
 
+  root.querySelector('#btn-import-entries')?.addEventListener('click', () => importFromOtherApps());
+
   root.querySelector('#btn-export')?.addEventListener('click', () => {
     settings.downloadSettings();
     banner('settings.json exportiert.', 'success');
@@ -3790,7 +3802,7 @@ async function afterStructureChange(message) {
 async function startCreation() {
   const scannable = qr.scannerAvailable();
 
-  const res = await dialog({
+  await dialog({
     title: 'Neu anlegen',
     content: `
       <div class="choice-grid">
@@ -3808,6 +3820,11 @@ async function startCreation() {
           <span class="msr">create_new_folder</span>
           <strong>Ordner anlegen</strong>
           <small>Zum Sortieren der Einträge</small>
+        </button>
+        <button type="button" class="choice" data-choice="import">
+          <span class="msr">download</span>
+          <strong>Importieren</strong>
+          <small>Passwörter und 2FA-Codes aus anderen Apps übernehmen</small>
         </button>
         <button type="button" class="choice" data-choice="camera" ${scannable ? '' : 'disabled'}>
           <span class="msr">qr_code_scanner</span>
@@ -3838,6 +3855,7 @@ async function startCreation() {
   if (choice === 'manual') { openEntryDialog(null); return; }
   if (choice === 'files') { openEntryDialog(null, {}, { mode: 'files' }); return; }
   if (choice === 'folder') { openFolderDialog(); return; }
+  if (choice === 'import') { importFromOtherApps(); return; }
 
   try {
     const value = choice === 'camera' ? await scanWithCamera() : await scanFromFile();
@@ -4022,6 +4040,99 @@ async function importMigration(accounts) {
 
   const skipped = accounts.length - created;
   banner(`${created} Einträge angelegt${skipped ? `, ${skipped} übersprungen (kein TOTP)` : ''}.`, 'success', 5000);
+}
+
+/* =========================================================
+   Import aus anderen Programmen (Formate: siehe import.js)
+   ========================================================= */
+
+function pickFile(accept) {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.addEventListener('change', () => resolve(input.files?.[0] ?? null));
+    input.click();
+  });
+}
+
+async function importFromOtherApps() {
+  if (state.locked) { banner('Erst die Datenbank entsperren.', 'info'); return; }
+
+  const file = await pickFile('.csv,.json,.txt,.2fas,.xml,.zip,text/csv,application/json,text/plain,text/xml,application/zip');
+  if (!file) return;
+
+  let result;
+  try { result = await parseImport(file); }
+  catch (err) { banner(`Import nicht möglich: ${err.message}`, 'error', 8000); return; }
+
+  // Was es schon gibt (gleicher Name, Benutzer und Adresse), wird ausgelassen —
+  // so schadet es nicht, denselben Export zweimal einzulesen.
+  const key = e => [e.name, e.username, e.url].map(v => String(v ?? '').trim().toLowerCase()).join('\u0001');
+  const known = new Set(state.entries.map(key));
+  const fresh = result.items.filter(i => !known.has(key(i)));
+  const dupes = result.items.length - fresh.length;
+
+  if (!fresh.length) {
+    banner(`Alle ${result.items.length} Einträge aus ${result.source} sind schon vorhanden.`, 'info', 6000);
+    return;
+  }
+
+  const withPw = fresh.filter(i => i.password).length;
+  const withTotp = fresh.filter(i => i.totp).length;
+  const folder = `Importiert/${result.source.replace(/\//g, '-')}`;
+
+  const res = await dialog({
+    title: `Import aus ${esc(result.source)}`,
+    content: `
+      <p class="dlg-note"><strong>${fresh.length}</strong> Einträge — ${withPw} mit Passwort, ${withTotp} mit 2FA-Code${
+        dupes ? `, ${dupes} schon vorhanden und ausgelassen` : ''}. Sie landen im Ordner <strong>${esc(folder)}</strong>.</p>
+      <ul class="import-list">
+        ${fresh.slice(0, 200).map(i => `<li><strong>${esc(i.name)}</strong><span>${esc(i.username)}${
+          i.totp ? ' · <span class="msr" title="2FA-Code">timer</span>' : ''}</span></li>`).join('')}
+        ${fresh.length > 200 ? `<li><span>… und ${fresh.length - 200} weitere</span></li>` : ''}
+      </ul>
+      <p class="dlg-note"><small>Die Exportdatei enthält alles im Klartext — danach am besten löschen.</small></p>`,
+    confirmText: `${fresh.length} Einträge importieren`,
+    cancelText: 'Abbrechen'
+  });
+  if (!(res?.submit ?? res)) return;
+
+  let created = 0;
+  const failed = [];
+  for (const i of fresh) {
+    try {
+      const passwordToken = i.password ? await vault.setSecret(null, i.password) : null;
+      const totpToken = i.totp ? await vault.setSecret(null, i.totp.secret) : null;
+      await vault.saveEntry({
+        id: null,
+        name: i.name,
+        folder: i.folder ? `${folder}/${i.folder.replace(/^\/+|\/+$/g, '')}` : folder,
+        username: i.username,
+        url: i.url, notes: i.notes, tags: i.tags,
+        passkey: false, expires: null,
+        hasPassword: Boolean(passwordToken), passwordToken,
+        hasTotp: Boolean(totpToken), totpToken,
+        totpConfig: i.totp ? { digits: i.totp.digits, period: i.totp.period, algorithm: i.totp.algorithm } : {},
+        attachments: []
+      });
+      created++;
+    } catch (err) {
+      failed.push(`${i.name}: ${err.message ?? err}`);
+    }
+  }
+
+  await vault.commit();
+  await refreshFromVault();
+  renderAll({ includeSettings: false });
+  vault.fetchIcons?.().catch?.(() => {});
+
+  if (failed.length) {
+    console.warn('Import: nicht übernommen', failed);
+    banner(`${created} importiert, ${failed.length} nicht übernommen (${esc(failed[0])}${failed.length > 1 ? ' …' : ''}).`, 'warning', 10000);
+  } else {
+    banner(`${created} Einträge aus ${result.source} importiert. Die Exportdatei jetzt am besten löschen.`, 'success', 8000);
+  }
 }
 
 /* =========================================================
@@ -5091,15 +5202,6 @@ async function saveAttachment(att) {
   } catch (err) {
     banner(`Speichern fehlgeschlagen: ${err.message}`, 'error', 6000);
   }
-}
-
-function fileIcon(type, name = '') {
-  if (type.startsWith('video/')) return 'movie';
-  if (type.startsWith('audio/')) return 'audio_file';
-  if (type === 'application/pdf') return 'picture_as_pdf';
-  if (/\.(zip|tar|gz|7z|rar)$/i.test(name)) return 'folder_zip';
-  if (/\.(txt|md|json|xml|csv)$/i.test(name) || type.startsWith('text/')) return 'description';
-  return 'draft';
 }
 
 function formatBytes(n) {

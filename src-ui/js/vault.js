@@ -123,9 +123,6 @@ export const forget = path => invoke('vault_forget', { path });
  * Die PIN gilt hier immer, sobald eine festgelegt ist: Zum Entsperren ist
  * sie ein Schlüssel, hier nur ein Nachweis.
  */
-export const confirmPresence = (reason, method = 'pin', secret = null) =>
-  invoke('confirm_presence', { reason, method, secret });
-
 /** Setzt die Ruhezeit der Selbstsperre neu. `0` schaltet sie ab. */
 export const setAutoLock = minutes => invoke('vault_set_auto_lock', { minutes });
 
@@ -253,15 +250,9 @@ export function reorderFolder(path, referencePath, position = 'before') {
    ---------------------------------------------------------
    Angelegt wird ein Passkey nie hier, sondern von der Gegenstelle: auf dem
    Desktop über den Native-Messaging-Host der Browser-Erweiterung, auf
-   Android über den CredentialProviderService. Diese Aufrufe sind die
-   Gegenstelle dazu — die Oberfläche zeigt nur an, was vorhanden ist.
+   Android über den CredentialProviderService. Die Oberfläche zeigt nur an,
+   was vorhanden ist.
    ========================================================= */
-
-export const listPasskeys = () => invoke('passkey_list');
-export const createPasskey = request => mutate('passkey_create', { request });
-export const assertPasskey = (rpId, challenge, credentialId = null, origin = null) =>
-  invoke('passkey_assert', { rpId, challenge, credentialId, origin });
-export const deletePasskey = credentialId => mutate('passkey_delete', { credentialId });
 
 /** Stellt sicher, dass es den Passkey-Ordner gibt. */
 export async function ensurePasskeyFolder() {

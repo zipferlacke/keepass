@@ -34,7 +34,6 @@ export function selectedIds() {
 
 export const isSelected = id => selected.has(id);
 export const selectionActive = () => selected.size > 0;
-export const selectionFolder = () => folder;
 
 export function clearSelection() {
   if (!selected.size) return;

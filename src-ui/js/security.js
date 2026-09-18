@@ -195,15 +195,6 @@ export async function breachAnalytics(email) {
 
 const analyticsCache = new Map();
 
-/** Zusatzdetails (Datum, betroffene Daten) zu einem Leak-Namen. */
-export async function breachDetails(name) {
-  try {
-    const res = await fetch(`https://api.xposedornot.com/v1/breach-analytics?domain=${encodeURIComponent(name)}`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
-}
-
 /* =========================================================
    Hinweis: Die Erkennung mehrfach genutzter Passwörter ist in den
    Kern gewandert (vault.reusedIds) — dort liegen die Werte, hier

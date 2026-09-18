@@ -2,7 +2,7 @@
  * qr.js — QR-Codes lesen und erzeugen.
  *
  * Die Bilderfassung passiert im Webview (getUserMedia + Canvas), die
- * Dekodierung immer im Kern über `decode_qr_bytes` (rqrr). Das ist der
+ * Dekodierung im Kern (ZXing über rxing, dann rqrr). Das ist der
  * einzige Weg, der überall funktioniert — die native BarcodeDetector-API
  * fehlt genau dort, wo die App läuft: in WebKitGTK und in Firefox.
  *
@@ -12,20 +12,11 @@
 import { isTauri, isMobile, invoke } from './platform.js';
 import { renderQrCode } from './ui.js';
 
-const MAX_EDGE = 800;        // Frames vor dem Senden herunterskalieren
 const SCAN_INTERVAL_MS = 60;  // Pause zwischen zwei Prüfungen; die Prüfung selbst dauert länger
 
 /** Kann in dieser Umgebung überhaupt gescannt werden? */
 export function scannerAvailable() {
   return isTauri;
-}
-
-export async function cameraAvailable() {
-  if (!navigator.mediaDevices?.getUserMedia) return false;
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    return devices.some(d => d.kind === 'videoinput');
-  } catch { return false; }
 }
 
 /* =========================================================
@@ -113,22 +104,6 @@ function toBase64(bytes) {
   return btoa(text);
 }
 
-/** Zeichnet eine Bildquelle skaliert auf ein Canvas und liefert JPEG-Bytes. */
-async function sourceToBytes(source, width, height) {
-  const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
-  const w = Math.max(1, Math.round(width * scale));
-  const h = Math.max(1, Math.round(height * scale));
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext('2d', { willReadFrequently: true }).drawImage(source, 0, 0, w, h);
-
-  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
-  if (!blob) throw new Error('Bild konnte nicht verarbeitet werden.');
-  return new Uint8Array(await blob.arrayBuffer());
-}
-
 /* =========================================================
    Bilddatei scannen
    ========================================================= */
@@ -188,7 +163,9 @@ export async function scanPhoto(file) {
  */
 const DESKTOP_ATTEMPTS = [
   { label: 'Standardkamera', constraints: { video: true, audio: false } },
-  { label: 'rückwärtige Kamera', constraints: { video: { facingMode: 'environment' }, audio: false } }
+  { label: 'rückwärtige Kamera', constraints: { video: { facingMode: 'environment' }, audio: false } },
+  // Anderes Format erzwingen — manche Treiber liefern nur im Standardformat Schwarz.
+  { label: 'Kamera 640×480', constraints: { video: { width: { exact: 640 }, height: { exact: 480 } }, audio: false } }
 ];
 
 /**
@@ -225,6 +202,29 @@ function waitForFrames(video, timeout) {
 }
 
 /**
+ * Kommt wirklich ein Bild, oder nur Schwarz? Manche Kameras (etwa unter
+ * Linux, wenn der Treiber das Format nicht umsetzt) liefern Bilder mit
+ * Maßen, aber ohne Inhalt. Bis zu 2,5 s wird gewartet — die ersten Bilder
+ * sind oft dunkel, bis die Belichtung steht.
+ */
+async function hasPicture(video) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const deadline = Date.now() + 2500;
+  while (Date.now() < deadline) {
+    ctx.drawImage(video, 0, 0, 32, 32);
+    const px = ctx.getImageData(0, 0, 32, 32).data;
+    let max = 0;
+    for (let i = 0; i < px.length; i += 4) max = Math.max(max, px[i], px[i + 1], px[i + 2]);
+    if (max > 24) return true;
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return false;
+}
+
+/**
  * Dauerfokus einschalten, wo die Kamera ihn kann. Ohne ihn bleibt die
  * Rückkamera eines Telefons oft auf „unendlich" stehen — ein Code eine
  * Handbreit vor der Linse ist dann nie scharf genug.
@@ -255,6 +255,7 @@ export async function scanCamera(video) {
       video.srcObject = candidate;
       await video.play();
       await waitForFrames(video, FIRST_FRAME_TIMEOUT_MS);
+      if (!await hasPicture(video)) throw new Error('liefert nur ein schwarzes Bild');
 
       stream = candidate;
       break;
@@ -268,7 +269,7 @@ export async function scanCamera(video) {
   // Ohne Bild lieber laut scheitern als eine schwarze Fläche zeigen: Sonst
   // sitzt man davor und weiß nicht, ob es lädt oder nicht geht.
   if (!stream) {
-    throw new Error(`Kein Kamerabild. ${problems.join(' — ')}`);
+    throw new Error(`Kein Kamerabild. ${problems.join(' — ')}. Stattdessen geht „QR-Code aus Bild“ mit einem Screenshot oder Foto.`);
   }
 
   await autofocus(stream);
@@ -286,11 +287,26 @@ export async function scanCamera(video) {
   let round = 0;
   let failures = 0;
 
+  // Wo der Webview den Barcode-Leser des Systems anbietet (Android), liest
+  // der direkt aus der Vorschau — schneller als jedes Bild zum Kern zu
+  // schicken. Der Kern bleibt der Weg für alle anderen und als Rückfall.
+  let detector = null;
+  try {
+    if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+  } catch { detector = null; }
+
   const promise = new Promise((resolve, reject) => {
     const tick = async () => {
       if (stopped) return reject(new Error('abgebrochen'));
 
       try {
+        if (detector && video.videoWidth) {
+          try {
+            const codes = await detector.detect(video);
+            const hit = codes.find(c => c.rawValue)?.rawValue;
+            if (hit) { stop(); return resolve(hit); }
+          } catch { detector = null; }
+        }
         if (video.videoWidth && video.videoHeight) {
           // Reihum verschiedene Ausschnitte, siehe CROPS.
           const value = await decodeFrame(video, CROPS[round++ % CROPS.length]);
