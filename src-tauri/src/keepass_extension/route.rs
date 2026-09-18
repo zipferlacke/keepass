@@ -347,9 +347,35 @@ pub fn uninstall(program: &Path) -> Vec<Outcome> {
     out
 }
 
-/// Wo unsere eigene ausführbare Datei liegt.
+/// Wo unsere eigene ausführbare Datei liegt — so, wie der Browser sie
+/// starten kann.
 pub fn program_path() -> Result<PathBuf, String> {
+    #[cfg(target_os = "linux")]
+    if let Some(launcher) = flatpak_launcher() {
+        return Ok(launcher);
+    }
     std::env::current_exe().map_err(|e| format!("Eigener Pfad nicht ermittelbar: {e}"))
+}
+
+/// Im Flatpak ist `current_exe()` `/app/bin/wkeepass` — ein Pfad, den es
+/// nur in der Sandbox gibt. Der Browser draußen startet stattdessen den
+/// Starter, den Flatpak unter `exports/bin/<Kennung>` ablegt; der ruft
+/// `flatpak run` und reicht die Argumente durch.
+///
+/// Wo die Installation liegt (System: `/var/lib/flatpak`, Benutzer:
+/// `~/.local/share/flatpak`), verrät `/.flatpak-info` über `app-path`.
+#[cfg(target_os = "linux")]
+fn flatpak_launcher() -> Option<PathBuf> {
+    let id = std::env::var("FLATPAK_ID").ok()?;
+    let info = std::fs::read_to_string("/.flatpak-info").ok()?;
+    launcher_from_info(&id, &info)
+}
+
+#[cfg(target_os = "linux")]
+fn launcher_from_info(id: &str, info: &str) -> Option<PathBuf> {
+    let app_path = info.lines().find_map(|l| l.trim().strip_prefix("app-path="))?;
+    let (root, _) = app_path.split_once(&format!("/app/{id}/"))?;
+    Some(PathBuf::from(root).join("exports/bin").join(id))
 }
 
 /// Windows: der Registry-Eintrag, über den ein Browser das Manifest findet.
@@ -436,6 +462,13 @@ pub fn socket_path() -> PathBuf {
     #[cfg(not(windows))]
     {
         if let Some(dir) = std::env::var_os("XDG_RUNTIME_DIR") {
+            // Im Flatpak bekommt jede gestartete Instanz ein eigenes, leeres
+            // XDG_RUNTIME_DIR. Gemeinsam ist nur app/<Kennung>/ — dort
+            // treffen sich die App und der vom Browser gestartete Teil.
+            #[cfg(target_os = "linux")]
+            if let Ok(id) = std::env::var("FLATPAK_ID") {
+                return PathBuf::from(dir).join("app").join(id).join(CHANNEL);
+            }
             return PathBuf::from(dir).join(CHANNEL);
         }
         // macOS kennt XDG_RUNTIME_DIR nicht, hat aber ein eigenes
@@ -494,6 +527,26 @@ mod tests {
         let cr = build(Flavour::Chromium, program, None);
         assert!(cr.get("allowed_origins").is_some());
         assert!(cr.get("allowed_extensions").is_none(), "Chromium kennt allowed_extensions nicht");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn flatpak_starter_aus_der_installation() {
+        let system = "[Application]\nname=de.wuefl.wkeepass\n\n[Instance]\n\
+            app-path=/var/lib/flatpak/app/de.wuefl.wkeepass/x86_64/master/abc123/files\n";
+        assert_eq!(
+            launcher_from_info("de.wuefl.wkeepass", system),
+            Some(PathBuf::from("/var/lib/flatpak/exports/bin/de.wuefl.wkeepass"))
+        );
+
+        let user = "[Instance]\n\
+            app-path=/home/anna/.local/share/flatpak/app/de.wuefl.wkeepass/aarch64/master/f00/files\n";
+        assert_eq!(
+            launcher_from_info("de.wuefl.wkeepass", user),
+            Some(PathBuf::from("/home/anna/.local/share/flatpak/exports/bin/de.wuefl.wkeepass"))
+        );
+
+        assert_eq!(launcher_from_info("de.wuefl.wkeepass", "[Instance]\n"), None);
     }
 
     #[test]
