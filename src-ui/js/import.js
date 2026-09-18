@@ -408,36 +408,72 @@ function sourceOf(header, fileName) {
   return fileName?.replace(/\.[^.]+$/, '') || 'CSV';
 }
 
+/** Was eine CSV-Spalte bedeuten kann — für die Zuordnung im Import-Dialog. */
+export const CSV_FIELDS = [
+  ['', 'Nicht übernehmen'],
+  ['name', 'Name'],
+  ['url', 'Adresse'],
+  ['username', 'Benutzername'],
+  ['email', 'E-Mail'],
+  ['password', 'Passwort'],
+  ['totp', '2FA-Schlüssel'],
+  ['notes', 'Notizen'],
+  ['folder', 'Ordner'],
+  ['tags', 'Tags'],
+  ['extra', 'An Notizen anhängen']
+];
+
+/**
+ * CSV wird nicht nur gelesen, sondern bleibt samt Zuordnung im Ergebnis
+ * (`csv`): Erkennt die Spaltennamen niemand — ein Export aus Excel, ein
+ * eigenes Programm —, legt man im Dialog selbst fest, welche Spalte was ist,
+ * und `itemsFromCsv` baut die Einträge neu.
+ */
 function fromCsv(text, fileName) {
   const rows = parseCsv(text);
   if (rows.length < 2) throw new Error('In der CSV-Datei stehen keine Einträge.');
 
-  const header = rows[0].map(h => h.trim().toLowerCase());
-  const col = {};
+  const header = rows[0].map(h => h.trim());
+  const lower = header.map(h => h.toLowerCase());
+  const mapping = header.map(() => '');
   for (const [key, names] of Object.entries(COLUMNS)) {
-    const i = header.findIndex(h => names.includes(h));
-    if (i >= 0) col[key] = i;
-  }
-  if (col.password === undefined && col.totp === undefined) {
-    throw new Error('Keine Spalte „password“ oder „totp“ gefunden — ist das ein Export aus einem Passwortmanager?');
+    const i = lower.findIndex((h, n) => names.includes(h) && !mapping[n]);
+    if (i >= 0) mapping[i] = key;
   }
 
+  const csv = { header, rows: rows.slice(1), mapping };
+  return { source: sourceOf(lower, fileName), items: itemsFromCsv(csv, mapping), csv };
+}
+
+/** Baut die Einträge einer CSV nach `mapping` (je Spalte ein Feld aus `CSV_FIELDS`). */
+export function itemsFromCsv(csv, mapping) {
   const items = [];
-  for (const r of rows.slice(1)) {
-    const get = k => (col[k] !== undefined ? (r[col[k]] ?? '').trim() : '');
+  for (const r of csv.rows) {
+    const values = {};
+    const extra = [];
+    mapping.forEach((field, i) => {
+      const v = field === 'password' ? (r[i] ?? '') : (r[i] ?? '').trim();
+      if (!field || !v) return;
+      if (field === 'extra') extra.push(`${csv.header[i] || `Spalte ${i + 1}`}: ${v}`);
+      else (values[field] ??= []).push(v);
+    });
+    const first = k => values[k]?.[0] ?? '';
+
     // KeePassXC: Gruppe beginnt mit dem Namen der Wurzel — die fällt weg
-    const folder = get('folder').replace(/^Root\/?/i, '');
+    const folder = first('folder').replace(/^Root\/?/i, '');
+    const notes = [...(values.notes ?? []), ...extra].join('\n');
+
     const it = item({
-      name: get('name'),
-      username: get('username') || get('email'),
-      password: r[col.password] ?? '',
-      url: get('url'),
-      notes: get('notes'),
+      name: first('name'),
+      username: first('username') || first('email'),
+      password: first('password'),
+      url: first('url'),
+      notes,
       folder,
-      tags: get('tags').split(/[,;]/).map(t => t.trim()).filter(Boolean),
-      totp: totpFrom(get('totp'))
+      tags: (values.tags ?? []).flatMap(t => t.split(/[,;]/)).map(t => t.trim()).filter(Boolean),
+      totp: totpFrom(first('totp'))
     });
     if (it.password || it.totp || it.username || it.url) items.push(it);
   }
-  return { source: sourceOf(header, fileName), items };
+  return items;
 }

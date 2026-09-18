@@ -44,9 +44,12 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 # aufeinanderfolgen ("duplicate field `String`"). Der Eingriff steckt in
 # vendor/keepass/src/format/xml_db/normalise.rs. Dazu ein Fehler beim
 # Schreiben: Anhang-Verweise zeigten nach Ersetzen oder Löschen auf die
-# falsche Stelle (vendor/keepass/src/format/xml_db/entry.rs) — sonst
-# unverändert.
-keepass = { path = "vendor/keepass", features = ["totp", "save_kdbx4"] }
+# falsche Stelle (vendor/keepass/src/format/xml_db/entry.rs). Und im
+# Abgleich zweier Stände (vendor/keepass/src/db/merge.rs): Anhänge werden
+# übernommen statt als fremde Nummern mitkopiert, und der überholte Stand
+# eines Eintrags landet auch dann im Verlauf, wenn der noch leer war —
+# sonst unverändert.
+keepass = { path = "vendor/keepass", features = ["totp", "save_kdbx4", "_merge"] }
 chrono = "0.4"
 
 # Versiegeltes Master-Passwort (PIN / Biometrie)

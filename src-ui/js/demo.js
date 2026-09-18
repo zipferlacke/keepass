@@ -309,6 +309,10 @@ const commands = {
     return true;
   },
 
+  async vault_sync() {
+    return false;
+  },
+
   async vault_lock() {
     data = null;
     loading = null;

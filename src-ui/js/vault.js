@@ -150,6 +150,14 @@ export async function commit() {
 
 export function hasUnsavedChanges() { return dirty; }
 
+/** Holt Änderungen, die ein anderes Gerät in die Datei geschrieben hat. */
+export async function sync() {
+  if (!opened) return false;
+  const changed = await invoke('vault_sync');
+  if (changed) await refresh();
+  return changed;
+}
+
 /** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
 export const security = () => invoke('vault_security');
 

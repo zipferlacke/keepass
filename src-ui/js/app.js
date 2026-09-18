@@ -7,7 +7,7 @@ import { avatarMarkup, hostFromUrl } from './icons.js';
 import * as qr from './qr.js';
 import * as preview from './preview.js';
 import { enableDragMove } from './dragmove.js';
-import { parseImport } from './import.js';
+import { parseImport, itemsFromCsv, CSV_FIELDS } from './import.js';
 import * as pick from './multiselect.js';
 import { isTauri, isMobile, invoke, unlockMethods, pickDatabaseFile, pickSavePath, listen } from './platform.js';
 import { dialog, banner, closeHostDialog, tableview, selectPicker} from './ui.js';
@@ -95,6 +95,21 @@ async function boot() {
     await refreshFromVault();
     renderAll({ includeSettings: false });
   });
+
+  // Ein anderes Gerät hat in die Datei geschrieben, und der Kern hat den
+  // Stand beim Speichern eingemischt — auch bei Browser und Autofill.
+  await listen('vault-merged', () => takeForeign());
+
+  // Fremde Änderungen holen: sobald die App wieder vorn ist, und jede
+  // Minute, solange sie sichtbar ist. Ist die Datei unverändert, schaut der
+  // Kern nur aufs Änderungsdatum.
+  const syncNow = () => {
+    if (!state.locked && document.visibilityState === 'visible') syncFromFile();
+  };
+  document.addEventListener('visibilitychange', syncNow);
+  window.addEventListener('focus', syncNow);
+  setInterval(syncNow, 60_000);
+
   await listen('autofill-saved', ev => {
     const n = Number(ev?.payload ?? 0);
     banner(n === 1 ? 'Ein Zugang aus dem Autofill wurde gespeichert.' : `${n} Zugänge aus dem Autofill wurden gespeichert.`, 'success', 5000);
@@ -258,6 +273,33 @@ async function bindBrowserRequests() {
 }
 
 /** Holt Metadaten, Stärkewerte und Mehrfachnutzung neu aus dem Kern. */
+let syncing = false;
+let lastSyncError = '';
+
+/** Holt, was ein anderes Gerät in die Datei geschrieben hat, und mischt es ein. */
+async function syncFromFile() {
+  if (syncing) return;
+  syncing = true;
+  try {
+    if (await vault.sync()) await takeForeign();
+    lastSyncError = '';
+  } catch (err) {
+    // Jede Minute dieselbe Meldung wäre nur lästig.
+    const message = err?.message ?? String(err);
+    if (message !== lastSyncError) banner(message, 'error', 10000);
+    lastSyncError = message;
+  } finally {
+    syncing = false;
+  }
+}
+
+async function takeForeign() {
+  if (state.locked) return;
+  await refreshFromVault();
+  renderAll({ includeSettings: false });
+  banner('Änderungen von einem anderen Gerät übernommen.', 'success', 4000);
+}
+
 async function refreshFromVault() {
   state.entries = await vault.listEntries();
   state.strength = settings.get('checks.passwordStrength', true)
@@ -3018,12 +3060,6 @@ function settingsMarkup() {
           <div class="setting-control"><button type="button" class="button" id="btn-import-entries">Importieren …</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Automatisch synchronisieren</strong></div>
-          <div class="setting-control">
-            <input type="checkbox" data-shape="toggle" data-set-db="autoSync" name="db.autoSync" ${dbSettings.autoSync ? 'checked' : ''}>
-          </div>
-        </div>
-        <div class="setting">
           <div class="setting-label"><strong>Warnen vor Ablauf</strong><small>Tage im Voraus</small></div>
           <div class="setting-control">
             <input type="number" min="1" max="180" data-set-db="expiryWarnDays" name="db.expiryWarnDays" value="${dbSettings.expiryWarnDays ?? 14}">
@@ -4142,33 +4178,94 @@ async function importFromOtherApps() {
   // so schadet es nicht, denselben Export zweimal einzulesen.
   const key = e => [e.name, e.username, e.url].map(v => String(v ?? '').trim().toLowerCase()).join('\u0001');
   const known = new Set(state.entries.map(key));
-  const fresh = result.items.filter(i => !known.has(key(i)));
-  const dupes = result.items.length - fresh.length;
+  const folder = `Importiert/${result.source.replace(/\//g, '-')}`;
 
-  if (!fresh.length) {
-    banner(`Alle ${result.items.length} Einträge aus ${result.source} sind schon vorhanden.`, 'info', 6000);
+  let items = result.items;
+  let fresh = [];
+  let dupes = 0;
+  const count = () => {
+    fresh = items.filter(i => !known.has(key(i)));
+    dupes = items.length - fresh.length;
+  };
+  count();
+
+  // Bei CSV lässt sich festlegen, welche Spalte was bedeutet. Ohne erkannte
+  // Passwort- oder 2FA-Spalte ist die Zuordnung gleich aufgeklappt.
+  const csv = result.csv;
+  const mapping = csv ? [...csv.mapping] : null;
+  const needsMapping = csv && !mapping.some(f => f === 'password' || f === 'totp');
+
+  if (!csv && !fresh.length) {
+    banner(`Alle ${items.length} Einträge aus ${result.source} sind schon vorhanden.`, 'info', 6000);
     return;
   }
 
-  const withPw = fresh.filter(i => i.password).length;
-  const withTotp = fresh.filter(i => i.totp).length;
-  const folder = `Importiert/${result.source.replace(/\//g, '-')}`;
-
-  const res = await dialog({
-    title: `Import aus ${esc(result.source)}`,
-    content: `
+  const summary = () => {
+    if (!items.length) {
+      return `<p class="dlg-note">Noch keine Einträge — ordne unten mindestens Passwort, Benutzername, Adresse oder 2FA-Schlüssel einer Spalte zu.</p>`;
+    }
+    const withPw = fresh.filter(i => i.password).length;
+    const withTotp = fresh.filter(i => i.totp).length;
+    return `
       <p class="dlg-note"><strong>${fresh.length}</strong> Einträge — ${withPw} mit Passwort, ${withTotp} mit 2FA-Code${
         dupes ? `, ${dupes} schon vorhanden und ausgelassen` : ''}. Sie landen im Ordner <strong>${esc(folder)}</strong>.</p>
       <ul class="import-list">
         ${fresh.slice(0, 200).map(i => `<li><strong>${esc(i.name)}</strong><span>${esc(i.username)}${
           i.totp ? ' · <span class="msr" title="2FA-Code">timer</span>' : ''}</span></li>`).join('')}
         ${fresh.length > 200 ? `<li><span>… und ${fresh.length - 200} weitere</span></li>` : ''}
-      </ul>
+      </ul>`;
+  };
+
+  // Beispielwert je Spalte — Passwörter und 2FA-Schlüssel nur als Punkte.
+  const sample = i => {
+    const v = csv.rows.map(r => (r[i] ?? '').trim()).find(Boolean) ?? '';
+    if (!v) return '—';
+    if (mapping[i] === 'password' || mapping[i] === 'totp') return '••••••';
+    return v.length > 40 ? `${v.slice(0, 40)}…` : v;
+  };
+  const columns = csv ? `
+      <details class="import-mapping" ${needsMapping ? 'open' : ''}>
+        <summary>Spalten zuordnen</summary>
+        <div class="import-columns">
+          ${csv.header.map((h, i) => `
+            <div class="import-column">
+              <span><strong>${esc(h || `Spalte ${i + 1}`)}</strong><small data-sample="${i}">${esc(sample(i))}</small></span>
+              <select data-col="${i}" data-sp-picker data-sp-search="false" aria-label="${esc(h || `Spalte ${i + 1}`)}">
+                ${CSV_FIELDS.map(([v, label]) => `<option value="${v}" ${mapping[i] === v ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+              </select>
+            </div>`).join('')}
+        </div>
+      </details>` : '';
+
+  const confirmLabel = () => (fresh.length ? `${fresh.length} Einträge importieren` : 'Importieren');
+
+  const res = await dialog({
+    title: `Import aus ${esc(result.source)}`,
+    content: `
+      <div id="import-summary">${summary()}</div>
+      ${columns}
       <p class="dlg-note"><small>Die Exportdatei enthält alles im Klartext — danach am besten löschen.</small></p>`,
-    confirmText: `${fresh.length} Einträge importieren`,
-    cancelText: 'Abbrechen'
+    confirmText: confirmLabel(),
+    cancelText: 'Abbrechen',
+    onInsert: id => {
+      const host = document.getElementById(String(id));
+      const submit = host?.querySelector('.dialog_submit');
+      if (submit) submit.disabled = !fresh.length;
+      host?.querySelectorAll('select[data-col]').forEach(sel => sel.addEventListener('change', () => {
+        const i = Number(sel.dataset.col);
+        mapping[i] = sel.value;
+        items = itemsFromCsv(csv, mapping);
+        count();
+        host.querySelector('#import-summary').innerHTML = summary();
+        host.querySelector(`[data-sample="${i}"]`).textContent = sample(i);
+        if (submit) {
+          submit.textContent = confirmLabel();
+          submit.disabled = !fresh.length;
+        }
+      }));
+    }
   });
-  if (!(res?.submit ?? res)) return;
+  if (!(res?.submit ?? res) || !fresh.length) return;
 
   let created = 0;
   const failed = [];

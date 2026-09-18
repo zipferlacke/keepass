@@ -41,7 +41,10 @@
                 "Selbstsperre greift nicht mehr mitten im Lesen",
                 "Sicherheitscheck: keine Auswahl und kein Verschieben mehr in den Befunden",
                 "Einträge heißen automatisch wie der Dienst (z. B. „GitHub“) statt nach ihrer Adresse – abschaltbar in den Einstellungen",
-                "Einstellungen: Änderungsdatum der Datenbankdatei – auch bei Dateien aus der Cloud"
+                "Einstellungen: Änderungsdatum der Datenbankdatei – auch bei Dateien aus der Cloud",
+                "Abgleich über die Cloud: Änderungen anderer Geräte werden Eintrag für Eintrag zusammengeführt statt das Speichern zu blockieren – immer aktiv, der ältere Stand bleibt im Verlauf",
+                "Import aus CSV: Spalten lassen sich selbst zuordnen, übrige Spalten auf Wunsch in die Notizen",
+                "Datenbanken mit Schlüsseldatei behalten sie beim Speichern"
             ]
         },
         {

@@ -4,13 +4,19 @@
 //! types in this module describe what a merge changed, via the returned
 //! [`MergeLog`].
 
-use std::{collections::HashSet, ops::Deref};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Deref,
+};
 
 use chrono::NaiveDateTime;
 use thiserror::Error;
 
 use crate::{
-    db::{CustomIconId, Entry, EntryId, Group, GroupId, GroupRef, History, MoveGroupError, Times},
+    db::{
+        Attachment, AttachmentId, CustomIconId, Entry, EntryId, Group, GroupId, GroupRef, History, MoveGroupError,
+        Times,
+    },
     Database,
 };
 
@@ -85,11 +91,107 @@ impl Database {
     /// This function will use the UUIDs to detect what entries and groups are the same.
     pub fn merge(&mut self, other: &Database) -> Result<MergeLog, MergeError> {
         let mut log = MergeLog::default();
+
+        // Attachment IDs are indices into each database's own pool. Rewrite
+        // `other` so that its entries refer to `self`'s pool before comparing
+        // or copying anything.
+        let other = &adopt_attachments(self, other);
+
         merge_icons(self, other, &mut log)?;
         merge_groups(self, other, &mut log)?;
 
+        relink_attachments(self);
         Ok(log)
     }
+}
+
+/// Return a copy of `source` whose attachment IDs point into `dest`'s pool.
+///
+/// Attachments whose data already exists in `dest` map to that attachment;
+/// all others are added to `dest`'s pool (unreferenced until the merge links
+/// them, see [`relink_attachments`]).
+fn adopt_attachments(dest: &mut Database, source: &Database) -> Database {
+    let mut mapping: HashMap<AttachmentId, AttachmentId> = HashMap::new();
+
+    let mut source_ids: Vec<AttachmentId> = source.attachments.keys().copied().collect();
+    source_ids.sort_by_key(|id| id.id());
+
+    for source_id in source_ids {
+        #[allow(clippy::unwrap_used)] // id comes from the map itself
+        let data = &source.attachments.get(&source_id).unwrap().data;
+
+        let mut existing: Vec<AttachmentId> = dest
+            .attachments
+            .iter()
+            .filter(|(_, a)| &a.data == data)
+            .map(|(id, _)| *id)
+            .collect();
+        existing.sort_by_key(|id| id.id());
+
+        let dest_id = match existing.first() {
+            Some(id) => *id,
+            None => {
+                let id = AttachmentId::next_free(dest);
+                dest.attachments.insert(
+                    id,
+                    Attachment {
+                        id,
+                        entries: HashSet::new(),
+                        data: data.clone(),
+                    },
+                );
+                id
+            }
+        };
+        mapping.insert(source_id, dest_id);
+    }
+
+    let mut adopted = source.clone();
+    let remap = |entry: &mut Entry| {
+        entry.attachments = entry
+            .attachments
+            .iter()
+            .filter_map(|(name, id)| mapping.get(id).map(|new| (name.clone(), *new)))
+            .collect();
+    };
+    for entry in adopted.entries.values_mut() {
+        remap(entry);
+        if let Some(history) = entry.history.as_mut() {
+            history.entries.iter_mut().for_each(&remap);
+        }
+    }
+    adopted.attachments = mapping
+        .values()
+        .filter_map(|id| dest.attachments.get(id).map(|a| (*id, a.clone())))
+        .collect();
+
+    adopted
+}
+
+/// Rebuild the back-references from attachments to the entries (and history
+/// versions) using them, and drop attachments that nothing refers to anymore.
+fn relink_attachments(db: &mut Database) {
+    for attachment in db.attachments.values_mut() {
+        attachment.entries.clear();
+    }
+
+    let mut links: Vec<(AttachmentId, EntryId, Option<usize>)> = Vec::new();
+    for (entry_id, entry) in &db.entries {
+        links.extend(entry.attachments.values().map(|id| (*id, *entry_id, None)));
+        if let Some(history) = &entry.history {
+            for (index, version) in history.entries.iter().enumerate() {
+                links.extend(version.attachments.values().map(|id| (*id, *entry_id, Some(index))));
+            }
+        }
+    }
+
+    for (attachment_id, entry_id, index) in links {
+        if let Some(attachment) = db.attachments.get_mut(&attachment_id) {
+            attachment.entries.insert((entry_id, index));
+        }
+    }
+
+    db.attachments.retain(|_, a| !a.entries.is_empty());
 }
 
 /// Get the last update time (modification or location change) of a group, considering its entries and subgroups.
@@ -552,13 +654,15 @@ fn merge_entries(dest_db: &mut Database, source_db: &Database, log: &mut MergeLo
             .or(source_entry.times.location_changed);
 
         if source_last_modification > dest_last_modification {
-            // add the previous dest entry to history if it has diverged
-            if let Some(last_history_entry) = merged_history.entries.first() {
-                if have_entries_diverged(&dest_entry, last_history_entry) {
-                    let mut dest_entry_for_history = dest_entry.deref().clone();
-                    dest_entry_for_history.history = None;
-                    merged_history.add_entry(dest_entry_for_history);
-                }
+            // add the previous dest entry to history if it has diverged (or there is no history yet)
+            let keep = merged_history
+                .entries
+                .first()
+                .is_none_or(|last_history_entry| have_entries_diverged(&dest_entry, last_history_entry));
+            if keep {
+                let mut dest_entry_for_history = dest_entry.deref().clone();
+                dest_entry_for_history.history = None;
+                merged_history.add_entry(dest_entry_for_history);
             }
 
             // The source entry is more recent than the destination entry. Replace dest with source.
@@ -573,7 +677,9 @@ fn merge_entries(dest_db: &mut Database, source_db: &Database, log: &mut MergeLo
             dest_entry.override_url = source_entry.override_url.clone();
             dest_entry.quality_check = source_entry.quality_check;
 
-            // TODO: attachments and custom_icons_id
+            dest_entry.attachments = source_entry.attachments.clone();
+
+            // TODO: custom_icons_id
 
             log.events.push(MergeEvent {
                 target: MergeEventTarget::Entry(id),

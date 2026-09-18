@@ -229,6 +229,7 @@ pub fn run() {
             database::vault_list_entries,
             database::vault_folders,
             database::vault_commit,
+            database::vault_sync,
             database::vault_security,
             database::vault_set_security,
             database::vault_lock,

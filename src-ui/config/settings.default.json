@@ -6,8 +6,7 @@
   },
   "database": {
     "current": null,
-    "recent": [],
-    "autoSync": true
+    "recent": []
   },
   "unlock": {
     "biometrics": true,
@@ -38,7 +37,6 @@
   },
   "databases": [],
   "databaseDefaults": {
-    "autoSync": true,
     "iconsDownload": true,
     "expiryWarnDays": 14
   },
