@@ -3619,12 +3619,12 @@ async function renderBrowserSection() {
         <small>${status.listening ? 'Aktiv' : 'Nicht aktiv'} — <code>${esc(status.socket)}</code></small>
       </div>
     </div>
-    <div class="setting">
+    <div class="setting" data-stacked>
       <div class="setting-label">
         <strong>Erweiterung</strong>
-        <small>KeePassXC-Browser — WKeePass spricht dasselbe Protokoll.</small>
+        <small>KeePassXC-Browser — WKeePass spricht dasselbe Protokoll, deshalb gibt es keine eigene.</small>
       </div>
-      <div class="setting-control finding-actions" style="margin:0">
+      <div class="setting-control store-buttons">
         ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
       </div>
     </div>
@@ -3632,6 +3632,7 @@ async function renderBrowserSection() {
       <div class="setting-label">
         <strong>Eingetragen bei</strong>
         <small>${esc(eingerichtet)}</small>
+        <small>„Einrichten“ legt je Browser eine Datei ab, die auf WKeePass zeigt — ohne sie darf der Browser WKeePass nicht starten.</small>
       </div>
       <div class="setting-control">
         <button type="button" class="button" id="btn-browser-install">Einrichten</button>
@@ -3696,31 +3697,35 @@ async function showBrowserSetupPage() {
       card.innerHTML = `
         ${BRAND_MARK}
         <h2>Passwörter direkt im Browser</h2>
-        <p class="lock-sub">Mit der Erweiterung <b>KeePassXC-Browser</b> füllt WKeePass Anmeldungen auf Webseiten aus,
+        <p class="lock-sub">Mit einer Browser-Erweiterung füllt WKeePass Anmeldungen auf Webseiten aus,
           bietet neue Zugänge zum Speichern an und meldet dich mit Passkeys an. Die Passwörter bleiben in deiner Datei —
-          der Browser fragt jedes Mal bei WKeePass nach.</p>
+          der Browser fragt jedes Mal bei WKeePass nach. Dafür braucht es alle drei Schritte.</p>
 
         <div class="settings-card">
           <div class="setting">
-            <div class="setting-label"><strong>1. Bei den Browsern eintragen</strong>
+            <div class="setting-label"><strong>1. WKeePass bei den Browsern anmelden</strong>
+              <small>Notwendig: Ein Browser darf nur Programme starten, die bei ihm eingetragen sind. Der Knopf legt dafür
+                je Browser eine kleine Datei ab, die auf WKeePass zeigt — am Browser selbst ändert sich nichts.
+                Ist KeePassXC installiert, spricht die Erweiterung danach mit WKeePass statt mit KeePassXC.</small>
               <small>${found.length
-                ? found.map(b => `${esc(b)}${done.includes(b) ? ' ✓' : ''}`).join(' · ')
+                ? `Gefunden: ${found.map(b => `${esc(b)}${done.includes(b) ? ' ✓' : ''}`).join(' · ')}`
                 : 'Kein Browser gefunden — nach der Installation eines Browsers geht das in den Einstellungen.'}</small></div>
             <div class="setting-control">${found.length && done.length === found.length
               ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Erledigt</span>`
               : `<button type="button" class="button hightlight" id="bs-install" ${found.length ? '' : 'disabled'}>Eintragen</button>`}</div>
           </div>
-          <div class="setting">
-            <div class="setting-label"><strong>2. Erweiterung installieren</strong>
-              <small>Kostenlos aus dem Store deines Browsers.</small></div>
-            <div class="setting-control finding-actions" style="margin:0">
+          <div class="setting" data-stacked>
+            <div class="setting-label"><strong>2. Erweiterung KeePassXC-Browser installieren</strong>
+              <small>Notwendig: Die Erweiterung stammt von KeePassXC und ist kostenlos. WKeePass spricht dieselbe Sprache,
+                deshalb gibt es keine eigene. Der Knopf öffnet die Seite im Store deines Browsers.</small></div>
+            <div class="setting-control store-buttons">
               ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
             </div>
           </div>
           <div class="setting">
             <div class="setting-label"><strong>3. Im Browser verbinden</strong>
-              <small>Browser neu starten, auf das Symbol der Erweiterung klicken und „Verbinden“ wählen.
-                WKeePass fragt dann nach einem Namen für diesen Browser.</small></div>
+              <small>Einmal je Browser: Browser neu starten, auf das Symbol der Erweiterung klicken und „Verbinden“ wählen.
+                WKeePass fragt dann nach einem Namen für diesen Browser — erst danach werden Passwörter ausgefüllt.</small></div>
           </div>
         </div>
 

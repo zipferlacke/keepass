@@ -643,6 +643,24 @@
       small { font-size: var(--fs-100); color: var(--text-hover); }
     }
 
+    /* Beschriftung oben, Knöpfe darunter und umbrechend — für Zeilen mit
+       mehreren Knöpfen, die nebeneinander nicht passen. */
+    &[data-stacked] {
+      flex-direction: column;
+      align-items: stretch;
+
+      .setting-control { flex: 1 1 auto; }
+    }
+
+    .store-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+
+      /* Lieber ganz umbrechen als mitten im Knopf */
+      .button { flex: 1 1 12rem; white-space: nowrap; }
+    }
+
     .setting-control {
       flex: 0 0 auto;
       display: flex;
