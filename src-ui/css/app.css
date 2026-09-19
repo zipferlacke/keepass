@@ -2499,7 +2499,10 @@
         .setting-control{
           display: grid;
           gap:1rem;
-          
+          /* Volle Breite — das „auto" der Einstellungszeilen schöbe die
+             Felder hier im Raster nach rechts. */
+          margin-inline-start: 0;
+          justify-content: stretch;
         }
       }
       width: 100%;
