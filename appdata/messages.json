@@ -8,6 +8,21 @@
 
     "changelog":[
         {
+            "version":"0.2.0",
+            "date":"2026-09-19",
+            "changes":[
+                "Einstellungen neu geordnet: ein Abschnitt „Datenbank“ mit Name, Verschlüsselung, Einzelheiten, Bequem entsperren und Papierkorb; neuer Abschnitt „Einträge und Websites“",
+                "Verschlüsselungsstärke als Schieberegler mit allen Stufen – eigene Einstellungen aus anderen KeePass-Apps werden erkannt und erst nach Rückfrage ersetzt",
+                "Namen von der Website: ein Punkt mit Schalter und „Jetzt prüfen“",
+                "Browser-Erweiterung: einstellbar, wie lange nach einer Bestätigung nicht erneut gefragt wird; Sperren beendet die Frist sofort",
+                "Browser-Erweiterung erfährt Sperren und Entsperren sofort – das Entsperr-Fenster geht zuverlässig auf",
+                "Browser-Einrichtung: jeder Schritt erklärt, was er tut und warum er nötig ist",
+                "Dateien: Einträge mit mehreren Dateien bleiben Unterordner, auch neben anderen Unterordnern",
+                "Schmale Fenster: Einstellungen brechen sauber um, keine Navigationsleiste auf dem Willkommens-Bildschirm",
+                "Kleinigkeiten: Abstand am Passkey-Hinweis und im Entsperr-Fenster, neue Screenshots"
+            ]
+        },
+        {
             "version":"0.1.1",
             "date":"2026-09-19",
             "changes":[
