@@ -1936,59 +1936,34 @@
   }
 
   /* ============================================================
-     Ordnerbaum
+     Ordner und Tags als Gruppen (tableview)
+     Eine Tabelle, eine Kopfzeile; die Ordnerebenen sind versteckte
+     Spalten, nach denen fest gruppiert wird. Das ✕ zum Aufheben der
+     Gruppierung und die kleine Spaltenbeschriftung fallen weg.
      ============================================================ */
-  details.folder {
-    margin: 0 0rem 0.25rem;
+  .entry-table {
+    .tv-col-hidden { display: none !important; }
+    .tv-ungroup, .tv-group-label { display: none; }
 
-    > summary {
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      padding: 0.3rem 0.5rem;
-      border-radius: var(--br-default);
-      cursor: pointer;
-      font-weight: var(--fw-600);
-      font-size: var(--fs-200);
-      list-style: none;
-      user-select: none;
+    .tv-group-trail { display: flex; align-items: center; gap: 0.4rem; }
+    .tv-group-value { font-weight: var(--fw-600); }
+    .tv-group-row :is(.folder-icon, .file-icon) { font-size: 1.1rem; color: var(--clr-primary-700); }
+    .tv-group-row:not(.tv-group-collapsed) .folder-icon { font-variation-settings: 'FILL' 1; }
 
-      &::-webkit-details-marker { display: none; }
-      &:hover { background: var(--clr-neutral-100); }
-
-      .folder-icon { font-size: 1.1rem; color: var(--clr-primary-700); }
-
-      .folder-count {
-        margin-inline-start: auto;
-        font-weight: var(--fw-400);
-        font-size: var(--fs-100);
-        color: var(--text-hover);
-      }
-
-      &::after {
-        content: "";
-        width: 1rem;
-        height: 1rem;
-        flex: 0 0 auto;
-        background-color: var(--text-hover);
-        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z'/%3E%3C/svg%3E");
-        mask-size: contain;
-        mask-repeat: no-repeat;
-        transition: transform .15s;
-        transform: rotate(-90deg);
-      }
+    /* Zeilen rücken so weit ein wie ihre Gruppe — sonst sähe ein Eintrag
+       direkt in „Bank" aus, als gehörte er noch zu „Bank › Konten". */
+    tr.tv-in-group:not(.tv-group-row) > td:first-child {
+      padding-inline-start: calc(var(--tv-d, 0) * var(--tv-group-indent, 1.25rem) + 0.5rem);
     }
+  }
 
-    &[open] > summary {
-      .folder-icon { font-variation-settings: 'FILL' 1; }
-      &::after { transform: rotate(0deg); }
-    }
-
-    > .folder-body {
-      border-inline-start: 1px solid var(--clr-neutral-200);
-      margin-inline-start: 1rem;
-      padding-inline-start: 0.25rem;
-    }
+  /* Dateien: Symbol der Dateiart, darunter der Eintrag, wenn er keine
+     eigene Gruppe hat. */
+  .file-table {
+    tbody tr[data-file-entry] { cursor: pointer; }
+    td[data-col="avatar"] .file-icon { font-size: 1.4rem; color: var(--clr-primary-700); }
+    .file-entry { display: block; font-size: var(--fs-100); color: var(--text-hover); }
+    .tv-group-actions .button { margin-inline: 0.25rem; }
   }
 
   /* ============================================================
@@ -2045,6 +2020,28 @@
         position: static;
         box-shadow: none;
       }
+
+      /* Gruppenzeilen bleiben Balken über die ganze Breite, keine Karten. */
+      tbody tr.tv-group-row {
+        display: block;
+        padding: 0;
+        border-bottom: none;
+        &:hover { background: none; }
+        > td { display: block; }
+      }
+      tr.tv-in-group:not(.tv-group-row) {
+        padding-inline-start: calc(var(--tv-d, 0) * var(--tv-group-indent, 1.25rem) + 0.6rem);
+        > td:first-child { padding-inline-start: 0; }
+      }
+    }
+
+    /* Dateien auf dem Handy: Symbol, Name, Knöpfe in einer Zeile. */
+    .file-table tbody tr[data-file-entry] {
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto;
+      td[data-col="avatar"]  { grid-area: 1 / 1 / 2 / 2; }
+      td[data-col="name"]    { grid-area: 1 / 2 / 2 / 3; }
+      td[data-col="actions"] { grid-area: 1 / 3 / 2 / 4; }
     }
   }
 

@@ -46,7 +46,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const SECRET_MASK = '•••••';
 
 const VIEW_TITLES = {
-  home: 'Übersicht', passwords: 'Passwörter', totp: 'TOTP-Codes',
+  home: 'Übersicht', passwords: 'Einträge', totp: 'TOTP-Codes',
   security: 'Sicherheitscheck', settings: 'Einstellungen'
 };
 
@@ -1430,7 +1430,7 @@ function bindStaticEvents() {
   // Rechtsklick irgendwo in der Passwortansicht: es gibt immer ein Menü
   $('#view-passwords').addEventListener('contextmenu', ev => {
     if (ev.target.closest('input, textarea, select')) return;
-    if (ev.target.closest('tr[data-id], details.folder > summary')) return;   // haben eigene Menüs
+    if (ev.target.closest('tr[data-id], tr.tv-group-row[data-folder]')) return;   // haben eigene Menüs
     ev.preventDefault();
     showContextMenu(ev.clientX, ev.clientY, {});
   });
@@ -1478,7 +1478,8 @@ function showView(name) {
 
   $('#btn-add').hidden = name === 'settings' || name === 'security';
 
-  $('#app-title').textContent = VIEW_TITLES[name] ?? 'WKeePass';
+  $('#app-title').textContent = isPasswords && state.kindFilter === 'files'
+    ? 'Dateien' : (VIEW_TITLES[name] ?? 'WKeePass');
 
   if (isPasswords) { renderTags(); renderPasswords(); }
   if (name === 'security') renderSecurity();
@@ -1559,7 +1560,7 @@ function renderHome() {
   const einträge = n => `${n} ${n === 1 ? 'Eintrag' : 'Einträge'}`;
 
   const tiles = [
-    { view: 'passwords', icon: 'key', name: 'Passwörter', count: einträge(state.entries.length) },
+    { view: 'passwords', icon: 'key', name: 'Einträge', count: einträge(state.entries.length) },
     { view: 'passwords', icon: 'passkey', name: 'Passkeys', count: einträge(state.entries.filter(e => e.passkey).length), kind: 'passkey' },
     { view: 'totp', icon: 'timer', name: 'TOTP-Codes', count: `${state.entries.filter(e => e.hasTotp).length} Codes` },
     { view: 'passwords', icon: 'folder_zip', name: 'Dateien', count: einträge(state.entries.filter(hasFiles).length), kind: 'files' }
@@ -2051,7 +2052,7 @@ async function adoptTitles(entries) {
   banner(`${changed} Name${changed === 1 ? '' : 'n'} übernommen.`, 'success');
 }
 
-/* ---------- Passwörter ---------- */
+/* ---------- Einträge ---------- */
 
 /* =========================================================
    Eintragstabellen
@@ -2109,13 +2110,17 @@ function safetyOf(entry) {
 
 const KIND_FILTERS = {
   passkey: { icon: 'passkey', label: 'Nur Passkeys' },
-  files: { icon: 'folder_zip', label: 'Nur Einträge mit Dateien' }
+  files: { icon: 'folder_zip', label: 'Dateien' }
 };
 
 function renderLegend() {
   const filter = KIND_FILTERS[state.kindFilter];
+  // Die Dateiansicht hat keine Passwort-Ampel — nur der Filter zum Aufheben.
+  const files = state.kindFilter === 'files';
 
-  $('#legend').innerHTML = `
+  $('#legend').innerHTML = files ? `
+    <button type="button" class="tag kind-filter" id="kind-filter-clear" aria-pressed="true" title="Zurück zu allen Einträgen">
+      <span class="msr">${filter.icon}</span>${filter.label}<span class="msr">close</span></button>` : `
     ${filter ? `<button type="button" class="tag kind-filter" id="kind-filter-clear" aria-pressed="true" title="Filter aufheben">
       <span class="msr">${filter.icon}</span>${filter.label}<span class="msr">close</span></button>
       <span class="legend-sep"></span>` : ''}
@@ -2130,6 +2135,7 @@ function renderLegend() {
 
   $('#kind-filter-clear')?.addEventListener('click', () => {
     state.kindFilter = null;
+    $('#app-title').textContent = VIEW_TITLES.passwords;
     renderPasswords();
   });
 }
@@ -2226,15 +2232,26 @@ function headerHtml(cols, sortable, pickable) {
  * Baut eine Tabelle.
  * @param {{variant?: string, sortable?: boolean, search?: boolean}} options
  */
-function tableHtml(list, { variant = 'full', sortable = false, search = false } = {}) {
+function tableHtml(list, { variant = 'full', sortable = false, search = false, folders = false } = {}) {
   const cols = COLUMNS[variant] ?? COLUMNS.full;
   const iconsOn = settings.get('icons.download', true);
 
+  // Nach Ordnern gruppiert: je Ebene eine versteckte Spalte hinten dran.
+  const levels = folders ? Math.max(1, ...list.map(e => folderParts(e).length)) : 0;
+  const levelHeads = Array.from({ length: levels }, (_, i) =>
+    `<th t-group="active:${i}">${i ? 'Unterordner' : 'Ordner'}</th>`).join('');
+  const levelCells = e => {
+    const parts = folderParts(e);
+    return Array.from({ length: levels }, (_, i) => `<td>${esc(parts[i] ?? '')}</td>`).join('');
+  };
+
   return `
     <div class="table-scroll">
-      <table class="entry-table" data-variant="${variant}" ${search ? 't-search' : ''}>
-        <thead><tr>${headerHtml(cols, sortable, variant === 'full')}</tr></thead>
-        <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn, drag: variant === 'full' })).join('')}</tbody>
+      <table class="entry-table" data-variant="${variant}" ${search ? 't-search' : ''}
+             ${folders ? 'data-folders t-group-empty="inline"' : ''}>
+        <thead><tr>${headerHtml(cols, sortable, variant === 'full')}${levelHeads}</tr></thead>
+        <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn, drag: variant === 'full' })
+          .replace(/<\/tr>$/, `${levels ? levelCells(e) : ''}</tr>`)).join('')}</tbody>
       </table>
     </div>`;
 }
@@ -2250,64 +2267,108 @@ function renderEntryTable(host, list, options = {}) {
   tickTotp();
 }
 
-/* ---------- Ordnerbaum ---------- */
+/* ---------- Ordner als Gruppen ----------
+   Eine Tabelle mit einer Kopfzeile für alles. Der Ordnerpfad steht in
+   versteckten Spalten, eine je Ebene, und tableview gruppiert fest danach.
+   Mit t-group-empty="inline" stehen die Einträge eines Ordners direkt
+   darin, hinter seinen Unterordnern — nicht in einer Gruppe „—". */
 
-/** Baut aus den Ordnerpfaden einen Baum mit den zugehörigen Einträgen. */
-function folderTree(list) {
-  const root = { name: '', path: '', children: new Map(), entries: [] };
+/** Trenner in den Gruppenpfaden von tableview ("0:Bank\x1f1:Konten"). */
+const GROUP_SEP = '\x1f';
 
-  for (const e of list) {
-    const parts = String(e.folder || 'Allgemein').split('/').map(p => p.trim()).filter(Boolean);
-    let node = root;
-    for (const part of parts) {
-      if (!node.children.has(part)) {
-        node.children.set(part, {
-          name: part,
-          path: node.path ? `${node.path}/${part}` : part,
-          children: new Map(),
-          entries: []
-        });
-      }
-      node = node.children.get(part);
+function folderParts(e) {
+  return String(e.folder || 'Allgemein').split('/').map(p => p.trim()).filter(Boolean);
+}
+
+/**
+ * Gruppenpfad von tableview → Ordnerpfad ("Bank/Konten"). Glieder ab
+ * `stopCol` gehören nicht zum Ordner (in der Dateiansicht der Eintrag).
+ */
+function folderOfGroupPath(path, stopCol = Infinity) {
+  return String(path).split(GROUP_SEP)
+    .filter(seg => Number(seg.slice(0, seg.indexOf(':'))) < stopCol)
+    .map(seg => seg.slice(seg.indexOf(':') + 1)).join('/');
+}
+
+/** Spalte der Eintragsgruppe in der Dateiansicht, sonst keine. */
+const entryColOf = table => Number(table?.dataset.entryCol ?? Infinity);
+
+/** Ordnerpfad → Gruppenpfad; `first` ist die Spalte der obersten Ebene. */
+function groupPathOfFolder(folder, first) {
+  return folder.split('/').map((part, i) => `${first + i}:${part}`).join(GROUP_SEP);
+}
+
+/**
+ * Macht die Gruppenzeilen zu Ordnern: Symbol, Ziehen und Ablegen.
+ * tableview baut sie bei jedem Sortieren und Aufklappen neu — deshalb
+ * nach jedem Durchlauf (Ereignis tableview:groups-rendered).
+ */
+function decorateFolderRows(table) {
+  if (!table?.hasAttribute('data-folders')) return;
+  const entryCol = entryColOf(table);
+  table.querySelectorAll('tr.tv-group-row').forEach(tr => {
+    // Eintragsgruppen der Dateiansicht übernimmt decorateFileGroups.
+    if (Number(tr.querySelector('.tv-group-actions')?.dataset.col) === entryCol) return;
+    const folder = folderOfGroupPath(tr.dataset.groupPath, entryCol);
+    const content = tr.querySelector('.tv-group-content');
+    tr.dataset.folder = folder;
+    if (!content) return;
+    content.dataset.dragId = `folder:${folder}`;
+    content.dataset.dragLabel = folder.split('/').pop();
+    content.dataset.dropPath = folder;
+    const trail = content.querySelector('.tv-group-trail');
+    if (trail && !trail.querySelector('.folder-icon')) {
+      trail.insertAdjacentHTML('afterbegin', '<span class="msr folder-icon">folder</span>');
     }
-    node.entries.push(e);
-  }
-  return root;
+  });
 }
 
-/** Zählt Einträge inklusive Unterordnern — für die Anzeige am Ordner. */
-function countDeep(node) {
-  let n = node.entries.length;
-  for (const child of node.children.values()) n += countDeep(child);
-  return n;
-}
+/** Einmal je Container: Ordnerzeilen bedienen und Aufgeklapptes merken. */
+function wireFolderGroups(host) {
+  if (host.dataset.foldersWired) return;
+  host.dataset.foldersWired = '1';
 
-function folderHtml(node, depth = 0) {
-  // Standard: zu. Geöffnet ist nur, was der Nutzer aufgeklappt hat.
-  const open = state.expanded.has(node.path);
+  host.addEventListener('tableview:groups-rendered', ev => decorateFolderRows(ev.detail.table));
 
-  const inner = [
-    ...[...node.children.values()]
-      .sort((a, b) => a.name.localeCompare(b.name, 'de'))
-      .map(child => folderHtml(child, depth + 1)),
-    node.entries.length ? tableHtml(node.entries, { sortable: true, search: true }) : ''
-  ].join('');
+  // Doppelklick öffnet den Ordner-Dialog; das doppelte Umschalten durch
+  // die beiden Klicks hebt sich auf.
+  host.addEventListener('dblclick', ev => {
+    const tr = ev.target.closest('tr.tv-group-row[data-folder]');
+    if (!tr) return;
+    ev.preventDefault();
+    openFolderDialog({ path: tr.dataset.folder });
+  });
 
-  return `
-    <details class="folder" data-folder="${esc(node.path)}" data-depth="${depth}" ${open ? 'open' : ''}>
-      <summary data-drag-id="folder:${esc(node.path)}" data-drag-label="${esc(node.name)}" data-drop-path="${esc(node.path)}">
-        <span class="msr folder-icon">folder</span>
-        <span class="folder-name">${esc(node.name)}</span>
-        <span class="folder-count">${countDeep(node)}</span>
-      </summary>
-      <div class="folder-body">${inner}</div>
-    </details>`;
+  host.addEventListener('contextmenu', ev => {
+    const tr = ev.target.closest('tr.tv-group-row[data-folder]');
+    if (!tr) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    showContextMenu(ev.clientX, ev.clientY, { folderPath: tr.dataset.folder });
+  });
+
+  // tableview führt die offenen Gruppen in t-open. Jede Änderung dort
+  // wandert als Ordnerpfad in die Einstellungen.
+  new MutationObserver(records => {
+    const table = records.map(r => r.target).find(t => t.hasAttribute?.('data-folders'));
+    if (!table) return;
+    let paths;
+    try { paths = JSON.parse(table.getAttribute('t-open') || '[]'); } catch { return; }
+    if (!Array.isArray(paths)) return;
+    // Aufgeklappte Eintragsgruppen der Dateiansicht zählen nicht als Ordner.
+    const next = new Set(paths.map(p => folderOfGroupPath(p, entryColOf(table))).filter(Boolean));
+    if (next.size === state.expanded.size && [...next].every(p => state.expanded.has(p))) return;
+    state.expanded = next;
+    persistExpanded();
+  }).observe(host, { subtree: true, attributes: true, attributeFilter: ['t-open'] });
 }
 
 function renderPasswords() {
   renderLegend();
   const host = $('#entry-table');
   const list = visibleEntries();
+
+  if (state.kindFilter === 'files') { renderFiles(host, list); return; }
 
   if (!list.length) {
     host.innerHTML = `<p class="empty-state">Keine Einträge gefunden.</p>`;
@@ -2317,44 +2378,183 @@ function renderPasswords() {
   // Bei aktiver Suche fallen die Ordner weg — eine flache Liste über alles.
   if (state.search) {
     host.innerHTML = tableHtml(list, { variant: 'full', sortable: true });
-    host.querySelector('.entry-table')?.insertAdjacentHTML('afterbegin', '');
     wireEntryRows(host);
     ensureTableview();
     return;
   }
 
-  const tree = folderTree(list);
-  host.innerHTML = [...tree.children.values()]
-    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
-    .map(child => folderHtml(child))
-    .join('') + (tree.entries.length ? tableHtml(tree.entries, { sortable: true, search: true }) : '');
+  // Ohne t-search: Die Suche oben in der App gilt für alles.
+  host.innerHTML = tableHtml(list, { sortable: true, folders: true });
 
-  host.querySelectorAll('details.folder > summary').forEach(sum => {
-    sum.addEventListener('click', () => {
-      const d = sum.parentElement;
-      const f = d.dataset.folder;
-      // Der Klick kommt vor dem Umschalten: d.open ist noch der alte Zustand.
-      if (d.open) state.expanded.delete(f); else state.expanded.add(f);
-      persistExpanded();
-    });
+  // Offene Ordner vorgeben, bevor tableview die Tabelle zum ersten Mal
+  // zeichnet (das passiert erst nach diesem Durchlauf).
+  const table = host.querySelector('table');
+  const first = COLUMNS.full.length + (pick.selectionActive() ? 1 : 0);
+  table.setAttribute('t-open', JSON.stringify([...state.expanded].map(f => groupPathOfFolder(f, first))));
 
-    // Doppelklick öffnet den Ordner-Dialog; das doppelte Umschalten
-    // durch die beiden Klicks hebt sich auf, der Zustand bleibt.
-    sum.addEventListener('dblclick', ev => {
-      ev.preventDefault();
-      openFolderDialog({ path: sum.parentElement.dataset.folder });
-    });
-
-    sum.addEventListener('contextmenu', ev => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      showContextMenu(ev.clientX, ev.clientY, { folderPath: sum.parentElement.dataset.folder });
-    });
-  });
-
+  wireFolderGroups(host);
   wireEntryRows(host);
   setupDragMove(host);
   ensureTableview();
+}
+
+/* ---------- Dateien ----------
+   Jede Datei eine Zeile, in derselben Ordnerstruktur wie die Einträge.
+   Ein Eintrag mit mehreren Dateien ist darin ein Unterordner; einer mit
+   nur einer Datei bekommt keine eigene Gruppe, seine Datei steht direkt im
+   Ordner (t-group-empty="inline"). Ein Klick auf die Datei zeigt sie
+   sofort, ⓘ öffnet den Eintrag mit Name, Passwort und Notizen. */
+
+/** Sichtbare Spalten vor den Gruppenspalten: Symbol, Datei, Knöpfe. */
+const FILE_COLS = 3;
+
+/** Gruppenname → Eintrag, für den ⓘ-Knopf an den Eintragsgruppen. */
+let fileGroups = new Map();
+
+const infoButton = id => `<button type="button" class="button" data-shape="square" data-file-info="${id}"
+  title="Eintrag öffnen — Name, Passwort, Notizen" aria-label="Eintrag öffnen"><span class="msr">info</span></button>`;
+
+function renderFiles(host, list) {
+  const entries = list.filter(hasFiles);
+  if (!entries.length) {
+    host.innerHTML = `<p class="empty-state">Keine Dateien gefunden.</p>`;
+    return;
+  }
+
+  // Gleichnamige Einträge dürfen nicht in eine Gruppe zusammenfallen.
+  const names = new Map();
+  for (const e of entries) names.set(e.name, (names.get(e.name) ?? 0) + 1);
+  const groupName = e => names.get(e.name) > 1 ? `${e.name} (${e.folder || 'Allgemein'})` : e.name;
+
+  const levels = Math.max(1, ...entries.map(e => folderParts(e).length));
+  const entryCol = FILE_COLS + levels;
+
+  fileGroups = new Map();
+  const rows = entries.flatMap(e => {
+    const single = e.attachments.length === 1;
+    const group = single ? '' : groupName(e);
+    if (group) fileGroups.set(group, e.id);
+    const parts = folderParts(e);
+    const levelCells = Array.from({ length: levels }, (_, i) => `<td>${esc(parts[i] ?? '')}</td>`).join('');
+
+    return e.attachments.map(att => `
+      <tr data-file-entry="${e.id}" data-file-name="${esc(att.name)}" title="${esc(att.name)} — zum Anzeigen klicken">
+        <td data-col="avatar"><span class="msr file-icon">${preview.iconFor({ name: att.name, type: preview.typeFromName(att.name) })}</span></td>
+        <td data-col="name"><span class="cell-name">${esc(att.name)}</span>${
+          single ? `<small class="file-entry">${esc(e.name)}</small>` : ''}</td>
+        <td data-col="actions"><div class="row-actions">
+          ${single ? infoButton(e.id) : ''}
+          <button type="button" class="button" data-shape="square" data-file-save title="Herunterladen" aria-label="Herunterladen"><span class="msr">download</span></button>
+        </div></td>
+        ${levelCells}
+        <td>${esc(group)}</td>
+      </tr>`);
+  });
+
+  host.innerHTML = `
+    <div class="table-scroll">
+      <table class="entry-table file-table" data-files data-folders data-entry-col="${entryCol}" t-group-empty="inline">
+        <thead><tr>
+          <th data-col="avatar"></th><th data-col="name" t-sort="asc">Datei</th><th data-col="actions"></th>
+          ${Array.from({ length: levels }, (_, i) => `<th t-group="active:${i}">${i ? 'Unterordner' : 'Ordner'}</th>`).join('')}
+          <th t-group="active:${levels}">Eintrag</th>
+        </tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>`;
+
+  // Dieselben Ordner offen wie unter „Einträge".
+  host.querySelector('table').setAttribute('t-open',
+    JSON.stringify([...state.expanded].map(f => groupPathOfFolder(f, FILE_COLS))));
+
+  wireFolderGroups(host);
+  wireFiles(host);
+  ensureTableview();
+}
+
+/** Eintragsgruppen bekommen ihren ⓘ-Knopf; nach jedem Zeichnen neu. */
+function decorateFileGroups(table) {
+  if (!table?.hasAttribute('data-files')) return;
+  const entryCol = entryColOf(table);
+  table.querySelectorAll('tr.tv-group-row').forEach(tr => {
+    const box = tr.querySelector('.tv-group-actions');
+    if (Number(box?.dataset.col) !== entryCol) return;
+    const trail = tr.querySelector('.tv-group-trail');
+    if (trail && !trail.querySelector('.file-icon')) {
+      trail.insertAdjacentHTML('afterbegin', '<span class="msr file-icon">folder_zip</span>');
+    }
+    if (box.childElementCount) return;
+    const key = tr.dataset.groupPath.split(GROUP_SEP).pop();
+    const id = fileGroups.get(key.slice(key.indexOf(':') + 1));
+    if (id) box.innerHTML = infoButton(id);
+  });
+}
+
+/** Einmal je Container: Klicks auf Dateien, ⓘ und Herunterladen. */
+function wireFiles(host) {
+  if (host.dataset.filesWired) return;
+  host.dataset.filesWired = '1';
+
+  host.addEventListener('tableview:groups-rendered', ev => decorateFileGroups(ev.detail.table));
+
+  // In der Einfangphase: Der ⓘ in einer Gruppenzeile soll die Gruppe
+  // nicht zugleich auf- oder zuklappen.
+  host.addEventListener('click', ev => {
+    if (!ev.target.closest('table[data-files]')) return;
+    const info = ev.target.closest('[data-file-info]');
+    const save = ev.target.closest('[data-file-save]');
+    if (!info && !save) return;
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (info) { openEntryDialog(info.dataset.fileInfo); return; }
+    const row = save.closest('tr[data-file-entry]');
+    if (row) saveStoredFile(row.dataset.fileEntry, row.dataset.fileName);
+  }, true);
+
+  host.addEventListener('click', ev => {
+    const row = ev.target.closest('table[data-files] tr[data-file-entry]');
+    if (row) openStoredFile(row.dataset.fileEntry, row.dataset.fileName);
+  });
+}
+
+async function storedFiles(entryId) {
+  const entry = byId(entryId);
+  return entry ? loadAttachments(entry) : [];
+}
+
+async function saveStoredFile(entryId, name) {
+  const att = (await storedFiles(entryId)).find(a => a.name === name);
+  if (att) downloadWithWarning(att);
+  else banner('Die Datei ließ sich nicht lesen.', 'error');
+}
+
+/**
+ * Zeigt eine Datei, ohne erst den Eintrag zu öffnen. Die Vorschau arbeitet
+ * auf dem „offenen Eintrag" (Umbenennen und Bearbeiten schreiben dorthin) —
+ * für ihre Dauer ist das dieser hier.
+ */
+async function openStoredFile(entryId, name) {
+  const files = await storedFiles(entryId);
+  const att = files.find(a => a.name === name);
+  if (!att) { banner('Die Datei ließ sich nicht lesen.', 'error'); return; }
+
+  const before = files.map(a => `${a.name}\n${a.ref}`).join('\n');
+  state.dialogEntryId = entryId;
+  state.dialogAttachments = files;
+
+  await openAttachmentViewer(att);
+  const viewer = [...document.querySelectorAll('dialog.file-viewer')].pop();
+  const done = async () => {
+    state.dialogEntryId = null;
+    state.dialogAttachments = [];
+    // Umbenannt oder bearbeitet: Liste neu, damit Name und Inhalt stimmen.
+    if (files.map(a => `${a.name}\n${a.ref}`).join('\n') !== before) {
+      await refreshFromVault();
+      renderPasswords();
+    }
+  };
+  if (viewer?.open) viewer.addEventListener('close', done, { once: true });
+  else done();
 }
 
 /** Rüstet die eben gebauten Tabellen mit Sortierung aus. */
