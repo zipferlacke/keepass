@@ -1404,24 +1404,6 @@
         & .lock-actions { opacity: 0.6; }
       }
 
-      .lock-dots {
-        display: flex;
-        justify-content: center;
-        gap: 0.45rem;
-        height: 1.4rem;
-        align-items: flex-end;
-
-        i {
-          width: 0.55rem;
-          height: 0.55rem;
-          border-radius: 50%;
-          background: var(--clr-primary);
-          animation: lock-dot 1s ease-in-out infinite;
-        }
-        i:nth-child(2) { animation-delay: 0.15s; }
-        i:nth-child(3) { animation-delay: 0.3s; }
-      }
-
       input[type="password"] { text-align: start; }
     }
   }
@@ -2817,11 +2799,45 @@
 /* Befunde und Übersicht: nichts herausziehen (Links, Icons) */
 .findings-table :is(a, img), #recent-list :is(a, img) { -webkit-user-drag: none; user-drag: none; }
 
+/* Drei springende Punkte: „es wird gerechnet" — beim Entsperren und
+   überall sonst, wo etwas dauert (etwa im Knopf des Sicherheitschecks). */
+.busy-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  height: 1.4rem;
+  align-items: flex-end;
+
+  i {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--clr-primary);
+    animation: lock-dot 1s ease-in-out infinite;
+  }
+  i:nth-child(2) { animation-delay: 0.15s; }
+  i:nth-child(3) { animation-delay: 0.3s; }
+
+  /* Klein, in der Textfarbe — für Knöpfe */
+  &[data-inline] {
+    display: inline-flex;
+    gap: 0.2em;
+    height: 1em;
+    --jump: -0.35em;
+
+    i {
+      width: 0.35em;
+      height: 0.35em;
+      background: currentColor;
+    }
+  }
+}
+
 @keyframes lock-dot {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-  30% { transform: translateY(-0.7rem); opacity: 1; }
+  30% { transform: translateY(var(--jump, -0.7rem)); opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lock-dots i { animation-duration: 2s; }
+  .busy-dots i { animation-duration: 2s; }
 }

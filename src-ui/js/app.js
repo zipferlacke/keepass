@@ -1353,7 +1353,7 @@ function markUnlocking(on) {
 
   // Drei springende Punkte — sichtbar, dass gerechnet wird.
   const dots = document.createElement('div');
-  dots.className = 'lock-dots';
+  dots.className = 'busy-dots';
   dots.setAttribute('aria-hidden', 'true');
   dots.innerHTML = '<i></i><i></i><i></i>';
   if (on) (hint ?? $('#lock-card h2'))?.after(dots);
@@ -2512,7 +2512,9 @@ function renderSecurity() {
         </div>
         <div class="security-check">
           <button class="button hightlight" data-shape="full" id="btn-run-check" ${state.checkRunning ? 'disabled' : ''}>
-            <span class="msr">${state.checkRunning ? 'progress_activity' : 'shield_lock'}</span>
+            ${state.checkRunning
+              ? '<span class="busy-dots" data-inline aria-hidden="true"><i></i><i></i><i></i></span>'
+              : '<span class="msr">shield_lock</span>'}
             ${state.checkRunning ? 'Prüfe …' : 'Jetzt prüfen'}
           </button>
           <p class="security-last">${last ? `Zuletzt: ${new Date(last).toLocaleString('de-DE')}` : 'Noch nicht geprüft'}</p>

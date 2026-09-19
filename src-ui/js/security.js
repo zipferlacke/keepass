@@ -133,6 +133,39 @@ export async function checkPwnedByHash(hash) {
 
 const mailCache = new Map();
 
+/*
+ * XposedOrNot lässt nur etwa eine Anfrage pro Sekunde zu und antwortet
+ * sonst mit 429. Die Prüfung fragt aber Adresse um Adresse ab, bei Funden
+ * noch die Einzelheiten dazu — ohne Pause lief das mal durch und mal nicht,
+ * je nachdem, wie schnell die Antworten kamen. Deshalb gehen alle Anfragen
+ * an den Dienst durch eine Schlange mit Abstand, und ein 429 wird nach einer
+ * Pause wiederholt.
+ */
+const XON_GAP = 1100;
+const XON_RETRIES = 3;
+let xonQueue = Promise.resolve();
+let xonLast = 0;
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function xonFetch(url) {
+  const run = async () => {
+    for (let attempt = 0; ; attempt++) {
+      const wait = xonLast + XON_GAP - Date.now();
+      if (wait > 0) await sleep(wait);
+      xonLast = Date.now();
+      const res = await fetch(url);
+      if (res.status !== 429 || attempt >= XON_RETRIES) return res;
+      // Retry-After in Sekunden, sonst wachsende Pause.
+      const after = parseInt(res.headers.get('Retry-After') ?? '', 10);
+      await sleep(Number.isFinite(after) ? after * 1000 : 2000 * (attempt + 1));
+    }
+  };
+  const result = xonQueue.then(run, run);
+  xonQueue = result.catch(() => {});
+  return result;
+}
+
 /**
  * @returns {Promise<{email:string, breaches:Array<{name:string}>, error?:string}>}
  */
@@ -141,13 +174,14 @@ export async function checkEmailBreached(email) {
   if (mailCache.has(email)) return mailCache.get(email);
 
   try {
-    const res = await fetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`);
+    const res = await xonFetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`);
 
     if (res.status === 404) {
       const clean = { email, breaches: [] };
       mailCache.set(email, clean);
       return clean;
     }
+    if (res.status === 429) throw new Error('Dienst überlastet, bitte später erneut prüfen');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
@@ -173,8 +207,9 @@ export async function checkEmailBreached(email) {
 export async function breachAnalytics(email) {
   if (analyticsCache.has(email)) return analyticsCache.get(email);
   const out = new Map();
+  let complete = false;
   try {
-    const res = await fetch(`https://api.xposedornot.com/v1/breach-analytics?email=${encodeURIComponent(email)}`);
+    const res = await xonFetch(`https://api.xposedornot.com/v1/breach-analytics?email=${encodeURIComponent(email)}`);
     if (res.ok) {
       const data = await res.json();
       for (const b of data?.ExposedBreaches?.breaches_details ?? []) {
@@ -187,9 +222,11 @@ export async function breachAnalytics(email) {
           industry: b.industry || ''
         });
       }
+      complete = true;
     }
   } catch { /* ohne Einzelheiten geht es auch — dann nur mit Namen */ }
-  analyticsCache.set(email, out);
+  // Ein gescheiterter Abruf wird beim nächsten Mal wiederholt.
+  if (complete) analyticsCache.set(email, out);
   return out;
 }
 
