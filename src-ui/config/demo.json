@@ -10,7 +10,8 @@
     "Entwicklung",
     "Freizeit",
     "Papierkorb",
-    "Privat"
+    "Privat",
+    "Privat/Gesundheit"
   ],
   "secrets": {
     "s1": "T7#kmZq!2wLpXe",
@@ -362,6 +363,70 @@
       "passkey": false,
       "expires": null,
       "attachments": []
+    },
+    {
+      "id": "d1f0c4a2-0001-4000-8000-000000000014",
+      "folder": "Privat/Gesundheit",
+      "name": "Impfpass",
+      "username": "",
+      "url": "",
+      "notes": "",
+      "tags": [
+        "Privat"
+      ],
+      "modified": "2026-08-02T09:10:00Z",
+      "hasPassword": false,
+      "passwordToken": null,
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": [
+        {
+          "name": "Impfpass.md",
+          "ref": "demo-4"
+        }
+      ],
+      "accessed": "2026-08-02T09:10:00Z"
+    },
+    {
+      "id": "d1f0c4a2-0001-4000-8000-000000000015",
+      "folder": "Arbeit",
+      "name": "Arbeitsvertrag",
+      "username": "",
+      "url": "",
+      "notes": "",
+      "tags": [
+        "Arbeit"
+      ],
+      "modified": "2026-09-01T07:45:00Z",
+      "hasPassword": false,
+      "passwordToken": null,
+      "hasTotp": false,
+      "totpToken": null,
+      "totpConfig": {
+        "digits": 6,
+        "period": 30,
+        "algorithm": "SHA1"
+      },
+      "passkey": false,
+      "expires": null,
+      "attachments": [
+        {
+          "name": "Arbeitsvertrag.txt",
+          "ref": "demo-5"
+        },
+        {
+          "name": "Gehaltsabrechnung-August.txt",
+          "ref": "demo-6"
+        }
+      ],
+      "accessed": "2026-09-01T07:45:00Z"
     }
   ],
   "attachments": {
@@ -379,6 +444,21 @@
       "name": "Versicherungen.txt",
       "type": "text/plain",
       "data": "data:text/plain;base64,VmVyc2ljaGVydW5nZW4gKEJlaXNwaWVsZGF0ZW4pCgpIYWZ0cGZsaWNodCAgICBOci4gSFAtMDAwMC0xMjM0CkhhdXNyYXQgICAgICAgIE5yLiBIUi0wMDAwLTU2NzgKS3Jhbmtlbmthc3NlICAgVmVyc2ljaGVydGVubnIuIEEwMDAwMDAwMDAK"
+    },
+    "demo-4": {
+      "name": "Impfpass.md",
+      "type": "text/markdown",
+      "data": "data:text/markdown;base64,IyBJbXBmcGFzcyAoQmVpc3BpZWxkYXRlbikKCnwgSW1wZnVuZyB8IERhdHVtIHwgTsOkY2hzdGUgfAp8LS0tfC0tLXwtLS18CnwgVGV0YW51cy9EaXBodGhlcmllIHwgMTIuMDMuMjAyMSB8IDIwMzEgfAp8IEZTTUUgfCAwNC4wNS4yMDI0IHwgMjAyNyB8CnwgR3JpcHBlIHwgMTUuMTAuMjAyNSB8IEhlcmJzdCAyMDI2IHwKCj4gT3JpZ2luYWwgbGllZ3QgaW0gT3JkbmVyIOKAnkRva3VtZW50ZeKAnCBpbSBTY2hyZWlidGlzY2guCg=="
+    },
+    "demo-5": {
+      "name": "Arbeitsvertrag.txt",
+      "type": "text/plain",
+      "data": "data:text/plain;base64,QXJiZWl0c3ZlcnRyYWcgKEJlaXNwaWVsZGF0ZW4pCgpBcmJlaXRnZWJlcjogQmVpc3BpZWwgR21iSApCZWdpbm46IDAxLjAyLjIwMjUKV29jaGVuYXJiZWl0c3plaXQ6IDQwIFN0dW5kZW4KVXJsYXViOiAzMCBUYWdlCkvDvG5kaWd1bmdzZnJpc3Q6IDMgTW9uYXRlIHp1bSBNb25hdHNlbmRlCg=="
+    },
+    "demo-6": {
+      "name": "Gehaltsabrechnung-August.txt",
+      "type": "text/plain",
+      "data": "data:text/plain;base64,R2VoYWx0c2FicmVjaG51bmcgQXVndXN0IDIwMjYgKEJlaXNwaWVsZGF0ZW4pCgpCcnV0dG86IDQuMjAwLDAwIOKCrApOZXR0bzogMi43MDUsMTMg4oKsCkF1c3phaGx1bmc6IDI5LjA4LjIwMjYK"
     }
   }
 }

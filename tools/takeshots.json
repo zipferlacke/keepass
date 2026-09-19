@@ -22,12 +22,12 @@
     "promo-wide": [
       1920,
       1080,
-      1
+      2
     ],
     "social": [
       1200,
       630,
-      1
+      2
     ]
   },
   "offline": true,
@@ -129,12 +129,24 @@
           ".nav-items [data-view=passwords]"
         ],
         [
-          "click",
-          "#entry-table details.folder[data-folder='Arbeit'] > summary"
+          "wait",
+          600
         ],
         [
           "click",
-          "#entry-table details.folder[data-folder='Privat'] > summary"
+          "#entry-table tr.tv-group-row[data-folder='Arbeit'] .tv-group-content"
+        ],
+        [
+          "wait",
+          300
+        ],
+        [
+          "click",
+          "#entry-table tr.tv-group-row[data-folder='Privat'] .tv-group-content"
+        ],
+        [
+          "wait",
+          300
         ],
         [
           "shot"
@@ -281,6 +293,138 @@
         [
           "wait",
           800
+        ],
+        [
+          "shot"
+        ]
+      ]
+    },
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-7{theme}.png",
+      "formats": [
+        "narrow",
+        "wide"
+      ],
+      "steps": [
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "click",
+          "#lock-unlock"
+        ],
+        [
+          "fill",
+          "dialog[open] [name=pw]",
+          "demo"
+        ],
+        [
+          "click",
+          "dialog[open] .dialog_submit"
+        ],
+        [
+          "wait",
+          2500
+        ],
+        [
+          "click",
+          ".tile[data-kind=files]"
+        ],
+        [
+          "wait",
+          800
+        ],
+        [
+          "click",
+          "#entry-table tr.tv-group-row[data-folder='Privat'] .tv-group-content"
+        ],
+        [
+          "wait",
+          400
+        ],
+        [
+          "click",
+          "#entry-table tr.tv-group-row:has([data-file-info$='000000000013']) .tv-group-content"
+        ],
+        [
+          "wait",
+          400
+        ],
+        [
+          "shot"
+        ]
+      ]
+    },
+    {
+      "url": "http://localhost:8765/src-ui/index.html",
+      "out": "../appdata/screenshot-{format}-8{theme}.png",
+      "formats": [
+        "narrow",
+        "wide"
+      ],
+      "steps": [
+        [
+          "click",
+          "#wc-skip"
+        ],
+        [
+          "click",
+          "#lock-pick"
+        ],
+        [
+          "click",
+          "#lock-unlock"
+        ],
+        [
+          "fill",
+          "dialog[open] [name=pw]",
+          "demo"
+        ],
+        [
+          "click",
+          "dialog[open] .dialog_submit"
+        ],
+        [
+          "wait",
+          2500
+        ],
+        [
+          "click",
+          ".tile[data-kind=files]"
+        ],
+        [
+          "wait",
+          800
+        ],
+        [
+          "click",
+          "#entry-table tr.tv-group-row[data-folder='Privat'] .tv-group-content"
+        ],
+        [
+          "wait",
+          400
+        ],
+        [
+          "click",
+          "#entry-table tr.tv-group-row:has([data-file-info$='000000000013']) .tv-group-content"
+        ],
+        [
+          "wait",
+          400
+        ],
+        [
+          "click",
+          "#entry-table tr[data-file-name='Mietvertrag.md'] td[data-col=name]"
+        ],
+        [
+          "wait",
+          1000
         ],
         [
           "shot"
@@ -565,18 +709,24 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Speichere Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ansehen, bearbeiten, umbenennen.",
+              "text": "In denselben Ordnern wie deine Passwörter: Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ein Tipp öffnet die Datei.",
               "size": 3.8
             }
           ]
         },
         {
+          "type": "tablet",
+          "screen": "../appdata/screenshot-wide-7_light.png",
+          "left": 5,
+          "top": 36,
+          "width": 128
+        },
+        {
           "type": "phone",
-          "screen": "../appdata/screenshot-narrow-5_light.png",
-          "width": 78,
-          "bleed": {
-            "bottom": 30
-          }
+          "screen": "../appdata/screenshot-narrow-8_light.png",
+          "right": 6,
+          "top": 39,
+          "width": 50
         }
       ]
     },
@@ -736,18 +886,25 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Speichere Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ansehen, bearbeiten, umbenennen.",
+              "text": "In denselben Ordnern wie deine Passwörter: Ausweise, Verträge und Notizen sicher in der KeePass-Datei — ein Klick öffnet die Datei.",
               "size": 2.8
             }
           ]
         },
         {
           "type": "tablet",
-          "screen": "../appdata/screenshot-wide-5_light.png",
+          "screen": "../appdata/screenshot-wide-7_light.png",
           "left": 38,
           "right": 4,
           "top": 10,
           "bottom": 10
+        },
+        {
+          "type": "phone",
+          "screen": "../appdata/screenshot-narrow-8_light.png",
+          "left": 30,
+          "top": 14,
+          "height": 76
         }
       ]
     },

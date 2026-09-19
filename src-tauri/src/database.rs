@@ -163,6 +163,7 @@ pub async fn vault_unlock(
     // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
+    browser_announce(false);
 
     // Was Autofill während der Sperre speichern wollte, jetzt eintragen.
     #[cfg(target_os = "android")]
@@ -923,9 +924,20 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
     Ok(())
 }
 
+/// Sagt verbundenen Browsern, dass die Datenbank zu oder offen ist. Die
+/// Browser-Anbindung gibt es nur auf dem Desktop — auf Android wird sie gar
+/// nicht übersetzt, dort tut das hier nichts.
+fn browser_announce(locked: bool) {
+    #[cfg(desktop)]
+    crate::keepass_extension::api::announce(locked);
+    #[cfg(not(desktop))]
+    let _ = locked;
+}
+
 #[tauri::command]
 pub fn vault_lock(state: tauri::State<'_, Vault>) -> Result<bool, String> {
     state.lock().map_err(|_| "Kern blockiert.".to_string())?.clear();
+    browser_announce(true);
     Ok(true)
 }
 
@@ -968,6 +980,7 @@ pub fn start_auto_lock(app: tauri::AppHandle) {
         if vault.idle_expired() {
             vault.clear();
             drop(vault);
+            browser_announce(true);
             // Die Oberfläche zeigt daraufhin den Sperrbildschirm.
             let _ = app.emit("vault-locked", "Wegen Untätigkeit gesperrt.");
         }

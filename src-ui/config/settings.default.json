@@ -41,6 +41,7 @@
     "expiryWarnDays": 14
   },
   "browser": {
-    "guard": "identify"
+    "guard": "identify",
+    "graceSeconds": 60
   }
 }

@@ -124,6 +124,60 @@ pub fn start(app: tauri::AppHandle) {
     });
 }
 
+/* ---------------------------------------------------------
+   Meldungen an alle verbundenen Browser
+   ---------------------------------------------------------
+   KeePassXC sagt der Erweiterung von sich aus Bescheid, wenn die
+   Datenbank gesperrt oder entsperrt wird (`database-locked` /
+   `database-unlocked`, unverschlüsselt). Ohne das hält die Erweiterung
+   eine eben gesperrte Datenbank noch für offen und merkt es erst beim
+   nächsten Nachfragen — der erste Versuch danach ging ins Leere. Und nach
+   dem Entsperren füllt sie erst aus, wenn man die Seite neu lädt.
+   --------------------------------------------------------- */
+
+type Notify = Box<dyn Fn(&Value) + Send>;
+
+fn listeners() -> &'static Mutex<std::collections::HashMap<u64, Notify>> {
+    static LISTENERS: std::sync::OnceLock<Mutex<std::collections::HashMap<u64, Notify>>> =
+        std::sync::OnceLock::new();
+    LISTENERS.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Meldet eine Verbindung an; die Nummer braucht es zum Abmelden.
+fn register(notify: Notify) -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if let Ok(mut map) = listeners().lock() {
+        map.insert(id, notify);
+    }
+    id
+}
+
+fn unregister(id: u64) {
+    if let Ok(mut map) = listeners().lock() {
+        map.remove(&id);
+    }
+}
+
+/// Sagt allen verbundenen Browsern, dass die Datenbank zu oder offen ist.
+///
+/// Beim Sperren endet zugleich die Schonfrist: Wer danach wieder entsperrt,
+/// hat sich damit neu ausgewiesen — aber ein gesperrter Rechner soll nicht
+/// noch eine Minute lang ohne Nachfrage herausgeben.
+pub fn announce(locked: bool) {
+    if locked {
+        if let Ok(mut at) = last_identified().lock() {
+            *at = None;
+        }
+    }
+    let message = json!({ "action": if locked { "database-locked" } else { "database-unlocked" } });
+    if let Ok(map) = listeners().lock() {
+        for notify in map.values() {
+            notify(&message);
+        }
+    }
+}
+
 /// Hängt der Kanal gerade? Unter Windows lässt sich das nicht am Pfad
 /// ablesen: Wer `\\.\pipe\…` nachschlägt, verbindet sich damit.
 static LISTENING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -186,6 +240,16 @@ mod pipe {
         let writer: Writer = Arc::new(tokio::sync::Mutex::new(writer));
         let connection = Arc::new(Mutex::new(Connection::new()));
 
+        let melder = Arc::clone(&writer);
+        let angemeldet = super::register(Box::new(move |message: &Value| {
+            let writer = Arc::clone(&melder);
+            let message = message.clone();
+            tauri::async_runtime::spawn(async move {
+                trace("←", &message);
+                let _ = send(&writer, &message).await;
+            });
+        }));
+
         let mut buffer = vec![0u8; 64 * 1024];
         let mut incoming = crate::keepass_extension::JsonStream::new();
 
@@ -202,9 +266,10 @@ mod pipe {
                 if action == "change-public-keys" {
                     let answer = match connection.lock() {
                         Ok(mut c) => c.change_public_keys(&message),
-                        Err(_) => return,
+                        Err(_) => break,
                     };
                     if send(&writer, &answer).await.is_err() {
+                        super::unregister(angemeldet);
                         return;
                     }
                     continue;
@@ -227,6 +292,7 @@ mod pipe {
                 });
             }
         }
+        super::unregister(angemeldet);
     }
 
     async fn send(writer: &Writer, answer: &Value) -> std::io::Result<()> {
@@ -301,6 +367,12 @@ fn serve(app: tauri::AppHandle, stream: std::os::unix::net::UnixStream) {
         Err(_) => return,
     }));
 
+    let melder = Arc::clone(&writer);
+    let angemeldet = register(Box::new(move |message: &Value| {
+        trace("←", message);
+        let _ = send(&melder, message);
+    }));
+
     let mut reader = stream;
     let mut buffer = [0u8; 64 * 1024];
     let mut incoming = super::JsonStream::new();
@@ -326,9 +398,9 @@ fn serve(app: tauri::AppHandle, stream: std::os::unix::net::UnixStream) {
             let action = message.get("action").and_then(Value::as_str).unwrap_or_default();
             if action == "change-public-keys" {
                 let answer = connection.lock().map(|mut c| c.change_public_keys(&message));
-                let Ok(answer) = answer else { return };
+                let Ok(answer) = answer else { break };
                 if send(&writer, &answer).is_err() {
-                    return;
+                    break;
                 }
                 continue;
             }
@@ -356,6 +428,8 @@ fn serve(app: tauri::AppHandle, stream: std::os::unix::net::UnixStream) {
             });
         }
     }
+
+    unregister(angemeldet);
 }
 
 /// Schreibt eine Antwort — als Ganzes, damit sich zwei Fäden nicht ins
@@ -1120,16 +1194,23 @@ fn database_hash_locked(db: &keepass::Database) -> String {
 /// Wie lange auf eine Antwort gewartet wird, bevor sie als Ablehnung gilt.
 const CONSENT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 
-/// Wie lange eine Legitimation nachwirkt.
+/// Wie lange eine Legitimation nachwirkt, wenn nichts eingestellt ist.
 ///
 /// Wer sich gerade ausgewiesen hat, soll nicht drei Formulare später erneut
 /// gefragt werden. Eine Minute ist kurz genug, dass ein unbeaufsichtigter
 /// Rechner nicht zum Selbstbedienungsladen wird, und lang genug für einen
-/// zusammenhängenden Vorgang.
-///
-/// Gilt **nur** für die Legitimation. Eine ausdrückliche Rückfrage je Seite
-/// wird nicht übersprungen — dort geht es um die Seite, nicht um dich.
-const IDENTIFY_GRACE: std::time::Duration = std::time::Duration::from_secs(60);
+/// zusammenhängenden Vorgang. Einstellbar über `browser.graceSeconds`
+/// (0 = jedes Mal fragen); Sperren beendet die Frist sofort.
+const IDENTIFY_GRACE_SECS: u64 = 60;
+
+/// Die eingestellte Frist — höchstens eine Stunde, was auch im Einstellungsfeld steht.
+fn identify_grace(app: &tauri::AppHandle) -> std::time::Duration {
+    let secs = crate::settings::value(app, "browser.graceSeconds")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(IDENTIFY_GRACE_SECS)
+        .min(3600);
+    std::time::Duration::from_secs(secs)
+}
 
 /// Wann zuletzt erfolgreich legitimiert wurde.
 fn last_identified() -> &'static Mutex<Option<std::time::Instant>> {
@@ -1146,12 +1227,13 @@ pub fn browser_identified() -> Result<bool, String> {
 }
 
 /// Ist die letzte Legitimation noch frisch genug?
-fn within_grace() -> bool {
+fn within_grace(app: &tauri::AppHandle) -> bool {
+    let frist = identify_grace(app);
     last_identified()
         .lock()
         .ok()
         .and_then(|at| *at)
-        .is_some_and(|at| at.elapsed() < IDENTIFY_GRACE)
+        .is_some_and(|at| at.elapsed() < frist)
 }
 
 /// Wie lange auf das Entsperren gewartet wird.
@@ -1192,7 +1274,7 @@ fn ask_user(app: &tauri::AppHandle, mut details: Value) -> Result<Decision, Fail
     // Muss **vor** dem Eintragen stehen: Ein Eintrag, der nie beantwortet
     // wird, bliebe sonst in der Liste liegen und hielte das Rückfragefenster
     // offen.
-    if within_grace() {
+    if within_grace(app) {
         return Ok(Decision { allow: true });
     }
 
@@ -1347,10 +1429,17 @@ fn unpark(app: &tauri::AppHandle, id: &str) {
 
     // Steht noch eine andere Anfrage an, bleibt das Fenster stehen und zeigt
     // die nächste.
+    //
+    // Versteckt, nicht geschlossen: Schließen läuft verzögert ab. Kam die
+    // nächste Anfrage kurz danach, fand `open_request_window` das sterbende
+    // Fenster noch, holte es nach vorn — und dann verschwand es. Die
+    // Anfrage wartete ohne sichtbare Maske. Ein verstecktes Fenster lässt
+    // sich dagegen jederzeit zuverlässig wieder zeigen, und schneller ist es
+    // auch.
     let leer = pending().lock().map(|m| m.is_empty()).unwrap_or(true);
     if leer {
         if let Some(window) = app.get_webview_window(REQUEST_WINDOW) {
-            let _ = window.close();
+            let _ = window.hide();
         }
     }
 }
@@ -1642,6 +1731,7 @@ fn lock_database(app: &tauri::AppHandle) -> Result<Value, Failure> {
         .map_err(|_| Failure(0, "Kern blockiert.".into()))?
         .clear();
 
+    announce(true);
     let _ = app.emit("vault-locked", "Über die Browser-Erweiterung gesperrt.");
     Ok(json!({}))
 }
