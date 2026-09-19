@@ -2442,6 +2442,11 @@
      solange keine offen ist. Kein zweiter Bauplan nötig. */
   body[data-locked] [data-needs-db] { display: none; }
 
+  /* Sperr- und Willkommensbildschirm: keine Navigation, kein Plus-Knopf.
+     Nur zu überdecken reicht nicht — ist der Inhalt auf kleinen
+     Bildschirmen höher als das Fenster, lugte die Leiste unten hervor. */
+  body:is([data-locked], :has(#welcome:not([hidden]))) :is(.app-nav, .fab) { display: none; }
+
   /* Vom Sperrbildschirm aus: nur die Einstellungen, keine Navigation.
      Die Navigation ist ein Rasterbereich — sie zu verstecken genügt nicht,
      ihre Spalte bliebe stehen. Deshalb auch das Raster zurücksetzen. */
