@@ -51,6 +51,18 @@ export async function initSettings() {
   return current;
 }
 
+/**
+ * Liest die gespeicherten Einstellungen neu, ohne zu schreiben — für das
+ * kleine Browser-Fenster, das lange lebt, während das Hauptfenster
+ * Einstellungen ändert.
+ */
+export async function reloadSettings() {
+  const def = await loadDefaults();
+  const stored = await storage.read();
+  current = stored ? deepMerge(def, stored) : structuredClone(def);
+  return current;
+}
+
 export function getSettings() {
   return current ?? defaults ?? {};
 }

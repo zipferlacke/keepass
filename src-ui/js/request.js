@@ -23,8 +23,9 @@
  * Einstellen lässt sie sich trotzdem von hier aus.
  *
  * Beides hintereinander wird nicht verlangt. Wer gerade entsperrt oder
- * bestätigt hat, wird eine Minute lang in Ruhe gelassen — das Entsperren
- * ist schon der Nachweis. Diese Frist führt der Kern.
+ * bestätigt hat, wird eine Weile in Ruhe gelassen (`browser.graceSeconds`,
+ * Voreinstellung eine Minute) — das Entsperren ist schon der Nachweis.
+ * Diese Frist führt der Kern.
  */
 
 import { invoke, listen } from './platform.js';
@@ -211,7 +212,7 @@ function waehleMethode(name) {
 async function pruefe(method, secret) {
   try {
     await invoke('confirm_presence', { reason: 'Zugriff aus dem Browser', method, secret });
-    // Der Kern merkt sich das für eine Minute — wer gerade bestätigt hat,
+    // Der Kern merkt sich das für die eingestellte Frist — wer gerade bestätigt hat,
     // soll nicht drei Formulare später wieder gefragt werden.
     await invoke('browser_identified');
     return true;
@@ -309,7 +310,7 @@ async function answer(allow) {
 const NOTIZEN = {
   never: 'Verknüpfte Browser füllen ohne Rückfrage aus. Ab der nächsten Anfrage — diese hier will noch beantwortet werden.',
   confirm: 'Ein Knopfdruck genügt — Abbrechen oder Übernehmen, ohne Nachweis.',
-  identify: 'PIN, Master-Passwort oder Fingerabdruck. Eine Minute lang wird nicht erneut gefragt.'
+  identify: 'PIN, Master-Passwort oder Fingerabdruck. Wie lange danach nicht erneut gefragt wird, steht in den Einstellungen.'
 };
 
 function zeigeEinstellungen() {
@@ -346,7 +347,14 @@ async function boot() {
   // zweite Anfrage, ist sie sofort da. Beim allerersten Öffnen greift es
   // aber nicht — der Kern sendet, während diese Datei noch geladen wird.
   // Deshalb wird zusätzlich einmal aktiv nachgefragt.
-  await listen('browser-request', ev => render(ev?.payload ?? {}));
+  // Das Fenster wird nach einer Anfrage nur versteckt, nicht geschlossen —
+  // es lebt also lange. Einstellungen und freigeschaltete Wege können sich
+  // inzwischen im Hauptfenster geändert haben: vor jeder Anfrage neu lesen.
+  await listen('browser-request', async ev => {
+    try { await settings.reloadSettings(); } catch { /* alter Stand */ }
+    await ermittleMethoden();
+    render(ev?.payload ?? {});
+  });
 
   try {
     const wartend = await invoke('browser_pending');

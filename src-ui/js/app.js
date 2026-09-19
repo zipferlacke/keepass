@@ -3145,7 +3145,6 @@ async function runSecurityCheck({ silent = false } = {}) {
 function settingsMarkup() {
   const s = settings.getSettings();
   const theme = s.appearance?.theme ?? 'system';
-  const current = recentDatabases().find(d => d.path === s.database?.current);
   const dbSettings = settings.forDatabase(s.database?.current ?? null);
 
   return `
@@ -3172,10 +3171,30 @@ function settingsMarkup() {
       </div>
     </div>
 
-    ${state.locked ? '' : `<div class="settings-group">
+    ${state.locked ? '' : `<div class="settings-group" data-needs-db>
       <div class="section-label">Datenbank</div>
-      <div class="settings-card" id="database-card">
-        <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+      <div class="settings-card">
+        <div id="database-card">
+          <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label">
+            <strong>Bequem entsperren</strong>
+            <small>${[state.unlock.device ? esc(deviceName()) : null, state.unlock.pin ? 'PIN' : null, state.unlock.biometric ? 'Fingerabdruck' : null]
+              .filter(Boolean).join(' und ') || 'Nur mit Master-Passwort'}</small>
+          </div>
+          <div class="setting-control"><button type="button" class="button" id="btn-access">Wählen …</button></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>Warnen vor Ablauf</strong><small>Tage im Voraus</small></div>
+          <div class="setting-control">
+            <input type="number" min="1" max="180" data-set-db="expiryWarnDays" name="db.expiryWarnDays" value="${dbSettings.expiryWarnDays ?? 14}">
+          </div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>Papierkorb leeren</strong><small>Entfernt die gelöschten Einträge endgültig</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-empty-bin">Leeren …</button></div>
+        </div>
       </div>
     </div>`}
 
@@ -3235,8 +3254,13 @@ function settingsMarkup() {
     </div>`}
 
     <div class="settings-group">
-      <div class="section-label">Website-Icons</div>
+      <div class="section-label">Einträge und Websites</div>
       <div class="settings-card">
+        <div class="setting" data-needs-db>
+          <div class="setting-label"><strong>Aus anderen Apps importieren</strong>
+            <small>Passwörter und 2FA-Codes aus Bitwarden, 1Password, LastPass, Browsern, Aegis, 2FAS …</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-import-entries">Importieren …</button></div>
+        </div>
         <div class="setting">
           <div class="setting-label">
             <strong>Icons der Websites laden</strong>
@@ -3245,52 +3269,19 @@ function settingsMarkup() {
           </div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="icons.download" name="icons.download" ${s.icons?.download ? 'checked' : ''}></div>
         </div>
-      </div>
-    </div>
-
-    <div class="settings-group" data-needs-db>
-      <div class="section-label">Diese Datenbank</div>
-      <div class="settings-card">
-        <div class="setting">
-          <div class="setting-label"><strong>${esc(current?.name ?? 'Geöffnete Datenbank')}</strong>
-            <small>${esc(current?.path ?? '')}</small>
-            <small id="db-modified" hidden></small></div>
-        </div>
-        <div class="setting">
-          <div class="setting-label"><strong>Aus anderen Apps importieren</strong>
-            <small>Passwörter und 2FA-Codes aus Bitwarden, 1Password, LastPass, Browsern, Aegis, 2FAS …</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-import-entries">Importieren …</button></div>
-        </div>
-        <div class="setting">
-          <div class="setting-label"><strong>Warnen vor Ablauf</strong><small>Tage im Voraus</small></div>
-          <div class="setting-control">
-            <input type="number" min="1" max="180" data-set-db="expiryWarnDays" name="db.expiryWarnDays" value="${dbSettings.expiryWarnDays ?? 14}">
-          </div>
-        </div>
-        <div class="setting">
-          <div class="setting-label">
-            <strong>Bequem entsperren</strong>
-            <small>${[state.unlock.device ? esc(deviceName()) : null, state.unlock.pin ? 'PIN' : null, state.unlock.biometric ? 'Fingerabdruck' : null]
-              .filter(Boolean).join(' und ') || 'Nur mit Master-Passwort'}</small>
-          </div>
-          <div class="setting-control"><button type="button" class="button" id="btn-access">Wählen …</button></div>
-        </div>
-        <div class="setting">
+        <div class="setting" data-needs-db>
           <div class="setting-label"><strong>Alle Icons neu abrufen</strong><small>Ersetzt die gespeicherten durch frisch geladene</small></div>
           <div class="setting-control"><button type="button" class="button" id="btn-refresh-icons"><span class="msr">refresh</span>&nbsp;Neu laden</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Namen automatisch setzen</strong>
-            <small>Steht als Name nur eine Adresse (https://…), heißt der Eintrag danach wie der Dienst — etwa „GitHub“ statt „https://github.com/login“</small></div>
-          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="names.fromWebsite" name="names.fromWebsite" ${s.names?.fromWebsite ?? true ? 'checked' : ''}></div>
-        </div>
-        <div class="setting">
-          <div class="setting-label"><strong>Alle Namen von den Websites übernehmen</strong><small>Setzt bei allen Einträgen mit URL den Namen des Dienstes</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-adopt-titles"><span class="msr">title</span>&nbsp;Übernehmen</button></div>
-        </div>
-        <div class="setting">
-          <div class="setting-label"><strong>Papierkorb leeren</strong><small>Entfernt die gelöschten Einträge endgültig</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-empty-bin">Leeren …</button></div>
+          <div class="setting-label"><strong>Namen von der Website</strong>
+            <small>An: Steht als Name nur eine Adresse, heißt der Eintrag von selbst wie der Dienst —
+              etwa „GitHub“ statt „https://github.com/login“. Selbst vergebene Namen bleiben.</small>
+            <small data-needs-db>„Jetzt prüfen“ gleicht alle Einträge mit Adresse ab und ersetzt nach Rückfrage auch selbst vergebene Namen.</small></div>
+          <div class="setting-control control-pair">
+            <input type="checkbox" data-shape="toggle" data-set="names.fromWebsite" name="names.fromWebsite" ${s.names?.fromWebsite ?? true ? 'checked' : ''} aria-label="Namen automatisch setzen">
+            <button type="button" class="button" id="btn-adopt-titles" data-needs-db><span class="msr">travel_explore</span>&nbsp;Jetzt prüfen</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3476,11 +3467,26 @@ async function showAndroidSetup() {
 }
 
 /** Die drei Stufen der Schlüsselableitung, wie sie der Kern kennt. */
+/** Die Stufen des Kerns (database.rs): Durchgänge und Speicher je Stufe. */
 const STUFEN = [
-  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten'],
-  ['standard', 'Standard', 'Guter Mittelweg — Empfehlung'],
-  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen']
+  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten', 5, 32],
+  ['standard', 'Standard', 'Guter Mittelweg — Empfehlung', 10, 64],
+  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen', 20, 256]
 ];
+
+/**
+ * Welche Stufe einer eigenen Einstellung am nächsten kommt. Der Aufwand
+ * wächst mit Durchgängen mal Speicher; verglichen wird logarithmisch, weil
+ * die Stufen jeweils ein Vielfaches auseinanderliegen.
+ */
+function naechsteStufe(iterations, memoryMib) {
+  const aufwand = Math.log(Math.max(1, iterations * memoryMib));
+  let beste = 0;
+  STUFEN.forEach(([, , , it, mem], i) => {
+    if (Math.abs(Math.log(it * mem) - aufwand) < Math.abs(Math.log(STUFEN[beste][3] * STUFEN[beste][4]) - aufwand)) beste = i;
+  });
+  return beste;
+}
 
 /**
  * Name und Verschlüsselung der offenen Datenbank.
@@ -3502,11 +3508,22 @@ async function renderDatabaseSection() {
     return;
   }
 
+  const path = settings.get('database.current', null);
+  const eintrag = recentDatabases().find(d => d.path === path);
+  const eigen = info.level === 'eigen';
+  const stufe = eigen
+    ? naechsteStufe(info.iterations, info.memoryMib)
+    : Math.max(0, STUFEN.findIndex(([wert]) => wert === info.level));
+  const hinweis = i => eigen && i === stufe && Number(regler?.value ?? stufe) === stufe
+    ? `Eigene Einstellung — liegt etwa bei „${STUFEN[i][1]}“. Verschieben ersetzt sie.`
+    : STUFEN[i][2];
+  let regler = null;
+
   card.innerHTML = `
     <div class="setting">
       <div class="setting-label">
         <strong>Name der Datenbank</strong>
-        <small>Steht in der Datei, nicht im Dateinamen</small>
+        <small>Steht in der Datei, nicht im Dateinamen${path ? ` · ${esc(pfadLabel(path, eintrag?.label))}` : ''}</small>
       </div>
       <div class="setting-control">
         <input type="text" id="db-name" value="${esc(info.name)}" placeholder="Passwörter"
@@ -3514,18 +3531,20 @@ async function renderDatabaseSection() {
       </div>
     </div>
 
-    <div class="setting">
+    <div class="setting" data-stacked>
       <div class="setting-label">
         <strong>Verschlüsselungsstärke</strong>
         <small>Wie lange das Ableiten des Schlüssels dauert — für dich einmal beim Öffnen,
         für einen Angreifer bei jedem Rateversuch</small>
       </div>
-      <div class="setting-control">
-        <select id="db-level" data-sp-picker data-sp-search="false" ${info.readOnly ? 'disabled' : ''}>
-          ${STUFEN.map(([wert, name, hinweis]) =>
-            `<option value="${wert}" ${info.level === wert ? 'selected' : ''}>${name} — ${hinweis}</option>`).join('')}
-          ${info.level === 'eigen' ? '<option value="eigen" selected>Eigene Einstellung</option>' : ''}
-        </select>
+      <div class="setting-control kdf-slider">
+        <input type="range" id="db-level" min="0" max="${STUFEN.length - 1}" step="1" value="${stufe}"
+               aria-label="Verschlüsselungsstärke" ${info.readOnly ? 'disabled' : ''}>
+        <div class="kdf-labels">
+          ${STUFEN.map(([, name], i) => `<button type="button" data-stufe="${i}" ${i === stufe ? 'aria-current="true"' : ''}
+            ${info.readOnly ? 'disabled' : ''}>${name}</button>`).join('')}
+        </div>
+        <small class="kdf-note" id="db-level-note"></small>
       </div>
     </div>
 
@@ -3534,6 +3553,7 @@ async function renderDatabaseSection() {
         <strong>Im Einzelnen</strong>
         <small>${esc(info.format)} · ${esc(info.cipher)} · ${esc(info.kdf)}
         mit ${info.iterations} Durchgängen, ${info.memoryMib} MiB, ${info.parallelism} Fäden</small>
+        <small id="db-modified" hidden></small>
       </div>
     </div>`;
 
@@ -3552,9 +3572,49 @@ async function renderDatabaseSection() {
     if (name.value.trim() !== info.name) speichern('name', { name: name.value.trim() });
   });
 
-  card.querySelector('#db-level')?.addEventListener('change', ev => {
-    if (ev.target.value !== 'eigen') speichern('level', { level: ev.target.value });
-  });
+  // Schieberegler: Beim Ziehen nur anzeigen, gespeichert wird beim Loslassen.
+  regler = card.querySelector('#db-level');
+  const note = card.querySelector('#db-level-note');
+  const zeige = () => {
+    const i = Number(regler.value);
+    note.textContent = hinweis(i);
+    card.querySelectorAll('[data-stufe]').forEach(b =>
+      b.toggleAttribute('aria-current', Number(b.dataset.stufe) === i));
+  };
+  const uebernehmen = async () => {
+    const i = Number(regler.value);
+    if (!eigen && STUFEN[i][0] === info.level) return;
+    if (eigen) {
+      const res = await dialog({
+        title: 'Verschlüsselung ändern?',
+        content: `Die Datenbank hat eine eigene Einstellung (${info.iterations} Durchgänge, ${info.memoryMib} MiB).
+          Sie wird durch „${esc(STUFEN[i][1])}“ ersetzt.`,
+        confirmText: 'Ersetzen',
+        cancelText: 'Abbrechen'
+      });
+      if (!(res?.submit ?? res)) { regler.value = stufe; zeige(); return; }
+    }
+    speichern('level', { level: STUFEN[i][0] });
+  };
+  regler?.addEventListener('input', zeige);
+  regler?.addEventListener('change', uebernehmen);
+  card.querySelectorAll('[data-stufe]').forEach(b => b.addEventListener('click', () => {
+    regler.value = b.dataset.stufe;
+    zeige();
+    uebernehmen();
+  }));
+  zeige();
+
+  // Änderungsdatum der Datei — fragt je nach Ort das Dateisystem oder den
+  // Cloud-Anbieter, darum nachgereicht statt beim Zeichnen.
+  const modifiedEl = card.querySelector('#db-modified');
+  if (path && modifiedEl) {
+    invoke('database_modified', { path }).then(ms => {
+      if (!ms) return;
+      modifiedEl.textContent = `Datei zuletzt geändert: ${new Date(ms).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}`;
+      modifiedEl.hidden = false;
+    }).catch(() => {});
+  }
 }
 
 /**
@@ -3593,14 +3653,14 @@ async function renderBrowserSection() {
          <small>Noch kein Browser verknüpft.</small></div></div>`;
 
   const guard = settings.get('browser.guard', 'identify');
+  const grace = Number(settings.get('browser.graceSeconds', 60));
 
   card.innerHTML = `
     <div class="setting">
       <div class="setting-label">
         <strong>Vor dem Ausfüllen</strong>
-        <small>Wie schwer die Antwort wiegt, wenn ein verknüpfter Browser
-        Zugangsdaten anfragt. Wird gefragt, dann direkt hintereinander eine
-        Minute lang nicht erneut.</small>
+        <small>Was passiert, wenn ein verknüpfter Browser Zugangsdaten anfragt:
+        nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Fingerabdruck.</small>
       </div>
       <div class="setting-control">
         <div class="group-radio" id="browser-guard">
@@ -3615,8 +3675,16 @@ async function renderBrowserSection() {
     </div>
     <div class="setting">
       <div class="setting-label">
-        <strong>Kanal</strong>
-        <small>${status.listening ? 'Aktiv' : 'Nicht aktiv'} — <code>${esc(status.socket)}</code></small>
+        <strong>Danach nicht erneut fragen</strong>
+        <small>Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen —
+        eine Anmeldung mit mehreren Feldern fragt sonst mehrmals. Danach wird wieder gefragt.
+        Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.</small>
+      </div>
+      <div class="setting-control">
+        <select id="browser-grace" name="browser.graceSeconds" data-sp-picker data-sp-search="false">
+          ${[[0, 'Jedes Mal fragen'], [30, '30 Sekunden'], [60, '1 Minute'], [300, '5 Minuten'], [900, '15 Minuten']]
+            .map(([wert, label]) => `<option value="${wert}" ${grace === wert ? 'selected' : ''}>${label}</option>`).join('')}
+        </select>
       </div>
     </div>
     <div class="setting" data-stacked>
@@ -3639,7 +3707,13 @@ async function renderBrowserSection() {
         <button type="button" class="button" id="btn-browser-remove">Entfernen</button>
       </div>
     </div>
-    ${verknuepft}`;
+    ${verknuepft}
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Kanal</strong>
+        <small>${status.listening ? 'Aktiv' : 'Nicht aktiv'} — <code>${esc(status.socket)}</code></small>
+      </div>
+    </div>`;
 
   card.querySelectorAll('[name="browser.guard"]').forEach(el =>
     el.addEventListener('change', async () => {
@@ -3650,6 +3724,11 @@ async function renderBrowserSection() {
         identify: 'PIN, Master-Passwort oder Fingerabdruck vor dem Ausfüllen.'
       }[el.value], el.value === 'never' ? 'warning' : 'success', 5000);
     }));
+
+  // Der Kern liest die Frist bei jeder Anfrage aus den Einstellungen.
+  card.querySelector('#browser-grace')?.addEventListener('change', async ev => {
+    await settings.set('browser.graceSeconds', Number(ev.target.value), { silent: true });
+  });
 
   card.querySelector('#btn-browser-install')?.addEventListener('click', () => browserSetup(true));
   card.querySelectorAll('[data-store]').forEach(btn => btn.addEventListener('click', () =>
@@ -3871,18 +3950,6 @@ function wireSettings(root = $('#settings-body')) {
   });
 
   root.querySelector('#btn-import-entries')?.addEventListener('click', () => importFromOtherApps());
-
-  // Änderungsdatum der Datei — fragt je nach Ort das Dateisystem oder den
-  // Cloud-Anbieter, darum nachgereicht statt beim Zeichnen.
-  const dbPath = settings.get('database.current', null);
-  const modifiedEl = root.querySelector('#db-modified');
-  if (dbPath && modifiedEl) {
-    invoke('database_modified', { path: dbPath }).then(ms => {
-      if (!ms) return;
-      modifiedEl.textContent = `Datei zuletzt geändert: ${new Date(ms).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}`;
-      modifiedEl.hidden = false;
-    }).catch(() => {});
-  }
 
   root.querySelector('#btn-export')?.addEventListener('click', () => {
     settings.downloadSettings();

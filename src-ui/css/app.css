@@ -652,6 +652,68 @@
       .setting-control { flex: 1 1 auto; }
     }
 
+    /* Schalter und Knopf nebeneinander, bei wenig Platz untereinander */
+    .control-pair {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.5rem;
+
+      .button { white-space: nowrap; }
+    }
+
+    /* Wenig Platz: Beschriftung oben, Schalter und Knopf darunter */
+    @media (max-width: 599px) {
+      &:has(> .control-pair) {
+        flex-direction: column;
+        align-items: stretch;
+
+        .control-pair { flex: 1 1 auto; }
+      }
+    }
+
+    /* Verschlüsselungsstärke: Regler mit allen Stufen darunter */
+    /* Doppelte Klasse: .setting-control weiter unten macht sonst ein
+       Flex daraus, und Regler, Stufen und Hinweis stünden nebeneinander. */
+    .setting-control.kdf-slider {
+      display: grid;
+      gap: 0.25rem;
+
+      /* Die allgemeinen Eingabefelder bringen Füllung und Rundung mit —
+         für einen Regler ist das ein dicker Balken. */
+      input[type="range"] {
+        appearance: auto;
+        width: 100%;
+        height: 1.5rem;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: none;
+        accent-color: var(--clr-primary-600);
+      }
+
+      .kdf-labels {
+        display: flex;
+        justify-content: space-between;
+
+        button {
+          border: none;
+          background: none;
+          padding: 0.1rem 0;
+          font: inherit;
+          font-size: var(--fs-100);
+          color: var(--text-hover);
+          cursor: pointer;
+
+          &[aria-current] { color: var(--clr-primary-700); font-weight: var(--fw-600); }
+          &:disabled { cursor: default; }
+        }
+      }
+
+      .kdf-note { font-size: var(--fs-100); color: var(--text-hover); }
+    }
+
     .store-buttons {
       display: flex;
       flex-wrap: wrap;
@@ -2504,6 +2566,13 @@
   .request-body {
     margin: 0;
     background: var(--bg-default);
+  }
+
+  /* Biometrie-Knopf und Eingabefeld nicht aneinanderkleben */
+  #req-identify:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
   .request {

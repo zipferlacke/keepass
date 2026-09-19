@@ -163,6 +163,7 @@ pub async fn vault_unlock(
     // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
+    crate::keepass_extension::api::announce(false);
 
     // Was Autofill während der Sperre speichern wollte, jetzt eintragen.
     #[cfg(target_os = "android")]
@@ -926,6 +927,7 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
 #[tauri::command]
 pub fn vault_lock(state: tauri::State<'_, Vault>) -> Result<bool, String> {
     state.lock().map_err(|_| "Kern blockiert.".to_string())?.clear();
+    crate::keepass_extension::api::announce(true);
     Ok(true)
 }
 
@@ -968,6 +970,7 @@ pub fn start_auto_lock(app: tauri::AppHandle) {
         if vault.idle_expired() {
             vault.clear();
             drop(vault);
+            crate::keepass_extension::api::announce(true);
             // Die Oberfläche zeigt daraufhin den Sperrbildschirm.
             let _ = app.emit("vault-locked", "Wegen Untätigkeit gesperrt.");
         }
