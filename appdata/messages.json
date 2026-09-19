@@ -8,6 +8,20 @@
 
     "changelog":[
         {
+            "version":"0.1.1",
+            "date":"2026-09-19",
+            "changes":[
+                "Einträge: eine Tabelle mit einer Kopfzeile, Ordner und Unterordner als aufklappbare Gruppen",
+                "Der Reiter „Passwörter“ heißt jetzt „Einträge“",
+                "Dateien: in derselben Ordnerstruktur, Einträge mit mehreren Dateien als Unterordner – ein Klick öffnet die Datei, ⓘ den Eintrag",
+                "Sicherheitscheck: E-Mail-Prüfung scheitert nicht mehr an zu vielen Anfragen (HTTP 429)",
+                "Sicherheitscheck: springende Punkte, solange die Prüfung läuft",
+                "Linux zusätzlich als RPM und AppImage, jeweils x86_64 und aarch64",
+                "Kleinere Downloads; Android-APK je Prozessortyp",
+                "Browser-Erweiterung funktioniert auch im Flatpak und im AppImage"
+            ]
+        },
+        {
             "version":"0.1.0",
             "date":"2026-09-18",
             "changes":[
