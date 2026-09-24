@@ -924,12 +924,20 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
     Ok(())
 }
 
-/// Sagt verbundenen Browsern, dass die Datenbank zu oder offen ist. Die
-/// Browser-Anbindung gibt es nur auf dem Desktop — auf Android wird sie gar
-/// nicht übersetzt, dort tut das hier nichts.
+/// Sagt verbundenen Browsern, dass die Datenbank zu oder offen ist, und
+/// beendet beim Sperren die Schonfrist des Autofill-Dienstes.
+///
+/// Die Browser-Anbindung gibt es nur auf dem Desktop, den Dienst nur auf
+/// Android — jede Seite kennt hier nur ihre eigene Hälfte.
 fn browser_announce(locked: bool) {
     #[cfg(desktop)]
     crate::keepass_extension::api::announce(locked);
+
+    #[cfg(target_os = "android")]
+    if locked {
+        crate::android_services::nach_sperren();
+    }
+
     #[cfg(not(desktop))]
     let _ = locked;
 }

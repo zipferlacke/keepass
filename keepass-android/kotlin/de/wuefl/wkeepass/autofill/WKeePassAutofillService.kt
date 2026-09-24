@@ -68,6 +68,15 @@ class WKeePassAutofillService : AutofillService() {
         }
 
         val web = felder.webAdresse ?: ""
+
+        // Der Kern kann warten müssen — er rechnet beim Speichern Argon2.
+        // Auf dem Hauptfaden des Dienstes hinge so lange die fremde App an
+        // ihrem Tastenfeld. Die Antwort darf von jedem Faden kommen.
+        Thread { callback.onSuccess(bauen(felder, paket, web)) }.start()
+    }
+
+    /** Die Vorschlagsliste für ein erkanntes Formular. */
+    private fun bauen(felder: FeldFinder.Felder, paket: String, web: String): FillResponse {
         val ids = felder.ids.toTypedArray()
         val antwort = FillResponse.Builder()
 
@@ -75,7 +84,7 @@ class WKeePassAutofillService : AutofillService() {
         if (Kern.gesperrt(stand) || stand.has("fehler")) {
             // Gesperrt: eine Zeile, die zum Entsperren führt. Konten zeigen
             // ginge nicht — ohne offene Datenbank kennen wir keine.
-            antwort.addDataset(vorschlag(ids, zeile("WKeePass entsperren", "Danach erneut antippen"), absicht(felder, paket, null)))
+            antwort.addDataset(vorschlag(ids, zeile("WKeePass entsperren", "Mit Biometrie, PIN oder Master-Passwort"), absicht(felder, paket, null)))
         } else {
             val liste = stand.optJSONArray("eintraege")
             val passend = (0 until (liste?.length() ?: 0))
@@ -112,7 +121,7 @@ class WKeePassAutofillService : AutofillService() {
             antwort.setSaveInfo(SaveInfo.Builder(SPEICHERN_ART, speicherbar).build())
         }
 
-        callback.onSuccess(antwort.build())
+        return antwort.build()
     }
 
     /**
@@ -135,6 +144,11 @@ class WKeePassAutofillService : AutofillService() {
         }
 
         val paket = struktur.activityComponent?.packageName ?: ""
+        Thread { speichern(felder, paket, passwort, callback) }.start()
+    }
+
+    /** Legt den Zugang an — Argon2 inklusive, deshalb im Hintergrund. */
+    private fun speichern(felder: FeldFinder.Felder, paket: String, passwort: String, callback: SaveCallback) {
         val antwort = Kern.frage {
             Kern.speichern(paket, felder.webAdresse ?: "", felder.benutzerWert ?: "", passwort)
         }
@@ -144,10 +158,14 @@ class WKeePassAutofillService : AutofillService() {
             // Gesperrt: Der Kern hat es sich gemerkt und trägt es nach dem
             // Entsperren ein.
             antwort.optString("status") == "vorgemerkt" -> {
-                android.widget.Toast.makeText(
-                    this, "Gemerkt — wird beim nächsten Entsperren von WKeePass gespeichert.",
-                    android.widget.Toast.LENGTH_LONG,
-                ).show()
+                // Ein Toast gehört auf den Hauptfaden — von hier aus gibt es
+                // sonst keinen Looper und die Meldung reißt den Dienst mit.
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(
+                        this, "Gemerkt — wird beim nächsten Entsperren von WKeePass gespeichert.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
                 callback.onSuccess()
             }
             Kern.gesperrt(antwort) -> callback.onFailure("WKeePass läuft nicht — nichts gespeichert.")

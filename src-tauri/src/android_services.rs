@@ -8,12 +8,30 @@
 //! einer **fremden** App steht. Sie fragen hier nach, was die offene
 //! Datenbank für diese App oder Seite hergibt.
 //!
-//! # Was hier bewusst nicht passiert: entsperren
+//! # Entsperren und Nachweis
 //!
-//! Ist die Datenbank zu, antwortet dieses Modul nur „zu", und die Kotlin-Seite
-//! holt die App nach vorn. Entsperrt wird dort, auf den bekannten Wegen —
-//! Master-Passwort, PIN, Fingerabdruck. Ein zweiter Entsperrweg im Dienst
-//! wäre eine zweite Tür, die man genauso gut sichern müsste.
+//! Beides geht auch aus dem Dienst heraus — über dieselben Wege wie im
+//! Fenster, nicht über eine zweite Tür: [`entsperren`] ruft `vault_unlock`,
+//! [`pruefen`] prüft PIN und Master-Passwort wie `confirm_presence`. Nur der
+//! Dialog steht woanders, nämlich in der Activity des Dienstes.
+//!
+//! Läuft der Kern gar nicht (`"aus"`), geht das nicht: Ohne Tauri gibt es
+//! weder Einstellungen noch Schlüsselbund. Dann holt die Kotlin-Seite wie
+//! bisher die App nach vorn.
+//!
+//! # Vor dem Einsetzen
+//!
+//! `android.guard` sagt, was vor der Herausgabe passiert — genau wie
+//! `browser.guard` am Rechner:
+//!
+//! ```text
+//! never      einsetzen, ohne zu fragen
+//! confirm    ein Knopfdruck
+//! identify   Nachweis mit PIN, Master-Passwort oder Biometrie
+//! ```
+//!
+//! Die Entscheidung fällt hier, nicht in Kotlin: [`zugang`] gibt ohne
+//! gültigen Nachweis kein Passwort heraus, sondern `"status": "nachweis"`.
 //!
 //! # Das Format
 //!
@@ -52,6 +70,65 @@ pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_status<'l>(
     _cls: JClass<'l>,
 ) -> jstring {
     antworte(&mut env, |_| Ok(json!({ "status": status() })))
+}
+
+/// Meldet die sichtbare Activity des Dienstes an — `null` meldet sie ab.
+///
+/// Solange sie steht, gehören Systemdialoge zu ihr. Ohne das erschiene der
+/// Fingerabdruck-Dialog beim Entsperren an einem Fenster, das gar nicht da
+/// ist, und der Nutzer sähe nichts.
+#[no_mangle]
+pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_aktivitaet<'l>(
+    mut env: JNIEnv<'l>,
+    _cls: JClass<'l>,
+    activity: jni::objects::JObject<'l>,
+) {
+    let neu = (!activity.is_null())
+        .then(|| env.new_global_ref(&activity).ok())
+        .flatten();
+    crate::java::setze_vordergrund(neu);
+    crate::java::abraeumen(&mut env);
+}
+
+/// Welche Wege es zum Entsperren dieser Datenbank gibt.
+#[no_mangle]
+pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_wege<'l>(
+    mut env: JNIEnv<'l>,
+    _cls: JClass<'l>,
+) -> jstring {
+    antworte(&mut env, |_| wege())
+}
+
+/// Entsperrt die zuletzt benutzte Datenbank.
+///
+/// `methode`: `"geraet"` (Biometrie über den Keystore), `"pin"` oder
+/// `"master"`. Der Aufruf dauert — Argon2 —, er gehört auf einen Arbeitsfaden.
+#[no_mangle]
+pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_entsperren<'l>(
+    mut env: JNIEnv<'l>,
+    _cls: JClass<'l>,
+    methode: JString<'l>,
+    geheimnis: JString<'l>,
+) -> jstring {
+    let methode = text(&mut env, &methode);
+    let geheimnis = zeroize::Zeroizing::new(text(&mut env, &geheimnis));
+    antworte(&mut env, move |_| entsperren(&methode, &geheimnis))
+}
+
+/// Prüft einen Nachweis vor dem Einsetzen und startet die Frist.
+///
+/// `methode`: `"pin"`, `"master"` — beides prüft der Kern — oder
+/// `"bestaetigt"`, wenn die Activity den Systemdialog schon bestanden hat.
+#[no_mangle]
+pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_pruefen<'l>(
+    mut env: JNIEnv<'l>,
+    _cls: JClass<'l>,
+    methode: JString<'l>,
+    geheimnis: JString<'l>,
+) -> jstring {
+    let methode = text(&mut env, &methode);
+    let geheimnis = zeroize::Zeroizing::new(text(&mut env, &geheimnis));
+    antworte(&mut env, move |_| pruefen(&methode, &geheimnis))
 }
 
 /// Einträge für eine App oder Seite.
@@ -232,9 +309,177 @@ fn treffer(paket: &str, web: &str) -> Result<Value, String> {
     Ok(json!({ "status": "offen", "eintraege": liste }))
 }
 
+/* =========================================================
+   Entsperren und Nachweis
+   ---------------------------------------------------------
+   Dieselben Wege wie im Fenster, nur von der Activity des Dienstes aus
+   gefragt. Was der Kern dafür braucht — Einstellungen, Schlüsselbund,
+   Keystore — gibt es nur, solange er läuft.
+   ========================================================= */
+
+/// Was vor dem Einsetzen zu tun ist.
+#[derive(Clone, Copy, PartialEq)]
+enum Wache {
+    Nichts,
+    Bestaetigen,
+    Nachweis,
+}
+
+impl Wache {
+    fn name(self) -> &'static str {
+        match self {
+            Wache::Nichts => "never",
+            Wache::Bestaetigen => "confirm",
+            Wache::Nachweis => "identify",
+        }
+    }
+}
+
+/// Voreinstellung wie am Rechner: ein Nachweis, bevor etwas herausgeht.
+fn wache(app: &tauri::AppHandle) -> Wache {
+    match crate::settings::value(app, "android.guard").as_ref().and_then(Value::as_str) {
+        Some("never") => Wache::Nichts,
+        Some("confirm") => Wache::Bestaetigen,
+        _ => Wache::Nachweis,
+    }
+}
+
+/// Wie lange ein Nachweis nachwirkt. Gleiche Schranke wie beim Browser.
+fn frist(app: &tauri::AppHandle) -> std::time::Duration {
+    let sekunden = crate::settings::value(app, "android.graceSeconds")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(60)
+        .min(3600);
+    std::time::Duration::from_secs(sekunden)
+}
+
+fn zuletzt() -> &'static std::sync::Mutex<Option<std::time::Instant>> {
+    static ZULETZT: std::sync::OnceLock<std::sync::Mutex<Option<std::time::Instant>>> =
+        std::sync::OnceLock::new();
+    ZULETZT.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+/// Läuft die Frist aus dem letzten Nachweis noch?
+fn in_frist(app: &tauri::AppHandle) -> bool {
+    let frist = frist(app);
+    zuletzt()
+        .lock()
+        .ok()
+        .and_then(|at| *at)
+        .is_some_and(|at| at.elapsed() < frist)
+}
+
+fn merke_nachweis() {
+    if let Ok(mut at) = zuletzt().lock() {
+        *at = Some(std::time::Instant::now());
+    }
+}
+
+/// Beim Sperren endet die Frist — wie beim Browser. Aufgerufen aus
+/// `database.rs`, auf allen Wegen ins Schloss.
+pub fn nach_sperren() {
+    if let Ok(mut at) = zuletzt().lock() {
+        *at = None;
+    }
+}
+
+/// Die ausgewählte Datenbank — ihr Pfad steht in den Einstellungen.
+fn datenbank(app: &tauri::AppHandle) -> Result<String, String> {
+    crate::settings::value(app, "database.current")
+        .as_ref()
+        .and_then(Value::as_str)
+        .filter(|p| !p.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| "Es ist noch keine Datenbank ausgewählt.".to_string())
+}
+
+/// Welche Wege zum Entsperren und zum Nachweis bereitstehen.
+fn wege() -> Result<Value, String> {
+    let app = app()?;
+    // Ohne ausgewählte Datenbank gibt es nichts zu entsperren — dann hilft
+    // nur die App, und die Kotlin-Seite holt sie nach vorn.
+    let pfad = datenbank(&app)?;
+    let angebot = crate::seal::offer(&app, Some(&pfad));
+    Ok(json!({
+        "name": crate::storage::file_name(&pfad),
+        "geraet": crate::seal::device_offer(&app, Some(&pfad)),
+        "geraetName": crate::biometric::device_key_label().unwrap_or("Biometrie"),
+        "pin": angebot.pin,
+        "pinGesetzt": crate::seal::status(&app).pin_set,
+    }))
+}
+
+/// Entsperrt die ausgewählte Datenbank — derselbe Weg wie im Fenster.
+fn entsperren(methode: &str, geheimnis: &str) -> Result<Value, String> {
+    let app = app()?;
+    let pfad = datenbank(&app)?;
+    let minuten = crate::settings::value(&app, "unlock.autoLockMinutes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5);
+
+    // Der Kern kennt die Wege unter ihren eigenen Namen.
+    let weg = match methode {
+        "geraet" => "device",
+        "pin" => "pin",
+        "master" => "password",
+        other => return Err(format!("Unbekannter Weg zum Entsperren: {other}")),
+    };
+
+    let state = app.state::<Vault>();
+    tauri::async_runtime::block_on(crate::database::vault_unlock(
+        app.clone(),
+        state,
+        pfad,
+        weg.to_string(),
+        Some(geheimnis.to_string()),
+        None,
+        Some(minuten),
+        None,
+    ))?;
+
+    // Wer gerade entsperrt hat, hat sich damit ausgewiesen.
+    merke_nachweis();
+    Ok(json!({ "status": "offen" }))
+}
+
+/// Prüft den Nachweis vor dem Einsetzen und startet die Frist.
+fn pruefen(methode: &str, geheimnis: &str) -> Result<Value, String> {
+    let app = app()?;
+    match methode {
+        "pin" => crate::seal::confirm_pin(&app, geheimnis)?,
+
+        "master" => {
+            let state = app.state::<Vault>();
+            let vault = offen(&state)?;
+            let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?;
+            if geheimnis != master.as_str() {
+                return Err("Master-Passwort stimmt nicht.".into());
+            }
+        }
+
+        // Den Systemdialog zeigt die Activity selbst: `BiometricPrompt`
+        // verlangt eine Unterklasse, die es nur in Kotlin gibt. Für einen
+        // Nachweis genügt das — anders als beim Entsperren fällt hier kein
+        // Schlüssel an, den der Chip hüten müsste.
+        "bestaetigt" => {}
+
+        other => return Err(format!("Unbekannter Nachweis: {other}")),
+    }
+
+    merke_nachweis();
+    Ok(json!({ "ok": true }))
+}
+
 fn zugang(id: &str, paket: &str, merken: bool) -> Result<Value, String> {
     let app = app()?;
     let state = app.state::<Vault>();
+
+    // Erst der Nachweis, dann das Passwort. Die Auswahlliste stand schon —
+    // gesehen hat sie nur der Nutzer, herausgegeben wurde nichts.
+    let stufe = wache(&app);
+    if stufe != Wache::Nichts && !in_frist(&app) {
+        return Ok(json!({ "status": "nachweis", "stufe": stufe.name() }));
+    }
 
     let (antwort, geaendert) = {
         let mut vault = offen(&state)?;

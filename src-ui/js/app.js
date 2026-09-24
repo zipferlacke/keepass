@@ -3394,13 +3394,61 @@ const ANDROID_FREIGABEN = [
  * Weile nach — der Nutzer kommt aus den Systemeinstellungen zurück, ohne
  * dass die Seite davon erfährt.
  */
+/**
+ * Was passiert, bevor der Passwortmanager etwas in eine fremde App
+ * einsetzt. Dieselben drei Stufen wie bei der Browser-Erweiterung — die
+ * Auswahlliste kommt immer, herausgegeben wird erst danach.
+ */
+function ausfuellMarkup() {
+  const guard = settings.get('android.guard', 'identify');
+  const grace = Number(settings.get('android.graceSeconds', 60));
+
+  return `
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Vor dem Ausfüllen</strong>
+        <small>Was passiert, wenn du einen Zugang aus der Liste antippst:
+        nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Biometrie.</small>
+      </div>
+      <div class="setting-control">
+        <div class="group-radio" id="android-guard">
+          ${[['never', 'Nichts'], ['confirm', 'Bestätigen'], ['identify', 'Legitimieren']]
+            .map(([value, label]) => `
+              <label>
+                <input type="radio" name="android.guard" value="${value}"
+                  ${guard === value ? 'checked' : ''}>${label}
+              </label>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Danach nicht erneut fragen</strong>
+        <small>Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen —
+        ein Formular mit Name und Passwort fragt sonst zweimal.
+        Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.</small>
+      </div>
+      <div class="setting-control">
+        <select id="android-grace" name="android.graceSeconds" data-sp-picker data-sp-search="false">
+          ${[[0, 'Jedes Mal fragen'], [30, '30 Sekunden'], [60, '1 Minute'], [300, '5 Minuten'], [900, '15 Minuten']]
+            .map(([wert, label]) => `<option value="${wert}" ${grace === wert ? 'selected' : ''}>${label}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+}
+
 async function renderAndroidSection(card) {
   if (!card) return;
   let status;
   try { status = await vault.androidSetupStatus(); } catch { status = null; }
-  if (!status) { card.innerHTML = ''; return; }
 
-  card.innerHTML = ANDROID_FREIGABEN.map(f => {
+  // Die Stufe gilt auch dann, wenn die Freigaben gerade nicht zu erfragen
+  // sind — sie steht deshalb vor ihnen und bleibt stehen.
+  card.innerHTML = ausfuellMarkup();
+  wireAusfuellen(card);
+  if (!status) return;
+
+  card.insertAdjacentHTML('beforeend', ANDROID_FREIGABEN.map(f => {
     const s = status[f.key] ?? {};
     const control = s.aktiv
       ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Aktiv</span>`
@@ -3412,12 +3460,29 @@ async function renderAndroidSection(card) {
       <div class="setting-label"><strong><span class="msr">${f.icon}</span> ${esc(f.title)}</strong><small>${esc(f.text)}</small></div>
       <div class="setting-control">${control}</div>
     </div>`;
-  }).join('');
+  }).join(''));
 
   card.querySelectorAll('[data-setup]').forEach(btn => btn.addEventListener('click', async () => {
     await vault.androidSetupOpen(btn.dataset.setup);
     watchAndroidSetup(card, JSON.stringify(status));
   }));
+}
+
+/** Stufe und Frist: Der Dienst liest beides bei jeder Anfrage neu. */
+function wireAusfuellen(card) {
+  card.querySelectorAll('[name="android.guard"]').forEach(el =>
+    el.addEventListener('change', async () => {
+      await settings.set('android.guard', el.value, { silent: true });
+      banner({
+        never: 'Zugänge werden ohne Rückfrage eingesetzt.',
+        confirm: 'Ein Knopfdruck genügt — ohne Nachweis.',
+        identify: 'PIN, Master-Passwort oder Biometrie vor dem Einsetzen.'
+      }[el.value], el.value === 'never' ? 'warning' : 'success', 5000);
+    }));
+
+  card.querySelector('#android-grace')?.addEventListener('change', async ev => {
+    await settings.set('android.graceSeconds', Number(ev.target.value), { silent: true });
+  });
 }
 
 /** Fragt eine Minute lang jede Sekunde nach und zeichnet bei Änderung neu. */

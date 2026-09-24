@@ -33,13 +33,14 @@ kotlin/de/wuefl/wkeepass/
     autofill/
         WKeePassAutofillService  onFillRequest, onSaveRequest
         FeldFinder               Anmeldefelder im ViewNode-Baum finden
-        AusfuellActivity         Auswahl, Einsetzen, App merken
+        AusfuellActivity         Auswahl, Nachweis, Einsetzen, App merken
     passkey/
         WKeePassCredentialService  Vorschläge an den Credential Manager
         PasskeyActivity            Ausweis, Signieren, Anlegen
     sicherheit/
         Geraeteschluessel        Keystore-Schlüssel, nur per Biometrie frei
         Bestaetigung             „Bist du es?" vor einem Passkey
+        Nachweisblatt            Entsperren und Nachweis im Dienst
 
 res/xml/                         Selbstauskunft von Autofill und Passkey-Anbieter
 manifest.xml                     Dienste und Activities fürs AndroidManifest
@@ -74,9 +75,26 @@ Gegenstelle; die Signatur entsteht erst in der `PasskeyActivity`, nach
 Finger oder Displaysperre. Gespeichert wird in denselben Feldern wie bei
 KeePassXC — Desktop und Handy sehen dieselben Passkeys.
 
-**Gesperrt?** Dann holen beide die App nach vorn. Entsperrt wird dort, auf
-den bekannten Wegen; danach das Feld erneut antippen. Ein zweiter
-Entsperrweg im Dienst wäre eine zweite Tür, die man genauso sichern müsste.
+**Vor dem Einsetzen.** Die Auswahlliste kommt immer; ob danach noch etwas
+zu tun ist, sagt die Einstellung „Vor dem Ausfüllen" (`android.guard`):
+nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder
+Biometrie. Entschieden wird das im Kern — ohne gültigen Nachweis kommt
+statt des Passworts `status: "nachweis"` zurück, und das `Nachweisblatt`
+fragt. Danach gilt der Nachweis für `android.graceSeconds`, damit ein
+Formular mit Name und Passwort nicht zweimal fragt; Sperren beendet die
+Frist sofort.
+
+**Gesperrt?** Dann fragt dasselbe Blatt nach dem Schlüssel und öffnet die
+Datenbank gleich hier — Biometrie über den Keystore, PIN oder
+Master-Passwort. Es ist keine zweite Tür: Geprüft wird in `vault_unlock`,
+wie im Fenster auch. Nur wenn der Kern gar nicht läuft (`status: "aus"`),
+geht das nicht — ohne ihn gibt es weder Einstellungen noch Schlüsselbund,
+und dann kommt wie bisher die App nach vorn.
+
+**Nie auf dem Hauptfaden.** Jeder Aufruf in den Kern läuft über
+`Kern.imHintergrund`. Er kann warten müssen: Beim Speichern und Entsperren
+rechnet er Argon2 und hält dabei die Datenbank, und auf dem Hauptfaden
+gefragt stünde so lange die Anzeige.
 
 **Einschalten** auf dem Handy: Einstellungen → Passwörter, Passkeys und
 Konten → WKeePass als bevorzugten Dienst wählen.

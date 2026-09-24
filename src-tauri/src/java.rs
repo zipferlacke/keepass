@@ -14,9 +14,29 @@
 //! Deshalb räumt [`mit_java`] nach **jedem** Aufruf auf, egal wie er
 //! ausging. Wer JNI braucht, nimmt diese Funktion und vergisst das Thema.
 
-use jni::objects::JObject;
+use std::sync::Mutex;
+
+use jni::objects::{GlobalRef, JObject};
 use jni::JNIEnv;
 use tao::platform::android::prelude::main_android_context;
+
+/// Die Activity, die gerade vorn steht — sofern es nicht die des Fensters ist.
+///
+/// Autofill und Passkeys laufen in eigenen Activities über einer **fremden**
+/// App; das Hauptfenster ist dabei oft gar nicht da. Ein Systemdialog
+/// (`BiometricPrompt`) gehört aber zu einer Activity, die auch wirklich
+/// sichtbar ist. Die Dienste melden sich deshalb hier an und wieder ab.
+fn vordergrund() -> &'static Mutex<Option<GlobalRef>> {
+    static AKTUELL: std::sync::OnceLock<Mutex<Option<GlobalRef>>> = std::sync::OnceLock::new();
+    AKTUELL.get_or_init(|| Mutex::new(None))
+}
+
+/// Meldet die sichtbare Activity an; `None` meldet sie wieder ab.
+pub fn setze_vordergrund(activity: Option<GlobalRef>) {
+    if let Ok(mut aktuell) = vordergrund().lock() {
+        *aktuell = activity;
+    }
+}
 
 /// Hängt den Faden an die Java-Umgebung, reicht die Activity herein und
 /// räumt hinterher eine offene Ausnahme ab — ins Protokoll, nicht ins Nichts.
@@ -30,9 +50,12 @@ pub fn mit_java<T>(
     let mut env = vm
         .attach_current_thread()
         .map_err(|e| format!("Faden nicht angehängt: {e}"))?;
-    let activity = unsafe { JObject::from_raw(ctx.context_jobject.cast()) };
 
-    let ergebnis = f(&mut env, &activity);
+    let fenster = unsafe { JObject::from_raw(ctx.context_jobject.cast()) };
+    let dienst = vordergrund().lock().ok().and_then(|a| a.clone());
+    let activity = dienst.as_ref().map_or(&fenster, |a| a.as_obj());
+
+    let ergebnis = f(&mut env, activity);
     let ausnahme = abraeumen(&mut env);
 
     match (ergebnis, ausnahme) {

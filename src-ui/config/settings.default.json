@@ -43,5 +43,9 @@
   "browser": {
     "guard": "identify",
     "graceSeconds": 60
+  },
+  "android": {
+    "guard": "identify",
+    "graceSeconds": 60
   }
 }

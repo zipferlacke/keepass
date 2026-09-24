@@ -18,6 +18,7 @@ import androidx.credentials.provider.CallingAppInfo
 import androidx.credentials.provider.PendingIntentHandler
 import de.wuefl.wkeepass.kern.Kern
 import de.wuefl.wkeepass.sicherheit.Bestaetigung
+import de.wuefl.wkeepass.sicherheit.Nachweisblatt
 import org.json.JSONObject
 import java.security.MessageDigest
 
@@ -29,9 +30,13 @@ import java.security.MessageDigest
  * ```text
  * anmelden     Passkey gewählt → Ausweis → signieren → zurück an Android
  * anlegen      „In WKeePass speichern" → Ausweis → Schlüssel erzeugen
- * entsperren   Datenbank war zu → App nach vorn, oder, wenn sie inzwischen
- *              offen ist, die echten Vorschläge nachliefern
+ * entsperren   Datenbank war zu → hier entsperren und die echten Vorschläge
+ *              nachliefern; nur ohne laufenden Kern hilft die App
  * ```
+ *
+ * Ist die Datenbank zu, fragt [Nachweisblatt] danach — Biometrie, PIN oder
+ * Master-Passwort, ohne den Umweg über die App. Die Aufrufe in den Kern
+ * laufen dabei nie auf dem Hauptfaden: Entsperren heißt Argon2.
  *
  * ## Woher die Herkunft kommt
  *
@@ -47,11 +52,38 @@ class PasskeyActivity : Activity() {
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        // Systemdialoge gehören zu dieser Activity — ein Hauptfenster gibt
+        // es hier nicht.
+        Kern.vordergrund(this)
         when (intent.getStringExtra(EXTRA_MODUS)) {
             MODUS_ANMELDEN -> anmelden()
             MODUS_ANLEGEN -> anlegen()
             MODUS_ENTSPERREN -> entsperren()
             else -> fertig(RESULT_CANCELED)
+        }
+    }
+
+    override fun onDestroy() {
+        Kern.vordergrund(null)
+        super.onDestroy()
+    }
+
+    /**
+     * Sorgt dafür, dass die Datenbank offen ist, und ruft dann `dann`.
+     * Klappt das nicht, geht `sonst` als Absage hinaus.
+     */
+    private fun bereit(sonst: () -> Unit, dann: () -> Unit) {
+        Kern.imHintergrund({ Kern.status() }) { status ->
+            when {
+                Kern.aus(status) -> {
+                    Kern.appOeffnen(this)
+                    sonst()
+                }
+                Kern.gesperrt(status) -> Nachweisblatt.entsperren(this) { offen ->
+                    if (offen) dann() else sonst()
+                }
+                else -> dann()
+            }
         }
     }
 
@@ -64,23 +96,26 @@ class PasskeyActivity : Activity() {
             ?: return abbruchGet("Der Aufrufer ist nicht vertrauenswürdig.")
 
         val rp = JSONObject(option.requestJson).optString("rpId")
-        Bestaetigung.fragen(this, "Anmelden bei $rp") { ok ->
-            if (!ok) return@fragen abbruchGet(null)
+        bereit({ abbruchGet(null) }) {
+            Bestaetigung.fragen(this, "Anmelden bei $rp") { ok ->
+                if (!ok) return@fragen abbruchGet(null)
 
-            val id = intent.getStringExtra(EXTRA_CREDENTIAL_ID) ?: ""
-            val antwort = Kern.frage { Kern.passkeyAnmelden(option.requestJson, id, herkunft, hash) }
-            if (Kern.gesperrt(antwort)) {
-                Kern.appOeffnen(this)
-                return@fragen abbruchGet(null)
+                val id = intent.getStringExtra(EXTRA_CREDENTIAL_ID) ?: ""
+                Kern.imHintergrund({ Kern.passkeyAnmelden(option.requestJson, id, herkunft, hash) }) { antwort ->
+                    if (Kern.gesperrt(antwort)) {
+                        Kern.appOeffnen(this)
+                        return@imHintergrund abbruchGet(null)
+                    }
+                    if (antwort.has("fehler")) return@imHintergrund abbruchGet(antwort.optString("fehler"))
+
+                    val ergebnis = Intent()
+                    PendingIntentHandler.setGetCredentialResponse(
+                        ergebnis, GetCredentialResponse(PublicKeyCredential(antwort.toString()))
+                    )
+                    setResult(RESULT_OK, ergebnis)
+                    finish()
+                }
             }
-            if (antwort.has("fehler")) return@fragen abbruchGet(antwort.optString("fehler"))
-
-            val ergebnis = Intent()
-            PendingIntentHandler.setGetCredentialResponse(
-                ergebnis, GetCredentialResponse(PublicKeyCredential(antwort.toString()))
-            )
-            setResult(RESULT_OK, ergebnis)
-            finish()
         }
     }
 
@@ -89,48 +124,46 @@ class PasskeyActivity : Activity() {
         val aufruf = anfrage?.callingRequest as? CreatePublicKeyCredentialRequest
         if (anfrage == null || aufruf == null) return abbruchCreate("Keine Passkey-Anfrage erhalten.")
 
-        if (Kern.gesperrt(Kern.frage { Kern.status() })) {
-            Kern.appOeffnen(this)
-            return abbruchCreate(null)
-        }
-
         val (herkunft, hash) = herkunft(anfrage.callingAppInfo, aufruf.clientDataHash)
             ?: return abbruchCreate("Der Aufrufer ist nicht vertrauenswürdig.")
 
         val rp = JSONObject(aufruf.requestJson).optJSONObject("rp")?.optString("id") ?: ""
-        Bestaetigung.fragen(this, "Passkey für $rp anlegen") { ok ->
-            if (!ok) return@fragen abbruchCreate(null)
+        bereit({ abbruchCreate(null) }) {
+            Bestaetigung.fragen(this, "Passkey für $rp anlegen") { ok ->
+                if (!ok) return@fragen abbruchCreate(null)
 
-            val antwort = Kern.frage { Kern.passkeyAnlegen(aufruf.requestJson, herkunft, hash) }
-            if (Kern.gesperrt(antwort)) {
-                Kern.appOeffnen(this)
-                return@fragen abbruchCreate(null)
+                Kern.imHintergrund({ Kern.passkeyAnlegen(aufruf.requestJson, herkunft, hash) }) { antwort ->
+                    if (Kern.gesperrt(antwort)) {
+                        Kern.appOeffnen(this)
+                        return@imHintergrund abbruchCreate(null)
+                    }
+                    if (antwort.has("fehler")) return@imHintergrund abbruchCreate(antwort.optString("fehler"))
+
+                    val ergebnis = Intent()
+                    PendingIntentHandler.setCreateCredentialResponse(
+                        ergebnis, CreatePublicKeyCredentialResponse(antwort.toString())
+                    )
+                    setResult(RESULT_OK, ergebnis)
+                    finish()
+                }
             }
-            if (antwort.has("fehler")) return@fragen abbruchCreate(antwort.optString("fehler"))
-
-            val ergebnis = Intent()
-            PendingIntentHandler.setCreateCredentialResponse(
-                ergebnis, CreatePublicKeyCredentialResponse(antwort.toString())
-            )
-            setResult(RESULT_OK, ergebnis)
-            finish()
         }
     }
 
     /**
-     * Die Zeile „WKeePass entsperren" wurde angetippt. Ist die Datenbank
-     * inzwischen offen, liefern wir die Vorschläge nach; sonst App nach vorn.
+     * Die Zeile „WKeePass entsperren" wurde angetippt: hier entsperren und
+     * die echten Vorschläge nachliefern.
      */
     private fun entsperren() {
         val anfrage = PendingIntentHandler.retrieveBeginGetCredentialRequest(intent)
-        if (anfrage == null || Kern.gesperrt(Kern.frage { Kern.status() })) {
-            Kern.appOeffnen(this)
-            return fertig(RESULT_CANCELED)
+            ?: return fertig(RESULT_CANCELED)
+
+        bereit({ fertig(RESULT_CANCELED) }) {
+            val ergebnis = Intent()
+            PendingIntentHandler.setBeginGetCredentialResponse(ergebnis, Vorschlaege.bauen(this, anfrage))
+            setResult(RESULT_OK, ergebnis)
+            finish()
         }
-        val ergebnis = Intent()
-        PendingIntentHandler.setBeginGetCredentialResponse(ergebnis, Vorschlaege.bauen(this, anfrage))
-        setResult(RESULT_OK, ergebnis)
-        finish()
     }
 
     /**
