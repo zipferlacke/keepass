@@ -10,6 +10,7 @@ unter `keepass-android/` und kommt bei jedem Bauen hier hinein:
   res/                    → app/src/main/res/
   proguard-wkeepass.pro   → app/
   manifest.xml            → in <application> von AndroidManifest.xml
+  Name der Debug-Fassung  → app/src/debug/res/values/strings.xml: „WKeePass-Debug"
   Kamera-Berechtigung     → vor <application>
   androidx.credentials    → als Abhängigkeit in app/build.gradle.kts
 
@@ -90,6 +91,26 @@ def gradle() -> None:
     datei.write_text(text, encoding="utf-8")
 
 
+DEBUG_NAME = "WKeePass-Debug"
+
+
+def debug_name() -> None:
+    """Die Debug-Fassung heißt anders.
+
+    Sie liegt neben der echten App (``debugApplicationIdSuffix`` in
+    tauri.conf.json) — hießen beide „WKeePass", wüsste man im Starter und im
+    Autofill-Dienst nicht, welche man gerade vor sich hat. Ressourcen unter
+    ``src/debug`` gelten nur für diese Fassung.
+    """
+    ziel = APP / "src/debug/res/values"
+    ziel.mkdir(parents=True, exist_ok=True)
+    (ziel / "strings.xml").write_text(
+        "<resources>\n"
+        f'    <string name="app_name">"{DEBUG_NAME}"</string>\n'
+        f'    <string name="main_activity_title">"{DEBUG_NAME}"</string>\n'
+        "</resources>\n", encoding="utf-8")
+
+
 def main() -> int:
     if not APP.is_dir():
         print(f"{APP} fehlt — erst `cargo tauri android init`.", file=sys.stderr)
@@ -98,6 +119,7 @@ def main() -> int:
     manifest()
     berechtigungen()
     gradle()
+    debug_name()
     print("==> Android-Teile eingesetzt")
     return 0
 
