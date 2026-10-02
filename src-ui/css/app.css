@@ -2778,39 +2778,48 @@
   /* ============================================================
      Datei-Vorschau im Vollbild
      ------------------------------------------------------------
-     Oben nur Schließen, Name und Herunterladen — der Rest ist Datei.
+     Ein userDialog, dem die Variablen der Bibliothek auf Vollbild
+     gestellt sind: oben links die Knöpfe, in der Mitte der Dateiname
+     (zugleich der Knopf zum Umbenennen), rechts das Kreuz — der ganze
+     Rest ist Datei. Keine Fußzeile.
      ============================================================ */
-  .file-viewer {
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100dvh;
-    max-width: none;
-    max-height: none;
-    margin: 0;
+  .userDialog#file-viewer {
+    --uD-margin: 0;
+    --uD-radius: 0;
+    --uD-width: 100vw;
+    --uD-min-width: 0;
+    --uD-max-width: 100vw;
+    --uD-height: 100dvh;
+    --uD-max-height: 100dvh;
+    --dialog-gap: 0;
     padding: 0;
-    border: none;
     background: var(--clr-neutral-50);
     color: var(--text-color);
-
-    &[open] { display: flex; flex-direction: column; }
+    box-shadow: none;
 
     &::backdrop { background: var(--clr-neutral-50); }
 
-    .file-viewer-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: calc(0.4rem + env(safe-area-inset-top, 0px)) 0.5rem 0.4rem;
-      border-bottom: 1px solid var(--clr-neutral-200);
-      background: var(--bg-surface);
+    > form {
+      max-height: 100dvh;
+
+      /* Scrollen soll allein die Datei, nicht der Rahmen um sie. */
+      .content { padding-right: 0; overflow: hidden; }
+
+      .uD-header {
+        padding: calc(0.4rem + env(safe-area-inset-top, 0px)) 0.5rem 0.4rem;
+        border-bottom: 1px solid var(--clr-neutral-200);
+        background: var(--bg-surface);
+        font-size: var(--fs-300);
+        font-weight: normal;
+      }
+
+      .uD-main { margin: 0; gap: 0; min-height: 0; }
     }
 
     .file-viewer-title {
-      flex: 1;
-      min-width: 0;
       display: flex;
       justify-content: center;
+      min-width: 0;
     }
 
     /* Der Name ist zugleich der Knopf zum Umbenennen */
@@ -2826,6 +2835,7 @@
       background: transparent;
       color: inherit;
       font-size: var(--fs-300);
+      font-weight: normal;
       cursor: text;
 
       strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2841,7 +2851,7 @@
     }
 
     .file-viewer-body {
-      flex: 1;
+      height: 100%;
       min-height: 0;
       display: flex;
       flex-direction: column;

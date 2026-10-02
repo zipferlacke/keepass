@@ -2542,19 +2542,15 @@ async function openStoredFile(entryId, name) {
   state.dialogEntryId = entryId;
   state.dialogAttachments = files;
 
+  // Die Vorschau kehrt erst zurück, wenn sie zu ist — danach aufräumen.
   await openAttachmentViewer(att);
-  const viewer = [...document.querySelectorAll('dialog.file-viewer')].pop();
-  const done = async () => {
-    state.dialogEntryId = null;
-    state.dialogAttachments = [];
-    // Umbenannt oder bearbeitet: Liste neu, damit Name und Inhalt stimmen.
-    if (files.map(a => `${a.name}\n${a.ref}`).join('\n') !== before) {
-      await refreshFromVault();
-      renderPasswords();
-    }
-  };
-  if (viewer?.open) viewer.addEventListener('close', done, { once: true });
-  else done();
+  state.dialogEntryId = null;
+  state.dialogAttachments = [];
+  // Umbenannt oder bearbeitet: Liste neu, damit Name und Inhalt stimmen.
+  if (files.map(a => `${a.name}\n${a.ref}`).join('\n') !== before) {
+    await refreshFromVault();
+    renderPasswords();
+  }
 }
 
 /** Rüstet die eben gebauten Tabellen mit Sortierung aus. */
@@ -4188,6 +4184,21 @@ function zeitLabel(iso) {
   return `${zeit.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}, ${uhr}`;
 }
 
+/**
+ * Oben links „Zurück": schließt den Dialog und öffnet den, aus dem er
+ * hervorgegangen ist. Ohne Ziel gibt es keinen Pfeil.
+ *
+ * Die kurze Pause dazwischen ist nötig: Erst muss der alte Dialog aus dem
+ * Dokument sein, sonst liegt der neue darunter.
+ */
+function zurueckZu(ziel) {
+  if (typeof ziel !== 'function') return null;
+  return dlg => {
+    closeHostDialog(dlg, false);
+    setTimeout(() => ziel(), 50);
+  };
+}
+
 async function openVersionsDialog() {
   let staende = [];
   try {
@@ -4225,22 +4236,11 @@ async function openVersionsDialog() {
       const host = document.getElementById(String(id));
       host?.querySelectorAll('[data-version]').forEach(btn => btn.addEventListener('click', () => {
         const stand = staende.find(v => v.id === btn.dataset.version);
-        dialogSchliessen(btn);
+        closeHostDialog(btn, false);
         setTimeout(() => openVersionChangesDialog(stand), 50);
       }));
     }
   });
-}
-
-/**
- * Schließt den Dialog um ein Element herum.
- *
- * Ohne Fußzeile (kein `confirmText`) gibt es keinen `.dialog_close` —
- * dann tut es der Schließen-Knopf oben in der Leiste.
- */
-function dialogSchliessen(element) {
-  if (closeHostDialog(element, false)) return;
-  element?.closest('dialog')?.querySelector('.uD-bar-right')?.click();
 }
 
 async function openVersionChangesDialog(stand) {
@@ -4284,10 +4284,7 @@ async function openVersionChangesDialog(stand) {
     title: `Stand ${zeitLabel(stand.at)}`,
     // Oben links „Zurück": von einem Stand wieder in die Liste, ohne über
     // die Einstellungen zu laufen.
-    onBack: dlg => {
-      dialogSchliessen(dlg);
-      setTimeout(() => openVersionsDialog(), 50);
-    },
+    onBack: zurueckZu(openVersionsDialog),
     content: `
       <p class="dlg-note">${esc(stand.reason)} · Was hier steht, ist der Unterschied zum jetzigen Stand.
       Zurückgeholtes wird erst geschrieben, wenn du danach speicherst — das macht die App gleich selbst.</p>
@@ -4322,7 +4319,7 @@ async function zurueckholen(id, entries) {
   }
 }
 
-async function openFolderDialog({ parent = '', path = null } = {}) {
+async function openFolderDialog({ parent = '', path = null, zurueck = null } = {}) {
   const isEdit = Boolean(path);
   const currentName = isEdit ? path.split('/').pop() : '';
   const parentPath = isEdit ? path.split('/').slice(0, -1).join('/') : parent;
@@ -4345,7 +4342,8 @@ async function openFolderDialog({ parent = '', path = null } = {}) {
         </div>
       </div>`,
     confirmText: isEdit ? 'Speichern' : 'Anlegen',
-    cancelText: 'Abbrechen'
+    cancelText: 'Abbrechen',
+    onBack: zurueckZu(zurueck)
   });
 
   if (!(res?.submit ?? res)) return;
@@ -4503,8 +4501,10 @@ async function startCreation() {
           <small>${scannable ? 'Screenshot oder Foto auswählen' : 'In diesem Browser nicht verfügbar'}</small>
         </button>
       </div>`,
-    confirmText: 'Abbrechen',
-    onlyConfirm: true,
+    // Nur eine Auswahl: Jede Kachel ist schon die Entscheidung, also keine
+    // Fußzeile. Abgebrochen wird oben rechts mit dem Kreuz.
+    confirmText: null,
+    cancelText: 'Abbrechen',
     onInsert: () => queueMicrotask(() => {
       document.querySelectorAll('.choice[data-choice]').forEach(btn =>
         btn.addEventListener('click', () => {
@@ -4518,13 +4518,15 @@ async function startCreation() {
   window.__wkChoice = null;
   if (!choice) return;
 
-  if (choice === 'manual') { openEntryDialog(null); return; }
-  if (choice === 'files') { openEntryDialog(null, {}, { mode: 'files' }); return; }
-  if (choice === 'folder') { openFolderDialog(); return; }
-  if (choice === 'import') { importFromOtherApps(); return; }
+  // Jeder Weg von hier aus trägt den Rückweg mit: oben links ein Pfeil
+  // zurück in diese Auswahl.
+  if (choice === 'manual') { openEntryDialog(null, {}, { zurueck: startCreation }); return; }
+  if (choice === 'files') { openEntryDialog(null, {}, { mode: 'files', zurueck: startCreation }); return; }
+  if (choice === 'folder') { openFolderDialog({ zurueck: startCreation }); return; }
+  if (choice === 'import') { importFromOtherApps({ zurueck: startCreation }); return; }
 
   try {
-    const value = choice === 'camera' ? await scanWithCamera() : await scanFromFile();
+    const value = choice === 'camera' ? await scanWithCamera({ zurueck: startCreation }) : await scanFromFile();
     if (value) await handleScan(value);
   } catch (err) {
     if (err.message !== 'abgebrochen') banner(`Scan fehlgeschlagen: ${err.message}`, 'error', 5000);
@@ -4722,7 +4724,7 @@ function pickFile(accept) {
   });
 }
 
-async function importFromOtherApps() {
+async function importFromOtherApps({ zurueck = null } = {}) {
   if (state.locked) { banner('Erst die Datenbank entsperren.', 'info'); return; }
 
   const file = await pickFile('.csv,.json,.txt,.2fas,.xml,.zip,text/csv,application/json,text/plain,text/xml,application/zip');
@@ -4805,6 +4807,7 @@ async function importFromOtherApps() {
       <p class="dlg-note"><small>Die Exportdatei enthält alles im Klartext — danach am besten löschen.</small></p>`,
     confirmText: confirmLabel(),
     cancelText: 'Abbrechen',
+    onBack: zurueckZu(zurueck),
     onInsert: id => {
       const host = document.getElementById(String(id));
       const submit = host?.querySelector('.dialog_submit');
@@ -4877,7 +4880,7 @@ async function importFromOtherApps() {
  * `files` sind bereits eingelesene Anhänge (`staged:`), etwa aus dem
  * Ablegen aufs Fenster.
  */
-async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {}) {
+async function openEntryDialog(id, prefill = {}, { mode = null, files = [], zurueck = null } = {}) {
   const e = id != null ? vault.getEntry(id) : {
     id: null, folder: vault.folders()[0] ?? 'Allgemein', name: '', username: '', url: '',
     notes: '', tags: [], passkey: false, expires: null, attachments: [],
@@ -5061,6 +5064,7 @@ async function openEntryDialog(id, prefill = {}, { mode = null, files = [] } = {
     content,
     confirmText: 'Speichern',
     cancelText: 'Abbrechen',
+    onBack: zurueckZu(zurueck),
     onInsert: () => queueMicrotask(() => wireEntryDialog(e, prefilled, initialMode))
   });
 
@@ -5338,8 +5342,9 @@ async function showQrDialog(uri, title) {
     content: `
       <div class="qr-output" id="qr-export"><p class="empty-state">Wird erzeugt …</p></div>
       <p class="dlg-note">Mit einer Authenticator-App abscannen. Der Code enthält das Secret im Klartext — nicht weitergeben und nicht abfotografieren lassen.</p>`,
-    confirmText: 'Schließen',
-    onlyConfirm: true,
+    // Nichts zu entscheiden, also keine Fußzeile — zu ist es über das Kreuz.
+    confirmText: null,
+    cancelText: 'Schließen',
     onInsert: () => queueMicrotask(async () => {
       const out = document.getElementById('qr-export');
       if (!out) return;
@@ -5364,9 +5369,10 @@ function scannerHint() {
  *
  * Kein „Fertig" zum Drücken: Ist ein Code erkannt, leuchtet der Rahmen auf,
  * und der Dialog schließt sich von selbst — weiter geht es dort, wo der
- * Code hingehört. Der einzige Knopf ist „Abbrechen".
+ * Code hingehört. Abgebrochen wird oben rechts mit dem Kreuz; eine Fußzeile
+ * mit einem einzigen Knopf darin wäre hier nur verschenkte Höhe.
  */
-async function scanWithCamera() {
+async function scanWithCamera({ zurueck = null } = {}) {
   let controller = null;
   let resolved = null;
 
@@ -5381,8 +5387,9 @@ async function scanWithCamera() {
         <p class="qr-hint" id="qr-hint">Code in den Rahmen halten</p>
         <button type="button" class="button" id="qr-photo"><span class="msr">photo_camera</span>&nbsp;Klappt nicht? Foto aufnehmen</button>
       </div>`,
-    confirmText: 'Abbrechen',
-    onlyConfirm: true,
+    confirmText: null,
+    cancelText: 'Abbrechen',
+    onBack: zurueckZu(zurueck),
     onInsert: () => queueMicrotask(async () => {
       const video = document.getElementById('qr-video');
       const hint = document.getElementById('qr-hint');
@@ -5616,11 +5623,13 @@ function renderFileList(grid) {
 }
 
 /* ---------- Anhang-Vorschau ----------
-   Eigenes Vollbild statt userDialog: oben Schließen, Dateiname und die
-   Knöpfe, darunter die Datei auf der ganzen Fläche. userDialog bringt
-   Titel, Fußzeile und eine Höchstbreite mit, die hier nur stören.
-   Als natives <dialog> mit showModal liegt es auch über einem offenen
-   Eintragsdialog, und Escape schließt nur die Vorschau.
+   Ein userDialog im Vollbild: oben links die Knöpfe, in der Mitte der
+   Dateiname (der zugleich der Knopf zum Umbenennen ist), rechts das Kreuz,
+   darunter die Datei auf der ganzen Fläche. Keine Fußzeile — es gibt nichts
+   zu bestätigen, und die Höhe gehört der Datei. Breite, Höhe und Rundung
+   sind Variablen der Bibliothek; `#file-viewer` setzt sie auf Vollbild.
+   Als modaler Dialog liegt die Vorschau über dem offenen Eintrag, und
+   Escape schließt nur sie.
 
    Textdateien lassen sich über den Knopf oben bearbeiten, jede Datei über
    ihren Namen umbenennen. Ist der Eintrag schon gespeichert, geht beides
@@ -5645,41 +5654,28 @@ async function openAttachmentViewer(att, { edit = false } = {}) {
   if (!att) return;
   if (state.dialogEntryId) markUsed(state.dialogEntryId);
 
-  const viewer = document.createElement('dialog');
-  viewer.className = 'file-viewer';
-  viewer.innerHTML = `
-    <header class="file-viewer-bar">
-      <button type="button" class="button" data-shape="round no-background" data-viewer-close title="Schließen" aria-label="Schließen"><span class="msr">close</span></button>
-      <div class="file-viewer-title">
-        <button type="button" class="file-viewer-name" data-viewer-rename title="Umbenennen">
-          <strong></strong><span class="msr">edit</span>
-        </button>
-        <input type="text" class="file-viewer-rename" hidden aria-label="Dateiname">
-      </div>
-      <button type="button" class="button" data-shape="round no-background" data-viewer-edit title="Bearbeiten" aria-label="Bearbeiten" hidden><span class="msr">edit_note</span></button>
-      <button type="button" class="button" data-shape="round no-background" data-viewer-show title="Anzeigen" aria-label="Anzeigen" hidden><span class="msr">visibility</span></button>
-      <button type="button" class="button" data-shape="round no-background" data-viewer-apply title="Speichern" aria-label="Speichern" hidden><span class="msr">check</span></button>
-      <button type="button" class="button" data-shape="round no-background" data-viewer-save title="Herunterladen" aria-label="Herunterladen"><span class="msr">download</span></button>
-    </header>
-    <div class="file-viewer-body"></div>`;
-
-  const $v = sel => viewer.querySelector(sel);
-  const body = $v('.file-viewer-body');
-  const nameInput = $v('.file-viewer-rename');
-
+  let viewer = null;          // der Dialog, sobald er im Dokument steht
   let cleanup = () => {};
   let closed = false;
   let editor = null;          // Textfeld, solange bearbeitet wird
   let original = '';
+
+  const $v = sel => viewer?.querySelector(sel);
+  // Die Knöpfe oben links in der Reihenfolge, in der sie unten angemeldet
+  // sind: 0 Bearbeiten, 1 Anzeigen, 2 Übernehmen, 3 Herunterladen.
+  const knopf = i => viewer?.querySelector(`[data-bar="left:${i}"]`);
+  const body = () => $v('.file-viewer-body');
+  const nameInput = () => $v('.file-viewer-rename');
 
   const editable = () => EDITABLE_KINDS.has(preview.kindOf(att));
   const dirty = () => Boolean(editor) && editor.value !== original;
 
   /** Knöpfe passend zur Ansicht: Bearbeiten — oder Anzeigen und Speichern. */
   const showButtons = () => {
-    $v('[data-viewer-edit]').hidden = Boolean(editor) || !editable();
-    $v('[data-viewer-show]').hidden = !editor;
-    $v('[data-viewer-apply]').hidden = !editor;
+    if (!viewer) return;
+    knopf(0).hidden = Boolean(editor) || !editable();
+    knopf(1).hidden = !editor;
+    knopf(2).hidden = !editor;
   };
 
   const showName = () => {
@@ -5692,8 +5688,8 @@ async function openAttachmentViewer(att, { edit = false } = {}) {
     cleanup = () => {};
     editor = null;
     showButtons();
-    body.innerHTML = '<p class="empty-state">Wird geladen …</p>';
-    const release = await preview.renderPreview(body, att);
+    body().innerHTML = '<p class="empty-state">Wird geladen …</p>';
+    const release = await preview.renderPreview(body(), att);
     if (closed) release(); else cleanup = release;
   };
 
@@ -5702,12 +5698,12 @@ async function openAttachmentViewer(att, { edit = false } = {}) {
     original = await preview.asText(att);
     cleanup();
     cleanup = () => {};
-    body.innerHTML = '';
+    body().innerHTML = '';
     editor = document.createElement('textarea');
     editor.className = 'file-editor';
     editor.spellcheck = false;
     editor.value = original;
-    body.append(editor);
+    body().append(editor);
     showButtons();
     editor.focus();
   };
@@ -5749,24 +5745,31 @@ async function openAttachmentViewer(att, { edit = false } = {}) {
     return true;
   };
 
+  /**
+   * Das Kreuz oben rechts fragt erst, dann schließt es. Deshalb hat es eine
+   * eigene Funktion statt der Aktion 'cancel' — und schließt am Ende selbst
+   * über `uDFinish`, sonst bliebe das Versprechen offen.
+   */
   const requestClose = async () => {
-    if (await confirmLeave()) viewer.close();
+    if (await confirmLeave()) viewer.uDFinish('cancel');
   };
 
   const startRename = () => {
-    nameInput.value = att.name;
+    const feld = nameInput();
+    feld.value = att.name;
     $v('.file-viewer-name').hidden = true;
-    nameInput.hidden = false;
-    nameInput.focus();
+    feld.hidden = false;
+    feld.focus();
     // Nur den Namen vor der Endung markieren, wie im Dateimanager.
     const dot = att.name.lastIndexOf('.');
-    nameInput.setSelectionRange(0, dot > 0 ? dot : att.name.length);
+    feld.setSelectionRange(0, dot > 0 ? dot : att.name.length);
   };
 
   const finishRename = async (apply) => {
-    if (nameInput.hidden) return;
-    const next = nameInput.value.trim();
-    nameInput.hidden = true;
+    const feld = nameInput();
+    if (feld.hidden) return;
+    const next = feld.value.trim();
+    feld.hidden = true;
     $v('.file-viewer-name').hidden = false;
     if (!apply || next === att.name) return;
 
@@ -5794,39 +5797,51 @@ async function openAttachmentViewer(att, { edit = false } = {}) {
     if (editor) showButtons(); else showPreview();
   };
 
-  viewer.addEventListener('close', () => {
-    closed = true;
-    cleanup();
-    viewer.remove();
-  });
-  // Escape: erst das Umbenennen abbrechen, sonst wie der Schließen-Knopf.
-  viewer.addEventListener('cancel', ev => {
-    ev.preventDefault();
-    if (!nameInput.hidden) finishRename(false);
-    else requestClose();
-  });
+  await dialog({
+    id: 'file-viewer',
+    // Der Titel ist der Dateiname und zugleich der Knopf zum Umbenennen.
+    title: `<span class="file-viewer-title">
+        <button type="button" class="file-viewer-name" data-viewer-rename title="Umbenennen"><strong></strong><span class="msr">edit</span></button>
+        <input type="text" class="file-viewer-rename" hidden aria-label="Dateiname">
+      </span>`,
+    content: `<div class="file-viewer-body"></div>`,
+    confirmText: null,
+    cancelText: 'Schließen',
+    // Vollbild: Da ist keine Kante, an der sich etwas ziehen ließe.
+    sheet: false,
+    barLeft: [
+      { icon: 'edit_note', title: 'Bearbeiten', onClick: showEditor },
+      { icon: 'visibility', title: 'Anzeigen', onClick: async () => { if (await confirmLeave()) showPreview(); } },
+      { icon: 'check', title: 'Speichern', onClick: saveEdit },
+      { icon: 'download', title: 'Herunterladen', onClick: async () => { if (await confirmLeave()) downloadWithWarning(att); } }
+    ],
+    barRight: { icon: 'close', title: 'Schließen', onClick: requestClose },
+    onInsert: id => {
+      viewer = document.getElementById(String(id));
 
-  $v('[data-viewer-close]').addEventListener('click', requestClose);
-  $v('[data-viewer-edit]').addEventListener('click', showEditor);
-  $v('[data-viewer-show]').addEventListener('click', async () => {
-    if (await confirmLeave()) showPreview();
-  });
-  $v('[data-viewer-apply]').addEventListener('click', saveEdit);
-  $v('[data-viewer-save]').addEventListener('click', async () => {
-    if (await confirmLeave()) downloadWithWarning(att);
-  });
-  $v('[data-viewer-rename]').addEventListener('click', startRename);
-  nameInput.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); finishRename(true); }
-  });
-  nameInput.addEventListener('blur', () => finishRename(true));
+      // Escape: erst das Umbenennen abbrechen, sonst wie das Kreuz. Der
+      // eigene Horcher hängt vor dem der Bibliothek und hält sie an —
+      // sonst wäre der Dialog zu, bevor nach den Änderungen gefragt ist.
+      viewer.addEventListener('cancel', ev => {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        if (!nameInput().hidden) finishRename(false);
+        else requestClose();
+      });
+      viewer.addEventListener('close', () => { closed = true; cleanup(); });
 
-  document.body.append(viewer);
-  viewer.showModal();
-  showName();
+      $v('[data-viewer-rename]').addEventListener('click', startRename);
+      nameInput().addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') { ev.preventDefault(); finishRename(true); }
+      });
+      nameInput().addEventListener('blur', () => finishRename(true));
 
-  if (edit && editable()) await showEditor();
-  else await showPreview();
+      showName();
+      showButtons();
+      // Der Inhalt kommt, sobald der Dialog steht.
+      queueMicrotask(() => (edit && editable()) ? showEditor() : showPreview());
+    }
+  });
 }
 
 /** Dateiarten für „Neue Datei" — Endung, Anzeige und was anfangs drinsteht. */

@@ -63,6 +63,12 @@ export async function banner(content, type = 'info', duration = 3500) {
  * Knöpfe. Wichtig: userDialog löst sein Promise ausschließlich beim Klick
  * auf `.dialog_close` oder beim Absenden des Formulars auf. Ein direktes
  * `dialog.close()` lässt den Aufrufer hängen.
+ *
+ * Ohne Fußzeile gibt es diese Knöpfe nicht — dann tut es das „×" oben in
+ * der Leiste, und wenn auch das fehlt, `uDFinish` aus der Bibliothek.
+ * Übernehmen und Abbrechen sind dort dasselbe: Wer ohne Fußzeile etwas
+ * übernimmt, hat sein Ergebnis schon selbst festgehalten (die getroffene
+ * Auswahl, der erkannte Code).
  */
 export function closeHostDialog(element, ok = true) {
   const host = element?.closest('dialog');
@@ -70,10 +76,15 @@ export function closeHostDialog(element, ok = true) {
 
   const submit = host.querySelector('.dialog_submit');
   const cancel = host.querySelector('.dialog_close');
-  if (!submit && !cancel) return false;
+  if (submit || cancel) {
+    (ok ? (submit ?? cancel) : (cancel ?? submit)).click();
+    return true;
+  }
 
-  (ok ? (submit ?? cancel) : (cancel ?? submit)).click();
-  return true;
+  const bar = host.querySelector('.uD-bar-right');
+  if (bar) { bar.click(); return true; }
+  if (typeof host.uDFinish === 'function') { host.uDFinish('cancel'); return true; }
+  return false;
 }
 
 /* =========================================================
