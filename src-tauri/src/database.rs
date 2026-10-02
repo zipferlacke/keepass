@@ -595,6 +595,7 @@ fn parse_totp_config(raw: &str) -> Option<dto::TotpConfig> {
             keepass::db::TOTPAlgorithm::Sha512 => "SHA512".into(),
             _ => "SHA1".into(),
         },
+        at: None,
     })
 }
 

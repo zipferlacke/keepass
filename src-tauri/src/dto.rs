@@ -91,6 +91,13 @@ pub struct TotpConfig {
     pub period: u64,
     #[serde(default = "default_algorithm")]
     pub algorithm: String,
+    /// Für welchen Zeitpunkt der Code gilt, in Millisekunden seit 1970.
+    ///
+    /// Ohne Angabe: jetzt. Die Vorschau „als Nächstes …" fragt damit den
+    /// Code des folgenden Zeitfensters ab — ohne ihn rechnete der Kern
+    /// wieder den aktuellen, und es stand zweimal dasselbe da.
+    #[serde(default)]
+    pub at: Option<u64>,
 }
 
 fn default_digits() -> u32 { 6 }
@@ -99,7 +106,7 @@ fn default_algorithm() -> String { "SHA1".into() }
 
 impl Default for TotpConfig {
     fn default() -> Self {
-        Self { digits: default_digits(), period: default_period(), algorithm: default_algorithm() }
+        Self { digits: default_digits(), period: default_period(), algorithm: default_algorithm(), at: None }
     }
 }
 
