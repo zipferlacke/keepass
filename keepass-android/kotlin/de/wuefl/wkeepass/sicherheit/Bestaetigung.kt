@@ -5,6 +5,7 @@ import android.hardware.biometrics.BiometricManager.Authenticators
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
+import de.wuefl.wkeepass.kern.Kern
 
 /**
  * „Bist du es?" — vor dem Herausgeben eines Passkeys.
@@ -29,7 +30,7 @@ object Bestaetigung {
 
         val prompt = BiometricPrompt.Builder(activity)
             .setTitle(titel)
-            .setSubtitle("WKeePass")
+            .setSubtitle(Kern.name(activity))
             .setAllowedAuthenticators(Authenticators.BIOMETRIC_WEAK or Authenticators.DEVICE_CREDENTIAL)
             .build()
 

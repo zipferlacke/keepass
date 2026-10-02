@@ -84,7 +84,7 @@ class WKeePassAutofillService : AutofillService() {
         if (Kern.gesperrt(stand) || stand.has("fehler")) {
             // Gesperrt: eine Zeile, die zum Entsperren führt. Konten zeigen
             // ginge nicht — ohne offene Datenbank kennen wir keine.
-            antwort.addDataset(vorschlag(ids, zeile("WKeePass entsperren", "Mit Biometrie, PIN oder Master-Passwort"), absicht(felder, paket, null)))
+            antwort.addDataset(vorschlag(ids, zeile("${Kern.name(this)} entsperren", "Mit Biometrie, PIN oder Master-Passwort"), absicht(felder, paket, null)))
         } else {
             val liste = stand.optJSONArray("eintraege")
             val passend = (0 until (liste?.length() ?: 0))
@@ -104,13 +104,14 @@ class WKeePassAutofillService : AutofillService() {
                     benutzer.isNotEmpty() -> benutzer
                     else -> titel
                 }
-                val unten = if (felder.passwort == null || benutzer.isEmpty()) "WKeePass" else "$titel · WKeePass"
+                val name = Kern.name(this)
+                val unten = if (felder.passwort == null || benutzer.isEmpty()) name else "$titel · $name"
                 antwort.addDataset(vorschlag(ids, zeile(oben, unten), absicht(felder, paket, eintrag.optString("id"))))
             }
 
             // Immer dabei: an jedes andere Konto herankommen.
             antwort.addDataset(
-                vorschlag(ids, zeile(if (passend.isEmpty()) "Zugang wählen …" else "Anderen Eintrag wählen …", "WKeePass"), absicht(felder, paket, null))
+                vorschlag(ids, zeile(if (passend.isEmpty()) "Zugang wählen …" else "Anderen Eintrag wählen …", Kern.name(this)), absicht(felder, paket, null))
             )
         }
 
@@ -168,7 +169,7 @@ class WKeePassAutofillService : AutofillService() {
                 }
                 callback.onSuccess()
             }
-            Kern.gesperrt(antwort) -> callback.onFailure("WKeePass läuft nicht — nichts gespeichert.")
+            Kern.gesperrt(antwort) -> callback.onFailure("${Kern.name(this)} läuft nicht — nichts gespeichert.")
             else -> callback.onFailure(antwort.optString("fehler", "Nicht gespeichert."))
         }
     }

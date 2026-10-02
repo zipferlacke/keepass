@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import de.wuefl.wkeepass.R
 import org.json.JSONObject
 
 /**
@@ -105,8 +106,19 @@ object Kern {
         context.startActivity(start)
         Toast.makeText(
             context,
-            "WKeePass entsperren, dann erneut antippen.",
+            "${name(context)} entsperren, dann erneut antippen.",
             Toast.LENGTH_LONG,
         ).show()
     }
+
+    /**
+     * Wie die App hier heißt.
+     *
+     * Die Debug-Fassung liegt neben der echten und heißt „WKeePass-Debug"
+     * (`src/debug/res/values/strings.xml`). Überall, wo wir uns in einer
+     * fremden App oder in den Android-Einstellungen vorstellen, muss das
+     * auch dort stehen — sonst sieht man zwei Mal dasselbe und weiß nicht,
+     * welche gerade antwortet.
+     */
+    fun name(context: Context): String = context.getString(R.string.app_name)
 }

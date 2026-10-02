@@ -237,8 +237,8 @@ class AusfuellActivity : Activity() {
         val code = zugang.optString("totp")
 
         val anzeige = RemoteViews(packageName, R.layout.wkeepass_vorschlag).apply {
-            setTextViewText(R.id.wkeepass_oben, benutzer.ifEmpty { "WKeePass" })
-            setTextViewText(R.id.wkeepass_unten, "WKeePass")
+            setTextViewText(R.id.wkeepass_oben, benutzer.ifEmpty { Kern.name(this@AusfuellActivity) })
+            setTextViewText(R.id.wkeepass_unten, Kern.name(this@AusfuellActivity))
         }
         @Suppress("DEPRECATION")
         val bau = Dataset.Builder(anzeige)

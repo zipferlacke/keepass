@@ -70,10 +70,10 @@ class WKeePassCredentialService : CredentialProviderService() {
             val absicht = PendingIntent.getActivity(
                 this, 1, ziel, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
             )
-            val eintrag = CreateEntry.Builder("WKeePass", absicht)
+            val eintrag = CreateEntry.Builder(Kern.name(this), absicht)
                 .setDescription(
                     if (status == "offen") "In der geöffneten Datenbank speichern"
-                    else "WKeePass ist gesperrt — erst entsperren"
+                    else "${Kern.name(this)} ist gesperrt — erst entsperren"
                 )
                 .build()
             callback.onResult(BeginCreateCredentialResponse.Builder().addCreateEntry(eintrag).build())
@@ -114,7 +114,7 @@ object Vorschlaege {
             val absicht = PendingIntent.getActivity(
                 context, 2, ziel, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
             )
-            return antwort.addAuthenticationAction(AuthenticationAction("WKeePass entsperren", absicht)).build()
+            return antwort.addAuthenticationAction(AuthenticationAction("${Kern.name(context)} entsperren", absicht)).build()
         }
 
         for (option in optionen) {
@@ -142,7 +142,7 @@ object Vorschlaege {
                 )
                 val name = pk.optString("userName").ifEmpty { rpId }
                 eintraege += PublicKeyCredentialEntry.Builder(context, name, absicht, option)
-                    .setDisplayName("WKeePass")
+                    .setDisplayName(Kern.name(context))
                     .build()
             }
         }

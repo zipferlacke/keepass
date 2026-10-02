@@ -50,7 +50,7 @@ object Nachweisblatt {
             }
             blatt(
                 activity = activity,
-                titel = "WKeePass entsperren",
+                titel = "${Kern.name(activity)} entsperren",
                 unten = wege.optString("name").ifEmpty { "Deine Datenbank" },
                 knopf = "Entsperren",
                 biometrie = if (wege.optBoolean("geraet")) {

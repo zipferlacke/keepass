@@ -198,7 +198,7 @@ object Geraeteschluessel {
         Handler(Looper.getMainLooper()).post {
             try {
                 val prompt = BiometricPrompt.Builder(activity)
-                    .setTitle("WKeePass")
+                    .setTitle(activity.getString(de.wuefl.wkeepass.R.string.app_name))
                     .setSubtitle("Datenbank entsperren")
                     .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
                     // Bei starker Biometrie verlangt Android einen Ausweg;
