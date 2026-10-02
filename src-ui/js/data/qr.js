@@ -9,8 +9,8 @@
  * Ohne Kern gibt es folglich keinen Scanner; die Oberfläche meldet das.
  */
 
-import { isTauri, isMobile, invoke } from './platform.js';
-import { renderQrCode } from './ui.js';
+import { isTauri, isMobile, invoke } from '../core/platform.js';
+import { renderQrCode } from '../ui/libs.js';
 
 const SCAN_INTERVAL_MS = 60;  // Pause zwischen zwei Prüfungen; die Prüfung selbst dauert länger
 

@@ -40,7 +40,7 @@ async function resolveInvoke() {
 }
 
 async function resolveDemo() {
-  demoModule ??= await import('./demo.js');
+  demoModule ??= await import('../data/demo.js');
   return demoModule;
 }
 

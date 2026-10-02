@@ -18,7 +18,7 @@
  * Zwischenablage, ohne ihn hierher zu geben.
  */
 
-import { invoke } from './platform.js';
+import { invoke } from '../core/platform.js';
 
 const PASSKEY_FOLDER = 'Passkeys';
 

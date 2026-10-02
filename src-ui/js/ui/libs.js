@@ -20,7 +20,7 @@
  * Wird umgestellt, muss die `@import`-Zeile ganz oben in `css/app.css` mit.
  */
 
-const BASE = '../libs/wuefl-libs-v2-2-1';
+const BASE = '../../libs/wuefl-libs-v2-2-1';
 
 const modules = new Map();
 
@@ -120,4 +120,19 @@ export async function renderQrCode(element, colors = {}) {
     cornersDot: colors.corners ?? '#18181b',
     background: colors.background ?? '#ffffff'
   });
+}
+
+/**
+ * Oben links „Zurück": schließt den Dialog und öffnet den, aus dem er
+ * hervorgegangen ist. Ohne Ziel gibt es keinen Pfeil.
+ *
+ * Die kurze Pause dazwischen ist nötig: Erst muss der alte Dialog aus dem
+ * Dokument sein, sonst liegt der neue darunter.
+ */
+export function zurueckZu(ziel) {
+  if (typeof ziel !== 'function') return null;
+  return dlg => {
+    closeHostDialog(dlg, false);
+    setTimeout(() => ziel(), 50);
+  };
 }

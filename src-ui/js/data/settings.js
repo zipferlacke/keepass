@@ -11,7 +11,7 @@
  * halben Werten weiterzulaufen.
  */
 
-import { invoke } from './platform.js';
+import { invoke } from '../core/platform.js';
 
 const DEFAULTS_URL = './config/settings.default.json';
 

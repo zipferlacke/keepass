@@ -28,9 +28,9 @@
  * Diese Frist führt der Kern.
  */
 
-import { invoke, listen } from './platform.js';
-import { applyAppearance } from './theme.js';
-import * as settings from './settings.js';
+import { invoke, listen } from '../core/platform.js';
+import { applyAppearance } from '../core/theme.js';
+import * as settings from '../data/settings.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
