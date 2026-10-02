@@ -46,10 +46,21 @@ export function selectPicker() {
    Dialoge und Meldungen
    ========================================================= */
 
-/** userDialog(o) → Promise<{ submit, data }> */
+/**
+ * userDialog(o) → Promise<{ submit, data }>
+ *
+ * Hausregel dieser App: Abbrechen steht **entweder** unten in der Leiste
+ * **oder** oben rechts als „×" — nie beides. Die Bibliothek setzt das „×"
+ * zu jedem Dialog (so sieht es in den anderen Projekten aus und so bleibt
+ * es dort); wo unten schon ein Knopf steht, nehmen wir es hier wieder weg.
+ * Ein ausdrückliches `barRight` sticht die Regel.
+ */
 export async function dialog(options) {
   const { userDialog } = await load('userDialog/userDialog.js');
-  return userDialog(options);
+  const hausregel = options.confirmText && options.barRight === undefined
+    ? { ...options, barRight: null }
+    : options;
+  return userDialog(hausregel);
 }
 
 /** showBanner(content, type, duration) */
