@@ -44,14 +44,82 @@ async function resolveDemo() {
   return demoModule;
 }
 
+/* =========================================================
+   Die Ladeanzeige
+   ---------------------------------------------------------
+   Speichern heißt Argon2: Der Kern rechnet absichtlich lange und hält
+   dabei die Datenbank. Die Oberfläche kann in dieser Zeit nichts tun —
+   bisher sah das aus, als hinge sie. Jetzt legt sich der Schleier aus
+   wuefl-libs darüber (`.loading[data-loading]`, dieselbe Animation wie in
+   MusicTrack), und man sieht: Es arbeitet.
+
+   Zwei Vorkehrungen gegen Zappeln:
+     * Erst nach VERZOEGERUNG zeigen — was schnell geht, bleibt unsichtbar.
+     * Einmal gezeigt, mindestens MINDESTENS stehen lassen.
+   ========================================================= */
+
+/** Was im Hintergrund läuft oder ohnehin nur Millisekunden dauert. */
+const OHNE_ANZEIGE = new Set([
+  'vault_totp', 'vault_touch', 'vault_mark_accessed', 'vault_list_entries',
+  'vault_folders', 'vault_strength', 'vault_hash_prefix', 'vault_duplicate_groups',
+  'vault_reveal_secret', 'vault_copy_secret', 'vault_new_secret', 'vault_set_secret',
+  'vault_drop_secret', 'vault_attachment', 'vault_fetch_icons', 'vault_security',
+  'settings_read', 'settings_write', 'path_label', 'open_link', 'startup_database',
+  'unlock_methods', 'browser_identified', 'fetch_page_title',
+  'android_setup_status', 'android_setup_open',
+  // Die Auswahlfenster des Systems stehen offen, solange der Nutzer sucht.
+  'pick_database_file', 'pick_save_path', 'pick_attachments', 'save_attachment',
+  'decode_qr_gray', 'decode_qr_bytes',
+]);
+
+const VERZOEGERUNG = 300;
+const MINDESTENS = 400;
+
+let laufend = 0;
+let zeiger = null;
+let seit = 0;
+
+function koerper() {
+  return typeof document === 'undefined' ? null : document.body;
+}
+
+function anzeigen() {
+  seit = Date.now();
+  koerper()?.setAttribute('data-loading', '');
+}
+
+function beginnt(command) {
+  if (OHNE_ANZEIGE.has(command)) return false;
+  if (++laufend === 1) zeiger = setTimeout(anzeigen, VERZOEGERUNG);
+  return true;
+}
+
+function endet() {
+  if (--laufend > 0) return;
+  clearTimeout(zeiger);
+  zeiger = null;
+  if (!seit) return;
+
+  // Kurz vor Schluss aufgetaucht? Dann einen Moment stehen lassen, sonst
+  // blitzt der Schleier nur auf.
+  const rest = Math.max(0, MINDESTENS - (Date.now() - seit));
+  seit = 0;
+  setTimeout(() => {
+    if (laufend === 0) koerper()?.removeAttribute('data-loading');
+  }, rest);
+}
+
 /**
  * Ruft ein Kommando des Kerns auf.
  *
  * Fehler werden durchgereicht, nicht verschluckt — der Aufrufer soll
  * merken, wenn etwas nicht geht, statt stillschweigend mit `null`
  * weiterzurechnen.
+ *
+ * Dauert es, kommt die Ladeanzeige — siehe oben.
  */
 export async function invoke(command, args = {}, options = undefined) {
+  const zeigt = beginnt(command);
   try {
     if (isTauri) {
       const fn = await resolveInvoke();
@@ -67,6 +135,8 @@ export async function invoke(command, args = {}, options = undefined) {
     // `err.message` liest, bekommt `undefined` zu sehen. Deshalb hier
     // einmal zentral einpacken, statt an dreißig Stellen zu prüfen.
     throw asError(cause, command);
+  } finally {
+    if (zeigt) endet();
   }
 }
 
