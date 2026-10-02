@@ -5807,8 +5807,6 @@ async function openAttachmentViewer(att, { edit = false } = {}) {
     content: `<div class="file-viewer-body"></div>`,
     confirmText: null,
     cancelText: 'Schließen',
-    // Vollbild: Da ist keine Kante, an der sich etwas ziehen ließe.
-    sheet: false,
     barLeft: [
       { icon: 'edit_note', title: 'Bearbeiten', onClick: showEditor },
       { icon: 'visibility', title: 'Anzeigen', onClick: async () => { if (await confirmLeave()) showPreview(); } },

@@ -49,18 +49,13 @@ export function selectPicker() {
 /**
  * userDialog(o) → Promise<{ submit, data }>
  *
- * Hausregel dieser App: Abbrechen steht **entweder** unten in der Leiste
- * **oder** oben rechts als „×" — nie beides. Die Bibliothek setzt das „×"
- * zu jedem Dialog (so sieht es in den anderen Projekten aus und so bleibt
- * es dort); wo unten schon ein Knopf steht, nehmen wir es hier wieder weg.
- * Ein ausdrückliches `barRight` sticht die Regel.
+ * Abbrechen steht entweder unten in der Leiste oder oben rechts als „×" —
+ * nie beides. Das macht die Bibliothek seit 2.7.0 von selbst, hier steht
+ * dazu nichts mehr.
  */
 export async function dialog(options) {
   const { userDialog } = await load('userDialog/userDialog.js');
-  const hausregel = options.confirmText && options.barRight === undefined
-    ? { ...options, barRight: null }
-    : options;
-  return userDialog(hausregel);
+  return userDialog(options);
 }
 
 /** showBanner(content, type, duration) */
