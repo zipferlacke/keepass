@@ -243,3 +243,42 @@ pub struct Remember {
     #[serde(default)]
     pub allow_device: bool,
 }
+
+/* =========================================================
+   Versionen
+   ========================================================= */
+
+/// Ein aufgehobener Stand der Datenbank.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Version {
+    /// Dateiname ohne Endung — so wird der Stand wieder angefordert.
+    pub id: String,
+    /// Wann er abgelegt wurde (RFC 3339).
+    pub at: String,
+    /// Weshalb: „Geöffnet", „Gespeichert", „Von einem anderen Gerät".
+    pub reason: String,
+    pub size: u64,
+}
+
+/// Ein Eintrag, der sich seit einem Stand geändert hat.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionChange {
+    pub id: String,
+    pub name: String,
+    pub folder: String,
+    /// `neu`, `geloescht` oder `geaendert`.
+    pub kind: String,
+    pub fields: Vec<VersionField>,
+}
+
+/// Ein einzelnes geändertes Feld. Bei Geheimnissen bleiben die Werte leer —
+/// die Oberfläche braucht nur zu wissen, **dass** sich etwas geändert hat.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionField {
+    pub name: String,
+    pub before: Option<String>,
+    pub after: Option<String>,
+}

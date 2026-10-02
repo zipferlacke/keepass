@@ -313,6 +313,19 @@ const commands = {
     return false;
   },
 
+  /** In der Demo gibt es keine Datei und damit auch keine alten Stände. */
+  async vault_versions() {
+    return [];
+  },
+
+  async vault_version_changes() {
+    return [];
+  },
+
+  async vault_version_restore() {
+    return 0;
+  },
+
   async vault_lock() {
     data = null;
     loading = null;

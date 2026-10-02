@@ -158,6 +158,31 @@ export async function sync() {
   return changed;
 }
 
+/* =========================================================
+   Versionen
+   ---------------------------------------------------------
+   Der Kern hebt die letzten Stände der Datei auf (versions.rs). Hier sind
+   nur die drei Aufrufe dazu; zurückgeholt wird in den Arbeitsspeicher, das
+   Schreiben macht wie immer `commit()`.
+   ========================================================= */
+
+/** Die aufgehobenen Stände, der jüngste zuerst. */
+export const versions = () => invoke('vault_versions');
+
+/** Was sich seit diesem Stand geändert hat. */
+export const versionChanges = id => invoke('vault_version_changes', { id });
+
+/**
+ * Holt einen Stand zurück — `entries` nennt einzelne Einträge, ohne sie
+ * kommt alles zurück. Danach ist die Datei noch nicht geschrieben.
+ */
+export async function versionRestore(id, entries = null) {
+  const zahl = await invoke('vault_version_restore', { id, entries });
+  await refresh();
+  dirty = true;
+  return zahl;
+}
+
 /** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
 export const security = () => invoke('vault_security');
 

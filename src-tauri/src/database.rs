@@ -161,6 +161,9 @@ pub async fn vault_unlock(
     // während die Datei zu ist, geht die Anmeldemaske im kleinen Fenster auf.
     // Ohne diese Nachricht bliebe ein danebenstehendes Hauptfenster auf dem
     // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
+    // Netz unter dem Abgleich: So lag die Datei beim Öffnen da.
+    crate::versions::sichern(&app, &path, &raw, crate::versions::Grund::Geoeffnet);
+
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
     browser_announce(false);
@@ -477,6 +480,94 @@ pub async fn confirm_presence(
 }
 
 /* =========================================================
+   Versionen
+   ---------------------------------------------------------
+   Die Stände selbst liegen in `versions.rs`; hier ist nur die Tür für die
+   Oberfläche. Entschlüsselt wird mit dem Schlüssel der offenen Datenbank —
+   ohne offene Datenbank gibt es keinen Blick zurück.
+   ========================================================= */
+
+/// Die aufgehobenen Stände der offenen Datenbank, der jüngste zuerst.
+#[tauri::command]
+pub fn vault_versions(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+) -> Result<Vec<dto::Version>, String> {
+    let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+    Ok(crate::versions::liste(&app, &pfad))
+}
+
+/// Was sich seit diesem Stand geändert hat.
+#[tauri::command]
+pub async fn vault_version_changes(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    id: String,
+) -> Result<Vec<dto::VersionChange>, String> {
+    let (pfad, master, keyfile) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.clone();
+        let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        (pfad, master, vault.keyfile.clone())
+    };
+
+    // Entschlüsseln dauert — nicht auf dem Ausführer der Laufzeit.
+    let worker = app.clone();
+    let alt = tauri::async_runtime::spawn_blocking(move || {
+        let bytes = crate::versions::lesen(&worker, &pfad, &id)?;
+        parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &bytes)
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))??;
+
+    let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    Ok(crate::versions::vergleich(&alt, vault.database()?))
+}
+
+/// Holt einen Stand zurück — alles oder einzelne Einträge.
+///
+/// Geschrieben wird dabei noch nichts: Der Aufrufer speichert danach wie
+/// nach jeder anderen Änderung. So sieht man das Ergebnis erst und kann es
+/// im Zweifel liegen lassen.
+#[tauri::command]
+pub async fn vault_version_restore(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    id: String,
+    entries: Option<Vec<String>>,
+) -> Result<usize, String> {
+    let (pfad, master, keyfile) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.clone();
+        let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        (pfad, master, vault.keyfile.clone())
+    };
+
+    let worker = app.clone();
+    let alt = tauri::async_runtime::spawn_blocking(move || {
+        let bytes = crate::versions::lesen(&worker, &pfad, &id)?;
+        parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &bytes)
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))??;
+
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.touch();
+    let jetzt = vault.database_mut()?;
+
+    match entries {
+        Some(liste) => {
+            for uuid in &liste {
+                crate::versions::eintrag_zurueck(jetzt, &alt, uuid)?;
+            }
+            Ok(liste.len())
+        }
+        None => crate::versions::alles_zurueck(jetzt, &alt),
+    }
+}
+
+/* =========================================================
    Lesen
    ========================================================= */
 
@@ -760,6 +851,7 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
     if let Ok(current) = current {
         if vault.opened_hash != Some(digest(&current)) {
             let theirs = parse_foreign(&vault, &current)?;
+            crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd);
             merged = merge(vault.database_mut()?, &theirs)?.0;
         }
     }
@@ -827,6 +919,10 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
     }
 
     let theirs = parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &current)?;
+
+    // Der fremde Stand, bevor wir ihn einmischen: Geht beim Zusammenführen
+    // etwas verloren, steht er hier noch.
+    crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd);
 
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     // Inzwischen selbst gespeichert? Dann ist dieser Stand schon drin oder
@@ -916,6 +1012,7 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
         .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
 
     crate::storage::write(ziel, &bytes)?;
+    crate::versions::sichern(app, ziel, &bytes, crate::versions::Grund::Gespeichert);
 
     // Ab jetzt ist unser eigener Stand der maßgebliche.
     vault.opened_hash = Some(digest(&bytes));

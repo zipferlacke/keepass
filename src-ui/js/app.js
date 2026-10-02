@@ -3576,8 +3576,8 @@ async function renderDatabaseSection() {
 
   const path = settings.get('database.current', null);
   const eintrag = recentDatabases().find(d => d.path === path);
-  const eigen = info.level === 'eigen';
-  const stufe = eigen
+  let eigen = info.level === 'eigen';
+  let stufe = eigen
     ? naechsteStufe(info.iterations, info.memoryMib)
     : Math.max(0, STUFEN.findIndex(([wert]) => wert === info.level));
   const hinweis = i => eigen && i === stufe && Number(regler?.value ?? stufe) === stufe
@@ -3616,12 +3616,25 @@ async function renderDatabaseSection() {
 
     <div class="setting">
       <div class="setting-label">
+        <strong>Versionen</strong>
+        <small>Die letzten Stände dieser Datei — beim Öffnen, nach dem Speichern und nach
+        Änderungen von einem anderen Gerät. Daraus lässt sich Einzelnes oder alles zurückholen.</small>
+      </div>
+      <div class="setting-control">
+        <button type="button" class="button" id="btn-versions">Versionen ansehen …</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <div class="setting-label">
         <strong>Im Einzelnen</strong>
-        <small>${esc(info.format)} · ${esc(info.cipher)} · ${esc(info.kdf)}
+        <small id="db-details">${esc(info.format)} · ${esc(info.cipher)} · ${esc(info.kdf)}
         mit ${info.iterations} Durchgängen, ${info.memoryMib} MiB, ${info.parallelism} Fäden</small>
         <small id="db-modified" hidden></small>
       </div>
     </div>`;
+
+  card.querySelector('#btn-versions')?.addEventListener('click', () => openVersionsDialog());
 
   const speichern = async (feld, wert) => {
     try {
@@ -3638,18 +3651,38 @@ async function renderDatabaseSection() {
     if (name.value.trim() !== info.name) speichern('name', { name: name.value.trim() });
   });
 
-  // Schieberegler: Beim Ziehen nur anzeigen, gespeichert wird beim Loslassen.
+  /* Der Schieberegler.
+
+     Beim Ziehen passiert nichts außer Anzeigen. Geschrieben wird erst,
+     wenn der Wert steht — und zwar genau einmal: Jede Änderung hier
+     verschlüsselt die ganze Datei neu, das dauert Sekunden.
+
+     Zwei Fallen stecken darin, und beide waren drin:
+       * Der Webview von Android meldet `change` schon **während** des
+         Ziehens, nicht erst beim Loslassen. Ohne Wartezeit hätte eine
+         Bewegung über drei Stufen drei Neuverschlüsselungen ausgelöst.
+       * Nach dem Speichern den Abschnitt neu zu zeichnen riss den Regler
+         unter dem Finger weg, und er sprang zurück. Deshalb bleibt er
+         stehen; nachgeführt wird nur der Text darunter. */
   regler = card.querySelector('#db-level');
   const note = card.querySelector('#db-level-note');
+  const einzeln = card.querySelector('#db-details');
+
   const zeige = () => {
     const i = Number(regler.value);
     note.textContent = hinweis(i);
     card.querySelectorAll('[data-stufe]').forEach(b =>
       b.toggleAttribute('aria-current', Number(b.dataset.stufe) === i));
   };
+
+  let laeuft = false;
+  let warten = null;
+
   const uebernehmen = async () => {
     const i = Number(regler.value);
-    if (!eigen && STUFEN[i][0] === info.level) return;
+    // Schon so eingestellt, oder es rechnet noch: nichts tun.
+    if (laeuft || (!eigen && i === stufe)) return;
+
     if (eigen) {
       const res = await dialog({
         title: 'Verschlüsselung ändern?',
@@ -3660,14 +3693,41 @@ async function renderDatabaseSection() {
       });
       if (!(res?.submit ?? res)) { regler.value = stufe; zeige(); return; }
     }
-    speichern('level', { level: STUFEN[i][0] });
+
+    laeuft = true;
+    regler.disabled = true;
+    try {
+      await vault.setSecurity({ level: STUFEN[i][0] });
+      eigen = false;
+      stufe = i;
+      info = await vault.security();
+      if (einzeln) {
+        einzeln.textContent = `${info.format} · ${info.cipher} · ${info.kdf} mit ${info.iterations} Durchgängen, ${info.memoryMib} MiB, ${info.parallelism} Fäden`;
+      }
+      zeige();
+      banner('Verschlüsselung geändert — die Datei wurde neu geschrieben.', 'success');
+    } catch (err) {
+      regler.value = stufe;
+      zeige();
+      banner(`Nicht gespeichert: ${err.message}`, 'error', 6000);
+    } finally {
+      laeuft = false;
+      regler.disabled = false;
+    }
   };
-  regler?.addEventListener('input', zeige);
-  regler?.addEventListener('change', uebernehmen);
+
+  // Erst wenn eine halbe Sekunde Ruhe ist, gilt der Wert als gewollt.
+  const spaeter = () => {
+    clearTimeout(warten);
+    warten = setTimeout(uebernehmen, 500);
+  };
+
+  regler?.addEventListener('input', () => { zeige(); spaeter(); });
+  regler?.addEventListener('change', spaeter);
   card.querySelectorAll('[data-stufe]').forEach(b => b.addEventListener('click', () => {
     regler.value = b.dataset.stufe;
     zeige();
-    uebernehmen();
+    spaeter();
   }));
   zeige();
 
@@ -4103,6 +4163,164 @@ function updateSettingsPreview() {
 /* =========================================================
    Ordner: anlegen, umbenennen, verschieben
    ========================================================= */
+
+/* =========================================================
+   Versionen
+   ---------------------------------------------------------
+   Der Kern hebt die letzten Stände der Datei auf. Hier stehen zwei
+   Dialoge: die Liste der Stände und, dahinter, was sich seit einem davon
+   geändert hat. Zurückgeholt wird einzeln oder in einem Rutsch; geschrieben
+   wird erst danach, mit demselben `commit` wie bei jeder anderen Änderung.
+   ========================================================= */
+
+/** „vor 5 Minuten", „gestern, 14:03" — knapp und ohne Rechnerei im Kopf. */
+function zeitLabel(iso) {
+  const zeit = new Date(iso);
+  if (Number.isNaN(zeit.getTime())) return '—';
+
+  const minuten = Math.round((Date.now() - zeit.getTime()) / 60000);
+  if (minuten < 1) return 'gerade eben';
+  if (minuten < 60) return `vor ${minuten} Minute${minuten === 1 ? '' : 'n'}`;
+
+  const heute = new Date().toDateString() === zeit.toDateString();
+  const uhr = zeit.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  if (heute) return `heute, ${uhr}`;
+  return `${zeit.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}, ${uhr}`;
+}
+
+async function openVersionsDialog() {
+  let staende = [];
+  try {
+    staende = await vault.versions();
+  } catch (err) {
+    banner(`Versionen nicht lesbar: ${err.message}`, 'error', 6000);
+    return;
+  }
+
+  if (!staende.length) {
+    banner('Noch keine Stände — der erste entsteht beim nächsten Öffnen oder Speichern.', 'info', 5000);
+    return;
+  }
+
+  await dialog({
+    title: 'Versionen',
+    content: `
+      <p class="dlg-note">Jeder Stand ist die vollständige Datei, verschlüsselt wie das Original.
+      Tippe einen an, um zu sehen, was sich seitdem geändert hat.</p>
+      <div class="version-list">
+        ${staende.map(v => `
+          <button type="button" class="version-row" data-version="${esc(v.id)}">
+            <span class="version-time">${esc(zeitLabel(v.at))}</span>
+            <span class="version-reason">${esc(v.reason)}</span>
+            <span class="msr">chevron_right</span>
+          </button>`).join('')}
+      </div>`,
+    // Ohne Bestätigungsknopf fällt die Fußzeile weg — eine Liste braucht
+    // keine. Oben rechts steht trotzdem das Kreuz.
+    confirmText: null,
+    cancelText: 'Schließen',
+    // `onInsert` bekommt die Kennung, nicht das Element — der Dialog steht
+    // zu diesem Zeitpunkt schon im Dokument.
+    onInsert: id => {
+      const host = document.getElementById(String(id));
+      host?.querySelectorAll('[data-version]').forEach(btn => btn.addEventListener('click', () => {
+        const stand = staende.find(v => v.id === btn.dataset.version);
+        dialogSchliessen(btn);
+        setTimeout(() => openVersionChangesDialog(stand), 50);
+      }));
+    }
+  });
+}
+
+/**
+ * Schließt den Dialog um ein Element herum.
+ *
+ * Ohne Fußzeile (kein `confirmText`) gibt es keinen `.dialog_close` —
+ * dann tut es der Schließen-Knopf oben in der Leiste.
+ */
+function dialogSchliessen(element) {
+  if (closeHostDialog(element, false)) return;
+  element?.closest('dialog')?.querySelector('.uD-bar-right')?.click();
+}
+
+async function openVersionChangesDialog(stand) {
+  if (!stand) return;
+
+  let changes;
+  try {
+    changes = await vault.versionChanges(stand.id);
+  } catch (err) {
+    banner(`Der Stand ließ sich nicht vergleichen: ${err.message}`, 'error', 6000);
+    return;
+  }
+
+  const ART = {
+    neu: ['Dazugekommen', 'add_circle'],
+    geloescht: ['Verschwunden', 'remove_circle'],
+    geaendert: ['Geändert', 'edit']
+  };
+
+  const inhalt = changes.length
+    ? `<div class="version-changes">
+        ${changes.map(c => {
+          const [label, icon] = ART[c.kind] ?? ART.geaendert;
+          const felder = c.fields.map(f => f.before == null && f.after == null
+            ? `<li>${esc(f.name)} geändert</li>`
+            : `<li>${esc(f.name)}: <del>${esc(f.before || '—')}</del> <span class="msr">arrow_forward</span> ${esc(f.after || '—')}</li>`).join('');
+          return `<div class="version-change" data-kind="${c.kind}">
+            <div class="version-change-head">
+              <span class="msr">${icon}</span>
+              <strong>${esc(c.name || '(ohne Titel)')}</strong>
+              <small>${esc(label)}${c.folder ? ` · ${esc(c.folder)}` : ''}</small>
+              <button type="button" class="button" data-undo="${esc(c.id)}">Zurücknehmen</button>
+            </div>
+            ${felder ? `<ul class="version-fields">${felder}</ul>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`
+    : '<p class="dlg-note">Seit diesem Stand hat sich nichts geändert.</p>';
+
+  await dialog({
+    title: `Stand ${zeitLabel(stand.at)}`,
+    // Oben links „Zurück": von einem Stand wieder in die Liste, ohne über
+    // die Einstellungen zu laufen.
+    onBack: dlg => {
+      dialogSchliessen(dlg);
+      setTimeout(() => openVersionsDialog(), 50);
+    },
+    content: `
+      <p class="dlg-note">${esc(stand.reason)} · Was hier steht, ist der Unterschied zum jetzigen Stand.
+      Zurückgeholtes wird erst geschrieben, wenn du danach speicherst — das macht die App gleich selbst.</p>
+      ${inhalt}`,
+    confirmText: changes.length ? 'Alles zurückholen' : null,
+    cancelText: 'Schließen',
+    onInsert: id => {
+      const host = document.getElementById(String(id));
+      host?.querySelectorAll('[data-undo]').forEach(btn => btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        await zurueckholen(stand.id, [btn.dataset.undo]);
+        btn.closest('.version-change')?.remove();
+      }));
+    }
+  }).then(res => {
+    if (res?.submit ?? res) return zurueckholen(stand.id, null);
+  });
+}
+
+/** Holt zurück und schreibt die Datei. */
+async function zurueckholen(id, entries) {
+  try {
+    const zahl = await vault.versionRestore(id, entries);
+    await vault.commit();
+    await refreshFromVault();
+    renderAll({ includeSettings: false });
+    banner(entries
+      ? 'Eintrag zurückgeholt und gespeichert.'
+      : `${zahl} Eintr${zahl === 1 ? 'ag' : 'äge'} zurückgeholt und gespeichert.`, 'success');
+  } catch (err) {
+    banner(`Zurückholen fehlgeschlagen: ${err.message}`, 'error', 6000);
+  }
+}
 
 async function openFolderDialog({ parent = '', path = null } = {}) {
   const isEdit = Boolean(path);

@@ -2939,3 +2939,75 @@
 @media (prefers-reduced-motion: reduce) {
   .busy-dots i { animation-duration: 2s; }
 }
+
+@layer custom {
+  /* ---------- Versionen ----------
+     Die Liste der Stände und, dahinter, was sich seit einem davon geändert
+     hat. Beides im Dialog, deshalb schmal gedacht: Auf dem Handy steht
+     jede Zeile für sich. */
+
+  .version-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .version-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--clr-neutral-200);
+    border-radius: var(--br-default);
+    background: var(--clr-neutral-100);
+    color: inherit;
+    text-align: start;
+    cursor: pointer;
+
+    &:hover { background: var(--clr-neutral-200); }
+
+    .version-time { font-weight: 600; }
+    .version-reason { color: var(--text-hover); font-size: var(--fs-200); }
+    .msr { margin-inline-start: auto; color: var(--text-hover); }
+  }
+
+  .version-changes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .version-change {
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--clr-neutral-200);
+    border-radius: var(--br-default);
+    background: var(--clr-neutral-100);
+
+    /* Woran man die drei Fälle auf einen Blick erkennt. */
+    &[data-kind="neu"] .version-change-head > .msr { color: var(--clr-primary-600); }
+    &[data-kind="geloescht"] .version-change-head > .msr { color: var(--clr-error, #d64545); }
+  }
+
+  .version-change-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+
+    strong { flex: 0 1 auto; }
+    small { color: var(--text-hover); }
+    .button { margin-inline-start: auto; }
+  }
+
+  .version-fields {
+    margin: 0.5rem 0 0;
+    padding-inline-start: 1.1rem;
+    font-size: var(--fs-200);
+    color: var(--text-hover);
+
+    li { margin-block: 0.15rem; }
+    del { opacity: 0.7; }
+    .msr { font-size: 1em; vertical-align: -0.1em; }
+  }
+}
