@@ -34,6 +34,9 @@
       "../appdata/icons/icon.icns",
       "../appdata/icons/icon.ico"
     ],
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    },
     "category": "Utility",
     "shortDescription": "Passwortverwaltung für KeePass-Datenbanken",
     "longDescription": "WKeePass öffnet und schreibt KDBX-Dateien. Alle Klartextwerte bleiben im Kern der Anwendung; die Oberfläche bekommt nur Verweise darauf.",

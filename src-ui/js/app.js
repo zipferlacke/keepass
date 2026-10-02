@@ -3437,15 +3437,16 @@ function ausfuellMarkup() {
     </div>`;
 }
 
-async function renderAndroidSection(card) {
+async function renderAndroidSection(card, { ausfuellen = true } = {}) {
   if (!card) return;
   let status;
   try { status = await vault.androidSetupStatus(); } catch { status = null; }
 
   // Die Stufe gilt auch dann, wenn die Freigaben gerade nicht zu erfragen
-  // sind — sie steht deshalb vor ihnen und bleibt stehen.
-  card.innerHTML = ausfuellMarkup();
-  wireAusfuellen(card);
+  // sind — sie steht deshalb vor ihnen und bleibt stehen. Beim ersten Start
+  // geht es dagegen nur um die Freigaben; eingestellt wird später.
+  card.innerHTML = ausfuellen ? ausfuellMarkup() : '';
+  if (ausfuellen) wireAusfuellen(card);
   if (!status) return;
 
   card.insertAdjacentHTML('beforeend', ANDROID_FREIGABEN.map(f => {
@@ -3518,7 +3519,7 @@ async function showAndroidSetup() {
         <button type="button" class="button" data-shape="full" id="as-later">Später in den Einstellungen</button>
       </div>`;
 
-    renderAndroidSection($('#android-setup'));
+    renderAndroidSection($('#android-setup'), { ausfuellen: false });
 
     const done = async () => {
       clearInterval($('#android-setup')?._watch);
