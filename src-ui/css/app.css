@@ -1324,8 +1324,12 @@
   .userDialog .content header {
     font-size: var(--fs-600);
     line-height: 1.2;
-    /* Auf dem Handy füllt der Dialog den Bildschirm und liegt damit unter
-       der Statusleiste mit Uhr und Akku. */
+  }
+
+  /* Nur ein Dialog, der den ganzen Bildschirm füllt, liegt unter der
+     Statusleiste mit Uhr und Akku. Ein Sheet von unten reicht nicht bis
+     dorthin — dort wäre der Rand nur eine Lücke über dem Titel. */
+  .userDialog:not(.uD-sheet) .content header {
     padding-top: env(safe-area-inset-top, 0px);
   }
 

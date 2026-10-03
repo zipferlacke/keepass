@@ -32,7 +32,7 @@ export function renderTags() {
     // Nochmaliger Klick auf den aktiven Tag hebt den Filter auf
     state.tag = state.tag === btn.dataset.tag ? null : btn.dataset.tag;
     renderTags();
-    renderPasswords();
+    zeichne('einträge');
   }));
 }
 

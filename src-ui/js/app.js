@@ -12,7 +12,7 @@ import * as pick from './ui/multiselect.js';
 import { isTauri, isMobile, invoke, unlockMethods, pickDatabaseFile, pickSavePath, listen } from './core/platform.js';
 import { dialog, banner, closeHostDialog, tableview, selectPicker, zurueckZu } from './ui/libs.js';
 import { state, $, $$, esc, SECRET_MASK, VIEW_TITLES } from './core/state.js';
-import { seite, nachLaden, renderAll, zeichne, refreshFromVault, nachStrukturaenderung } from './core/render.js';
+import { seite, nachLaden, renderAll, zeichne, refreshFromVault, nachStrukturaenderung, syncFromFile, takeForeign } from './core/render.js';
 import { copyPlain, scheduleClipboardClear } from './ui/clipboard.js';
 import { captureFields, fieldChecked, pinStrengthNote, passwordField, wirePasswordFields } from './ui/formular.js';
 import { renderTotp, tickTotp } from './pages/totp.js';

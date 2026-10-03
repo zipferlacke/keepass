@@ -305,8 +305,8 @@ async function checkSingleEntry(id) {
   if (result.error) return;
 
   state.pwned.set(id, result);
-  renderPasswords();
-  renderHome();
+  zeichne('einträge');
+  zeichne('übersicht');
 
   if (result.found) {
     banner(`Achtung: Dieses Passwort taucht ${result.count.toLocaleString('de-DE')}× in bekannten Leaks auf.`, 'warning', 8000);

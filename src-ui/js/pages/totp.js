@@ -10,6 +10,8 @@ import * as vault from '../data/vault.js';
 import { state, $, $$, esc } from '../core/state.js';
 import { copyPlain } from '../ui/clipboard.js';
 import { avatarMarkup } from '../core/icons.js';
+import { markUsed } from '../core/entries.js';
+import { openEntryDialog } from '../dialogs/entry.js';
 
 /* ---------- TOTP ---------- */
 export const PREVIEW_SECONDS = 10;   // ab hier den kommenden Code klein einblenden

@@ -74,6 +74,34 @@ export async function refreshFromVault() {
   for (const fn of nachher) queueMicrotask(fn);
 }
 
+let syncing = false;
+let lastSyncError = '';
+
+/** Holt, was ein anderes Gerät in die Datei geschrieben hat, und mischt es ein. */
+export async function syncFromFile() {
+  if (syncing) return;
+  syncing = true;
+  try {
+    if (await vault.sync()) await takeForeign();
+    lastSyncError = '';
+  } catch (err) {
+    // Jede Minute dieselbe Meldung wäre nur lästig.
+    const message = err?.message ?? String(err);
+    if (message !== lastSyncError) banner(message, 'error', 10000);
+    lastSyncError = message;
+  } finally {
+    syncing = false;
+  }
+}
+
+/** Übernimmt einen fremden Stand, den der Kern schon eingemischt hat. */
+export async function takeForeign() {
+  if (state.locked) return;
+  await refreshFromVault();
+  renderAll({ ohne: ['einstellungen'] });
+  banner('Änderungen von einem anderen Gerät übernommen.', 'success', 4000);
+}
+
 /**
  * Nach einer Änderung an der Ordnung — verschoben, umbenannt, gelöscht:
  * schreiben, neu laden, neu zeichnen, Bescheid sagen. Die Einstellungen
