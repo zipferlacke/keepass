@@ -52,7 +52,8 @@ export async function schritte(liste, pause = 700) {
     // „?wahl" verlangt, dass etwas zu sehen ist, „!wahl", dass nicht.
     if (schritt[0] === '?' || schritt[0] === '!') {
       const el = document.querySelector(schritt.slice(1));
-      const sichtbar = Boolean(el) && el.getClientRects().length > 0;
+      // checkVisibility kennt auch zugeklappte <details> (content-visibility).
+      const sichtbar = Boolean(el) && el.getClientRects().length > 0 && (el.checkVisibility?.() ?? true);
       if (sichtbar === (schritt[0] === '?')) melde('OK', schritt);
       else melde('ERROR', `Erwartung verfehlt: ${schritt}`);
       continue;

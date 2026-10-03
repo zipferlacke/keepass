@@ -216,14 +216,8 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
       return;
     }
 
-    case 'empty-bin': {
-      const removed = await vault.emptyRecycleBin();
-      await vault.commit();
-      await refreshFromVault();
-      renderAll({ ohne: ['einstellungen'] });
-      banner(`${removed} ${removed === 1 ? 'Eintrag' : 'Einträge'} endgültig gelöscht.`, 'success');
-      return;
-    }
+    case 'empty-bin':
+      return emptyBin();
 
     case 'folder-edit':
       return openFolderDialog({ path: folderPath });
@@ -402,7 +396,8 @@ export async function adoptTitles(entries) {
 const COLUMNS = {
   full:     ['avatar', 'name', 'user', 'url', 'safety', 'totp', 'att', 'modified', 'actions'],
   compact:  ['avatar', 'name', 'user', 'code', 'safety', 'att', 'actions'],
-  findings: ['avatar', 'name', 'user', 'url', 'safety', 'att', 'modified', 'actions']
+  findings: ['avatar', 'name', 'user', 'url', 'safety', 'att', 'modified', 'actions'],
+  bin:      ['avatar', 'name', 'user', 'url', 'left', 'actions']
 };
 
 const HEADERS = {
@@ -416,6 +411,7 @@ const HEADERS = {
   att:      { label: '<span class="msr">attach_file</span>', sort: 't-sort t-type="num"', icon: true, title: 'Anhang vorhanden' },
   code:     { label: 'Code', sort: null },
   modified: { label: 'Geändert', sort: 't-sort="desc" t-type="date"' },
+  left:     { label: 'Endgültig weg', sort: 't-sort="asc" t-type="num"' },
   actions:  { label: '', sort: null }
 };
 
@@ -518,6 +514,12 @@ function cellHtml(col, e, { iconsOn }) {
 
     case 'modified':
       return `<td data-col="modified" data-sort-value="${esc(e.modified ?? '')}">${formatDate(e.modified)}</td>`;
+
+    case 'left': {
+      const days = daysLeft(e);
+      return `<td data-col="left" data-sort-value="${days}">${
+        days <= 0 ? 'beim nächsten Öffnen' : days === 1 ? 'in 1 Tag' : `in ${days} Tagen`}</td>`;
+    }
 
     case 'actions':
       return `<td data-col="actions">
@@ -713,8 +715,16 @@ export function renderPasswords() {
     return;
   }
 
+  // Der Papierkorb steht für sich, ganz unten — nicht als Ordner im Baum.
+  const bin = list.filter(e => e.recycled);
+  const live = list.filter(e => !e.recycled);
+
   // Ohne t-search: Die Suche oben in der App gilt für alles.
-  host.innerHTML = tableHtml(list, { sortable: true, folders: true });
+  host.innerHTML = (live.length
+    ? tableHtml(live, { sortable: true, folders: true })
+    : `<p class="empty-state">Keine Einträge gefunden.</p>`) + binHtml(bin);
+  wireBin(host);
+  if (!live.length) { wireEntryRows(host); ensureTableview(); return; }
 
   // Offene Ordner vorgeben, bevor tableview die Tabelle zum ersten Mal
   // zeichnet (das passiert erst nach diesem Durchlauf).
@@ -726,6 +736,72 @@ export function renderPasswords() {
   wireEntryRows(host);
   setupDragMove(host);
   ensureTableview();
+}
+
+/* ---------- Papierkorb ----------
+   Ein eigener Block unter der Liste, zugeklappt. Was länger als
+   BIN_DAYS darin liegt, entfernt der Kern beim nächsten Öffnen. */
+
+/** Wie im Kern (state.rs, PAPIERKORB_TAGE). */
+const BIN_DAYS = 30;
+
+/** Tage, bis der Eintrag endgültig verschwindet. */
+function daysLeft(e) {
+  const since = Date.parse(e.recycledSince ?? '');
+  if (Number.isNaN(since)) return BIN_DAYS;
+  return Math.ceil((since + BIN_DAYS * 86_400_000 - Date.now()) / 86_400_000);
+}
+
+function binHtml(bin) {
+  if (!bin.length) return '';
+  return `
+    <details class="recycle-bin" ${state.binOpen ? 'open' : ''}>
+      <summary>
+        <span class="msr">delete</span>
+        <span class="recycle-bin-title"><strong>Papierkorb</strong>
+          <small>${bin.length === 1 ? '1 Eintrag' : `${bin.length} Einträge`} · nach ${BIN_DAYS} Tagen endgültig gelöscht</small></span>
+        <button type="button" class="button" data-empty-bin><span class="msr">delete_forever</span>Leeren</button>
+        <span class="msr recycle-bin-chevron">expand_more</span>
+      </summary>
+      ${tableHtml(bin, { variant: 'bin', sortable: true })}
+    </details>`;
+}
+
+/** Leert den Papierkorb nach Rückfrage. */
+export async function emptyBin() {
+  const inBin = state.entries.filter(e => e.recycled).length;
+  if (!inBin) { banner('Der Papierkorb ist leer.', 'info'); return; }
+
+  let confirmed = false;
+  try {
+    const res = await dialog({
+      title: 'Papierkorb leeren',
+      content: `${inBin} ${inBin === 1 ? 'Eintrag wird' : 'Einträge werden'} endgültig
+        entfernt. Das lässt sich nicht rückgängig machen.`,
+      confirmText: 'Endgültig löschen',
+      cancelText: 'Abbrechen'
+    });
+    confirmed = res?.submit ?? res === true;
+  } catch { confirmed = false; }
+  if (!confirmed) return;
+
+  const removed = await vault.emptyRecycleBin();
+  await vault.commit();
+  await refreshFromVault();
+  renderAll({ ohne: ['einstellungen'] });
+  banner(`${removed} ${removed === 1 ? 'Eintrag' : 'Einträge'} endgültig gelöscht.`, 'success');
+}
+
+function wireBin(host) {
+  const box = host.querySelector('.recycle-bin');
+  if (!box) return;
+  box.addEventListener('toggle', () => { state.binOpen = box.open; });
+  box.querySelector('[data-empty-bin]').addEventListener('click', ev => {
+    // Der Knopf sitzt in der Kopfzeile — kein Auf- und Zuklappen dabei.
+    ev.preventDefault();
+    ev.stopPropagation();
+    emptyBin();
+  });
 }
 
 /* ---------- Dateien ----------

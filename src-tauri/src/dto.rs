@@ -175,6 +175,9 @@ pub struct Entry {
     /// Passwort und allem — zählt aber beim Sicherheitscheck nicht mit.
     #[serde(default)]
     pub recycled: bool,
+    /// Seit wann er im Papierkorb liegt — nach `PAPIERKORB_TAGE` ist er weg.
+    #[serde(default, skip_deserializing)]
+    pub recycled_since: Option<String>,
 }
 
 /// Ein eingelesener Anhang, der noch auf seinen Eintrag wartet.

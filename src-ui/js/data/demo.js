@@ -229,7 +229,7 @@ const commands = {
   },
 
   async vault_set_security({ name, level }) {
-    const stufen = { schnell: [5, 32, 2], standard: [10, 64, 4], stark: [20, 256, 4] };
+    const stufen = { schnell: [5, 32, 2], zuegig: [8, 48, 2], standard: [10, 64, 4], erhoeht: [14, 128, 4], stark: [20, 256, 4] };
     if (name !== null && name !== undefined) demoSecurity.name = name;
     if (level && stufen[level]) {
       const [iterations, memoryMib, parallelism] = stufen[level];
@@ -296,7 +296,12 @@ const commands = {
 
   async vault_list_entries() {
     await ensureLoaded();
-    return data.entries.map(e => ({ ...clone(e), recycled: inRecycleBin(e.folder) }));
+    return data.entries.map(e => {
+      const recycled = inRecycleBin(e.folder);
+      // Wie im Kern: ohne Datum beginnt die Frist jetzt.
+      if (recycled && !e.recycledSince) e.recycledSince = new Date().toISOString();
+      return { ...clone(e), recycled, recycledSince: recycled ? e.recycledSince : null };
+    });
   },
 
   async vault_folders() {
@@ -366,6 +371,7 @@ const commands = {
     if (!inRecycleBin(entry.folder)) {
       ensureFolder(RECYCLE_BIN);
       entry.folder = RECYCLE_BIN;
+      entry.recycledSince = new Date().toISOString();
       return true;
     }
 

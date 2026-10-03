@@ -686,6 +686,11 @@
       width: 100%;
       min-width: 0;
       margin-inline-start: 0;
+      /* Und dieselbe Regel richtet mit `justify-content: flex-end` aus — im
+         Raster schrumpft die Spalte damit auf ihren Inhalt und rutscht nach
+         rechts. Eine Spalte, so breit wie die Karte. */
+      grid-template-columns: minmax(0, 1fr);
+      justify-content: stretch;
 
       /* Erst hier wird geschrieben — der Regler selbst löst nichts aus. */
       .kdf-apply {
@@ -727,6 +732,10 @@
       }
 
       .kdf-note { font-size: var(--fs-100); color: var(--text-hover); }
+      .kdf-values { font-size: var(--fs-100); color: var(--clr-neutral-500); line-height: 1.4; }
+
+      /* Die Zwischenstufen: nur ein Punkt, aber gleich gut zu treffen. */
+      .kdf-labels button[data-zwischen] { min-width: 1.5rem; font-weight: var(--fw-600); }
     }
 
     /* Immer untereinander, alle gleich breit. Doppelte Klasse, sonst
@@ -1937,6 +1946,43 @@
   .table-scroll {
     overflow-x: auto;
     scrollbar-width: thin;
+  }
+
+  /* Der Papierkorb: ein eigener Block unter der Liste, zugeklappt. */
+  .recycle-bin {
+    margin-top: 1.5rem;
+    border: 1px solid var(--clr-neutral-200);
+    border-radius: 12px;
+    overflow: hidden;
+
+    > summary {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      cursor: pointer;
+      list-style: none;
+      background: var(--clr-neutral-100);
+
+      &::-webkit-details-marker { display: none; }
+      > .msr:first-child { color: var(--clr-neutral-500); }
+    }
+
+    .recycle-bin-title {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+
+      small { color: var(--clr-neutral-500); font-size: var(--fs-200); }
+    }
+
+    .recycle-bin-chevron { transition: rotate 0.2s; }
+    &[open] .recycle-bin-chevron { rotate: 180deg; }
+
+    /* Der Block sagt schon, wo sie liegen — Durchstreichen wäre doppelt. */
+    .entry-table tbody tr[data-recycled] td { text-decoration: none; }
+    td[data-col="left"] { white-space: nowrap; }
   }
 
   .entry-table {

@@ -20,6 +20,8 @@ export const state = {
   tag: null,
   kindFilter: null,
   expanded: new Set(),
+  /** Papierkorb unter der Liste aufgeklappt? */
+  binOpen: false,
   pwned: new Map(),
   reused: new Set(),
   strength: new Map(),

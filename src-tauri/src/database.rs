@@ -145,6 +145,15 @@ pub async fn vault_unlock(
     // Für die Versionen: was in der Datei steht, bevor `db` weiterwandert.
     let abdruck = crate::versions::abdruck(&db);
 
+    // Was länger als die Frist im Papierkorb liegt, ist jetzt weg. Erst nach
+    // dem Abdruck: Die Version „geöffnet" soll zeigen, was in der Datei stand.
+    let mut db = db;
+    let aufgeraeumt = if read_only || offline.is_some() {
+        0
+    } else {
+        crate::state::papierkorb_aufraeumen(&mut db, crate::state::PAPIERKORB_TAGE, keepass::db::Times::now())
+    };
+
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.clear();
     vault.db = Some(db);
@@ -174,6 +183,18 @@ pub async fn vault_unlock(
     // Was Autofill während der Sperre speichern wollte, jetzt eintragen.
     #[cfg(target_os = "android")]
     crate::android_services::nach_entsperren(&app);
+
+    // Das Aufräumen im Papierkorb gleich zurückschreiben — im Hintergrund,
+    // die Oberfläche hat ihre Liste schon ohne die alten Einträge.
+    if aufgeraeumt > 0 {
+        let worker = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            use tauri::Manager;
+            if let Err(e) = commit(&worker, &worker.state::<Vault>()) {
+                eprintln!("[papierkorb] {aufgeraeumt} alte Einträge entfernt, aber nicht gespeichert: {e}");
+            }
+        });
+    }
 
     if let Some(note) = pin_note {
         return Err(format!("Geöffnet, aber die Freigabe wurde nicht gespeichert: {note}"));
@@ -673,6 +694,8 @@ fn read_entry(db: &Database, entry: &EntryRef<'_>) -> RawEntry {
             expires,
             attachments,
             recycled: is_recycled(db, entry.parent().id()),
+            recycled_since: crate::state::im_papierkorb_seit(db, entry.parent().id(), entry.times.location_changed)
+                .map(|t| iso(Some(t))),
         },
         password: entry.get_password().filter(|v| !v.is_empty()).map(str::to_string),
         totp: otp_raw.map(str::to_string),
@@ -704,13 +727,17 @@ fn iso(time: Option<NaiveDateTime>) -> String {
    Der Schlüssel entsteht nicht direkt aus dem Master-Passwort: Eine
    Ableitungsfunktion rechnet absichtlich lange daran. Je länger, desto
    teurer wird jeder Rateversuch — und desto länger dauert auch das eigene
-   Öffnen. Deshalb drei Stufen statt einer Zahl.
+   Öffnen. Deshalb fünf Stufen statt einer Zahl.
    ========================================================= */
 
-/// Die drei Stufen: (Durchgänge, Speicher in MiB, Fäden).
-const STUFEN: [(&str, u64, u64, u32); 3] = [
+/// Die fünf Stufen: (Durchgänge, Speicher in MiB, Fäden). Benannt sind in
+/// der Oberfläche nur die drei bekannten; die beiden dazwischen teilen den
+/// Abstand etwa zur Hälfte (Aufwand = Durchgänge × Speicher).
+const STUFEN: [(&str, u64, u64, u32); 5] = [
     ("schnell", 5, 32, 2),
+    ("zuegig", 8, 48, 2),
     ("standard", 10, 64, 4),
+    ("erhoeht", 14, 128, 4),
     ("stark", 20, 256, 4),
 ];
 

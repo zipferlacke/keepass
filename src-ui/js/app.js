@@ -19,7 +19,7 @@ import { renderTotp, tickTotp } from './pages/totp.js';
 import { openFolderDialog } from './dialogs/folder.js';
 import { renderPasswords, renderEntryTable, renderFiles, wireEntryRows, renderSelectionBar,
          showContextMenu, closeContextMenu, runRowAction, autoRetitle, adoptTitles,
-         setupDragMove, openStoredFile, storedFiles, ensureTableview } from './pages/entries.js';
+         setupDragMove, openStoredFile, storedFiles, ensureTableview, emptyBin } from './pages/entries.js';
 import { renderSecurity, countProblems, restoreCheck, runSecurityCheck, notify } from './pages/checkup.js';
 import { showView } from './core/navigation.js';
 import { renderTags, renderHome } from './pages/home.js';
@@ -1681,11 +1681,20 @@ async function showAndroidSetup() {
 
 /** Die drei Stufen der Schlüsselableitung, wie sie der Kern kennt. */
 /** Die Stufen des Kerns (database.rs): Durchgänge und Speicher je Stufe. */
+/** Wie im Kern (database.rs): Wert, Name, Hinweis, Durchgänge, MiB, Fäden. */
 const STUFEN = [
-  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten', 5, 32],
-  ['standard', 'Standard', 'Guter Mittelweg — Empfehlung', 10, 64],
-  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen', 20, 256]
+  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten', 5, 32, 2],
+  ['zuegig', 'Zügig', 'Etwas mehr Schutz, kaum langsamer', 8, 48, 2],
+  ['standard', 'Standard', 'Guter Mittelweg — Empfehlung', 10, 64, 4],
+  ['erhoeht', 'Erhöht', 'Mehr Schutz, öffnet etwas langsamer', 14, 128, 4],
+  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen', 20, 256, 4]
 ];
+
+/** Auf der Skala beschriftet sind nur diese — die beiden dazwischen nicht. */
+const BENANNT = new Set(['schnell', 'standard', 'stark']);
+
+/** „10 Durchgänge · 64 MiB · 4 Fäden" */
+const kdfWerte = (it, mib, p) => `${it} Durchgänge · ${mib} MiB · ${p} ${p === 1 ? 'Faden' : 'Fäden'}`;
 
 /**
  * Welche Stufe einer eigenen Einstellung am nächsten kommt. Der Aufwand
@@ -1759,10 +1768,12 @@ async function renderDatabaseSection() {
         <input type="range" id="db-level" min="0" max="${STUFEN.length - 1}" step="1" value="${stufe}"
                aria-label="Verschlüsselungsstärke" ${info.readOnly ? 'disabled' : ''}>
         <div class="kdf-labels">
-          ${STUFEN.map(([, name], i) => `<button type="button" data-stufe="${i}" ${i === stufe ? 'aria-current="true"' : ''}
-            ${info.readOnly ? 'disabled' : ''}>${name}</button>`).join('')}
+          ${STUFEN.map(([wert, name], i) => `<button type="button" data-stufe="${i}" ${i === stufe ? 'aria-current="true"' : ''}
+            ${BENANNT.has(wert) ? '' : 'data-zwischen'} title="${name}"
+            ${info.readOnly ? 'disabled' : ''}>${BENANNT.has(wert) ? name : '·'}</button>`).join('')}
         </div>
         <small class="kdf-note" id="db-level-note"></small>
+        <small class="kdf-values" id="db-level-values"></small>
         <div class="kdf-apply" id="db-level-apply" hidden>
           <button type="button" class="button" id="db-level-undo">Zurück</button>
           <button type="button" class="button hightlight" id="db-level-ok">Übernehmen</button>
@@ -1820,6 +1831,7 @@ async function renderDatabaseSection() {
      hängt am Regler nichts mehr, was etwas auslöst. */
   regler = card.querySelector('#db-level');
   const note = card.querySelector('#db-level-note');
+  const werte = card.querySelector('#db-level-values');
   const einzeln = card.querySelector('#db-details');
   const zeile = card.querySelector('#db-level-apply');
   const ok = card.querySelector('#db-level-ok');
@@ -1833,8 +1845,13 @@ async function renderDatabaseSection() {
   const zeige = () => {
     const i = Number(regler.value);
     note.textContent = offen() && eigen
-      ? `Ersetzt die eigene Einstellung (${info.iterations} Durchgänge, ${info.memoryMib} MiB) durch „${STUFEN[i][1]}“.`
-      : hinweis(i);
+      ? `Ersetzt die eigene Einstellung durch „${STUFEN[i][1]}“.`
+      : hinweis(i) === STUFEN[i][2] ? `${STUFEN[i][1]}: ${STUFEN[i][2]}` : hinweis(i);
+    // Klein darunter: was jetzt gilt — und, sobald etwas gewählt ist,
+    // was danach gilt.
+    const [, , , it, mib, p] = STUFEN[i];
+    werte.innerHTML = `Jetzt: ${kdfWerte(info.iterations, info.memoryMib, info.parallelism)}${
+      offen() ? `<br>Danach: ${kdfWerte(it, mib, p)}` : ''}`;
     card.querySelectorAll('[data-stufe]').forEach(b =>
       b.toggleAttribute('aria-current', Number(b.dataset.stufe) === i));
     zeile.hidden = !offen();
@@ -2260,29 +2277,7 @@ function wireSettings(root = $('#settings-body')) {
   root.querySelector('#btn-pin-clear')?.addEventListener('click', clearAppPin);
   root.querySelector('#btn-access')?.addEventListener('click', manageAccess);
 
-  root.querySelector('#btn-empty-bin')?.addEventListener('click', async () => {
-    const inBin = state.entries.filter(e => e.recycled).length;
-    if (!inBin) { banner('Der Papierkorb ist leer.', 'info'); return; }
-
-    let confirmed = false;
-    try {
-      const res = await dialog({
-        title: 'Papierkorb leeren',
-        content: `${inBin} ${inBin === 1 ? 'Eintrag wird' : 'Einträge werden'} endgültig
-          entfernt. Das lässt sich nicht rückgängig machen.`,
-        confirmText: 'Endgültig löschen',
-        cancelText: 'Abbrechen'
-      });
-      confirmed = res?.submit ?? res === true;
-    } catch { confirmed = false; }
-    if (!confirmed) return;
-
-    const removed = await vault.emptyRecycleBin();
-    await vault.commit();
-    await refreshFromVault();
-    renderAll({ ohne: ['einstellungen'] });
-    banner(`${removed} ${removed === 1 ? 'Eintrag' : 'Einträge'} endgültig gelöscht.`, 'success');
-  });
+  root.querySelector('#btn-empty-bin')?.addEventListener('click', emptyBin);
 
   root.querySelector('#btn-reset')?.addEventListener('click', async () => {
     let confirmed = false;
