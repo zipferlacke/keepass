@@ -11,7 +11,7 @@
  * vorkommt, und der Hinweis zur Güte einer PIN.
  */
 
-import { esc } from '../core/state.js';
+import { esc, state } from '../core/state.js';
 
 /**
  * Liest Textfelder eines Dialogs unverfälscht ab.

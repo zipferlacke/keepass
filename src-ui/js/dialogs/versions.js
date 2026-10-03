@@ -96,7 +96,7 @@ export async function openVersionsDialog() {
     confirmText: null,
     cancelText: 'Schließen',
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: 'close', title: 'Schließen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' },
     // `onInsert` bekommt die Kennung, nicht das Element — der Dialog steht
     // zu diesem Zeitpunkt schon im Dokument.
     onInsert: id => {
@@ -178,7 +178,7 @@ async function openVersionChangesDialog(stand) {
     // und oben das Kreuz.
     confirmText: stand.current ? null : 'Ganz auf diesen Stand zurück',
     cancelText: 'Schließen',
-    barRight: stand.current ? { icon: 'close', title: 'Schließen', action: 'cancel' } : null,
+    barRight: stand.current ? { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' } : null,
     onInsert: id => {
       const host = document.getElementById(String(id));
       host?.querySelectorAll('[data-undo]').forEach(btn => btn.addEventListener('click', async () => {

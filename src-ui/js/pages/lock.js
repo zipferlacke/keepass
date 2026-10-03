@@ -592,16 +592,16 @@ export async function manageAccess() {
     title: 'Diese Datenbank freischalten',
     content: `
       <label class="check">
-        <input type="checkbox" name="pin" ${state.unlock.pin ? 'checked' : ''}>
         <strong>Mit PIN öffnen</strong>
+        <input type="checkbox" data-shape="toggle" name="pin" ${state.unlock.pin ? 'checked' : ''}>
       </label>
       <p class="hint">Das Master-Passwort wird verschlüsselt hinterlegt; zum Öffnen
       genügt dann die App-PIN. ${pinStrengthNote()}</p>
 
       <label class="check">
-        <input type="checkbox" name="bio" ${state.unlock.biometric ? 'checked' : ''}
-          ${state.unlock.keyring && state.unlock.biometricAvailable ? '' : 'disabled'}>
         <strong>Mit Fingerabdruck öffnen</strong>
+        <input type="checkbox" data-shape="toggle" name="bio" ${state.unlock.biometric ? 'checked' : ''}
+          ${state.unlock.keyring && state.unlock.biometricAvailable ? '' : 'disabled'}>
       </label>
       <p class="hint">Der Fingerabdruck ist dabei <em>kein Schlüssel</em>, sondern der
       Nachweis, dass du es bist — der Schutz kommt allein aus dem Schlüsselbund.
@@ -648,17 +648,17 @@ async function manageDeviceAccess() {
     title: 'Diese Datenbank freischalten',
     content: `
       <label class="check">
-        <input type="checkbox" name="device" ${u.device ? 'checked' : ''}>
         <strong>Mit ${name} öffnen</strong>
+        <input type="checkbox" data-shape="toggle" name="device" ${u.device ? 'checked' : ''}>
       </label>
       <p class="hint">Ersetzt beim Öffnen PIN und Master-Passwort. Das Master-Passwort
       wird mit einem Schlüssel versiegelt, den der Sicherheitschip dieses Geräts erst
       nach der Prüfung durch ${name} herausgibt — eine kopierte Datei nützt ohne dieses
-      Gerät nichts. Beim ersten Einrichten fragt Windows unter Umständen zweimal.</p>
+      Gerät nichts.${/windows/i.test(deviceName()) ? ' Beim ersten Einrichten fragt Windows unter Umständen zweimal.' : ''}</p>
 
       <label class="check">
-        <input type="checkbox" name="pin" ${u.pin ? 'checked' : ''}>
         <strong>Mit PIN öffnen</strong>
+        <input type="checkbox" data-shape="toggle" name="pin" ${u.pin ? 'checked' : ''}>
       </label>
       <p class="hint">Rückfallweg, falls ${name} gerade nicht geht. ${pinStrengthNote()}</p>`,
     confirmText: 'Übernehmen',

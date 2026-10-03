@@ -7,12 +7,13 @@ Alles in einer App
 • Autofill: Benutzername und Passwort direkt in Apps und im Browser einfügen
 • Dateiablage: Ausweise, Verträge oder Wiederherstellungscodes verschlüsselt ablegen und ansehen
 • Website-Symbole und Einträge, die automatisch wie der Dienst heißen
+• Papierkorb: Gelöschtes lässt sich 30 Tage lang zurückholen, danach ist es endgültig weg
 
 KeePass-kompatibel
 WKeePass liest und schreibt KDBX 4.1. Dieselbe Datei öffnen Sie auch mit KeePassXC, KeePassDX oder Strongbox – Sie sind an keinen Anbieter gebunden.
 
 Auf allen Geräten
-Legen Sie die Datenbank in einen Cloud-Ordner, den Sie ohnehin nutzen – etwa Nextcloud, Dropbox, Google Drive oder OneDrive. Ändern Sie auf zwei Geräten gleichzeitig etwas, führt WKeePass beide Stände Eintrag für Eintrag zusammen: Die neuere Fassung gewinnt, die ältere bleibt im Verlauf. Ist der Ordner nicht erreichbar, arbeiten Sie mit einer Offline-Kopie weiter. WKeePass gibt es auch für Linux, Windows und macOS.
+Legen Sie die Datenbank in einen Cloud-Ordner, den Sie ohnehin nutzen – etwa Nextcloud, Dropbox, Google Drive oder OneDrive. Ändern Sie auf zwei Geräten gleichzeitig etwas, führt WKeePass beide Stände Eintrag für Eintrag zusammen: Die neuere Fassung gewinnt, die ältere bleibt im Verlauf. Die letzten 20 Stände der Datei bleiben auf dem Gerät – jeder zeigt, was er geändert hat, und lässt sich einzeln oder ganz zurückholen. Ist der Ordner nicht erreichbar, arbeiten Sie mit einer Offline-Kopie weiter. WKeePass gibt es auch für Linux, Windows und macOS.
 
 Sicherheit
 • Verschlüsselung nach KeePass-Standard mit Argon2

@@ -60,7 +60,7 @@ export async function startCreation() {
     confirmText: null,
     cancelText: 'Abbrechen',
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: 'close', title: 'Abbrechen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: 'Abbrechen', action: 'cancel' },
     onInsert: () => queueMicrotask(() => {
       document.querySelectorAll('.choice[data-choice]').forEach(btn =>
         btn.addEventListener('click', () => {

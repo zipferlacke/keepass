@@ -509,7 +509,7 @@ export async function showQrDialog(uri, title) {
     confirmText: null,
     cancelText: 'Schließen',
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: 'close', title: 'Schließen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' },
     onInsert: () => queueMicrotask(async () => {
       const out = document.getElementById('qr-export');
       if (!out) return;
@@ -555,7 +555,7 @@ export async function scanWithCamera({ zurueck = null } = {}) {
     confirmText: null,
     cancelText: 'Abbrechen',
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: 'close', title: 'Abbrechen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: 'Abbrechen', action: 'cancel' },
     onBack: zurueckZu(zurueck),
     onInsert: () => queueMicrotask(async () => {
       const video = document.getElementById('qr-video');
@@ -975,12 +975,12 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
     confirmText: null,
     cancelText: 'Schließen',
     barLeft: [
-      { icon: 'edit_note', title: 'Bearbeiten', onClick: showEditor },
-      { icon: 'visibility', title: 'Anzeigen', onClick: async () => { if (await confirmLeave()) showPreview(); } },
-      { icon: 'check', title: 'Speichern', onClick: saveEdit },
-      { icon: 'download', title: 'Herunterladen', onClick: async () => { if (await confirmLeave()) downloadWithWarning(att); } }
+      { icon: '<span class="msr">edit_note</span>', title: 'Bearbeiten', onClick: showEditor },
+      { icon: '<span class="msr">visibility</span>', title: 'Anzeigen', onClick: async () => { if (await confirmLeave()) showPreview(); } },
+      { icon: '<span class="msr">check</span>', title: 'Speichern', onClick: saveEdit },
+      { icon: '<span class="msr">download</span>', title: 'Herunterladen', onClick: async () => { if (await confirmLeave()) downloadWithWarning(att); } }
     ],
-    barRight: { icon: 'close', title: 'Schließen', onClick: requestClose },
+    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', onClick: requestClose },
     onInsert: id => {
       viewer = document.getElementById(String(id));
 

@@ -1386,6 +1386,18 @@
     flex: 0 0 auto;
   }
 
+  /* Schalter im Dialog: Titel links, Schalter rechts. Wird es zu eng,
+     rutscht der Schalter in die nächste Zeile statt den Titel zu quetschen. */
+  .userDialog label.check {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    cursor: pointer;
+  }
+  .userDialog label.check + .hint { margin-top: -0.5rem; }
+
   /* Meldungen liegen ganz oben im Fenster — auf dem Handy also unter der
      Statusleiste mit Uhr, Kamera und Symbolen. Der Rand kommt aus
      `viewport-fit=cover` (siehe index.html). */
@@ -1399,9 +1411,9 @@
   }
 
   /* Nur ein Dialog, der den ganzen Bildschirm füllt, liegt unter der
-     Statusleiste mit Uhr und Akku. Ein Sheet von unten reicht nicht bis
-     dorthin — dort wäre der Rand nur eine Lücke über dem Titel. */
-  .userDialog:not(.uD-sheet) .content header {
+     Statusleiste mit Uhr und Akku. Einer von unten (mit Griff) reicht nicht
+     bis dorthin — dort wäre der Rand nur eine Lücke über dem Titel. */
+  .userDialog:not([data-resizable]) .content header {
     padding-top: env(safe-area-inset-top, 0px);
   }
 

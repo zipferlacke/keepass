@@ -49,6 +49,25 @@ export async function schritte(liste, pause = 700) {
       continue;
     }
 
+    // „~wahl:::dx/dy" zieht das Element um dx/dy Pixel (Zeiger runter,
+    // bewegen, los) — etwa den Griff eines Dialogs.
+    if (schritt[0] === '~') {
+      const [wahl, weg] = schritt.slice(1).split(':::');
+      const el = document.querySelector(wahl);
+      if (!el) { melde('ERROR', `Schritt ohne Ziel: ${wahl}`); continue; }
+      melde('SCHRITT', schritt);
+      const [dx, dy] = (weg ?? '0/0').split('/').map(Number);
+      const r = el.getBoundingClientRect();
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      const zeiger = (art, px, py) => el.dispatchEvent(new PointerEvent(art,
+        { bubbles: true, cancelable: true, pointerId: 1, button: 0, isPrimary: true, clientX: px, clientY: py }));
+      zeiger('pointerdown', x, y);
+      for (let i = 1; i <= 5; i++) zeiger('pointermove', x + dx * i / 5, y + dy * i / 5);
+      zeiger('pointerup', x + dx, y + dy);
+      await warte(pause);
+      continue;
+    }
+
     // „?wahl" verlangt, dass etwas zu sehen ist, „!wahl", dass nicht.
     if (schritt[0] === '?' || schritt[0] === '!') {
       const el = document.querySelector(schritt.slice(1));

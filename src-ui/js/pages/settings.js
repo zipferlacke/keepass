@@ -491,7 +491,7 @@ function kdfErklaeren() {
       </dl>`,
     confirmText: null,
     cancelText: 'Schließen',
-    barRight: { icon: 'close', title: 'Schließen', action: 'cancel' }
+    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' }
   });
 }
 
