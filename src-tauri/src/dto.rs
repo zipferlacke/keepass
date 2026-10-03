@@ -91,6 +91,13 @@ pub struct TotpConfig {
     pub period: u64,
     #[serde(default = "default_algorithm")]
     pub algorithm: String,
+    /// Für welchen Zeitpunkt der Code gilt, in Millisekunden seit 1970.
+    ///
+    /// Ohne Angabe: jetzt. Die Vorschau „als Nächstes …" fragt damit den
+    /// Code des folgenden Zeitfensters ab — ohne ihn rechnete der Kern
+    /// wieder den aktuellen, und es stand zweimal dasselbe da.
+    #[serde(default)]
+    pub at: Option<u64>,
 }
 
 fn default_digits() -> u32 { 6 }
@@ -99,7 +106,7 @@ fn default_algorithm() -> String { "SHA1".into() }
 
 impl Default for TotpConfig {
     fn default() -> Self {
-        Self { digits: default_digits(), period: default_period(), algorithm: default_algorithm() }
+        Self { digits: default_digits(), period: default_period(), algorithm: default_algorithm(), at: None }
     }
 }
 
@@ -168,6 +175,9 @@ pub struct Entry {
     /// Passwort und allem — zählt aber beim Sicherheitscheck nicht mit.
     #[serde(default)]
     pub recycled: bool,
+    /// Seit wann er im Papierkorb liegt — nach `PAPIERKORB_TAGE` ist er weg.
+    #[serde(default, skip_deserializing)]
+    pub recycled_since: Option<String>,
 }
 
 /// Ein eingelesener Anhang, der noch auf seinen Eintrag wartet.
@@ -235,4 +245,54 @@ pub struct Remember {
     /// Gerätegebunden freischalten (Windows Hello) — braucht keine PIN.
     #[serde(default)]
     pub allow_device: bool,
+}
+
+/* =========================================================
+   Versionen
+   ========================================================= */
+
+/// Was ein Stand gegenüber dem davor geändert hat.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionStep {
+    /// Der Stand davor — `None` beim ältesten.
+    pub previous: Option<String>,
+    pub changes: Vec<VersionChange>,
+}
+
+/// Ein aufgehobener Stand der Datenbank.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Version {
+    /// Dateiname ohne Endung — so wird der Stand wieder angefordert.
+    pub id: String,
+    /// Wann er abgelegt wurde (RFC 3339).
+    pub at: String,
+    /// Weshalb: „Beim Öffnen", „Gespeichert", „Vom anderen Gerät".
+    pub reason: String,
+    pub size: u64,
+    /// So liegt die Datei gerade da.
+    pub current: bool,
+}
+
+/// Ein Eintrag, der sich seit einem Stand geändert hat.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionChange {
+    pub id: String,
+    pub name: String,
+    pub folder: String,
+    /// `neu`, `geloescht` oder `geaendert`.
+    pub kind: String,
+    pub fields: Vec<VersionField>,
+}
+
+/// Ein einzelnes geändertes Feld. Bei Geheimnissen bleiben die Werte leer —
+/// die Oberfläche braucht nur zu wissen, **dass** sich etwas geändert hat.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionField {
+    pub name: String,
+    pub before: Option<String>,
+    pub after: Option<String>,
 }

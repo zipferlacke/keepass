@@ -161,14 +161,18 @@ fn unregister(id: u64) {
 
 /// Sagt allen verbundenen Browsern, dass die Datenbank zu oder offen ist.
 ///
-/// Beim Sperren endet zugleich die Schonfrist: Wer danach wieder entsperrt,
-/// hat sich damit neu ausgewiesen — aber ein gesperrter Rechner soll nicht
-/// noch eine Minute lang ohne Nachfrage herausgeben.
+/// Beim Sperren endet zugleich die Schonfrist: Ein gesperrter Rechner soll
+/// nicht noch eine Minute lang ohne Nachfrage herausgeben.
+///
+/// Beim Entsperren beginnt sie: Wer eben Master-Passwort, PIN oder Finger
+/// vorgezeigt hat, hat sich ausgewiesen — stärker, als es die Rückfrage je
+/// verlangt. Ohne das kam direkt nach dem Entsperren im Hauptfenster beim
+/// ersten Abruf aus dem Browser dieselbe Frage noch einmal. Wie lange die
+/// Frist gilt, sagt `browser.graceSeconds`; steht dort 0, wird weiterhin
+/// jedes Mal gefragt.
 pub fn announce(locked: bool) {
-    if locked {
-        if let Ok(mut at) = last_identified().lock() {
-            *at = None;
-        }
+    if let Ok(mut at) = last_identified().lock() {
+        *at = if locked { None } else { Some(std::time::Instant::now()) };
     }
     let message = json!({ "action": if locked { "database-locked" } else { "database-unlocked" } });
     if let Ok(map) = listeners().lock() {
@@ -1010,7 +1014,9 @@ impl Connection {
             format!("{ASSOCIATION_PREFIX}{name}"),
             keepass::db::CustomDataItem {
                 value: Some(keepass::db::CustomDataValue::String(key.to_string())),
-                last_modification_time: None,
+                // Mit Zeitpunkt: Beim Zusammenführen gilt die jüngere
+                // Fassung, und ohne ihn gäbe es nichts zu vergleichen.
+                last_modification_time: Some(keepass::db::Times::now()),
             },
         );
 
@@ -1913,6 +1919,24 @@ pub fn browser_forget(state: tauri::State<'_, Vault>, name: String) -> Result<bo
 mod tests {
     use super::*;
     use crate::keepass_extension::protocol::{self, KeyPair};
+
+    /// Entsperren zählt als Ausweisen, Sperren beendet die Frist sofort.
+    /// Vorher begann die Frist erst mit der Rückfrage — wer gerade das
+    /// Master-Passwort eingegeben hatte, wurde gleich noch einmal gefragt.
+    #[test]
+    fn entsperren_beginnt_die_schonfrist() {
+        let stand = || *last_identified().lock().unwrap();
+
+        announce(true);
+        assert!(stand().is_none(), "gesperrt: keine Frist");
+
+        announce(false);
+        let seit = stand().expect("entsperrt: die Frist läuft");
+        assert!(seit.elapsed() < std::time::Duration::from_secs(5));
+
+        announce(true);
+        assert!(stand().is_none(), "wieder gesperrt: Frist vorbei");
+    }
 
     /// Genau die Prüfung aus `nacl-util.min.js` der Erweiterung.
     fn ist_gueltiges_base64(s: &str) -> bool {

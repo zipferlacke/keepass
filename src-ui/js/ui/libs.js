@@ -1,0 +1,140 @@
+/**
+ * ui.js — die einzige Stelle, die wuefl-libs kennt.
+ *
+ * Alle vier genutzten Bausteine werden hier geladen: userDialog, banner,
+ * tableview und qrcode. Es gibt keine Ersatzimplementierungen — ist die
+ * Bibliothek nicht erreichbar, ist das ein Fehler und soll auch als
+ * solcher auffallen.
+ *
+ * Die Bibliothek liegt **lokal** im Programm, nicht auf einem Server. Für
+ * einen Passwortmanager ist das keine Kleinigkeit: Käme sie aus dem Netz,
+ * gäbe es ohne Verbindung keinen einzigen Dialog — und wer den Server hat,
+ * führte Code neben deinen Passwörtern aus.
+ *
+ * `libs/wuefl-libs-v2-2-1` ist ein Symlink auf das Schwesterprojekt. Beim
+ * Bauen folgt Tauri ihm (`follow_links(true)`), die Dateien landen also im
+ * Programm. Die Fassung steht im Namen — beim Aktualisieren wird der Link
+ * neu gesetzt und diese Zeile mit, dann fällt ein vergessener Pfad sofort
+ * auf, statt still die alte Fassung zu laden.
+ *
+ * Wird umgestellt, muss die `@import`-Zeile ganz oben in `css/app.css` mit.
+ */
+
+const BASE = '../../libs/wuefl-libs-v2-2-1';
+
+const modules = new Map();
+
+/** Lädt ein Modul aus wuefl-libs genau einmal. */
+function load(path) {
+  if (!modules.has(path)) modules.set(path, import(`${BASE}/${path}`));
+  return modules.get(path);
+}
+
+/**
+ * Lädt den SelectPicker aus wuefl-libs.
+ *
+ * Danach übernimmt er von selbst jedes `<select data-sp-picker>` — auch
+ * solche, die später dazukommen; er hört auf Änderungen am Dokument. Ohne
+ * ihn zeichnet das Betriebssystem die Liste, und auf dem Handy sieht das
+ * neben dem Rest der Oberfläche fremd aus.
+ */
+export function selectPicker() {
+  return load('selectpicker/selectpicker.js');
+}
+
+/* =========================================================
+   Dialoge und Meldungen
+   ========================================================= */
+
+/**
+ * userDialog(o) → Promise<{ submit, data }>
+ *
+ * Abbrechen steht entweder unten in der Leiste oder oben rechts als „×" —
+ * nie beides. Das macht die Bibliothek seit 2.7.0 von selbst, hier steht
+ * dazu nichts mehr.
+ */
+export async function dialog(options) {
+  const { userDialog } = await load('userDialog/userDialog.js');
+  // Am Handy von unten, am Rechner rechts — für alle Dialoge gleich; wer
+  // eine eigene Lage braucht, gibt `position` selbst an.
+  return userDialog({ position: { small: 'bottom', wide: 'right' }, ...options });
+}
+
+/** showBanner(content, type, duration) */
+export async function banner(content, type = 'info', duration = 3500) {
+  const { showBanner } = await load('banner/banner.js');
+  return showBanner(content, type, duration);
+}
+
+/**
+ * Schließt den Dialog, in dem ein Element steckt — über dessen eigene
+ * Knöpfe. Wichtig: userDialog löst sein Promise ausschließlich beim Klick
+ * auf `.dialog_close` oder beim Absenden des Formulars auf. Ein direktes
+ * `dialog.close()` lässt den Aufrufer hängen.
+ *
+ * Ohne Fußzeile gibt es diese Knöpfe nicht — dann tut es das „×" oben in
+ * der Leiste, und wenn auch das fehlt, `uDFinish` aus der Bibliothek.
+ * Übernehmen und Abbrechen sind dort dasselbe: Wer ohne Fußzeile etwas
+ * übernimmt, hat sein Ergebnis schon selbst festgehalten (die getroffene
+ * Auswahl, der erkannte Code).
+ */
+export function closeHostDialog(element, ok = true) {
+  const host = element?.closest('dialog');
+  if (!host) return false;
+
+  const submit = host.querySelector('.dialog_submit');
+  const cancel = host.querySelector('.dialog_close');
+  if (submit || cancel) {
+    (ok ? (submit ?? cancel) : (cancel ?? submit)).click();
+    return true;
+  }
+
+  const bar = host.querySelector('.uD-bar-right');
+  if (bar) { bar.click(); return true; }
+  if (typeof host.uDFinish === 'function') { host.uDFinish('cancel'); return true; }
+  return false;
+}
+
+/* =========================================================
+   Tabellen
+   ========================================================= */
+
+/**
+ * Rüstet Tabellen mit Sortierung aus.
+ *
+ * Achtung: tableview liest `td.dataset.sortValue` — im HTML muss das
+ * Attribut deshalb `data-sort-value` heißen, nicht `data-sortValue`.
+ */
+export function tableview() {
+  return load('tableview/tableview.js');
+}
+
+/* =========================================================
+   QR-Codes zeichnen
+   ========================================================= */
+
+export async function renderQrCode(element, colors = {}) {
+  const { default: QRCodes } = await load('qrcode/qrcode-min.js');
+
+  QRCodes([element], undefined, 'qrcode', {
+    dots: colors.dots ?? '#18181b',
+    cornersSquare: colors.corners ?? '#18181b',
+    cornersDot: colors.corners ?? '#18181b',
+    background: colors.background ?? '#ffffff'
+  });
+}
+
+/**
+ * Oben links „Zurück": schließt den Dialog und öffnet den, aus dem er
+ * hervorgegangen ist. Ohne Ziel gibt es keinen Pfeil.
+ *
+ * Die kurze Pause dazwischen ist nötig: Erst muss der alte Dialog aus dem
+ * Dokument sein, sonst liegt der neue darunter.
+ */
+export function zurueckZu(ziel) {
+  if (typeof ziel !== 'function') return null;
+  return dlg => {
+    closeHostDialog(dlg, false);
+    setTimeout(() => ziel(), 50);
+  };
+}

@@ -1,8 +1,12 @@
 package de.wuefl.wkeepass.kern
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
+import de.wuefl.wkeepass.R
 import org.json.JSONObject
 
 /**
@@ -31,6 +35,10 @@ object Kern {
     }
 
     @JvmStatic external fun status(): String
+    @JvmStatic external fun aktivitaet(activity: Activity?)
+    @JvmStatic external fun wege(): String
+    @JvmStatic external fun entsperren(methode: String, geheimnis: String): String
+    @JvmStatic external fun pruefen(methode: String, geheimnis: String): String
     @JvmStatic external fun treffer(paket: String, web: String): String
     @JvmStatic external fun zugang(id: String, paket: String, merken: Boolean): String
     @JvmStatic external fun speichern(paket: String, web: String, benutzer: String, passwort: String): String
@@ -48,9 +56,45 @@ object Kern {
         }
     }
 
+    /**
+     * Fragt den Kern auf einem Arbeitsfaden und liefert die Antwort zurück
+     * auf den Hauptfaden.
+     *
+     * Der Kern kann warten müssen: Beim Speichern rechnet er Argon2, und so
+     * lange kommt niemand an die Datenbank. Auf dem Hauptfaden gefragt,
+     * stünde währenddessen die Anzeige — das Blatt hinge, ohne dass etwas
+     * kaputt wäre. Also nie von dort.
+     */
+    fun imHintergrund(aufruf: () -> String, dann: (JSONObject) -> Unit) {
+        val haupt = Handler(Looper.getMainLooper())
+        Thread {
+            val antwort = frage(aufruf)
+            haupt.post { dann(antwort) }
+        }.start()
+    }
+
+    /**
+     * Meldet die sichtbare Activity an — beim Verlassen mit `null` wieder ab.
+     *
+     * Systemdialoge (Fingerabdruck) gehören zu einer Activity, die auch
+     * wirklich vorn steht. Ohne das suchte der Kern das Hauptfenster, das es
+     * hier gar nicht gibt.
+     */
+    fun vordergrund(activity: Activity?) {
+        if (!geladen) return
+        try {
+            aktivitaet(activity)
+        } catch (e: Throwable) {
+            // Ohne Kern kein Dialog — dann bleibt es beim Weg über die App.
+        }
+    }
+
     /** Ist die Datenbank zu (oder die App gar nicht gestartet)? */
     fun gesperrt(antwort: JSONObject): Boolean =
         antwort.optString("status") in setOf("zu", "aus")
+
+    /** Läuft der Kern überhaupt? Ohne ihn geht auch kein Entsperren. */
+    fun aus(antwort: JSONObject): Boolean = antwort.optString("status") == "aus"
 
     /**
      * Holt die App nach vorn, damit der Nutzer entsperrt. Danach tippt er
@@ -62,8 +106,19 @@ object Kern {
         context.startActivity(start)
         Toast.makeText(
             context,
-            "WKeePass entsperren, dann erneut antippen.",
+            "${name(context)} entsperren, dann erneut antippen.",
             Toast.LENGTH_LONG,
         ).show()
     }
+
+    /**
+     * Wie die App hier heißt.
+     *
+     * Die Debug-Fassung liegt neben der echten und heißt „WKeePass-Debug"
+     * (`src/debug/res/values/strings.xml`). Überall, wo wir uns in einer
+     * fremden App oder in den Android-Einstellungen vorstellen, muss das
+     * auch dort stehen — sonst sieht man zwei Mal dasselbe und weiß nicht,
+     * welche gerade antwortet.
+     */
+    fun name(context: Context): String = context.getString(R.string.app_name)
 }

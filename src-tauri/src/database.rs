@@ -142,6 +142,18 @@ pub async fn vault_unlock(
         _ => crate::storage::file_name(&path),
     };
 
+    // Für die Versionen: was in der Datei steht, bevor `db` weiterwandert.
+    let abdruck = crate::versions::abdruck(&db);
+
+    // Was länger als die Frist im Papierkorb liegt, ist jetzt weg. Erst nach
+    // dem Abdruck: Die Version „geöffnet" soll zeigen, was in der Datei stand.
+    let mut db = db;
+    let aufgeraeumt = if read_only || offline.is_some() {
+        0
+    } else {
+        crate::state::papierkorb_aufraeumen(&mut db, crate::state::PAPIERKORB_TAGE, keepass::db::Times::now())
+    };
+
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.clear();
     vault.db = Some(db);
@@ -161,6 +173,9 @@ pub async fn vault_unlock(
     // während die Datei zu ist, geht die Anmeldemaske im kleinen Fenster auf.
     // Ohne diese Nachricht bliebe ein danebenstehendes Hauptfenster auf dem
     // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
+    // Netz unter dem Abgleich: So lag die Datei beim Öffnen da.
+    crate::versions::sichern(&app, &path, &raw, crate::versions::Grund::Geoeffnet, abdruck);
+
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
     browser_announce(false);
@@ -168,6 +183,18 @@ pub async fn vault_unlock(
     // Was Autofill während der Sperre speichern wollte, jetzt eintragen.
     #[cfg(target_os = "android")]
     crate::android_services::nach_entsperren(&app);
+
+    // Das Aufräumen im Papierkorb gleich zurückschreiben — im Hintergrund,
+    // die Oberfläche hat ihre Liste schon ohne die alten Einträge.
+    if aufgeraeumt > 0 {
+        let worker = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            use tauri::Manager;
+            if let Err(e) = commit(&worker, &worker.state::<Vault>()) {
+                eprintln!("[papierkorb] {aufgeraeumt} alte Einträge entfernt, aber nicht gespeichert: {e}");
+            }
+        });
+    }
 
     if let Some(note) = pin_note {
         return Err(format!("Geöffnet, aber die Freigabe wurde nicht gespeichert: {note}"));
@@ -477,6 +504,129 @@ pub async fn confirm_presence(
 }
 
 /* =========================================================
+   Versionen
+   ---------------------------------------------------------
+   Die Stände selbst liegen in `versions.rs`; hier ist nur die Tür für die
+   Oberfläche. Entschlüsselt wird mit dem Schlüssel der offenen Datenbank —
+   ohne offene Datenbank gibt es keinen Blick zurück.
+   ========================================================= */
+
+/// Die aufgehobenen Stände der offenen Datenbank, der jüngste zuerst.
+#[tauri::command]
+pub fn vault_versions(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+) -> Result<Vec<dto::Version>, String> {
+    let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+    let offen = vault.opened_hash;
+    Ok(crate::versions::liste(&app, &pfad, |bytes| Some(digest(bytes)) == offen))
+}
+
+/// Was sich seit diesem Stand geändert hat.
+#[tauri::command]
+pub async fn vault_version_changes(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    id: String,
+) -> Result<Vec<dto::VersionChange>, String> {
+    let (pfad, master, keyfile) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.clone();
+        let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        (pfad, master, vault.keyfile.clone())
+    };
+
+    // Entschlüsseln dauert — nicht auf dem Ausführer der Laufzeit.
+    let worker = app.clone();
+    let alt = tauri::async_runtime::spawn_blocking(move || {
+        let bytes = crate::versions::lesen(&worker, &pfad, &id)?;
+        parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &bytes)
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))??;
+
+    let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    Ok(crate::versions::vergleich(&alt, vault.database()?))
+}
+
+/// Was mit diesem Stand dazukam: der Vergleich mit dem Stand davor.
+///
+/// So liest sich die Liste wie ein Verlauf — jeder Stand sagt, was er
+/// geändert hat, nicht alles, was seitdem geschah. `vorher` ist der Stand,
+/// aus dem „Zurücknehmen" holt; fehlt er, ist dies der älteste.
+#[tauri::command]
+pub async fn vault_version_step(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    id: String,
+) -> Result<dto::VersionStep, String> {
+    let (pfad, master, keyfile) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.clone();
+        let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        (pfad, master, vault.keyfile.clone())
+    };
+
+    let worker = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let oeffne = |stand: &str| {
+            let bytes = crate::versions::lesen(&worker, &pfad, stand)?;
+            parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &bytes)
+        };
+        let Some(vorher) = crate::versions::vorgaenger(&worker, &pfad, &id) else {
+            return Ok(dto::VersionStep { previous: None, changes: Vec::new() });
+        };
+        let changes = crate::versions::vergleich(&oeffne(&vorher)?, &oeffne(&id)?);
+        Ok(dto::VersionStep { previous: Some(vorher), changes })
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))?
+}
+
+/// Holt einen Stand zurück — alles oder einzelne Einträge.
+///
+/// Geschrieben wird dabei noch nichts: Der Aufrufer speichert danach wie
+/// nach jeder anderen Änderung. So sieht man das Ergebnis erst und kann es
+/// im Zweifel liegen lassen.
+#[tauri::command]
+pub async fn vault_version_restore(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    id: String,
+    entries: Option<Vec<String>>,
+) -> Result<usize, String> {
+    let (pfad, master, keyfile) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.clone();
+        let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        (pfad, master, vault.keyfile.clone())
+    };
+
+    let worker = app.clone();
+    let alt = tauri::async_runtime::spawn_blocking(move || {
+        let bytes = crate::versions::lesen(&worker, &pfad, &id)?;
+        parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &bytes)
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))??;
+
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.touch();
+    let jetzt = vault.database_mut()?;
+
+    match entries {
+        Some(liste) => {
+            for uuid in &liste {
+                crate::versions::eintrag_zurueck(jetzt, &alt, uuid)?;
+            }
+            Ok(liste.len())
+        }
+        None => crate::versions::alles_zurueck(jetzt, &alt),
+    }
+}
+
+/* =========================================================
    Lesen
    ========================================================= */
 
@@ -578,6 +728,8 @@ fn read_entry(db: &Database, entry: &EntryRef<'_>) -> RawEntry {
             expires,
             attachments,
             recycled: is_recycled(db, entry.parent().id()),
+            recycled_since: crate::state::im_papierkorb_seit(db, entry.parent().id(), entry.times.location_changed)
+                .map(|t| iso(Some(t))),
         },
         password: entry.get_password().filter(|v| !v.is_empty()).map(str::to_string),
         totp: otp_raw.map(str::to_string),
@@ -595,6 +747,7 @@ fn parse_totp_config(raw: &str) -> Option<dto::TotpConfig> {
             keepass::db::TOTPAlgorithm::Sha512 => "SHA512".into(),
             _ => "SHA1".into(),
         },
+        at: None,
     })
 }
 
@@ -608,13 +761,17 @@ fn iso(time: Option<NaiveDateTime>) -> String {
    Der Schlüssel entsteht nicht direkt aus dem Master-Passwort: Eine
    Ableitungsfunktion rechnet absichtlich lange daran. Je länger, desto
    teurer wird jeder Rateversuch — und desto länger dauert auch das eigene
-   Öffnen. Deshalb drei Stufen statt einer Zahl.
+   Öffnen. Deshalb fünf Stufen statt einer Zahl.
    ========================================================= */
 
-/// Die drei Stufen: (Durchgänge, Speicher in MiB, Fäden).
-const STUFEN: [(&str, u64, u64, u32); 3] = [
+/// Die fünf Stufen: (Durchgänge, Speicher in MiB, Fäden). Benannt sind in
+/// der Oberfläche nur die drei bekannten; die beiden dazwischen teilen den
+/// Abstand etwa zur Hälfte (Aufwand = Durchgänge × Speicher).
+const STUFEN: [(&str, u64, u64, u32); 5] = [
     ("schnell", 5, 32, 2),
+    ("zuegig", 8, 48, 2),
     ("standard", 10, 64, 4),
+    ("erhoeht", 14, 128, 4),
     ("stark", 20, 256, 4),
 ];
 
@@ -755,10 +912,26 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
         );
     }
 
+    // Die Datei ist da, lässt sich aber gerade nicht lesen: Dann wird nicht
+    // geschrieben. Vorher ging es hier ohne Abgleich weiter — und was ein
+    // anderes Gerät inzwischen abgelegt hatte, war damit überschrieben,
+    // ohne dass es je gelesen worden wäre. Nur wenn es die Datei wirklich
+    // nicht mehr gibt, wird sie neu angelegt.
+    if let Err(grund) = &current {
+        if crate::storage::exists(&ziel) {
+            return Err(format!(
+                "Die Datei lässt sich gerade nicht lesen ({grund}). Es wurde nichts geschrieben, \
+                 damit nichts verloren geht, was ein anderes Gerät dort abgelegt hat. \
+                 Deine Änderungen bleiben in der App — gleich noch einmal speichern."
+            ));
+        }
+    }
+
     let mut merged = false;
     if let Ok(current) = current {
         if vault.opened_hash != Some(digest(&current)) {
             let theirs = parse_foreign(&vault, &current)?;
+            crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
             merged = merge(vault.database_mut()?, &theirs)?.0;
         }
     }
@@ -812,7 +985,7 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
     };
 
     let modified = crate::storage::modified_ms(&ziel);
-    if modified.is_some() && modified == seen {
+    if unveraendert_laut_datum(&ziel, modified, seen) {
         return Ok(false);
     }
 
@@ -826,6 +999,10 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
     }
 
     let theirs = parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &current)?;
+
+    // Der fremde Stand, bevor wir ihn einmischen: Geht beim Zusammenführen
+    // etwas verloren, steht er hier noch.
+    crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
 
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     // Inzwischen selbst gespeichert? Dann ist dieser Stand schon drin oder
@@ -847,6 +1024,22 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
     Ok(changed)
 }
 
+/// Darf der Blick aufs Änderungsdatum das Lesen ersparen?
+///
+/// Bei einem Pfad ja: Das Datum kommt vom Dateisystem, und der
+/// Cloud-Client schreibt die Datei wirklich neu. Bei einer
+/// `content://`-Adresse nein: Dort nennt der Anbieter das Datum seiner
+/// eigenen Kopie, und die holt er — Nextcloud jedenfalls — erst beim
+/// Öffnen neu vom Server. Wer sich darauf verließ, sah die Änderungen des
+/// anderen Geräts nie: Das Datum blieb stehen, also wurde nie gelesen,
+/// also blieb das Datum stehen.
+///
+/// Über eine Adresse wird deshalb immer gelesen; ob sich etwas getan hat,
+/// sagt danach der Vergleich des Inhalts.
+fn unveraendert_laut_datum(ziel: &str, modified: Option<i64>, seen: Option<i64>) -> bool {
+    !crate::storage::is_uri(ziel) && modified.is_some() && modified == seen
+}
+
 /// Mischt `theirs` in `ours`: Einträge und Ordner werden über ihre UUID
 /// einander zugeordnet, von zwei Fassungen gilt die jüngere, die ältere
 /// landet im Verlauf; Löschvermerke werden beachtet. Das ist derselbe
@@ -854,14 +1047,45 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
 ///
 /// Zurück kommt (hat sich `ours` geändert, fehlt `theirs` etwas von `ours`).
 pub(crate) fn merge(ours: &mut Database, theirs: &Database) -> Result<(bool, bool), String> {
+    // Erst die Zusatzangaben, dann die Einträge: Die Bibliothek führt
+    // `meta.custom_data` nicht mit, und darin steht unter anderem die
+    // Verknüpfung mit dem Browser. Ohne diesen Schritt warf das nächste
+    // Speichern weg, was das andere Gerät dort eingetragen hatte — in der
+    // Erweiterung musste man dann wieder auf „Verbinden" drücken.
+    let custom = zusatzangaben(ours, theirs);
     let log = ours.merge(theirs).map_err(merge_error)?;
 
     // Umgekehrt noch einmal auf einer Kopie: Kommt dabei nichts heraus,
     // steht in der Datei schon alles, und sie muss nicht neu geschrieben werden.
     let mut probe = theirs.clone();
+    let custom_back = zusatzangaben(&mut probe, ours);
     let back = probe.merge(ours).map_err(merge_error)?;
 
-    Ok((!log.events.is_empty(), !back.events.is_empty()))
+    Ok((!log.events.is_empty() || custom, !back.events.is_empty() || custom_back))
+}
+
+/// Führt `meta.custom_data` von `quelle` nach `ziel` — wie beim Rest gilt
+/// der jüngere Eintrag, und was dem Ziel fehlt, kommt dazu. Gelöscht wird
+/// nichts: Für Zusatzangaben gibt es keine Löschvermerke, und ein
+/// verlorener Schlüssel wiegt schwerer als ein übrig gebliebener.
+///
+/// Liefert, ob sich am Ziel etwas geändert hat.
+fn zusatzangaben(ziel: &mut Database, quelle: &Database) -> bool {
+    let mut geaendert = false;
+
+    for (schluessel, fremd) in &quelle.meta.custom_data {
+        match ziel.meta.custom_data.get(schluessel) {
+            Some(eigen) if eigen.value == fremd.value => continue,
+            // Ohne Zeitstempel lässt sich nichts vergleichen; dann bleibt
+            // der eigene Wert stehen, statt ihn blind zu ersetzen.
+            Some(eigen) if fremd.last_modification_time <= eigen.last_modification_time => continue,
+            _ => {}
+        }
+        ziel.meta.custom_data.insert(schluessel.clone(), fremd.clone());
+        geaendert = true;
+    }
+
+    geaendert
 }
 
 fn merge_error(e: keepass::db::merge::MergeError) -> String {
@@ -915,6 +1139,8 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
         .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
 
     crate::storage::write(ziel, &bytes)?;
+    let abdruck = crate::versions::abdruck(vault.database()?);
+    crate::versions::sichern(app, ziel, &bytes, crate::versions::Grund::Gespeichert, abdruck);
 
     // Ab jetzt ist unser eigener Stand der maßgebliche.
     vault.opened_hash = Some(digest(&bytes));
@@ -924,12 +1150,20 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
     Ok(())
 }
 
-/// Sagt verbundenen Browsern, dass die Datenbank zu oder offen ist. Die
-/// Browser-Anbindung gibt es nur auf dem Desktop — auf Android wird sie gar
-/// nicht übersetzt, dort tut das hier nichts.
+/// Sagt verbundenen Browsern, dass die Datenbank zu oder offen ist, und
+/// beendet beim Sperren die Schonfrist des Autofill-Dienstes.
+///
+/// Die Browser-Anbindung gibt es nur auf dem Desktop, den Dienst nur auf
+/// Android — jede Seite kennt hier nur ihre eigene Hälfte.
 fn browser_announce(locked: bool) {
     #[cfg(desktop)]
     crate::keepass_extension::api::announce(locked);
+
+    #[cfg(target_os = "android")]
+    if locked {
+        crate::android_services::nach_sperren();
+    }
+
     #[cfg(not(desktop))]
     let _ = locked;
 }
@@ -1142,5 +1376,127 @@ mod tests {
             .map(|h| h.get_entries().iter().filter_map(|e| e.get(fields::TITLE).map(str::to_string)).collect())
             .unwrap_or_default();
         assert!(verlauf.contains(&"von Gerät 1".to_string()), "{verlauf:?}");
+    }
+
+    /// Die Verknüpfung mit dem Browser steht in `meta.custom_data`. Geht sie
+    /// beim Speichern verloren, muss man in der Erweiterung jedes Mal wieder
+    /// auf „Verbinden" drücken — genau das war die Klage.
+    #[test]
+    fn verknuepfung_ueberlebt_das_speichern() {
+        use keepass::db::{CustomDataItem, CustomDataValue};
+
+        let mut db = Database::new();
+        db.meta.custom_data.insert(
+            "KPXC_BROWSER WKeePass abc".to_string(),
+            CustomDataItem {
+                value: Some(CustomDataValue::String("schluessel-123".into())),
+                last_modification_time: None,
+            },
+        );
+
+        let wieder = roundtrip(&db);
+        let gespeichert = wieder
+            .meta
+            .custom_data
+            .get("KPXC_BROWSER WKeePass abc")
+            .and_then(|i| i.value.as_ref());
+
+        assert!(
+            matches!(gespeichert, Some(CustomDataValue::String(s)) if s == "schluessel-123"),
+            "Verknüpfung nach dem Speichern: {gespeichert:?}"
+        );
+    }
+
+    /// Das andere Gerät hat die Verknüpfung in die Datei geschrieben. Beim
+    /// Zusammenführen muss sie herüberkommen — sonst wirft das nächste
+    /// Speichern von hier aus die Verknüpfung des anderen Geräts wieder weg.
+    #[test]
+    fn verknuepfung_kommt_beim_zusammenfuehren_mit() {
+        use keepass::db::{CustomDataItem, CustomDataValue};
+
+        let mut base = Database::new();
+        add(&mut base, "A", None);
+        let base = roundtrip(&base);
+
+        // Das andere Gerät verknüpft einen Browser.
+        let mut fremd = base.clone();
+        fremd.meta.custom_data.insert(
+            "KPXC_BROWSER WKeePass abc".to_string(),
+            CustomDataItem {
+                value: Some(CustomDataValue::String("schluessel-123".into())),
+                last_modification_time: Some(am(2)),
+            },
+        );
+        let datei = roundtrip(&fremd);
+
+        // Wir kennen sie noch nicht.
+        let mut unser = base;
+        merge(&mut unser, &datei).unwrap();
+
+        let nachher = unser
+            .meta
+            .custom_data
+            .get("KPXC_BROWSER WKeePass abc")
+            .and_then(|i| i.value.as_ref());
+        assert!(
+            matches!(nachher, Some(CustomDataValue::String(s)) if s == "schluessel-123"),
+            "Verknüpfung nach dem Zusammenführen: {nachher:?}"
+        );
+    }
+
+    /// Beide Seiten kennen denselben Schlüssel mit verschiedenem Wert: Der
+    /// jüngere gilt, in beide Richtungen — und ohne Zeitstempel bleibt der
+    /// eigene stehen, statt blind ersetzt zu werden.
+    #[test]
+    fn bei_zusatzangaben_gilt_die_juengere() {
+        use keepass::db::{CustomDataItem, CustomDataValue};
+
+        let angabe = |wert: &str, wann: Option<NaiveDateTime>| CustomDataItem {
+            value: Some(CustomDataValue::String(wert.into())),
+            last_modification_time: wann,
+        };
+        let wert = |db: &Database| match db.meta.custom_data.get("k").and_then(|i| i.value.clone()) {
+            Some(CustomDataValue::String(s)) => s,
+            anderes => panic!("unerwartet: {anderes:?}"),
+        };
+
+        let mut alt = Database::new();
+        alt.meta.custom_data.insert("k".into(), angabe("alt", Some(am(1))));
+        let mut neu = Database::new();
+        neu.meta.custom_data.insert("k".into(), angabe("neu", Some(am(5))));
+
+        // Das Jüngere kommt herein …
+        let mut ziel = alt.clone();
+        assert!(zusatzangaben(&mut ziel, &neu));
+        assert_eq!(wert(&ziel), "neu");
+
+        // … das Ältere verdrängt nichts.
+        let mut ziel = neu.clone();
+        assert!(!zusatzangaben(&mut ziel, &alt));
+        assert_eq!(wert(&ziel), "neu");
+
+        // Ohne Zeitstempel bleibt der eigene Wert.
+        let mut eigen = Database::new();
+        eigen.meta.custom_data.insert("k".into(), angabe("eigen", None));
+        let mut fremd = Database::new();
+        fremd.meta.custom_data.insert("k".into(), angabe("fremd", None));
+        assert!(!zusatzangaben(&mut eigen, &fremd));
+        assert_eq!(wert(&eigen), "eigen");
+    }
+
+    /// Das Änderungsdatum spart das Lesen nur bei echten Pfaden. Über eine
+    /// Adresse vom Handy wird immer gelesen — sonst kommen die Änderungen
+    /// des anderen Geräts nie an.
+    #[test]
+    fn datum_spart_das_lesen_nur_bei_pfaden() {
+        let pfad = "/home/du/passwoerter.kdbx";
+        let adresse = "content://org.nextcloud.documents/document/abc";
+
+        assert!(unveraendert_laut_datum(pfad, Some(100), Some(100)));
+        assert!(!unveraendert_laut_datum(pfad, Some(200), Some(100)), "neueres Datum: lesen");
+        assert!(!unveraendert_laut_datum(pfad, None, None), "ohne Datum: lesen");
+
+        assert!(!unveraendert_laut_datum(adresse, Some(100), Some(100)), "Adresse: immer lesen");
+        assert!(!unveraendert_laut_datum(adresse, None, None));
     }
 }

@@ -31,6 +31,7 @@ import android.widget.TextView
 import android.widget.Toast
 import de.wuefl.wkeepass.R
 import de.wuefl.wkeepass.kern.Kern
+import de.wuefl.wkeepass.sicherheit.Nachweisblatt
 import org.json.JSONObject
 
 /**
@@ -40,10 +41,20 @@ import org.json.JSONObject
  * Passwort; die anfragende App hat nichts gesehen. Tippt der Nutzer eine an,
  * startet Android **diese** Activity, durchsichtig über der fremden App:
  *
- *   * Zeile mit Konto → sofort einsetzen, keine Rückfrage.
+ *   * Zeile mit Konto → einsetzen, je nach Einstellung nach einem Nachweis.
  *   * „Anderen Eintrag wählen …" → die Auswahlliste mit Suche. Ein Eintrag,
  *     der noch nicht zur Seite passte, merkt sich dabei die App bzw. Seite.
- *   * Datenbank zu → die App nach vorn holen, damit der Nutzer entsperrt.
+ *   * Datenbank zu → hier entsperren, mit Biometrie, PIN oder
+ *     Master-Passwort. Nur wenn der Kern gar nicht läuft, geht es nicht
+ *     anders als über die App.
+ *
+ * Was vor dem Einsetzen zu tun ist, entscheidet der Kern (Einstellung
+ * „Vor dem Ausfüllen"): Kommt statt des Passworts `status: "nachweis"`,
+ * fragt [Nachweisblatt] nach, und danach geht dieselbe Frage noch einmal
+ * hinaus. Die Auswahlliste steht davor — gewählt wird immer zuerst.
+ *
+ * Kein Aufruf in den Kern läuft auf dem Hauptfaden. Er kann warten müssen
+ * (Argon2 beim Speichern und Entsperren), und dann hinge sonst die Anzeige.
  *
  * Hat der Eintrag einen TOTP-Schlüssel, geht der Code ins Code-Feld, falls
  * das Formular eins hat — sonst in die Zwischenablage, für die nächste Seite.
@@ -68,23 +79,47 @@ class AusfuellActivity : Activity() {
         passwortId = feldId(WKeePassAutofillService.EXTRA_PASSWORT_ID)
         codeId = feldId(WKeePassAutofillService.EXTRA_CODE_ID)
 
-        if (Kern.gesperrt(Kern.frage { Kern.status() })) {
-            Kern.appOeffnen(this)
-            return abbrechen()
-        }
+        // Der Fingerabdruck-Dialog gehört zu diesem Blatt, nicht zu einem
+        // Hauptfenster, das hier gar nicht steht.
+        Kern.vordergrund(this)
 
-        // Konto schon in der Zeile gewählt: direkt einsetzen.
+        Kern.imHintergrund({ Kern.status() }) { status ->
+            when {
+                // Ohne laufenden Kern gibt es weder Einstellungen noch
+                // Schlüsselbund — dann hilft nur die App selbst.
+                Kern.aus(status) -> {
+                    Kern.appOeffnen(this)
+                    abbrechen()
+                }
+                Kern.gesperrt(status) -> Nachweisblatt.entsperren(this) { offen ->
+                    if (offen) weiter() else abbrechen()
+                }
+                else -> weiter()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        Kern.vordergrund(null)
+        super.onDestroy()
+    }
+
+    /** Die Datenbank ist offen: Konto wählen oder das gewählte einsetzen. */
+    private fun weiter() {
+        // Konto schon in der Zeile gewählt: kein zweiter Griff zur Liste.
         intent.getStringExtra(WKeePassAutofillService.EXTRA_EINTRAG)?.let {
             return einsetzen(it, merken = false)
         }
 
-        val antwort = Kern.frage { Kern.treffer(paket, web) }
-        if (antwort.has("fehler")) return fehler(antwort.optString("fehler"))
-        val liste = antwort.optJSONArray("eintraege")
-        val eintraege = (0 until (liste?.length() ?: 0)).map { liste!!.getJSONObject(it) }
-        if (eintraege.isEmpty()) return fehler("In der Datenbank gibt es keine Einträge mit Passwort.")
-
-        auswahl(eintraege)
+        Kern.imHintergrund({ Kern.treffer(paket, web) }) { antwort ->
+            if (antwort.has("fehler")) return@imHintergrund fehler(antwort.optString("fehler"))
+            val liste = antwort.optJSONArray("eintraege")
+            val eintraege = (0 until (liste?.length() ?: 0)).map { liste!!.getJSONObject(it) }
+            if (eintraege.isEmpty()) {
+                return@imHintergrund fehler("In der Datenbank gibt es keine Einträge mit Passwort.")
+            }
+            auswahl(eintraege)
+        }
     }
 
     /* ---------- Die Auswahlliste ---------- */
@@ -104,8 +139,7 @@ class AusfuellActivity : Activity() {
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
 
-        blatt.findViewById<TextView>(R.id.wkeepass_ziel).text =
-            web.ifEmpty { paket }.ifEmpty { "Anmeldung" }
+        blatt.findViewById<TextView>(R.id.wkeepass_ziel).text = ziel()
 
         val adapter = EintragsListe(alle)
         val listview = blatt.findViewById<ListView>(R.id.wkeepass_liste)
@@ -167,20 +201,44 @@ class AusfuellActivity : Activity() {
     /* ---------- Einsetzen ---------- */
 
     private fun einsetzen(id: String, merken: Boolean) {
-        val zugang = Kern.frage { Kern.zugang(id, paket, merken) }
-        if (Kern.gesperrt(zugang)) {
-            Kern.appOeffnen(this)
-            return abbrechen()
-        }
-        if (zugang.has("fehler")) return fehler(zugang.optString("fehler"))
+        Kern.imHintergrund({ Kern.zugang(id, paket, merken) }) { zugang ->
+            when {
+                // Der Kern hat nichts herausgegeben, sondern fragt zurück.
+                // Nach bestandener Prüfung dieselbe Frage noch einmal.
+                zugang.optString("status") == "nachweis" ->
+                    Nachweisblatt.nachweis(this, zugang.optString("stufe"), ziel()) { ok ->
+                        if (ok) einsetzen(id, merken) else abbrechen()
+                    }
 
+                Kern.aus(zugang) -> {
+                    Kern.appOeffnen(this)
+                    abbrechen()
+                }
+
+                // Zwischendurch zugefallen — etwa durch die Untätigkeitssperre.
+                Kern.gesperrt(zugang) -> Nachweisblatt.entsperren(this) { offen ->
+                    if (offen) einsetzen(id, merken) else abbrechen()
+                }
+
+                zugang.has("fehler") -> fehler(zugang.optString("fehler"))
+
+                else -> fuellen(zugang)
+            }
+        }
+    }
+
+    /** Wonach gefragt wird: die Seite oder die App, die gerade offen ist. */
+    private fun ziel(): String = web.ifEmpty { paket }.ifEmpty { "Anmeldung" }
+
+    /** Baut aus der Antwort des Kerns das, was Android einsetzt. */
+    private fun fuellen(zugang: JSONObject) {
         val benutzer = zugang.optString("benutzer")
         val passwort = zugang.optString("passwort")
         val code = zugang.optString("totp")
 
         val anzeige = RemoteViews(packageName, R.layout.wkeepass_vorschlag).apply {
-            setTextViewText(R.id.wkeepass_oben, benutzer.ifEmpty { "WKeePass" })
-            setTextViewText(R.id.wkeepass_unten, "WKeePass")
+            setTextViewText(R.id.wkeepass_oben, benutzer.ifEmpty { Kern.name(this@AusfuellActivity) })
+            setTextViewText(R.id.wkeepass_unten, Kern.name(this@AusfuellActivity))
         }
         @Suppress("DEPRECATION")
         val bau = Dataset.Builder(anzeige)

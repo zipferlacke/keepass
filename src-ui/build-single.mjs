@@ -18,13 +18,25 @@ const { generateTotp, secondsRemaining } = __mod_totp;`,
 const { renderQrCode } = __mod_ui;`
 };
 
-const MODULES = [
-  'dragmove', 'multiselect', 'security', 'totp', 'ui', 'demo', 'platform',
-  'settings', 'vault', 'theme', 'icons', 'qr', 'preview'
-];
+/* Name im Bündel → Datei. Die Reihenfolge bleibt bedeutsam. */
+const MODULES = {
+  dragmove:    'ui/dragmove.js',
+  multiselect: 'ui/multiselect.js',
+  security:    'data/security.js',
+  totp:        'data/totp.js',
+  ui:          'ui/libs.js',
+  demo:        'data/demo.js',
+  platform:    'core/platform.js',
+  settings:    'data/settings.js',
+  vault:       'data/vault.js',
+  theme:       'core/theme.js',
+  icons:       'core/icons.js',
+  qr:          'data/qr.js',
+  preview:     'data/preview.js',
+};
 
 function wrap(name) {
-  let src = readFileSync(`./js/${name}.js`, 'utf8');
+  let src = readFileSync(`./js/${MODULES[name]}`, 'utf8');
 
   // Import-Zeilen entfernen (werden über den Namensraum bereitgestellt)
   src = src.replace(/^import[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '');
@@ -40,7 +52,7 @@ function wrap(name) {
   return `const __mod_${name.replace(/-/g, '_')} = (() => {\n${deps}${src}\nreturn { ${[...names].join(', ')} };\n})();\n`;
 }
 
-let bundle = MODULES.map(wrap).join('\n');
+let bundle = Object.keys(MODULES).map(wrap).join('\n');
 
 bundle += `const settings = __mod_settings;\nconst vault = __mod_vault;\nconst qr = __mod_qr;\n`;
 bundle += `const { dialog, banner, closeHostDialog, tableview } = __mod_ui;\n`;
@@ -58,7 +70,7 @@ bundle += '\n' + app;
 
 /* Im Bündel gibt es keine Modulpfade mehr — platform.js holt demo.js direkt. */
 bundle = bundle.replace(
-  "demoModule ??= await import('./demo.js');",
+  "demoModule ??= await import('../data/demo.js');",
   'demoModule ??= __mod_demo;'
 );
 

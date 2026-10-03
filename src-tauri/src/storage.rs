@@ -59,6 +59,17 @@ pub fn read(path: &str) -> Result<Vec<u8>, String> {
     std::fs::read(path).map_err(|e| format!("Datei nicht lesbar: {e}"))
 }
 
+/// Gibt es die Datei?
+///
+/// Bei einem Pfad weiß das das Dateisystem. Bei einer `content://`-Adresse
+/// gibt es nur „der Anbieter rückt sie gerade heraus" oder „nicht" — und
+/// „nicht" heißt dort fast nie „gelöscht", sondern „gerade nicht
+/// erreichbar". Deshalb gilt eine Adresse immer als vorhanden: Wer das
+/// fragt, will wissen, ob er etwas überschreiben könnte.
+pub fn exists(path: &str) -> bool {
+    is_uri(path) || std::path::Path::new(path).exists()
+}
+
 /// Wann die Datei zuletzt geändert wurde, in Millisekunden seit 1970.
 ///
 /// Bei einer Adresse weiß das nur der Anbieter (Nextcloud, Drive …) —
@@ -130,6 +141,16 @@ pub fn label(path: &str) -> String {
             last.replace("%3A", ":").replace("%2F", "/").replace("%20", " ")
         })
         .and_then(|id| id.split_once(':').map(|(_, rest)| rest.to_string()))
+        // Der Download-Anbieter nennt `raw:` und den ganzen Pfad
+        // (`raw:/storage/emulated/0/Download/x.kdbx`). „Downloads" steht
+        // schon davor — vom Pfad bleibt, was hinter dem Download-Ordner kommt.
+        .map(|rest| match rest.strip_prefix('/') {
+            Some(voll) => voll
+                .split_once("/Download/")
+                .map(|(_, hinten)| hinten.to_string())
+                .unwrap_or_else(|| voll.rsplit('/').next().unwrap_or(voll).to_string()),
+            None => rest,
+        })
         .filter(|rest| rest.contains('.'));
 
     match (aus_adresse, uri::display_name(path)) {
@@ -409,6 +430,16 @@ mod uri {
                 Ok(mut file) => {
                     file.write_all(bytes)
                         .map_err(|e| format!("Schreiben fehlgeschlagen: {e}"))?;
+
+                    // Nicht jeder Anbieter nimmt „wt" — mit „w" bleibt vom
+                    // alten, längeren Inhalt alles stehen, was hinter dem
+                    // neuen Ende liegt. Eine kdbx-Datei mit Schwanz ist für
+                    // das nächste Gerät kaputt, und genau so sah es aus:
+                    // „die Synchronisation geht nicht". Also abschneiden.
+                    if let Err(e) = file.set_len(bytes.len() as u64) {
+                        eprintln!("[storage] {path} ließ sich nicht kürzen ({modus}): {e}");
+                    }
+
                     file.sync_all()
                         .map_err(|e| format!("Synchronisieren fehlgeschlagen: {e}"))?;
                     return Ok(());
@@ -439,5 +470,50 @@ mod uri {
 
     pub fn write(path: &str, _bytes: &[u8]) -> Result<(), String> {
         Err(format!("Adressen dieser Art gibt es hier nicht: {path}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Der Download-Anbieter nennt den ganzen Pfad hinter `raw:` — in der
+    /// Anzeige steht davon nur, was im Download-Ordner liegt.
+    #[test]
+    fn download_adresse_zeigt_nur_den_namen() {
+        let raw = "content://com.android.providers.downloads.documents/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Fbeispiel.kdbx";
+        assert_eq!(label(raw), "Downloads/beispiel.kdbx");
+        assert_eq!(file_name(raw), "beispiel.kdbx");
+
+        let tiefer = "content://com.android.providers.downloads.documents/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2FTresor%2Fa.kdbx";
+        assert_eq!(label(tiefer), "Downloads/Tresor/a.kdbx");
+
+        // Der Gerätespeicher bleibt, wie er war.
+        let primary = "content://com.android.externalstorage.documents/document/primary%3ADownload%2Ftest.kdbx";
+        assert_eq!(label(primary), "Gerätespeicher/Download/test.kdbx");
+    }
+
+    /// Eine Adresse gilt immer als vorhanden — dort heißt „nicht lesbar"
+    /// fast nie „gelöscht". Ein Pfad wird wirklich nachgesehen.
+    #[test]
+    fn adresse_gilt_als_vorhanden_pfad_wird_nachgesehen() {
+        assert!(exists("content://org.nextcloud.documents/document/abc"));
+
+        let ordner = std::env::temp_dir().join(format!("wkeepass-exists-{}", std::process::id()));
+        std::fs::create_dir_all(&ordner).unwrap();
+        let datei = ordner.join("da.kdbx");
+
+        assert!(!exists(&datei.to_string_lossy()), "noch nicht angelegt");
+        std::fs::write(&datei, b"x").unwrap();
+        assert!(exists(&datei.to_string_lossy()));
+
+        std::fs::remove_dir_all(&ordner).unwrap();
+    }
+
+    #[test]
+    fn nur_content_adressen_sind_adressen() {
+        assert!(is_uri("content://anbieter/dokument/1"));
+        assert!(!is_uri("/home/du/passwoerter.kdbx"));
+        assert!(!is_uri("C:\\Users\\du\\passwoerter.kdbx"));
     }
 }

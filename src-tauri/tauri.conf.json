@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "WKeePass",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "identifier": "de.wuefl.wkeepass",
   "build": {
     "frontendDist": "../src-ui",
@@ -34,6 +34,9 @@
       "../appdata/icons/icon.icns",
       "../appdata/icons/icon.ico"
     ],
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    },
     "category": "Utility",
     "shortDescription": "Passwortverwaltung für KeePass-Datenbanken",
     "longDescription": "WKeePass öffnet und schreibt KDBX-Dateien. Alle Klartextwerte bleiben im Kern der Anwendung; die Oberfläche bekommt nur Verweise darauf.",

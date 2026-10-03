@@ -11,6 +11,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use chrono::NaiveDateTime;
 use keepass::db::GroupId;
 use keepass::Database;
 use zeroize::Zeroizing;
@@ -163,6 +164,76 @@ pub fn ensure_recycle_bin(db: &mut Database) -> GroupId {
     db.meta.recyclebin_enabled = Some(true);
     db.meta.recyclebin_changed = Some(keepass::db::Times::now());
     id
+}
+
+/// So lange bleibt etwas im Papierkorb, dann ist es endgültig weg.
+pub const PAPIERKORB_TAGE: i64 = 30;
+
+/// Seit wann liegt, was in `group` steckt, im Papierkorb?
+///
+/// Maßgeblich ist, was direkt im Papierkorb liegt: Wird ein Ordner gelöscht,
+/// zieht er seine Einträge mit, und deren eigenes Datum bleibt das alte.
+/// `None`, wenn `group` nicht im Papierkorb liegt.
+pub fn im_papierkorb_seit(
+    db: &Database,
+    group: GroupId,
+    eigenes: Option<NaiveDateTime>,
+) -> Option<NaiveDateTime> {
+    let bin = recycle_bin(db)?;
+    if group == bin {
+        return eigenes;
+    }
+    // Hinauf bis zu dem Ordner, der direkt im Papierkorb liegt.
+    let mut current = group;
+    loop {
+        let g = db.group(current)?;
+        let parent = g.parent()?.id();
+        if parent == bin {
+            return g.times.location_changed;
+        }
+        current = parent;
+    }
+}
+
+/// Entfernt endgültig, was länger als `tage` im Papierkorb liegt.
+///
+/// Mit Löschvermerk — sonst brächte der Abgleich mit einem anderen Gerät
+/// es zurück. Was kein Datum trägt (von Hand oder von einer anderen App in
+/// den Papierkorb gelegt), bekommt jetzt eins und damit die volle Frist.
+/// Gibt zurück, wie viele Einträge und Ordner verschwunden sind.
+pub fn papierkorb_aufraeumen(db: &mut Database, tage: i64, jetzt: NaiveDateTime) -> usize {
+    let Some(bin) = recycle_bin(db) else { return 0 };
+    let grenze = jetzt - chrono::Duration::days(tage);
+    let Some(korb) = db.group(bin) else { return 0 };
+
+    let eintraege: Vec<_> = korb.entries().map(|e| (e.id(), e.times.location_changed)).collect();
+    let ordner: Vec<_> = korb.groups().map(|g| (g.id(), g.times.location_changed)).collect();
+
+    let mut weg = 0;
+    for (id, seit) in eintraege {
+        let Some(mut e) = db.entry_mut(id) else { continue };
+        match seit {
+            Some(seit) if seit < grenze => {
+                e.track_changes().remove();
+                weg += 1;
+            }
+            Some(_) => {}
+            None => e.times.location_changed = Some(jetzt),
+        }
+    }
+    for (id, seit) in ordner {
+        let Some(mut g) = db.group_mut(id) else { continue };
+        match seit {
+            Some(seit) if seit < grenze => {
+                if g.track_changes().remove().is_ok() {
+                    weg += 1;
+                }
+            }
+            Some(_) => {}
+            None => g.times.location_changed = Some(jetzt),
+        }
+    }
+    weg
 }
 
 /// Liegt `group` im Papierkorb — oder ist es der Papierkorb selbst?
@@ -319,6 +390,70 @@ mod tests {
         assert!(is_recycled(&db, drin));
         assert!(!is_recycled(&db, draussen));
         assert!(!is_recycled(&db, db.root().id()));
+    }
+
+    /// Ein Papierkorb mit einem alten und einem frischen Eintrag und einem
+    /// alten Ordner, in dem noch ein Eintrag steckt.
+    fn korb() -> (Database, NaiveDateTime, [keepass::db::EntryId; 3], GroupId) {
+        let mut db = Database::new();
+        let jetzt = keepass::db::Times::now();
+        let tage = |n| jetzt - chrono::Duration::days(n);
+        let bin = ensure_recycle_bin(&mut db);
+
+        let ordner = ensure_group(&mut db, &format!("{RECYCLE_BIN_NAME}/Alt"));
+        db.group_mut(ordner).unwrap().times.location_changed = Some(tage(40));
+
+        let mut neu = |group, when| {
+            let id = db.group_mut(group).unwrap().add_entry().id();
+            db.entry_mut(id).unwrap().times.location_changed = Some(when);
+            id
+        };
+        let alt = neu(bin, tage(31));
+        let frisch = neu(bin, tage(29));
+        // Das eigene Datum des Eintrags zählt nicht, nur das des Ordners.
+        let drin = neu(ordner, tage(1));
+
+        (db, jetzt, [alt, frisch, drin], ordner)
+    }
+
+    #[test]
+    fn papierkorb_raeumt_nach_der_frist_auf() {
+        let (mut db, jetzt, [alt, frisch, drin], ordner) = korb();
+
+        assert_eq!(papierkorb_aufraeumen(&mut db, PAPIERKORB_TAGE, jetzt), 2);
+
+        assert!(db.entry(alt).is_none());
+        assert!(db.entry(drin).is_none());
+        assert!(db.group(ordner).is_none());
+        assert!(db.entry(frisch).is_some());
+        // Mit Löschvermerk, sonst käme es beim Abgleich zurück.
+        assert!(db.deleted_objects.contains_key(&alt.uuid()));
+        assert!(db.deleted_objects.contains_key(&drin.uuid()));
+    }
+
+    #[test]
+    fn papierkorb_ohne_datum_beginnt_die_frist() {
+        let mut db = Database::new();
+        let jetzt = keepass::db::Times::now();
+        let bin = ensure_recycle_bin(&mut db);
+        let id = db.group_mut(bin).unwrap().add_entry().id();
+        db.entry_mut(id).unwrap().times.location_changed = None;
+
+        assert_eq!(papierkorb_aufraeumen(&mut db, PAPIERKORB_TAGE, jetzt), 0);
+        assert_eq!(db.entry(id).unwrap().times.location_changed, Some(jetzt));
+    }
+
+    #[test]
+    fn im_papierkorb_seit_zaehlt_der_oberste_ordner() {
+        let (db, jetzt, [_, frisch, drin], ordner) = korb();
+        let seit = |id| {
+            let e = db.entry(id).unwrap();
+            im_papierkorb_seit(&db, e.parent().id(), e.times.location_changed)
+        };
+
+        assert_eq!(seit(frisch), Some(jetzt - chrono::Duration::days(29)));
+        assert_eq!(seit(drin), db.group(ordner).unwrap().times.location_changed);
+        assert_eq!(im_papierkorb_seit(&db, db.root().id(), Some(jetzt)), None);
     }
 
     #[test]

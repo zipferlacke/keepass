@@ -127,12 +127,16 @@ pub fn vault_totp(
     config: dto::TotpConfig,
 ) -> Result<dto::TotpResult, String> {
     let raw = take(&state, &token)?;
+    totp_code(&raw, &config)
+}
 
+/// Rechnet den Code — jetzt oder zu dem Zeitpunkt, den `config.at` nennt.
+fn totp_code(raw: &str, config: &dto::TotpConfig) -> Result<dto::TotpResult, String> {
     // Steht schon eine vollständige otpauth-Adresse im Feld, gelten deren
     // Angaben — sie kommen von der Gegenstelle. Sonst bauen wir eine aus dem
     // Base32-Geheimnis und den Einstellungen des Eintrags.
     let uri = if raw.starts_with("otpauth://") {
-        raw
+        raw.to_string()
     } else {
         format!(
             "otpauth://totp/WKeePass?secret={}&digits={}&period={}&algorithm={}",
@@ -144,7 +148,10 @@ pub fn vault_totp(
     };
 
     let totp: keepass::db::TOTP = uri.parse().map_err(|e| format!("TOTP nicht lesbar: {e}"))?;
-    let code = totp.value_now().map_err(|e| format!("Systemzeit unbrauchbar: {e}"))?;
+    let code = match config.at {
+        Some(ms) => totp.value_at(ms / 1000),
+        None => totp.value_now().map_err(|e| format!("Systemzeit unbrauchbar: {e}"))?,
+    };
 
     Ok(dto::TotpResult { code: code.code.clone(), remaining: code.valid_for.as_secs() })
 }
@@ -572,4 +579,34 @@ pub fn current_totp(raw: &str) -> Option<String> {
 
     let totp: keepass::db::TOTP = uri.parse().ok()?;
     totp.value_now().ok().map(|code| code.code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Die Vorschau „als Nächstes" muss den Code des folgenden Zeitfensters
+    /// zeigen — nicht noch einmal den aktuellen.
+    #[test]
+    fn vorschau_zeigt_den_naechsten_code() {
+        let config = |at| dto::TotpConfig { at, ..Default::default() };
+        let geheim = "JBSWY3DPEHPK3PXP";
+
+        // 1_000_010 s nach 1970: 20 Sekunden im Fenster, das bei 999_990
+        // beginnt — es bleiben zehn.
+        let jetzt = 1_000_010_000;
+        let aktuell = totp_code(geheim, &config(Some(jetzt))).unwrap();
+        let naechster = totp_code(geheim, &config(Some(jetzt + 30_000))).unwrap();
+
+        assert_ne!(aktuell.code, naechster.code);
+        assert_eq!(aktuell.remaining, 10);
+    }
+
+    /// Ohne Zeitpunkt gilt die Systemzeit — und der Code läuft noch.
+    #[test]
+    fn ohne_zeitpunkt_gilt_jetzt() {
+        let ergebnis = totp_code("JBSWY3DPEHPK3PXP", &dto::TotpConfig::default()).unwrap();
+        assert_eq!(ergebnis.code.len(), 6);
+        assert!(ergebnis.remaining <= 30);
+    }
 }
