@@ -55,7 +55,9 @@ export function selectPicker() {
  */
 export async function dialog(options) {
   const { userDialog } = await load('userDialog/userDialog.js');
-  return userDialog(options);
+  // Am Handy von unten, am Rechner rechts — für alle Dialoge gleich; wer
+  // eine eigene Lage braucht, gibt `position` selbst an.
+  return userDialog({ position: { small: 'bottom', wide: 'right' }, ...options });
 }
 
 /** showBanner(content, type, duration) */

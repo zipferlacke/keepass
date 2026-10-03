@@ -2828,7 +2828,7 @@
 
   /* Als Dateiablage soll der Dialog nicht auf Inhaltsbreite schrumpfen */
   .userDialog[data-entry-mode="files"] {
-    width: min(640px, 94vw);
+    --uD-width: min(640px, 94vw);
   }
 
   /* Lange Dateinamen dürfen den Dialog nicht verbreitern. userDialog legt
@@ -2935,20 +2935,29 @@
      Rest ist Datei. Keine Fußzeile.
      ============================================================ */
   .userDialog#file-viewer {
-    --uD-margin: 0;
-    --uD-radius: 0;
-    --uD-width: 100vw;
-    --uD-min-width: 0;
-    --uD-max-width: 100vw;
-    --uD-height: 100dvh;
-    --uD-max-height: 100dvh;
     --dialog-gap: 0;
     padding: 0;
     background: var(--clr-neutral-50);
     color: var(--text-color);
-    box-shadow: none;
 
-    &::backdrop { background: var(--clr-neutral-50); }
+    /* Am Handy füllt sie den Bildschirm; am Rechner ist sie eine breite
+       Leiste rechts, die sich am Griff (links) breiter ziehen lässt. */
+    @media screen and (max-width: 700px) {
+      --uD-margin: 0;
+      --uD-radius: 0;
+      --uD-width: 100vw;
+      --uD-min-width: 0;
+      --uD-max-width: 100vw;
+      --uD-height: 100dvh;
+      --uD-max-height: 100dvh;
+      box-shadow: none;
+
+      &::backdrop { background: var(--clr-neutral-50); }
+    }
+    @media screen and (min-width: 701px) {
+      --uD-width: min(48rem, 60vw);
+      padding-left: var(--uD-grip, 1rem);
+    }
 
     > form {
       max-height: 100dvh;
