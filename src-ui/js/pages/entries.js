@@ -15,6 +15,7 @@
 import * as vault from '../data/vault.js';
 import * as settings from '../data/settings.js';
 import * as pick from '../ui/multiselect.js';
+import * as preview from '../data/preview.js';
 import { enableDragMove } from '../ui/dragmove.js';
 import { dialog, banner, closeHostDialog, tableview, selectPicker } from '../ui/libs.js';
 import { copyPlain, scheduleClipboardClear } from '../ui/clipboard.js';
