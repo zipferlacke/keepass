@@ -38,7 +38,18 @@ export function startUnlock() {
 
 export function recentDatabases() {
   const list = settings.get('database.recent', []);
-  return Array.isArray(list) ? list : [];
+  if (!Array.isArray(list)) return [];
+  // Ältere Fassungen merkten sich bei Dateien aus „Downloads" den ganzen
+  // Pfad als Namen („raw:/storage/emulated/0/…") und „Downloads//storage/…"
+  // als Ort. Beim Lesen geradeziehen, statt die Liste umzuschreiben.
+  return list.map(d => {
+    const kaputt = s => /^raw:|\/storage\/|\/\//.test(String(s ?? ''));
+    return {
+      ...d,
+      name: kaputt(d.name) ? dbName(d.path) : d.name,
+      label: kaputt(d.label) ? null : d.label
+    };
+  });
 }
 
 export async function rememberDatabase(entry) {
@@ -314,11 +325,16 @@ const HERKUNFT = {
  * Der Name, unter dem eine Datenbank in der Liste steht — bevor sie einmal
  * offen war. Danach nimmt `rememberDatabase` den Namen aus der Datei selbst.
  */
+/** Dekodiert eine Adresse, ohne an kaputten %-Folgen zu scheitern. */
+function safeDecode(text) {
+  try { return decodeURIComponent(text); } catch { return text; }
+}
+
 export function dbName(path) {
   const text = String(path ?? '');
   if (!text.startsWith('content://')) return text.split(/[\\/]/).pop();
 
-  const name = decodeURIComponent(text.split(/[/:]/).pop() ?? '');
+  const name = safeDecode(text).split(/[/:]/).pop() ?? '';
   // Steckt kein Name in der Adresse, kennt ihn niemand: Android gibt beim
   // Auswählen und beim Anlegen nur eine Kennung zurück. Der richtige Name
   // steht in der Datenbank selbst und kommt beim ersten Öffnen.
@@ -342,7 +358,7 @@ export function pfadLabel(path, gemerkt = null) {
   if (!text.startsWith('content://')) return text;
 
   const authority = text.slice('content://'.length).split('/')[0];
-  const name = decodeURIComponent(text.split(/[/:]/).pop() ?? '');
+  const name = safeDecode(text).split(/[/:]/).pop() ?? '';
   const ort = HERKUNFT[authority] ?? authority.replace(/\.documents$/, '').split('.').pop();
 
   return name.includes('.') && !/^[0-9a-f]+$/i.test(name) ? `${ort} — ${name}` : ort;
@@ -443,6 +459,62 @@ export async function showWelcome() {
       }
     };
   });
+}
+
+/** Speichern ging nicht: trotzdem sperren? Dann ist das Ungespeicherte weg. */
+async function trotzdemSperren(err) {
+  try {
+    const res = await dialog({
+      title: 'Nicht gespeichert',
+      content: `<p>${esc(err?.message ?? err)}</p>
+        <p>Sperrst du trotzdem, gehen die Änderungen seit dem letzten Speichern verloren.</p>`,
+      confirmText: 'Trotzdem sperren',
+      cancelText: 'Abbrechen'
+    });
+    return res?.submit ?? res === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Hat Android der App den Zugriff entzogen?
+ *
+ * Das passiert, wenn ein anderes Programm die Datei gelöscht und neu
+ * angelegt hat, statt sie zu überschreiben — manche Sync-Programme tun das.
+ * Die Freigabe aus der Dateiauswahl gehörte zur alten Datei; ohne neue
+ * Auswahl kommt die App nie wieder an die Datei heran. „Gerade nicht
+ * erreichbar" wäre da die falsche Auskunft.
+ */
+function zugriffEntzogen(grund) {
+  return /Permission Denial|ACTION_OPEN_DOCUMENT/.test(String(grund ?? ''));
+}
+
+/** Erklärt den entzogenen Zugriff und lässt die Datei neu wählen. */
+async function zugriffNeu() {
+  let neu = false;
+  try {
+    const res = await dialog({
+      title: 'Kein Zugriff mehr auf die Datei',
+      content: `
+        <p>Android hat WKeePass den Zugriff auf diese Datei entzogen. Das passiert, wenn ein
+        anderes Programm sie gelöscht und neu angelegt hat, statt sie zu überschreiben.</p>
+        <p>Geöffnet ist die Offline-Kopie — speichern geht so nicht. Wähle die Datei einmal neu
+        aus, dann gilt der Zugriff wieder dauerhaft.</p>`,
+      confirmText: 'Datei neu wählen',
+      cancelText: 'Später'
+    });
+    neu = res?.submit ?? res === true;
+  } catch { neu = false; }
+  if (!neu) return;
+
+  // Gerade erst geöffnet, offline — da ist nichts zu speichern. Sperren
+  // ginge über lockDatabase, das aber zuerst speichern will.
+  await vault.lock();
+  stopTicker();
+  state.entries = [];
+  await showLockscreen();
+  await pickDatabase();
 }
 
 async function pickDatabase() {
@@ -818,7 +890,8 @@ export async function unlock({ method = 'password', secret = null, remember = nu
     });
     if (info?.path && info?.name) await rememberDatabase({ name: info.name, path: info.path });
 
-    if (info?.cachedAt) {
+    const entzogen = info?.cachedAt && zugriffEntzogen(info.offlineReason);
+    if (info?.cachedAt && !entzogen) {
       const when = new Date(info.cachedAt).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
       banner(`Die Datei ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie vom ${when}. Speichern geht erst wieder, wenn die Datei da ist.`, 'warning', 10000);
     }
@@ -832,6 +905,7 @@ export async function unlock({ method = 'password', secret = null, remember = nu
     }
 
     await enterUnlocked();
+    if (entzogen) zugriffNeu();
   } catch (err) {
     // Die Datenbank ist offen, nur die Freigabe ging schief — etwa weil
     // Windows Hello beim Einrichten abgebrochen wurde. Dann trotzdem hinein.
@@ -878,7 +952,16 @@ function markUnlocking(on) {
 }
 
 export async function lockDatabase() {
-  if (vault.hasUnsavedChanges()) await vault.commit();
+  // Vor dem Sperren speichern. Geht das nicht — offline, Datei gerade nicht
+  // lesbar —, fragen statt abbrechen: Vorher hing der Knopf oben rechts
+  // dann einfach, und die Datenbank ließ sich gar nicht mehr sperren.
+  if (vault.hasUnsavedChanges()) {
+    try {
+      await vault.commit();
+    } catch (err) {
+      if (!(await trotzdemSperren(err))) return;
+    }
+  }
   await vault.lock();
   stopTicker();
   state.entries = [];

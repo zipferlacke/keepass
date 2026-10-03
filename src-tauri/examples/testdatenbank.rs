@@ -25,7 +25,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = args.next().unwrap_or_else(|| "test.kdbx".into());
     let password = args.next().unwrap_or_else(|| "1234".into());
 
-    let db = if beispiel { gross()? } else { klein() };
+    let mut db = if beispiel { gross()? } else { klein() };
+
+    // Die Stufe „Standard" der App (database.rs) — sonst gälte die Vorgabe
+    // der Bibliothek (50 Durchgänge, 1 MiB), und die App zeigte eine
+    // „eigene Einstellung", die sich so nicht wieder einstellen lässt.
+    db.config.kdf_config = keepass::config::KdfConfig::Argon2id {
+        iterations: 10,
+        memory: 64 * 1024 * 1024,
+        parallelism: 4,
+        version: Default::default(),
+    };
 
     let mut bytes = Vec::new();
     db.save(&mut bytes, DatabaseKey::new().with_password(&password))?;

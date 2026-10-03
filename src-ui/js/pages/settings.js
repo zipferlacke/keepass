@@ -78,7 +78,7 @@ function settingsMarkup() {
         <div class="setting">
           <div class="setting-label"><strong>Warnen vor Ablauf</strong><small>Tage im Voraus</small></div>
           <div class="setting-control">
-            <input type="number" min="1" max="180" data-set-db="expiryWarnDays" name="db.expiryWarnDays" value="${dbSettings.expiryWarnDays ?? 14}">
+            <input type="number" inputmode="numeric" min="1" max="180" data-set-db="expiryWarnDays" name="db.expiryWarnDays" value="${dbSettings.expiryWarnDays ?? 14}">
           </div>
         </div>
         <div class="setting">
@@ -120,11 +120,11 @@ function settingsMarkup() {
         </div>
         <div class="setting">
           <div class="setting-label"><strong>Automatisch sperren</strong><small>Minuten ohne Aktivität</small></div>
-          <div class="setting-control"><input type="number" min="1" max="120" data-set="unlock.autoLockMinutes" name="unlock.autoLockMinutes" value="${s.unlock?.autoLockMinutes ?? 5}"></div>
+          <div class="setting-control"><input type="number" inputmode="numeric" min="1" max="120" data-set="unlock.autoLockMinutes" name="unlock.autoLockMinutes" value="${s.unlock?.autoLockMinutes ?? 5}"></div>
         </div>
         <div class="setting">
           <div class="setting-label"><strong>Zwischenablage leeren</strong><small>Sekunden nach dem Kopieren</small></div>
-          <div class="setting-control"><input type="number" min="0" max="300" data-set="unlock.clipboardClearSeconds" name="unlock.clipboardClearSeconds" value="${s.unlock?.clipboardClearSeconds ?? 30}"></div>
+          <div class="setting-control"><input type="number" inputmode="numeric" min="0" max="300" data-set="unlock.clipboardClearSeconds" name="unlock.clipboardClearSeconds" value="${s.unlock?.clipboardClearSeconds ?? 30}"></div>
         </div>
       </div>
     </div>
@@ -189,7 +189,7 @@ function settingsMarkup() {
         </div>
         <div class="setting">
           <div class="setting-label"><strong>Vorwarnzeit bei Ablauf</strong><small>Tage vor dem Ablaufdatum</small></div>
-          <div class="setting-control"><input type="number" min="1" max="180" data-set="checks.expiryWarnDays" name="checks.expiryWarnDays" value="${s.checks?.expiryWarnDays ?? 14}"></div>
+          <div class="setting-control"><input type="number" inputmode="numeric" min="1" max="180" data-set="checks.expiryWarnDays" name="checks.expiryWarnDays" value="${s.checks?.expiryWarnDays ?? 14}"></div>
         </div>
         <div class="setting">
           <div class="setting-label"><strong>Passwörter auf Leaks prüfen</strong><small>Have I Been Pwned — es wird nur ein Hash-Präfix gesendet, nie das Passwort</small></div>
@@ -233,18 +233,20 @@ function settingsMarkup() {
           <div class="setting-control"><button type="button" class="button" id="btn-import">Importieren</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Auf Standard zurücksetzen</strong><small>Die Datenbank bleibt unverändert</small></div>
+          <div class="setting-label"><strong>Auf Standard zurücksetzen</strong><small>Nur die Einstellungen — Datenbanken, PIN und Browser-Verknüpfungen bleiben</small></div>
           <div class="setting-control"><button type="button" class="button" id="btn-reset">Zurücksetzen</button></div>
         </div>
       </div>
     </div>
 
-    <div class="settings-group">
-      <div class="section-label">Aktuelle Konfiguration</div>
+    <details class="settings-group settings-raw">
+      <summary class="section-label">Aktuelle Konfiguration (settings.json)</summary>
       <div class="settings-card">
-        <pre id="settings-preview" style="margin:0;padding:0.85rem;font-size:0.75rem;overflow-x:auto;font-family:var(--font-mono)">${esc(settings.exportSettings())}</pre>
+        <pre id="settings-preview">${esc(settings.exportSettings())}</pre>
       </div>
-    </div>`;
+    </details>
+
+    <p class="app-version" id="app-version">WKeePass</p>`
 }
 
 export function renderSettings() {
@@ -257,6 +259,19 @@ export function renderSettings() {
   renderBrowserSection();
   renderDatabaseSection();
   renderAndroidSection($('#android-card'));
+  zeigeVersion();
+}
+
+/** Die Versionsnummer ganz unten — dieselbe wie in tauri.conf.json. */
+async function zeigeVersion() {
+  const el = $('#app-version');
+  if (!el) return;
+  try {
+    el.textContent = `WKeePass ${await invoke('plugin:app|version')}`;
+  } catch {
+    // Im Browser ohne Tauri gibt es keine App-Version.
+    el.textContent = 'WKeePass · Demo im Browser';
+  }
 }
 
 /* =========================================================
@@ -453,6 +468,33 @@ function naechsteStufe(iterations, memoryMib) {
   return beste;
 }
 
+/** Was hinter Durchgängen, Speicher und Fäden steckt — hinter dem ⓘ. */
+function kdfErklaeren() {
+  dialog({
+    title: 'Verschlüsselungsstärke',
+    content: `
+      <p>Aus dem Master-Passwort wird erst ein Schlüssel abgeleitet — absichtlich langsam, mit
+      Argon2. Jeder Rateversuch eines Angreifers muss diese Arbeit genauso leisten.</p>
+      <dl class="kdf-begriffe">
+        <dt>Durchgänge</dt>
+        <dd>Wie oft Argon2 über den Speicher rechnet. Doppelt so viele dauern doppelt so lange.</dd>
+        <dt>Speicher (MiB)</dt>
+        <dd>Wie viel Arbeitsspeicher jeder Versuch belegt (1 MiB ≈ 1 MB). Das bremst Angriffe mit
+        Grafikkarten am stärksten, weil dort Speicher knapp ist.</dd>
+        <dt>Fäden</dt>
+        <dd>Wie viele Prozessorkerne gleichzeitig rechnen. Am Schutz ändert das nichts — es macht
+        nur das Öffnen auf deinem Gerät schneller.</dd>
+        <dt>Eigene Einstellung</dt>
+        <dd>Andere Apps und ältere Dateien bringen eigene Werte mit, etwa 50 Durchgänge mit nur
+        1 MiB. Die App zeigt dann die Stufe, die am nächsten liegt, und lässt die Werte stehen, bis
+        du eine Stufe übernimmst.</dd>
+      </dl>`,
+    confirmText: null,
+    cancelText: 'Schließen',
+    barRight: { icon: 'close', title: 'Schließen', action: 'cancel' }
+  });
+}
+
 /**
  * Name und Verschlüsselung der offenen Datenbank.
  *
@@ -485,25 +527,27 @@ async function renderDatabaseSection() {
     ? naechsteStufe(info.iterations, info.memoryMib)
     : Math.max(0, STUFEN.findIndex(([wert]) => wert === info.level));
   const hinweis = i => eigen && i === stufe && Number(regler?.value ?? stufe) === stufe
-    ? `Eigene Einstellung — liegt etwa bei „${STUFEN[i][1]}“. Verschieben ersetzt sie.`
+    ? `Eigene Einstellung, etwa aus einer anderen App — liegt ungefähr bei „${STUFEN[i][1]}“. Eine Stufe übernehmen ersetzt sie.`
     : STUFEN[i][2];
   let regler = null;
 
   card.innerHTML = `
-    <div class="setting">
+    <div class="setting db-name-row">
       <div class="setting-label">
         <strong>Name der Datenbank</strong>
-        <small>Steht in der Datei, nicht im Dateinamen${path ? ` · ${esc(pfadLabel(path, eintrag?.label))}` : ''}</small>
+        <small>${path ? esc(pfadLabel(path, eintrag?.label)) : 'Steht in der Datei'}<span id="db-modified"></span></small>
       </div>
       <div class="setting-control">
         <input type="text" id="db-name" value="${esc(info.name)}" placeholder="Passwörter"
-               ${info.readOnly ? 'disabled' : ''}>
+               aria-label="Name der Datenbank" ${info.readOnly ? 'disabled' : ''}>
       </div>
     </div>
 
     <div class="setting" data-stacked>
       <div class="setting-label">
-        <strong>Verschlüsselungsstärke</strong>
+        <strong>Verschlüsselungsstärke
+          <button type="button" class="info-btn" id="kdf-info" title="Was bedeuten die Werte?"
+                  aria-label="Was bedeuten die Werte?"><span class="msr">info</span></button></strong>
         <small>Wie lange das Ableiten des Schlüssels dauert — für dich einmal beim Öffnen,
         für einen Angreifer bei jedem Rateversuch</small>
       </div>
@@ -517,6 +561,7 @@ async function renderDatabaseSection() {
         </div>
         <small class="kdf-note" id="db-level-note"></small>
         <small class="kdf-values" id="db-level-values"></small>
+        <small class="kdf-values" id="db-details">${esc(info.format)} · ${esc(info.cipher)} · ${esc(info.kdf)}</small>
         <div class="kdf-apply" id="db-level-apply" hidden>
           <button type="button" class="button" id="db-level-undo">Zurück</button>
           <button type="button" class="button hightlight" id="db-level-ok">Übernehmen</button>
@@ -534,17 +579,10 @@ async function renderDatabaseSection() {
         <button type="button" class="button" id="btn-versions">Versionen ansehen …</button>
       </div>
     </div>
-
-    <div class="setting">
-      <div class="setting-label">
-        <strong>Im Einzelnen</strong>
-        <small id="db-details">${esc(info.format)} · ${esc(info.cipher)} · ${esc(info.kdf)}
-        mit ${info.iterations} Durchgängen, ${info.memoryMib} MiB, ${info.parallelism} Fäden</small>
-        <small id="db-modified" hidden></small>
-      </div>
-    </div>`;
+`;
 
   card.querySelector('#btn-versions')?.addEventListener('click', () => openVersionsDialog());
+  card.querySelector('#kdf-info')?.addEventListener('click', kdfErklaeren);
 
   const speichern = async (feld, wert) => {
     try {
@@ -629,7 +667,7 @@ async function renderDatabaseSection() {
       beruehrt = false;
       info = await vault.security();
       if (einzeln) {
-        einzeln.textContent = `${info.format} · ${info.cipher} · ${info.kdf} mit ${info.iterations} Durchgängen, ${info.memoryMib} MiB, ${info.parallelism} Fäden`;
+        einzeln.textContent = `${info.format} · ${info.cipher} · ${info.kdf}`;
       }
       banner('Verschlüsselung geändert — die Datei wurde neu geschrieben.', 'success');
     } catch (err) {
@@ -649,8 +687,7 @@ async function renderDatabaseSection() {
   if (path && modifiedEl) {
     invoke('database_modified', { path }).then(ms => {
       if (!ms) return;
-      modifiedEl.textContent = `Datei zuletzt geändert: ${new Date(ms).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}`;
-      modifiedEl.hidden = false;
+      modifiedEl.textContent = ` · geändert ${new Date(ms).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}`;
     }).catch(() => {});
   }
 }
@@ -1027,7 +1064,10 @@ function wireSettings(root = $('#settings-body')) {
     try {
       const res = await dialog({
         title: 'Einstellungen zurücksetzen',
-        content: 'Alle Einstellungen werden auf die Standardwerte zurückgesetzt. Die Datenbank bleibt unverändert.',
+        content: `<p>Darstellung, Entsperren, Prüfungen, Browser und Android gehen auf die
+          Standardwerte zurück.</p>
+          <p>Es bleiben: die Datenbank selbst, die Liste deiner Datenbanken samt ihren eigenen
+          Einstellungen, die App-PIN und die Verknüpfungen mit dem Browser.</p>`,
         confirmText: 'Zurücksetzen',
         cancelText: 'Abbrechen'
       });

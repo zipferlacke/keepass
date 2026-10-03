@@ -93,8 +93,19 @@ export async function set(path, value, { silent = false } = {}) {
 export async function resetSettings() {
   const def = await loadDefaults();
   // Vollständig ersetzen statt zu mischen — sonst überleben Schlüssel
-  // aus einer älteren Fassung der Datei.
+  // aus einer älteren Fassung der Datei. Was keine Einstellung ist, sondern
+  // Gedächtnis, bleibt: welche Datenbanken es gibt und was je Datenbank
+  // gilt, und dass das Willkommen schon gezeigt wurde. Vorher war danach
+  // die Liste der Datenbanken leer.
+  const behalten = {
+    database: current?.database,
+    databases: current?.databases,
+    welcomeSeen: current?.ui?.welcomeSeen
+  };
   current = structuredClone(def);
+  if (behalten.database) current.database = behalten.database;
+  if (behalten.databases) current.databases = behalten.databases;
+  if (behalten.welcomeSeen !== undefined) current.ui.welcomeSeen = behalten.welcomeSeen;
   await storage.write(current);
   emit();
   return current;

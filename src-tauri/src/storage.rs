@@ -141,6 +141,16 @@ pub fn label(path: &str) -> String {
             last.replace("%3A", ":").replace("%2F", "/").replace("%20", " ")
         })
         .and_then(|id| id.split_once(':').map(|(_, rest)| rest.to_string()))
+        // Der Download-Anbieter nennt `raw:` und den ganzen Pfad
+        // (`raw:/storage/emulated/0/Download/x.kdbx`). „Downloads" steht
+        // schon davor — vom Pfad bleibt, was hinter dem Download-Ordner kommt.
+        .map(|rest| match rest.strip_prefix('/') {
+            Some(voll) => voll
+                .split_once("/Download/")
+                .map(|(_, hinten)| hinten.to_string())
+                .unwrap_or_else(|| voll.rsplit('/').next().unwrap_or(voll).to_string()),
+            None => rest,
+        })
         .filter(|rest| rest.contains('.'));
 
     match (aus_adresse, uri::display_name(path)) {
@@ -466,6 +476,22 @@ mod uri {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Der Download-Anbieter nennt den ganzen Pfad hinter `raw:` — in der
+    /// Anzeige steht davon nur, was im Download-Ordner liegt.
+    #[test]
+    fn download_adresse_zeigt_nur_den_namen() {
+        let raw = "content://com.android.providers.downloads.documents/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Fbeispiel.kdbx";
+        assert_eq!(label(raw), "Downloads/beispiel.kdbx");
+        assert_eq!(file_name(raw), "beispiel.kdbx");
+
+        let tiefer = "content://com.android.providers.downloads.documents/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2FTresor%2Fa.kdbx";
+        assert_eq!(label(tiefer), "Downloads/Tresor/a.kdbx");
+
+        // Der Gerätespeicher bleibt, wie er war.
+        let primary = "content://com.android.externalstorage.documents/document/primary%3ADownload%2Ftest.kdbx";
+        assert_eq!(label(primary), "Gerätespeicher/Download/test.kdbx");
+    }
 
     /// Eine Adresse gilt immer als vorhanden — dort heißt „nicht lesbar"
     /// fast nie „gelöscht". Ein Pfad wird wirklich nachgesehen.

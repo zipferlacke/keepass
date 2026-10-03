@@ -625,6 +625,35 @@
     @media (min-width: 1100px) { max-width: 52rem; }
   }
 
+  /* Die rohe settings.json ganz unten — zugeklappt, sie ist zum
+     Nachsehen da, nicht zum Bedienen. */
+  .settings-raw {
+    > summary { cursor: pointer; }
+
+    #settings-preview {
+      margin: 0;
+      padding: 0.85rem;
+      font-size: 0.75rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+    }
+  }
+
+  .app-version {
+    margin: 0.5rem 0 2rem;
+    text-align: center;
+    font-size: var(--fs-100);
+    color: var(--text-hover);
+  }
+
+  /* Die Begriffe hinter dem ⓘ der Verschlüsselungsstärke */
+  .kdf-begriffe {
+    margin: 0.75rem 0 0;
+
+    dt { font-weight: var(--fw-600); margin-top: 0.6rem; }
+    dd { margin: 0.1rem 0 0; color: var(--text-hover); }
+  }
+
   /* Beschriftung und Bedienelement nebeneinander. Reicht der Platz nicht
      (schmales Fenster, lange Beschriftung), rutscht das Bedienelement
      rechtsbündig unter die Beschriftung — statt den Text auf ein paar
@@ -659,6 +688,40 @@
       /* In der Spalte wäre die Grundbreite von oben eine Mindesthöhe */
       .setting-label { flex: 0 0 auto; }
       .setting-control { flex: 1 1 auto; }
+    }
+
+    /* Zahlen sind kurz: Das Feld bleibt in der Zeile des Textes, statt
+       auf dem Handy in eine eigene Zeile zu rutschen. */
+    &:has(> .setting-control input[type="number"]) {
+      flex-wrap: nowrap;
+
+      .setting-label { flex: 1 1 auto; }
+      .setting-control { flex: 0 0 auto; }
+      input[type="number"] { width: 4.5rem; text-align: end; }
+    }
+
+    /* Der Name der Datenbank: Rutscht das Feld in eine eigene Zeile, dann
+       auch in voller Breite. Doppelte Klasse gegen .setting-control unten. */
+    &.db-name-row .setting-control {
+      flex: 1 1 12rem;
+      margin-inline-start: 0;
+      justify-content: stretch;
+
+      /* Mit der Kennung: Die Regel für Textfelder weiter unten (8rem,
+         rechtsbündig) wiegt sonst gleich und gewinnt als spätere. */
+      #db-name { width: 100%; text-align: start; }
+    }
+
+    /* Das ⓘ hinter einer Überschrift */
+    .info-btn {
+      border: none;
+      background: none;
+      padding: 0 0.15rem;
+      color: var(--text-hover);
+      cursor: pointer;
+      vertical-align: middle;
+
+      .msr { font-size: 1.1rem; }
     }
 
     /* Schalter und Knopf nebeneinander, bei wenig Platz untereinander */
@@ -1452,6 +1515,10 @@
     inset: 0;
     z-index: 80;
     display: grid;
+    /* Eine Spalte, so breit wie der Bildschirm. Ohne das richtet sich die
+       Spalte nach der Karte (26rem), und die ist breiter als ein Handy —
+       Android zoomte dann die ganze Seite heraus. */
+    grid-template-columns: minmax(0, 1fr);
     place-items: center;
     padding:
       calc(1.25rem + env(safe-area-inset-top, 0px))
