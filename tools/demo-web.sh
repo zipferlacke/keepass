@@ -18,11 +18,17 @@ ZIEL=${1:?Zielordner angeben, etwa ../../wuefl/wkeepass/demo}
 QUELLE="$(cd "$(dirname "$0")/.." && pwd)/src-ui"
 
 mkdir -p "$ZIEL"
-rsync -aL --delete \
+# Was nicht ins Netz gehört, bleibt draußen und wird im Ziel auch entfernt
+# (--delete-excluded): die Versionsgeschichte der Bibliothek, Notizen,
+# Demoseiten der Bibliothek und die Seiten der Testläufer.
+rsync -aL --delete --delete-excluded \
   --exclude build-single.mjs \
   --exclude request.html \
+  --exclude '_*.html' \
   --exclude '*.md' \
+  --exclude '.git' --exclude '.gitignore' --exclude '.claude' --exclude '.github' \
   --exclude 'libs/*/appdata' \
+  --exclude 'libs/*/index.html' --exclude 'libs/*/*/index.html' --exclude 'libs/*/*/demo.html' \
   "$QUELLE/" "$ZIEL/"
 
 python3 - "$ZIEL/index.html" <<'PY'
