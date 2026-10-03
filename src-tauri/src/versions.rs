@@ -81,21 +81,108 @@ fn ordner(app: &tauri::AppHandle, pfad: &str) -> Option<PathBuf> {
     Some(app.path().app_local_data_dir().ok()?.join("versionen").join(name))
 }
 
-/// Legt einen Stand ab. Fehler werden nur gemeldet: Ohne Netz geht alles
-/// weiter wie bisher, nur eben ohne Netz.
-pub fn sichern(app: &tauri::AppHandle, pfad: &str, bytes: &[u8], grund: Grund) {
-    let Some(dir) = ordner(app, pfad) else { return };
+/// Ein Abdruck dessen, was in der Datenbank steht — ohne alles, was sich
+/// beim bloßen Speichern ändert.
+///
+/// Zwei Dateien mit demselben Inhalt sind Byte für Byte verschieden: Jedes
+/// Speichern würfelt Salz und Startwert neu. Wer wissen will, ob sich
+/// **etwas** geändert hat, muss deshalb den Inhalt vergleichen. Hinein
+/// gehen je Eintrag Kennung, Ordner, alle Felder, Schlagworte und die
+/// Anhänge; heraus bleiben Zeitstempel und Verlauf.
+///
+/// Der Abdruck bleibt im Arbeitsspeicher und verlässt den Kern nie.
+pub fn abdruck(db: &Database) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
 
-    // Derselbe Inhalt zweimal hintereinander — etwa Öffnen direkt nach dem
-    // Speichern — ergäbe zwei gleiche Stände und verdrängte einen echten.
-    if let Some(letzter) = liste_roh(&dir).last() {
-        if std::fs::read(&letzter.datei).is_ok_and(|alt| alt == bytes) {
-            return;
-        }
+    // Je Eintrag ein eigener Abdruck, dann sortiert zusammen — die
+    // Reihenfolge, in der die Bibliothek die Einträge liefert, soll nichts
+    // ausmachen.
+    let mut einzeln: Vec<[u8; 32]> = db
+        .iter_all_entries()
+        .map(|e| {
+            let mut h = Sha256::new();
+            let teil = |h: &mut Sha256, text: &str| {
+                h.update((text.len() as u64).to_le_bytes());
+                h.update(text.as_bytes());
+            };
+
+            teil(&mut h, &e.id().uuid().to_string());
+            teil(&mut h, &ordnerpfad(db, &e));
+
+            let mut schluessel: Vec<&String> = e.fields.keys().collect();
+            schluessel.sort();
+            for k in schluessel {
+                teil(&mut h, k);
+                teil(&mut h, e.get(k).unwrap_or_default());
+            }
+
+            let mut tags: Vec<&String> = e.tags.iter().collect();
+            tags.sort();
+            for t in tags {
+                teil(&mut h, t);
+            }
+
+            let mut anhaenge: Vec<[u8; 32]> =
+                e.attachments().map(|a| Sha256::digest(a.data.get()).into()).collect();
+            anhaenge.sort();
+            for a in anhaenge {
+                h.update(a);
+            }
+
+            h.finalize().into()
+        })
+        .collect();
+    einzeln.sort();
+
+    let mut gesamt = Sha256::new();
+    for e in einzeln {
+        gesamt.update(e);
+    }
+    gesamt.finalize().into()
+}
+
+/// Der Abdruck des zuletzt abgelegten Stands, je Datenbank.
+fn letzter_abdruck() -> &'static std::sync::Mutex<HashMap<String, [u8; 32]>> {
+    static LETZTER: std::sync::OnceLock<std::sync::Mutex<HashMap<String, [u8; 32]>>> =
+        std::sync::OnceLock::new();
+    LETZTER.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+/// Lohnt ein neuer Stand? Nur, wenn sich am Inhalt etwas getan hat.
+fn lohnt(letzter: Option<&[u8; 32]>, neu: &[u8; 32]) -> bool {
+    letzter != Some(neu)
+}
+
+/// Legt einen Stand ab — aber nur, wenn er sich vom letzten unterscheidet.
+///
+/// Ein Stand ohne Unterschied ist kein Stand: Er verdrängt einen echten aus
+/// den [`WIE_VIELE`], und in der Liste steht dann „nichts geändert". Das
+/// passiert leicht — Speichern ohne Änderung, Öffnen direkt nach dem
+/// Speichern, eine andere Verschlüsselungsstärke.
+///
+/// `abdruck` ist der Abdruck des Inhalts (siehe [`abdruck`]). Fehler werden
+/// nur gemeldet: Ohne Netz geht alles weiter wie bisher, nur eben ohne Netz.
+pub fn sichern(app: &tauri::AppHandle, pfad: &str, bytes: &[u8], grund: Grund, abdruck: [u8; 32]) {
+    let Some(dir) = ordner(app, pfad) else { return };
+    let Ok(mut letzter) = letzter_abdruck().lock() else { return };
+
+    // Byte für Byte dieselbe Datei wie der jüngste Stand — etwa Öffnen
+    // direkt nach dem Speichern. Das fängt auch den Fall nach einem
+    // Neustart, in dem noch kein Abdruck im Speicher steht.
+    let gleiche_datei = liste_roh(&dir)
+        .last()
+        .is_some_and(|l| std::fs::read(&l.datei).is_ok_and(|alt| alt == bytes));
+
+    if gleiche_datei || !lohnt(letzter.get(pfad), &abdruck) {
+        letzter.insert(pfad.to_string(), abdruck);
+        return;
     }
 
-    if let Err(err) = schreiben(&dir, bytes, grund) {
-        eprintln!("[versionen] nicht gesichert: {err}");
+    match schreiben(&dir, bytes, grund) {
+        Ok(()) => {
+            letzter.insert(pfad.to_string(), abdruck);
+        }
+        Err(err) => eprintln!("[versionen] nicht gesichert: {err}"),
     }
     aufraeumen(&dir);
 }
@@ -163,11 +250,16 @@ fn liste_roh(dir: &std::path::Path) -> Vec<Eintrag> {
 }
 
 /// Die Stände für die Oberfläche — der jüngste zuerst.
-pub fn liste(app: &tauri::AppHandle, pfad: &str) -> Vec<dto::Version> {
+///
+/// Ohne den Stand, der gerade offen ist: `ist_aktuell` erkennt ihn an den
+/// Bytes der Datei. Zu ihm gibt es nichts zu vergleichen und nichts
+/// zurückzuholen; in der Liste stünde er nur als „nichts geändert".
+pub fn liste(app: &tauri::AppHandle, pfad: &str, ist_aktuell: impl Fn(&[u8]) -> bool) -> Vec<dto::Version> {
     let Some(dir) = ordner(app, pfad) else { return Vec::new() };
 
     let mut out: Vec<dto::Version> = liste_roh(&dir)
         .into_iter()
+        .filter(|e| !std::fs::read(&e.datei).is_ok_and(|bytes| ist_aktuell(&bytes)))
         .map(|e| dto::Version {
             id: e.id,
             at: chrono::DateTime::from_timestamp_millis(e.ms)
@@ -533,5 +625,69 @@ mod tests {
         assert_eq!(zahl, 3);
         assert!(vergleich(&alt, &jetzt).is_empty());
         assert_eq!(titel(&jetzt, &versehen), None);
+    }
+
+    fn gespeichert_und_gelesen(db: &Database) -> (Vec<u8>, Database) {
+        use keepass::DatabaseKey;
+        let mut bytes = Vec::new();
+        #[allow(clippy::expect_used)]
+        db.save(&mut bytes, DatabaseKey::new().with_password("test")).expect("speichern");
+        #[allow(clippy::expect_used)]
+        let wieder = Database::parse(&bytes[..], DatabaseKey::new().with_password("test")).expect("lesen");
+        (bytes, wieder)
+    }
+
+    /// Zweimal gespeichert ergibt zwei verschiedene Dateien mit demselben
+    /// Inhalt — der Abdruck sieht nur den Inhalt.
+    #[test]
+    fn abdruck_bleibt_beim_blossen_speichern() {
+        let mut db = Database::new();
+        eintrag(&mut db, "Bank", "Konto", "geheim");
+        eintrag(&mut db, "", "Webmail", "auch geheim");
+
+        let (erste, a) = gespeichert_und_gelesen(&db);
+        let (zweite, b) = gespeichert_und_gelesen(&db);
+
+        assert_ne!(erste, zweite, "jedes Speichern würfelt neu");
+        assert_eq!(abdruck(&a), abdruck(&b));
+        assert_eq!(abdruck(&db), abdruck(&a));
+    }
+
+    /// Alles, was man zurückholen könnte, verändert den Abdruck.
+    #[test]
+    fn abdruck_aendert_sich_mit_dem_inhalt() {
+        let mut db = Database::new();
+        let uuid = eintrag(&mut db, "Bank", "Konto", "geheim");
+        let vorher = abdruck(&db);
+
+        let mut titel_anders = db.clone();
+        setzen(&mut titel_anders, &uuid, "Title", "Girokonto");
+        assert_ne!(abdruck(&titel_anders), vorher, "Titel");
+
+        let mut passwort_anders = db.clone();
+        setzen(&mut passwort_anders, &uuid, "Password", "neu");
+        assert_ne!(abdruck(&passwort_anders), vorher, "Passwort");
+
+        let mut eigenes_feld = db.clone();
+        setzen(&mut eigenes_feld, &uuid, "Kundennummer", "4711");
+        assert_ne!(abdruck(&eigenes_feld), vorher, "eigenes Feld");
+
+        let mut dazu = db.clone();
+        eintrag(&mut dazu, "Bank", "Depot", "x");
+        assert_ne!(abdruck(&dazu), vorher, "neuer Eintrag");
+
+        let mut anderswo = Database::new();
+        eintrag(&mut anderswo, "Privat", "Konto", "geheim");
+        assert_ne!(abdruck(&anderswo), vorher, "anderer Ordner, andere Kennung");
+    }
+
+    /// Ohne Unterschied kein Stand; beim ersten Mal immer einer.
+    #[test]
+    fn stand_lohnt_nur_bei_unterschied() {
+        let a = [1u8; 32];
+        let b = [2u8; 32];
+        assert!(lohnt(None, &a), "noch keiner abgelegt");
+        assert!(!lohnt(Some(&a), &a), "derselbe Inhalt");
+        assert!(lohnt(Some(&a), &b), "anderer Inhalt");
     }
 }

@@ -142,6 +142,9 @@ pub async fn vault_unlock(
         _ => crate::storage::file_name(&path),
     };
 
+    // Für die Versionen: was in der Datei steht, bevor `db` weiterwandert.
+    let abdruck = crate::versions::abdruck(&db);
+
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.clear();
     vault.db = Some(db);
@@ -162,7 +165,7 @@ pub async fn vault_unlock(
     // Ohne diese Nachricht bliebe ein danebenstehendes Hauptfenster auf dem
     // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
     // Netz unter dem Abgleich: So lag die Datei beim Öffnen da.
-    crate::versions::sichern(&app, &path, &raw, crate::versions::Grund::Geoeffnet);
+    crate::versions::sichern(&app, &path, &raw, crate::versions::Grund::Geoeffnet, abdruck);
 
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
@@ -495,7 +498,8 @@ pub fn vault_versions(
 ) -> Result<Vec<dto::Version>, String> {
     let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
-    Ok(crate::versions::liste(&app, &pfad))
+    let offen = vault.opened_hash;
+    Ok(crate::versions::liste(&app, &pfad, |bytes| Some(digest(bytes)) == offen))
 }
 
 /// Was sich seit diesem Stand geändert hat.
@@ -866,7 +870,7 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
     if let Ok(current) = current {
         if vault.opened_hash != Some(digest(&current)) {
             let theirs = parse_foreign(&vault, &current)?;
-            crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd);
+            crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
             merged = merge(vault.database_mut()?, &theirs)?.0;
         }
     }
@@ -937,7 +941,7 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
 
     // Der fremde Stand, bevor wir ihn einmischen: Geht beim Zusammenführen
     // etwas verloren, steht er hier noch.
-    crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd);
+    crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
 
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     // Inzwischen selbst gespeichert? Dann ist dieser Stand schon drin oder
@@ -1074,7 +1078,8 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
         .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
 
     crate::storage::write(ziel, &bytes)?;
-    crate::versions::sichern(app, ziel, &bytes, crate::versions::Grund::Gespeichert);
+    let abdruck = crate::versions::abdruck(vault.database()?);
+    crate::versions::sichern(app, ziel, &bytes, crate::versions::Grund::Gespeichert, abdruck);
 
     // Ab jetzt ist unser eigener Stand der maßgebliche.
     vault.opened_hash = Some(digest(&bytes));

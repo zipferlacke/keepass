@@ -1712,6 +1712,11 @@ async function renderDatabaseSection() {
   const card = $('#database-card');
   if (!card) return;
 
+  // Solange am Regler eine Auswahl offen ist oder gerade geschrieben wird,
+  // bleibt der Abschnitt stehen. Neu gezeichnet risse er den Regler unter
+  // dem Finger weg — genau das Flackern, das hier nicht sein darf.
+  if (card.dataset.offen) return;
+
   let info;
   try {
     info = await vault.security();
@@ -1758,6 +1763,10 @@ async function renderDatabaseSection() {
             ${info.readOnly ? 'disabled' : ''}>${name}</button>`).join('')}
         </div>
         <small class="kdf-note" id="db-level-note"></small>
+        <div class="kdf-apply" id="db-level-apply" hidden>
+          <button type="button" class="button" id="db-level-undo">Zurück</button>
+          <button type="button" class="button hightlight" id="db-level-ok">Übernehmen</button>
+        </div>
       </div>
     </div>
 
@@ -1800,82 +1809,78 @@ async function renderDatabaseSection() {
 
   /* Der Schieberegler.
 
-     Beim Ziehen passiert nichts außer Anzeigen. Geschrieben wird erst,
-     wenn der Wert steht — und zwar genau einmal: Jede Änderung hier
-     verschlüsselt die ganze Datei neu, das dauert Sekunden.
+     Ziehen wählt nur aus. Geschrieben wird erst mit „Übernehmen" — jede
+     Änderung verschlüsselt die ganze Datei neu, und das dauert Sekunden.
 
-     Zwei Fallen stecken darin, und beide waren drin:
-       * Der Webview von Android meldet `change` schon **während** des
-         Ziehens, nicht erst beim Loslassen. Ohne Wartezeit hätte eine
-         Bewegung über drei Stufen drei Neuverschlüsselungen ausgelöst.
-       * Nach dem Speichern den Abschnitt neu zu zeichnen riss den Regler
-         unter dem Finger weg, und er sprang zurück. Deshalb bleibt er
-         stehen; nachgeführt wird nur der Text darunter. */
+     Vorher schrieb der Regler von selbst, eine halbe Sekunde nach der
+     letzten Bewegung. Das ging auf dem Handy gründlich schief: Der
+     Webview meldet schon während des Ziehens, jede kurze Pause löste eine
+     Neuverschlüsselung aus, die Ladeanzeige legte sich über den Regler,
+     und bei einer eigenen Einstellung kam jedes Mal die Rückfrage. Jetzt
+     hängt am Regler nichts mehr, was etwas auslöst. */
   regler = card.querySelector('#db-level');
   const note = card.querySelector('#db-level-note');
   const einzeln = card.querySelector('#db-details');
+  const zeile = card.querySelector('#db-level-apply');
+  const ok = card.querySelector('#db-level-ok');
+  const undo = card.querySelector('#db-level-undo');
+
+  // Eine eigene Einstellung liegt auf keiner Stufe. Erst wenn der Regler
+  // angefasst wurde, gilt seine Stellung als Wunsch.
+  let beruehrt = false;
+  const offen = () => beruehrt && (eigen || Number(regler.value) !== stufe);
 
   const zeige = () => {
     const i = Number(regler.value);
-    note.textContent = hinweis(i);
+    note.textContent = offen() && eigen
+      ? `Ersetzt die eigene Einstellung (${info.iterations} Durchgänge, ${info.memoryMib} MiB) durch „${STUFEN[i][1]}“.`
+      : hinweis(i);
     card.querySelectorAll('[data-stufe]').forEach(b =>
       b.toggleAttribute('aria-current', Number(b.dataset.stufe) === i));
+    zeile.hidden = !offen();
+    // Der Abschnitt bleibt stehen, solange hier etwas offen ist.
+    if (offen()) card.dataset.offen = '1'; else delete card.dataset.offen;
   };
 
-  let laeuft = false;
-  let warten = null;
+  const waehle = wert => {
+    if (wert !== undefined) regler.value = wert;
+    beruehrt = true;
+    zeige();
+  };
 
-  const uebernehmen = async () => {
+  regler?.addEventListener('input', () => waehle());
+  card.querySelectorAll('[data-stufe]').forEach(b =>
+    b.addEventListener('click', () => waehle(b.dataset.stufe)));
+
+  undo?.addEventListener('click', () => {
+    regler.value = stufe;
+    beruehrt = false;
+    zeige();
+  });
+
+  ok?.addEventListener('click', async () => {
     const i = Number(regler.value);
-    // Schon so eingestellt, oder es rechnet noch: nichts tun.
-    if (laeuft || (!eigen && i === stufe)) return;
-
-    if (eigen) {
-      const res = await dialog({
-        title: 'Verschlüsselung ändern?',
-        content: `Die Datenbank hat eine eigene Einstellung (${info.iterations} Durchgänge, ${info.memoryMib} MiB).
-          Sie wird durch „${esc(STUFEN[i][1])}“ ersetzt.`,
-        confirmText: 'Ersetzen',
-        cancelText: 'Abbrechen'
-      });
-      if (!(res?.submit ?? res)) { regler.value = stufe; zeige(); return; }
-    }
-
-    laeuft = true;
-    regler.disabled = true;
+    ok.disabled = true;
+    undo.disabled = true;
     try {
       await vault.setSecurity({ level: STUFEN[i][0] });
       eigen = false;
       stufe = i;
+      beruehrt = false;
       info = await vault.security();
       if (einzeln) {
         einzeln.textContent = `${info.format} · ${info.cipher} · ${info.kdf} mit ${info.iterations} Durchgängen, ${info.memoryMib} MiB, ${info.parallelism} Fäden`;
       }
-      zeige();
       banner('Verschlüsselung geändert — die Datei wurde neu geschrieben.', 'success');
     } catch (err) {
-      regler.value = stufe;
-      zeige();
       banner(`Nicht gespeichert: ${err.message}`, 'error', 6000);
     } finally {
-      laeuft = false;
-      regler.disabled = false;
+      ok.disabled = false;
+      undo.disabled = false;
+      zeige();
     }
-  };
+  });
 
-  // Erst wenn eine halbe Sekunde Ruhe ist, gilt der Wert als gewollt.
-  const spaeter = () => {
-    clearTimeout(warten);
-    warten = setTimeout(uebernehmen, 500);
-  };
-
-  regler?.addEventListener('input', () => { zeige(); spaeter(); });
-  regler?.addEventListener('change', spaeter);
-  card.querySelectorAll('[data-stufe]').forEach(b => b.addEventListener('click', () => {
-    regler.value = b.dataset.stufe;
-    zeige();
-    spaeter();
-  }));
   zeige();
 
   // Änderungsdatum der Datei — fragt je nach Ort das Dateisystem oder den

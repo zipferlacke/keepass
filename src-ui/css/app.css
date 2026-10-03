@@ -679,6 +679,21 @@
     .setting-control.kdf-slider {
       display: grid;
       gap: 0.25rem;
+      /* Volle Breite: Die allgemeine Regel weiter unten schiebt das
+         Bedienfeld sonst mit `margin-inline-start: auto` nach rechts und
+         lässt es auf seine Inhaltsbreite schrumpfen — der Regler war dann
+         nur noch halb so breit wie die Karte. */
+      width: 100%;
+      min-width: 0;
+      margin-inline-start: 0;
+
+      /* Erst hier wird geschrieben — der Regler selbst löst nichts aus. */
+      .kdf-apply {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 0.4rem;
+      }
 
       /* Die allgemeinen Eingabefelder bringen Füllung und Rundung mit —
          für einen Regler ist das ein dicker Balken. */
@@ -1369,8 +1384,10 @@
     /* Damit nichts unter Navigation und Knopf verschwindet.
        `main` liegt in `.app-body`, nicht direkt unter `body` — mit
        `body > main` griff die Regel nie, und die Einstellungen endeten
-       hinter der Navigationsleiste. */
-    main {
+       hinter der Navigationsleiste. Nur dieses eine `main`: Ohne
+       `.app-body` traf die Regel auch das `<main>` in jedem Dialog, und
+       über dessen Fußzeile klaffte eine Lücke von 150 px. */
+    .app-body > main {
       padding-bottom: calc(var(--nav-bottom-height) + 5.5rem + env(safe-area-inset-bottom));
     }
   }
@@ -1613,22 +1630,27 @@
     @media (min-width: 560px) { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
   }
 
+  /* Am Handy eine Zeile je Kachel: Symbol links, Name und Erklärung
+     rechts. Untereinander gestapelt war jede über 100 px hoch, sechs davon
+     passten nicht auf den Bildschirm, und der Dialog musste scrollen. */
   .choice {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "icon name" "icon text";
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.1rem;
     text-align: start;
-    padding: 0.85rem;
+    padding: 0.6rem 0.75rem;
     border: 1px solid var(--clr-neutral-200);
     border-radius: var(--br-default);
     background: var(--bg-surface);
     cursor: pointer;
     height: auto;
 
-    .msr { font-size: 1.5rem; color: var(--clr-primary-700); }
-    strong { font-size: var(--fs-200); }
-    small { font-size: var(--fs-100); color: var(--text-hover); line-height: 1.4; }
+    .msr { grid-area: icon; font-size: 1.5rem; color: var(--clr-primary-700); }
+    strong { grid-area: name; font-size: var(--fs-200); }
+    small { grid-area: text; font-size: var(--fs-100); color: var(--text-hover); line-height: 1.35; }
 
     &:hover:not(:disabled) { background: var(--clr-neutral-200); }
     &[aria-pressed="true"] { border-color: var(--clr-primary-600); background: var(--clr-primary-100); }
@@ -2999,15 +3021,21 @@
     &[data-kind="geloescht"] .version-change-head > .msr { color: var(--clr-error, #d64545); }
   }
 
+  /* Ein festes Raster: Symbol, darunter nichts; Name und darunter die Art;
+     rechts der Knopf über beide Zeilen. Mit Umbruch stand der Knopf mal
+     neben dem Namen, mal darunter — je nachdem, wie lang der Name war. */
   .version-change-head {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "icon name knopf" "icon art knopf";
     align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    column-gap: 0.6rem;
+    row-gap: 0.05rem;
 
-    strong { flex: 0 1 auto; }
-    small { color: var(--text-hover); }
-    .button { margin-inline-start: auto; }
+    > .msr { grid-area: icon; }
+    strong { grid-area: name; min-width: 0; overflow-wrap: anywhere; }
+    small { grid-area: art; color: var(--text-hover); font-size: var(--fs-100); }
+    .button { grid-area: knopf; height: auto; padding: 0.3rem 0.75rem; font-size: var(--fs-200); }
   }
 
   .version-fields {
