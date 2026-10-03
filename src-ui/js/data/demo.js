@@ -318,14 +318,13 @@ const commands = {
     return false;
   },
 
-  /** In der Demo gibt es keine Datei und damit auch keine alten Stände. */
   /* Versionen: zwei ausgedachte Stände, damit sich der Dialog in der Demo
      und in den Tests ansehen lässt. Der Kern hebt echte auf. */
   async vault_versions() {
     const vor = min => new Date(Date.now() - min * 60_000).toISOString();
     return [
-      { id: 'demo-2', at: vor(42), reason: 'Von einem anderen Gerät', size: 4096 },
-      { id: 'demo-1', at: vor(60 * 26), reason: 'Gespeichert', size: 4000 }
+      { id: 'demo-2', at: vor(42), reason: 'Vom anderen Gerät', size: 4096, current: true },
+      { id: 'demo-1', at: vor(60 * 26), reason: 'Gespeichert', size: 4000, current: false }
     ];
   },
 
@@ -339,6 +338,18 @@ const commands = {
       { id: String(b.id), name: b.name, folder: b.folder, kind: 'neu', fields: [] }
     ];
     return id === 'demo-1' ? aenderungen : aenderungen.slice(0, 1);
+  },
+
+  /** demo-2 hat demo-1 als Vorgänger, demo-1 ist der älteste. */
+  async vault_version_step({ id }) {
+    await ensureLoaded();
+    if (id !== 'demo-2') return { previous: null, changes: [] };
+    const [a, b] = data.entries;
+    return { previous: 'demo-1', changes: [
+      { id: String(a.id), name: a.name, folder: a.folder, kind: 'geaendert',
+        fields: [{ name: 'Benutzername', before: 'alt@example.com', after: a.username }] },
+      { id: String(b.id), name: b.name, folder: b.folder, kind: 'neu', fields: [] }
+    ] };
   },
 
   async vault_version_restore() {

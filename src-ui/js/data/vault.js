@@ -172,6 +172,9 @@ export const versions = () => invoke('vault_versions');
 /** Was sich seit diesem Stand geändert hat. */
 export const versionChanges = id => invoke('vault_version_changes', { id });
 
+/** Was mit einem Stand dazukam — der Vergleich mit dem Stand davor. */
+export const versionStep = id => invoke('vault_version_step', { id });
+
 /**
  * Holt einen Stand zurück — `entries` nennt einzelne Einträge, ohne sie
  * kommt alles zurück. Danach ist die Datei noch nicht geschrieben.

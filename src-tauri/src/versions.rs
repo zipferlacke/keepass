@@ -58,8 +58,8 @@ impl Grund {
     fn text(kennung: &str) -> &'static str {
         match kennung {
             "gespeichert" => "Gespeichert",
-            "fremd" => "Von einem anderen Gerät",
-            _ => "Geöffnet",
+            "fremd" => "Vom anderen Gerät",
+            _ => "Beim Öffnen",
         }
     }
 }
@@ -251,16 +251,16 @@ fn liste_roh(dir: &std::path::Path) -> Vec<Eintrag> {
 
 /// Die Stände für die Oberfläche — der jüngste zuerst.
 ///
-/// Ohne den Stand, der gerade offen ist: `ist_aktuell` erkennt ihn an den
-/// Bytes der Datei. Zu ihm gibt es nichts zu vergleichen und nichts
-/// zurückzuholen; in der Liste stünde er nur als „nichts geändert".
+/// Der Stand, der gerade offen ist, trägt `current`: `ist_aktuell` erkennt
+/// ihn an den Bytes der Datei. Auch er sagt, was er geändert hat — nur
+/// zurück auf ihn gibt es nichts.
 pub fn liste(app: &tauri::AppHandle, pfad: &str, ist_aktuell: impl Fn(&[u8]) -> bool) -> Vec<dto::Version> {
     let Some(dir) = ordner(app, pfad) else { return Vec::new() };
 
     let mut out: Vec<dto::Version> = liste_roh(&dir)
         .into_iter()
-        .filter(|e| !std::fs::read(&e.datei).is_ok_and(|bytes| ist_aktuell(&bytes)))
         .map(|e| dto::Version {
+            current: std::fs::read(&e.datei).is_ok_and(|bytes| ist_aktuell(&bytes)),
             id: e.id,
             at: chrono::DateTime::from_timestamp_millis(e.ms)
                 .map(|t| t.with_timezone(&chrono::Local).to_rfc3339())
@@ -271,6 +271,14 @@ pub fn liste(app: &tauri::AppHandle, pfad: &str, ist_aktuell: impl Fn(&[u8]) -> 
         .collect();
     out.reverse();
     out
+}
+
+/// Der Stand unmittelbar vor `id` — `None`, wenn `id` der älteste ist.
+pub fn vorgaenger(app: &tauri::AppHandle, pfad: &str, id: &str) -> Option<String> {
+    let dir = ordner(app, pfad)?;
+    let staende = liste_roh(&dir);
+    let i = staende.iter().position(|e| e.id == id)?;
+    i.checked_sub(1).map(|j| staende[j].id.clone())
 }
 
 /// Die Bytes eines Stands.
@@ -416,14 +424,20 @@ pub fn eintrag_zurueck(jetzt: &mut Database, alt: &Database, uuid: &str) -> Resu
     let heute = jetzt.iter_all_entries().find(|e| e.id().uuid().to_string() == uuid).map(|e| e.id());
 
     let Some(damals) = damals else {
-        // Nach diesem Stand entstanden: zurücknehmen heißt entfernen.
+        // Nach diesem Stand entstanden: zurücknehmen heißt entfernen — mit
+        // Löschvermerk, sonst brächte ihn der Abgleich zurück.
         let id = heute.ok_or("Der Eintrag ist nicht mehr da.")?;
-        jetzt.entry_mut(id).ok_or("Der Eintrag ist nicht mehr da.")?.remove();
+        jetzt.entry_mut(id).ok_or("Der Eintrag ist nicht mehr da.")?.track_changes().remove();
         return Ok(());
     };
 
     let ordner = ordnerpfad(alt, &damals);
     let ziel = crate::state::ensure_group(jetzt, &ordner);
+
+    // War er endgültig gelöscht, steht noch ein Löschvermerk in der Datei.
+    // Der muss weg — sonst nähme ihn ein anderes Gerät beim Abgleich als
+    // Auftrag, den Eintrag wieder zu entfernen.
+    jetzt.deleted_objects.remove(&damals.id().uuid());
 
     // Vorhandenen Eintrag überschreiben, verschwundenen neu anlegen — mit
     // derselben Kennung, damit der Abgleich ihn weiterhin wiedererkennt.
@@ -579,6 +593,8 @@ mod tests {
         #[allow(clippy::expect_used)]
         eintrag_zurueck(&mut jetzt, &alt, &neu).expect("zurückholen klappt");
         assert_eq!(titel(&jetzt, &neu), None);
+        // Mit Löschvermerk, sonst brächte ihn der Abgleich zurück.
+        assert_eq!(jetzt.deleted_objects.len(), 1);
     }
 
     #[test]
@@ -594,12 +610,16 @@ mod tests {
             .expect("Eintrag existiert")
             .id();
         #[allow(clippy::expect_used)]
-        jetzt.entry_mut(id).expect("Eintrag existiert").remove();
+        jetzt.entry_mut(id).expect("Eintrag existiert").track_changes().remove();
+        assert_eq!(jetzt.deleted_objects.len(), 1);
 
         #[allow(clippy::expect_used)]
         eintrag_zurueck(&mut jetzt, &alt, &bank).expect("zurückholen klappt");
 
         assert_eq!(titel(&jetzt, &bank).as_deref(), Some("Bank"));
+        // Der Löschvermerk ist weg — ein anderes Gerät soll ihn nicht
+        // wieder entfernen.
+        assert!(jetzt.deleted_objects.is_empty());
         // Im selben Ordner wie damals.
         #[allow(clippy::expect_used)]
         let e = jetzt

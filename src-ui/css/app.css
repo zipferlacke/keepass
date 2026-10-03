@@ -3034,10 +3034,15 @@
     gap: 0.4rem;
   }
 
+  /* Zeit und Grund oben, darunter was der Stand geändert hat; der Pfeil
+     rechts über beide Zeilen. */
   .version-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "zeit grund pfeil" "was was pfeil";
     align-items: center;
-    gap: 0.6rem;
+    column-gap: 0.6rem;
+    row-gap: 0.15rem;
     width: 100%;
     padding: 0.7rem 0.8rem;
     border: 1px solid var(--clr-neutral-200);
@@ -3049,9 +3054,17 @@
 
     &:hover { background: var(--clr-neutral-200); }
 
-    .version-time { font-weight: 600; }
-    .version-reason { color: var(--text-hover); font-size: var(--fs-200); }
-    .msr { margin-inline-start: auto; color: var(--text-hover); }
+    .version-time { grid-area: zeit; font-weight: 600; }
+    .version-reason { grid-area: grund; color: var(--text-hover); font-size: var(--fs-200); }
+    .version-summary {
+      grid-area: was;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--fs-200);
+    }
+    .msr { grid-area: pfeil; color: var(--text-hover); }
   }
 
   .version-changes {

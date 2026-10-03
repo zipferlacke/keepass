@@ -550,6 +550,40 @@ pub async fn vault_version_changes(
     Ok(crate::versions::vergleich(&alt, vault.database()?))
 }
 
+/// Was mit diesem Stand dazukam: der Vergleich mit dem Stand davor.
+///
+/// So liest sich die Liste wie ein Verlauf — jeder Stand sagt, was er
+/// geändert hat, nicht alles, was seitdem geschah. `vorher` ist der Stand,
+/// aus dem „Zurücknehmen" holt; fehlt er, ist dies der älteste.
+#[tauri::command]
+pub async fn vault_version_step(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Vault>,
+    id: String,
+) -> Result<dto::VersionStep, String> {
+    let (pfad, master, keyfile) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?.clone();
+        let pfad = vault.path.as_ref().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        (pfad, master, vault.keyfile.clone())
+    };
+
+    let worker = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let oeffne = |stand: &str| {
+            let bytes = crate::versions::lesen(&worker, &pfad, stand)?;
+            parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &bytes)
+        };
+        let Some(vorher) = crate::versions::vorgaenger(&worker, &pfad, &id) else {
+            return Ok(dto::VersionStep { previous: None, changes: Vec::new() });
+        };
+        let changes = crate::versions::vergleich(&oeffne(&vorher)?, &oeffne(&id)?);
+        Ok(dto::VersionStep { previous: Some(vorher), changes })
+    })
+    .await
+    .map_err(|e| format!("Abgebrochen: {e}"))?
+}
+
 /// Holt einen Stand zurück — alles oder einzelne Einträge.
 ///
 /// Geschrieben wird dabei noch nichts: Der Aufrufer speichert danach wie

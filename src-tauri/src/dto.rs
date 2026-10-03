@@ -251,6 +251,15 @@ pub struct Remember {
    Versionen
    ========================================================= */
 
+/// Was ein Stand gegenüber dem davor geändert hat.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionStep {
+    /// Der Stand davor — `None` beim ältesten.
+    pub previous: Option<String>,
+    pub changes: Vec<VersionChange>,
+}
+
 /// Ein aufgehobener Stand der Datenbank.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -259,9 +268,11 @@ pub struct Version {
     pub id: String,
     /// Wann er abgelegt wurde (RFC 3339).
     pub at: String,
-    /// Weshalb: „Geöffnet", „Gespeichert", „Von einem anderen Gerät".
+    /// Weshalb: „Beim Öffnen", „Gespeichert", „Vom anderen Gerät".
     pub reason: String,
     pub size: u64,
+    /// So liegt die Datei gerade da.
+    pub current: bool,
 }
 
 /// Ein Eintrag, der sich seit einem Stand geändert hat.

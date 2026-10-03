@@ -233,6 +233,7 @@ pub fn run() {
             database::vault_sync,
             database::vault_versions,
             database::vault_version_changes,
+            database::vault_version_step,
             database::vault_version_restore,
             database::vault_security,
             database::vault_set_security,

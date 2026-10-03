@@ -2314,13 +2314,54 @@ function updateSettingsPreview() {
 /* =========================================================
    Versionen
    ---------------------------------------------------------
-   Der Kern hebt die letzten Stände der Datei auf. Hier stehen zwei
-   Dialoge: die Liste der Stände und, dahinter, was sich seit einem davon
-   geändert hat. Zurückgeholt wird einzeln oder in einem Rutsch; geschrieben
-   wird erst danach, mit demselben `commit` wie bei jeder anderen Änderung.
+   Der Kern hebt die letzten Stände der Datei auf. Gelesen wird die Liste
+   wie ein Verlauf: Jeder Stand sagt, was er gegenüber dem davor geändert
+   hat — nicht alles, was seitdem geschah. Das stand früher da und war
+   nichtssagend: Der älteste Stand zählte jede spätere Änderung auf.
+
+   „Zurücknehmen" macht eine einzelne Änderung rückgängig (der Eintrag
+   kommt aus dem Stand davor), „Ganz auf diesen Stand zurück" setzt alles
+   so, wie es hier war. Geschrieben wird danach wie bei jeder Änderung.
    ========================================================= */
 
+/** Schrittvergleiche je Stand — Stände ändern sich nie, einmal reicht. */
+const schritte = new Map();
 
+function schritt(id) {
+  if (!schritte.has(id)) {
+    const p = vault.versionStep(id);
+    // Ein Fehlschlag soll beim nächsten Öffnen neu versucht werden.
+    p.catch(() => schritte.delete(id));
+    schritte.set(id, p);
+  }
+  return schritte.get(id);
+}
+
+const ART = {
+  neu: ['Dazugekommen', 'add_circle', 'neu'],
+  geloescht: ['Gelöscht', 'remove_circle', 'gelöscht'],
+  geaendert: ['Geändert', 'edit', 'geändert']
+};
+
+/** „geändert", „neu", „gelöscht" — oder genauer, wenn nur der Ordner wechselte. */
+function wasPassiert(c) {
+  if (c.kind === 'geaendert' && c.fields.length === 1 && c.fields[0].name === 'Ordner') {
+    const nach = c.fields[0].after ?? '';
+    if (nach === 'Papierkorb' || nach.startsWith('Papierkorb/')) return 'in den Papierkorb';
+    if ((c.fields[0].before ?? '').startsWith('Papierkorb')) return 'wiederhergestellt';
+    return 'verschoben';
+  }
+  return (ART[c.kind] ?? ART.geaendert)[2];
+}
+
+/** Eine Zeile für die Liste: „Intranet geändert · Webmail neu · +2". */
+function schrittKurz(step) {
+  if (!step.previous) return 'Ältester aufgehobener Stand';
+  if (!step.changes.length) return 'Keine Einträge geändert';
+  const teile = step.changes.slice(0, 2).map(c => `${c.name || '(ohne Titel)'} ${wasPassiert(c)}`);
+  const rest = step.changes.length - teile.length;
+  return teile.join(' · ') + (rest > 0 ? ` · +${rest}` : '');
+}
 
 async function openVersionsDialog() {
   let staende = [];
@@ -2339,13 +2380,14 @@ async function openVersionsDialog() {
   await dialog({
     title: 'Versionen',
     content: `
-      <p class="dlg-note">Jeder Stand ist die vollständige Datei, verschlüsselt wie das Original.
-      Tippe einen an, um zu sehen, was sich seitdem geändert hat.</p>
+      <p class="dlg-note">Die letzten Stände der Datei, der jüngste oben. Unter jedem steht,
+      was er geändert hat — antippen zeigt es genau und erlaubt das Zurücknehmen.</p>
       <div class="version-list">
         ${staende.map(v => `
           <button type="button" class="version-row" data-version="${esc(v.id)}">
             <span class="version-time">${esc(zeitLabel(v.at))}</span>
-            <span class="version-reason">${esc(v.reason)}</span>
+            <span class="version-reason">${esc(v.reason)}${v.current ? ' · <strong>aktueller Stand</strong>' : ''}</span>
+            <span class="version-summary">…</span>
             <span class="msr">chevron_right</span>
           </button>`).join('')}
       </div>`,
@@ -2364,46 +2406,62 @@ async function openVersionsDialog() {
         closeHostDialog(btn, false);
         setTimeout(() => openVersionChangesDialog(stand), 50);
       }));
+      fuelleZusammenfassungen(host);
     }
   });
+}
+
+/**
+ * Trägt die Zusammenfassungen nach, einen Stand nach dem anderen: Jeder
+ * Vergleich entschlüsselt zwei Dateien, und das dauert — auf dem Handy
+ * bis zu einer Sekunde. Nacheinander erscheinen die oberen zuerst.
+ */
+async function fuelleZusammenfassungen(host) {
+  for (const row of host?.querySelectorAll('[data-version]') ?? []) {
+    const ziel = row.querySelector('.version-summary');
+    try {
+      ziel.textContent = schrittKurz(await schritt(row.dataset.version));
+    } catch {
+      ziel.textContent = 'Nicht lesbar';
+    }
+    if (!host.isConnected) return;
+  }
 }
 
 async function openVersionChangesDialog(stand) {
   if (!stand) return;
 
-  let changes;
+  let step;
   try {
-    changes = await vault.versionChanges(stand.id);
+    step = await schritt(stand.id);
   } catch (err) {
     banner(`Der Stand ließ sich nicht vergleichen: ${err.message}`, 'error', 6000);
     return;
   }
 
-  const ART = {
-    neu: ['Dazugekommen', 'add_circle'],
-    geloescht: ['Verschwunden', 'remove_circle'],
-    geaendert: ['Geändert', 'edit']
-  };
+  const liste = step.changes.map(c => {
+    const [label, icon] = ART[c.kind] ?? ART.geaendert;
+    const felder = c.fields.map(f => f.before == null && f.after == null
+      ? `<li>${esc(f.name)} geändert</li>`
+      : `<li>${esc(f.name)}: <del>${esc(f.before || '—')}</del> <span class="msr">arrow_forward</span> ${esc(f.after || '—')}</li>`).join('');
+    return `<div class="version-change" data-kind="${c.kind}">
+      <div class="version-change-head">
+        <span class="msr">${icon}</span>
+        <strong>${esc(c.name || '(ohne Titel)')}</strong>
+        <small>${esc(label)}${c.folder ? ` · ${esc(c.folder)}` : ''}</small>
+        <button type="button" class="button" data-undo="${esc(c.id)}"
+                title="Den Eintrag so zurückholen, wie er vor diesem Stand war">Zurücknehmen</button>
+      </div>
+      ${felder ? `<ul class="version-fields">${felder}</ul>` : ''}
+    </div>`;
+  }).join('');
 
-  const inhalt = changes.length
-    ? `<div class="version-changes">
-        ${changes.map(c => {
-          const [label, icon] = ART[c.kind] ?? ART.geaendert;
-          const felder = c.fields.map(f => f.before == null && f.after == null
-            ? `<li>${esc(f.name)} geändert</li>`
-            : `<li>${esc(f.name)}: <del>${esc(f.before || '—')}</del> <span class="msr">arrow_forward</span> ${esc(f.after || '—')}</li>`).join('');
-          return `<div class="version-change" data-kind="${c.kind}">
-            <div class="version-change-head">
-              <span class="msr">${icon}</span>
-              <strong>${esc(c.name || '(ohne Titel)')}</strong>
-              <small>${esc(label)}${c.folder ? ` · ${esc(c.folder)}` : ''}</small>
-              <button type="button" class="button" data-undo="${esc(c.id)}">Zurücknehmen</button>
-            </div>
-            ${felder ? `<ul class="version-fields">${felder}</ul>` : ''}
-          </div>`;
-        }).join('')}
-      </div>`
-    : '<p class="dlg-note">Seit diesem Stand hat sich nichts geändert.</p>';
+  const inhalt = !step.previous
+    ? `<p class="dlg-note">Das ist der älteste aufgehobene Stand — was er gegenüber dem davor
+       geändert hat, lässt sich nicht mehr sagen.</p>`
+    : step.changes.length
+      ? `<div class="version-changes">${liste}</div>`
+      : '<p class="dlg-note">An den Einträgen hat dieser Stand nichts geändert.</p>';
 
   await dialog({
     title: `Stand ${zeitLabel(stand.at)}`,
@@ -2411,19 +2469,22 @@ async function openVersionChangesDialog(stand) {
     // die Einstellungen zu laufen.
     onBack: zurueckZu(openVersionsDialog),
     content: `
-      <p class="dlg-note">${esc(stand.reason)} · Was hier steht, ist der Unterschied zum jetzigen Stand.
-      Zurückgeholtes wird erst geschrieben, wenn du danach speicherst — das macht die App gleich selbst.</p>
+      <p class="dlg-note"><strong>${esc(stand.reason)}.</strong> ${step.previous && step.changes.length
+        ? 'Das hat dieser Stand gegenüber dem davor geändert.' : ''}
+      ${stand.current ? 'So liegt die Datei gerade da.' : `„Ganz auf diesen Stand zurück" setzt alle
+      Einträge so, wie sie hier waren — was danach kam, bleibt in den Versionen erhalten.`}</p>
       ${inhalt}`,
-    confirmText: changes.length ? 'Alles zurückholen' : null,
+    // Auf den aktuellen Stand zurück gibt es nicht — dann keine Fußzeile,
+    // und oben das Kreuz.
+    confirmText: stand.current ? null : 'Ganz auf diesen Stand zurück',
     cancelText: 'Schließen',
-    // Gibt es nichts zurückzuholen, fehlt die Fußzeile — dann das Kreuz.
-    barRight: changes.length ? null : { icon: 'close', title: 'Schließen', action: 'cancel' },
+    barRight: stand.current ? { icon: 'close', title: 'Schließen', action: 'cancel' } : null,
     onInsert: id => {
       const host = document.getElementById(String(id));
       host?.querySelectorAll('[data-undo]').forEach(btn => btn.addEventListener('click', async () => {
         btn.disabled = true;
-        await zurueckholen(stand.id, [btn.dataset.undo]);
-        btn.closest('.version-change')?.remove();
+        await zurueckholen(step.previous, [btn.dataset.undo]);
+        btn.textContent = 'Zurückgenommen';
       }));
     }
   }).then(res => {
