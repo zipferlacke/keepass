@@ -28,6 +28,7 @@
                 "Fix: „PIN festlegen“ und „Bequem entsperren“ öffneten keinen Dialog mehr",
                 "Fix: Die Ladeanzeige blieb nach dem Schließen der Versionen stehen",
                 "Fix: Die Seite „Dateien“ blieb leer",
+                "Fix: Unter Linux zeigten Dialoge in schmalen Fenstern nur ihre Knöpfe",
                 "Fix: Sperrknopf oben rechts, Überlauf auf dem Sperrbildschirm am Handy, Namen von Dateien aus „Downloads“"
             ]
         },
