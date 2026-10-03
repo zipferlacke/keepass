@@ -67,6 +67,10 @@ const OHNE_ANZEIGE = new Set([
   'settings_read', 'settings_write', 'path_label', 'open_link', 'startup_database',
   'unlock_methods', 'browser_identified', 'fetch_page_title',
   'android_setup_status', 'android_setup_open',
+  // Die Zusammenfassungen der Versionen laden im Hintergrund nach; die
+  // Liste zeigt dafür schon „…". Ein Schleier sperrte sie währenddessen.
+  'vault_version_step',
+  'plugin:app|version', 'database_modified',
   // Die Auswahlfenster des Systems stehen offen, solange der Nutzer sucht.
   'pick_database_file', 'pick_save_path', 'pick_attachments', 'save_attachment',
   'decode_qr_gray', 'decode_qr_bytes',
@@ -98,11 +102,18 @@ function endet() {
   if (--laufend > 0) return;
   clearTimeout(zeiger);
   zeiger = null;
-  if (!seit) return;
 
   // Kurz vor Schluss aufgetaucht? Dann einen Moment stehen lassen, sonst
   // blitzt der Schleier nur auf.
-  const rest = Math.max(0, MINDESTENS - (Date.now() - seit));
+  //
+  // Weggenommen wird immer, wenn nichts mehr läuft — auch wenn dieser
+  // Aufruf selbst nie zu sehen war. Vorher kehrte die Funktion dann früh
+  // zurück, und es gab einen Wettlauf: Ein langsamer Aufruf zeigt den
+  // Schleier, endet, das Wegnehmen wartet die Mindestzeit ab; in der
+  // startet ein schneller, das Wegnehmen sieht „läuft noch" und lässt es,
+  // der schnelle endet ungesehen — und der Schleier stand für immer. So
+  // geschehen beim Schließen der Versionen.
+  const rest = seit ? Math.max(0, MINDESTENS - (Date.now() - seit)) : 0;
   seit = 0;
   setTimeout(() => {
     if (laufend === 0) koerper()?.removeAttribute('data-loading');
