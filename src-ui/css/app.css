@@ -2927,10 +2927,10 @@
   }
 
   /* ============================================================
-     Datei-Vorschau im Vollbild
+     Datei-Vorschau
      ------------------------------------------------------------
-     Ein userDialog, dem die Variablen der Bibliothek auf Vollbild
-     gestellt sind: oben links die Knöpfe, in der Mitte der Dateiname
+     Am Handy der ganze Bildschirm (position full), am Rechner eine
+     breite Leiste rechts: oben links die Knöpfe, in der Mitte der Dateiname
      (zugleich der Knopf zum Umbenennen), rechts das Kreuz — der ganze
      Rest ist Datei. Keine Fußzeile.
      ============================================================ */
@@ -2940,18 +2940,10 @@
     background: var(--clr-neutral-50);
     color: var(--text-color);
 
-    /* Am Handy füllt sie den Bildschirm; am Rechner ist sie eine breite
-       Leiste rechts, die sich am Griff (links) breiter ziehen lässt. */
+    /* Am Handy füllt sie den Bildschirm (position full); am Rechner ist
+       sie eine breite Leiste rechts, am Griff (links) breiter zu ziehen. */
     @media screen and (max-width: 700px) {
-      --uD-margin: 0;
-      --uD-radius: 0;
-      --uD-width: 100vw;
-      --uD-min-width: 0;
-      --uD-max-width: 100vw;
-      --uD-height: 100dvh;
-      --uD-max-height: 100dvh;
       box-shadow: none;
-
       &::backdrop { background: var(--clr-neutral-50); }
     }
     @media screen and (min-width: 701px) {
