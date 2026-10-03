@@ -966,6 +966,8 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
 
   await dialog({
     id: 'file-viewer',
+    // Vollbild (siehe app.css) – an keiner Kante, also ohne Griff.
+    position: 'center',
     // Der Titel ist der Dateiname und zugleich der Knopf zum Umbenennen.
     title: `<span class="file-viewer-title">
         <button type="button" class="file-viewer-name" data-viewer-rename title="Umbenennen"><strong></strong><span class="msr">edit</span></button>
