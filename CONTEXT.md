@@ -36,11 +36,11 @@ Zwischenablage.
 
 ### Alles geht über `invoke`
 
-Es gibt genau **eine** Tür zum Kern: `invoke()` in `js/platform.js`. Darüber
+Es gibt genau **eine** Tür zum Kern: `invoke()` in `js/core/platform.js`. Darüber
 liegt keine Fallunterscheidung mehr, kein zweites Backend, keine
 Ersatzimplementierung.
 
-Läuft die App nicht in Tauri, beantwortet `js/demo.js` dieselben Kommandos aus
+Läuft die App nicht in Tauri, beantwortet `js/data/demo.js` dieselben Kommandos aus
 `config/demo.json`. Die Oberfläche merkt vom Unterschied nichts — sie ruft in
 beiden Fällen wortgleich dasselbe auf. Für die App-Version ist `demo.js`
 bedeutungslos und darf verschwinden, sobald der Rust-Kern vollständig ist.
@@ -98,10 +98,10 @@ Wahrheit eine ungeschützte Datei liest, wäre eine Lüge an den Nutzer.
 
 ### Wuefl-libs
 
-`js/ui.js` ist die einzige Stelle, die wuefl-libs kennt: `userDialog`,
+`js/ui/libs.js` ist die einzige Stelle, die wuefl-libs kennt: `userDialog`,
 `banner`, `tableview` und `qrcode`. Keine Ersatzimplementierungen — ist die
 Bibliothek nicht erreichbar, ist das ein Fehler und soll auffallen. Zum
-Umstellen auf die lokale Einbindung wird `BASE` in `js/ui.js` geändert, dazu
+Umstellen auf die lokale Einbindung wird `BASE` in `js/ui/libs.js` geändert, dazu
 die `@import`-Zeile oben in `css/app.css`.
 
 ---
@@ -172,7 +172,7 @@ js/
    `tableview` liest `td.dataset.sortValue`, was `data-sort-value` verlangt.
 2. **`userDialog` löst sein Promise nur bei Klick auf `.dialog_close` oder
    `.dialog_submit` auf.** Ein direktes `dialog.close()` lässt das `await`
-   hängen. Dafür gibt es `closeHostDialog()` in `js/ui.js`.
+   hängen. Dafür gibt es `closeHostDialog()` in `js/ui/libs.js`.
 3. **Zuhörer nicht bei jedem Rendern neu anhängen.** `setupDragMove` lief
    früher pro Rendering und erzeugte Meldungen mehrfach. Jetzt einmalig,
    Aufräumen über `AbortController`.
@@ -212,7 +212,7 @@ unten bedient. Im Browser läuft sie über `demo.js` vollständig.
 
 ### Die Kommandoliste — der Vertrag zwischen Oberfläche und Kern
 
-Maßgeblich ist `js/demo.js`: Was dort steht, muss Rust genauso beantworten.
+Maßgeblich ist `js/data/demo.js`: Was dort steht, muss Rust genauso beantworten.
 
 ```
 Entsperren   unlock_methods → {password,pin,biometric}
@@ -268,7 +268,7 @@ Vor dem ersten echten Schreibversuch: Kopie anlegen und danach mit KeePassXC
 öffnen.
 
 **4. Kleinkram** (~1 Tag)
-`vault_strength` (Logik aus `js/security.js` übersetzen — **Achtung**: die
+`vault_strength` (Logik aus `js/data/security.js` übersetzen — **Achtung**: die
 `COMMON`-Liste wird dort in Einfügereihenfolge durchlaufen und beim ersten
 Treffer abgebrochen; in Rust also `&[&str]`, kein `HashSet`, sonst kommen bei
 mehreren Treffern andere Abzüge heraus) · `vault_hash_prefix` (SHA-1 hex groß,
@@ -326,7 +326,7 @@ tauri-plugin-dialog = { version = "2", default-features = false, features = ["xd
 node build-single.mjs      # erzeugt ../wkeepass-single.html
 ```
 
-Läuft gegen `js/demo.js` mit den Daten aus `config/demo.json` — kein Passwort
+Läuft gegen `js/data/demo.js` mit den Daten aus `config/demo.json` — kein Passwort
 nötig, Feld leer lassen. Beide JSON-Dateien werden dabei ins Bündel
 eingebettet, damit kein `fetch` nötig ist.
 
@@ -346,7 +346,7 @@ die Vorschau nicht nur ähnlich, sondern nimmt buchstäblich denselben Weg.
 - wuefl-libs wird per dynamischem Import von `open.wuefl.de` geladen. Dafür
   braucht die Domain eine CORS-Freigabe für `.js` und Schriftdateien —
   bei lokaler Einbindung im App-Bundle entfällt das. Umzustellen ist dann nur
-  `BASE` in `js/ui.js` und die `@import`-Zeile in `css/app.css`.
+  `BASE` in `js/ui/libs.js` und die `@import`-Zeile in `css/app.css`.
 - Ohne Rust gibt es keinen QR-Scanner mehr (die native `BarcodeDetector`-API
   fehlt in WebKitGTK und Firefox, also genau dort, wo die App läuft). In der
   Vorschau ist der Scanner deshalb abgeschaltet.

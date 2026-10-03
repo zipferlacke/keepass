@@ -8,6 +8,23 @@
 
     "changelog":[
         {
+            "version":"1.0.1",
+            "date":"2026-10-03",
+            "changes":[
+                "Versionen der Datenbank: die letzten 20 Stände bleiben auf dem Gerät – jeder zeigt, was er geändert hat; einzelne Änderungen zurücknehmen oder ganz auf einen Stand zurück",
+                "Papierkorb steht für sich unter den Einträgen und wird nach 30 Tagen endgültig geleert",
+                "Verschlüsselungsstärke: fünf Stufen, geschrieben wird erst mit „Übernehmen“; darunter steht, was jetzt gilt und was danach",
+                "Dialoge im neuen Look: am Handy von unten mit Ziehgriff, Abbrechen und Speichern unten, Zurück oben links",
+                "Ladeanzeige, solange die Datenbank rechnet",
+                "Android-Autofill: Datenbank direkt im Blatt entsperren; die Debug-Fassung liegt neben der echten App",
+                "Fix: Das Handy holte Änderungen anderer Geräte nicht ab",
+                "Fix: Die Browser-Verknüpfung ging beim Speichern auf dem Handy verloren – „Verbinden“ war jedes Mal nötig",
+                "Fix: Nach dem Entsperren fragte die Browser-Erweiterung gleich noch einmal",
+                "Fix: Ist die Datei gerade nicht lesbar, wird sie nicht mehr überschrieben – das Speichern wartet",
+                "Fix: TOTP-Vorschau zeigt wieder den nächsten Code; Logo auf Willkommens- und Sperrbildschirm"
+            ]
+        },
+        {
             "version":"1.0.0",
             "date":"2026-09-19",
             "changes":[
