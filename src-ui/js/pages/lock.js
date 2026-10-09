@@ -845,6 +845,11 @@ export async function enterUnlocked() {
     state.pendingOtp = null;
     handleScan(uri);
   }
+
+  // War die App nur zum Entsperren aufgegangen — aus Autofill oder einem
+  // Passkey heraus, während sie nicht lief —, geht es zurück in die App, aus
+  // der man kam (Rueckkehr.kt). Dort genügt erneutes Antippen.
+  if (isMobile) invoke('android_after_unlock').catch(() => {});
 }
 
 /**

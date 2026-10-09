@@ -49,6 +49,20 @@ export async function schritte(liste, pause = 700) {
       continue;
     }
 
+    // „^Taste" drückt eine Taste dort, wo der Fokus steht: „^ArrowDown",
+    // „^ctrl+f", „^shift+Enter".
+    if (schritt[0] === '^') {
+      const teile = schritt.slice(1).split('+');
+      const key = teile.pop();
+      melde('SCHRITT', schritt);
+      (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
+        key, bubbles: true, cancelable: true,
+        ctrlKey: teile.includes('ctrl'), shiftKey: teile.includes('shift'), altKey: teile.includes('alt')
+      }));
+      await warte(pause);
+      continue;
+    }
+
     // „~wahl:::dx/dy" zieht das Element um dx/dy Pixel (Zeiger runter,
     // bewegen, los) — etwa den Griff eines Dialogs.
     if (schritt[0] === '~') {
@@ -70,7 +84,12 @@ export async function schritte(liste, pause = 700) {
 
     // „?wahl" verlangt, dass etwas zu sehen ist, „!wahl", dass nicht.
     if (schritt[0] === '?' || schritt[0] === '!') {
-      const el = document.querySelector(schritt.slice(1));
+      // „…:focus" fragt nach dem aktiven Element — ohne Fenster im
+      // Vordergrund kennt der Browser die Pseudoklasse nicht.
+      const wahl = schritt.slice(1);
+      const el = wahl.endsWith(':focus')
+        ? (document.activeElement?.matches(wahl.slice(0, -6)) ? document.activeElement : null)
+        : document.querySelector(wahl);
       // checkVisibility kennt auch zugeklappte <details> (content-visibility).
       const sichtbar = Boolean(el) && el.getClientRects().length > 0 && (el.checkVisibility?.() ?? true);
       if (sichtbar === (schritt[0] === '?')) melde('OK', schritt);

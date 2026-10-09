@@ -24,6 +24,7 @@ import { copyPlain, scheduleClipboardClear } from '../ui/clipboard.js';
 import { dialog, banner, closeHostDialog, selectPicker, zurueckZu, renderQrCode } from '../ui/libs.js';
 import { resolvedColor } from '../core/theme.js';
 import { state, esc, SECRET_MASK } from '../core/state.js';
+import { aufdeckbar } from '../ui/aufdecken.js';
 import { markUsed, byId, isFileEntry, formatDate } from '../core/entries.js';
 import { zeichne, renderAll, refreshFromVault } from '../core/render.js';
 import { isTauri, listen } from '../core/platform.js';
@@ -354,15 +355,27 @@ function wireEntryDialog(entry, prefilled = {}, mode = 'full') {
     updateStrength();
   });
 
-  document.getElementById('dlg-reveal-pw')?.addEventListener('click', async () => {
+  // Aufgedeckt steht ein echtes Textfeld da — so lässt sich das Passwort
+  // am Handy auch mit der Tastatur markieren und kopieren.
+  const klar = aufdeckbar(pw);
+  const augePw = document.getElementById('dlg-reveal-pw');
+  const zeigePw = an => {
+    klar.zeigen(an);
+    if (augePw) {
+      augePw.querySelector('.msr').textContent = an ? 'visibility_off' : 'visibility';
+      augePw.title = an ? 'Verbergen' : 'Anzeigen';
+    }
+  };
+
+  augePw?.addEventListener('click', async () => {
     await ensureLoaded();
-    pw.type = pw.type === 'password' ? 'text' : 'password';
+    zeigePw(!klar.sichtbar);
   });
 
   document.getElementById('dlg-gen-pw')?.addEventListener('click', () => {
     loaded = true;
     pw.value = generatePassword(20);
-    pw.type = 'text';
+    zeigePw(true);
     state.secretEdits.password = pw.value;
     updateStrength();
   });
@@ -435,9 +448,14 @@ function wireTotpControls(entry, prefilled = {}) {
     if (loaded) state.secretEdits.totp = field.value;
   });
 
-  document.getElementById('dlg-reveal-totp')?.addEventListener('click', async () => {
+  const klar = aufdeckbar(field);
+  const auge = document.getElementById('dlg-reveal-totp');
+  auge?.addEventListener('click', async () => {
     await ensureLoaded();
-    field.type = field.type === 'password' ? 'text' : 'password';
+    const an = !klar.sichtbar;
+    klar.zeigen(an);
+    auge.querySelector('.msr').textContent = an ? 'visibility_off' : 'visibility';
+    auge.title = an ? 'Verbergen' : 'Anzeigen';
   });
 
   const applyUri = uri => {

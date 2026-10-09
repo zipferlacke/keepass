@@ -276,6 +276,7 @@ pub fn run() {
             system::startup_database,
             system::path_label,
             system::open_link,
+            system::android_after_unlock,
             system::android_setup_status,
             system::android_setup_open,
             entries::vault_mark_accessed,

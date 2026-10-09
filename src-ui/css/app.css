@@ -281,12 +281,40 @@
   /* ============================================================
      Hauptbereich
      ============================================================ */
-  body > main {
-    flex: 1;
-    overflow-y: auto;
-    padding-block: 0.75rem 1.5rem;
+  /* Luft zwischen Kopf und Inhalt — sonst kleben Kacheln und Suchfeld an
+     der Linie darunter. `main` liegt in `.app-body`; die Regel zielte lange
+     auf `body > main` und griff deshalb nie. Nur der Abstand oben: unten
+     regelt ihn die Navigation (siehe weiter unten). */
+  .app-body > main {
+    padding-block-start: 1rem;
 
     @media (min-width: 900px) { padding-inline: 0.5rem; }
+  }
+
+  /* ============================================================
+     Aufklappen: ein Pfeil aus der Symbolschrift statt des Dreiecks,
+     das jeder Browser anders zeichnet. Gilt für jedes <details>, das
+     keinen eigenen Pfeil mitbringt.
+     ============================================================ */
+  details > summary {
+    list-style: none;
+    cursor: pointer;
+
+    &::-webkit-details-marker { display: none; }
+  }
+  details:not(.dlg-section, .sec-group, .recycle-bin, .lock-recent) > summary::before {
+    content: 'chevron_right';
+    font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', sans-serif;
+    font-weight: normal;
+    font-size: 1.25em;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: -0.2em;
+    margin-inline-end: 0.25rem;
+    transition: transform 0.15s;
+  }
+  details[open]:not(.dlg-section, .sec-group, .recycle-bin, .lock-recent) > summary::before {
+    transform: rotate(90deg);
   }
 
   .view { display: none; }
@@ -1824,6 +1852,18 @@
 
   .msr.marker { font-size: 1.05rem; }
 
+  /* Zeile, auf der die Tastatur steht (Pfeiltasten), und Einträge, die
+     ausgeschnitten auf das Einfügen warten. */
+  #entry-table {
+    outline: none;
+
+    tr[data-current] > td {
+      background: color-mix(in srgb, var(--clr-primary-400) 16%, transparent);
+    }
+    tr[data-current] > td:first-child { box-shadow: inset 3px 0 0 var(--clr-primary-500); }
+    tr[data-cut] > td { opacity: 0.45; }
+  }
+
   /* ============================================================
      Suchleiste und Tag-Leiste — gelten überall, nicht nur im Kopf
      ============================================================ */
@@ -1835,7 +1875,6 @@
     border-radius: var(--br-input);
     padding-inline: 0.75rem;
     height: var(--input-height);
-    max-width: 32rem;
 
     .msr { font-size: 1.15rem; color: var(--text-hover); }
 

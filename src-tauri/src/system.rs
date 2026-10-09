@@ -261,6 +261,29 @@ fn einrichtung(methode: &str, was: Option<&str>) -> Result<String, String> {
     })
 }
 
+/// Nach dem Entsperren: War die App nur zum Entsperren aufgegangen (Autofill
+/// oder Passkey, während sie nicht lief), geht sie wieder nach hinten —
+/// zurück in die App, aus der man kam. `true`, wenn das geschah.
+///
+/// Die Vormerkung macht die Kotlin-Seite (`Rueckkehr.kt`); hier wird sie nur
+/// eingelöst. Am Rechner gibt es das nicht.
+#[tauri::command]
+pub fn android_after_unlock() -> Result<bool, String> {
+    #[cfg(target_os = "android")]
+    {
+        use jni::objects::JValue;
+        crate::java::mit_java(|env, activity| {
+            let klasse = crate::java::klasse(env, activity, "de.wuefl.wkeepass.system.Rueckkehr")?;
+            env.call_static_method(&klasse, "nachEntsperren", "(Landroid/app/Activity;)Z", &[JValue::Object(activity)])?
+                .z()
+        })
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        Ok(false)
+    }
+}
+
 /// Öffnet eine Webadresse im Browser des Systems.
 ///
 /// Bewusst nur `http` und `https`: Eine Adresse kommt hier aus Einträgen und

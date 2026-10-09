@@ -139,10 +139,18 @@ export function showContextMenu(x, y, { entryId = null, folderPath = null } = {}
       { action: 'copy-pw', icon: 'key', label: 'Passwort kopieren', disabled: !entry.hasPassword },
       { action: 'copy-totp', icon: 'timer', label: 'TOTP kopieren', disabled: !entry.hasTotp },
       { sep: true },
+      { action: 'cut', icon: 'content_cut', label: 'Ausschneiden' },
       { action: 'refresh-icon', icon: 'image', label: 'Icon neu laden', disabled: !hostFromUrl(entry.url) },
       { action: 'refresh-title', icon: 'title', label: 'Namen von der Website übernehmen', disabled: !hostFromUrl(entry.url) },
       { sep: true }
     );
+  }
+
+  // Liegt etwas ausgeschnitten bereit, lässt es sich hier ablegen.
+  if (state.cut.length && folder) {
+    items.push({ action: 'paste', icon: 'content_paste',
+      label: state.cut.length === 1 ? 'Einfügen' : `Einfügen (${state.cut.length})` });
+    if (!entry) items.push({ sep: true });
   }
 
   // Immer verfügbar
@@ -220,6 +228,13 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
     case 'empty-bin':
       return emptyBin();
 
+    case 'cut':
+      // Aus einer Auswahl heraus kommen alle mit — wie beim Ziehen.
+      return cutEntries(pick.isSelected(entryId) ? pick.selectedIds() : [entryId]);
+
+    case 'paste':
+      return pasteInto(folder);
+
     case 'folder-edit':
       return openFolderDialog({ path: folderPath });
 
@@ -284,6 +299,49 @@ export async function runRowAction(action, id) {
       return nachStrukturaenderung('Eintrag gelöscht.');
     }
   }
+}
+
+/* =========================================================
+   Ausschneiden und Einfügen
+   ---------------------------------------------------------
+   Der zweite Weg neben dem Ziehen, um Einträge in einen anderen Ordner
+   zu bringen — mit Strg+X / Strg+V (pages/tasten.js) oder über das
+   Kontextmenü. Ausgeschnittenes bleibt an seinem Platz und wird blass,
+   bis es eingefügt oder mit Esc verworfen ist.
+   ========================================================= */
+
+/** Merkt Einträge zum Verschieben vor. */
+export function cutEntries(ids) {
+  state.cut = ids.filter(id => byId(id) && !byId(id).recycled);
+  if (!state.cut.length) return;
+  pick.clearSelection();
+  renderPasswords();
+  banner(state.cut.length === 1
+    ? `„${byId(state.cut[0]).name}“ ausgeschnitten — im Zielordner einfügen (Strg+V).`
+    : `${state.cut.length} Einträge ausgeschnitten — im Zielordner einfügen (Strg+V).`, 'info', 4000);
+}
+
+/** Verwirft das Ausgeschnittene, ohne etwas zu bewegen. */
+export function clearCut() {
+  if (!state.cut.length) return false;
+  state.cut = [];
+  renderPasswords();
+  return true;
+}
+
+/** Legt das Ausgeschnittene in diesen Ordner. */
+export async function pasteInto(folder) {
+  if (!state.cut.length) return banner('Nichts ausgeschnitten.', 'info', 2500);
+  if (!folder || isRecycledFolder(folder)) return banner('Hier lässt sich nichts einfügen.', 'warning');
+
+  const moving = state.cut.filter(id => byId(id) && byId(id).folder !== folder);
+  state.cut = [];
+  if (!moving.length) { renderPasswords(); return banner('Liegt schon in diesem Ordner.', 'info', 2500); }
+
+  for (const id of moving) await vault.moveEntry(id, folder);
+  return nachStrukturaenderung(moving.length === 1
+    ? `Nach „${folder}“ verschoben.`
+    : `${moving.length} Einträge nach „${folder}“ verschoben.`);
 }
 
 /* =========================================================
@@ -545,7 +603,8 @@ function entryRowHtml(e, cols, opts) {
 
   // Gelöschte bleiben sichtbar, werden aber als das kenntlich gemacht,
   // was sie sind — und bei den Auswertungen ausgelassen.
-  const recycled = e.recycled ? ' data-recycled title="Liegt im Papierkorb"' : '';
+  const recycled = (e.recycled ? ' data-recycled title="Liegt im Papierkorb"' : '')
+    + (state.cut.includes(e.id) ? ' data-cut' : '');
   // Ziehen nur in der Passwortliste — in Befunden und Übersicht hat
   // Umsortieren keinen Sinn.
   const drag = opts.drag ? ` data-drag-id="entry:${e.id}" data-drag-label="${esc(e.name)}"` : '';

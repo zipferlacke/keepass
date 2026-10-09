@@ -97,16 +97,18 @@ object Kern {
     fun aus(antwort: JSONObject): Boolean = antwort.optString("status") == "aus"
 
     /**
-     * Holt die App nach vorn, damit der Nutzer entsperrt. Danach tippt er
-     * das Feld erneut an — dann ist die Datenbank offen.
+     * Holt die App nach vorn, damit der Nutzer entsperrt. Nach dem
+     * Entsperren geht sie von selbst wieder nach hinten
+     * ([de.wuefl.wkeepass.system.Rueckkehr]); dann das Feld erneut antippen.
      */
     fun appOeffnen(context: Context) {
         val start = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
         start.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        de.wuefl.wkeepass.system.Rueckkehr.merken(context)
         context.startActivity(start)
         Toast.makeText(
             context,
-            "${name(context)} entsperren, dann erneut antippen.",
+            "${name(context)} entsperren — danach geht es zurück, dann erneut antippen.",
             Toast.LENGTH_LONG,
         ).show()
     }

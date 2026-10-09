@@ -12,6 +12,7 @@
  */
 
 import { esc, state } from '../core/state.js';
+import { aufdeckbar } from './aufdecken.js';
 
 /**
  * Liest Textfelder eines Dialogs unverfälscht ab.
@@ -96,8 +97,8 @@ export function pinStrengthNote() {
 /**
  * Baut ein Passwortfeld mit Auge zum Sichtbarmachen.
  *
- * `userDialog` liefert die Werte über `name`, deshalb muss der Umschalter
- * am `type` drehen und darf das Feld nicht ersetzen.
+ * `userDialog` liefert die Werte über `name` — das Passwortfeld bleibt
+ * deshalb, wo es ist; aufgedeckt steht sein Zwilling davor (aufdecken.js).
  */
 export function passwordField(name, placeholder, { required = true, minlength = 0 } = {}) {
   return `<span class="pw-field">
@@ -114,13 +115,16 @@ export function wirePasswordFields(root = document) {
     if (btn.dataset.wired) return;
     btn.dataset.wired = '1';
 
+    // Aufgedeckt steht ein echtes Textfeld da (siehe aufdecken.js) — nur
+    // den `type` umzustellen ließe der Tastatur am Handy das Kopieren nicht.
+    const feld = aufdeckbar(btn.parentElement.querySelector('input'));
+
     btn.addEventListener('click', () => {
-      const field = btn.previousElementSibling;
-      const shown = field.type === 'text';
-      field.type = shown ? 'password' : 'text';
+      const shown = feld.sichtbar;
+      feld.zeigen(!shown);
       btn.querySelector('.msr').textContent = shown ? 'visibility' : 'visibility_off';
       btn.title = btn.ariaLabel = shown ? 'Sichtbar machen' : 'Verbergen';
-      field.focus();
+      feld.aktiv.focus();
     });
   });
 }

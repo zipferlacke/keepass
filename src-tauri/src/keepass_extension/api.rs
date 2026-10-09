@@ -1010,6 +1010,16 @@ impl Connection {
         let mut vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
         let db = vault.database_mut().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
 
+        // Kennt die Datenbank diesen Schlüssel schon, bleibt es bei der
+        // vorhandenen Verknüpfung — sonst stünde derselbe Browser nach jedem
+        // erneuten „Verbinden" ein weiteres Mal in der Liste.
+        if let Some(bekannt) = association_with_key(db, key) {
+            if let Ok(mut conn) = shared.lock() {
+                conn.client_id = Some(bekannt.clone());
+            }
+            return Ok(json!({ "id": bekannt, "hash": database_hash_locked(db) }));
+        }
+
         db.meta.custom_data.insert(
             format!("{ASSOCIATION_PREFIX}{name}"),
             keepass::db::CustomDataItem {
@@ -1061,6 +1071,17 @@ impl Connection {
         }
         Ok(json!({ "id": id, "hash": database_hash_locked(db) }))
     }
+}
+
+/// Unter welchem Namen dieser Schlüssel schon verknüpft ist.
+fn association_with_key(db: &keepass::Database, key: &str) -> Option<String> {
+    db.meta.custom_data.iter().find_map(|(name, item)| {
+        let rest = name.strip_prefix(ASSOCIATION_PREFIX)?;
+        match item.value.as_ref()? {
+            keepass::db::CustomDataValue::String(text) if text == key => Some(rest.to_string()),
+            _ => None,
+        }
+    })
 }
 
 /// Baut die Hülle, die die Erweiterung um einen Passkey erwartet.
@@ -1123,11 +1144,18 @@ fn credential(id: &str, response: Value) -> Value {
 fn persist(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
-        if let Err(err) = crate::database::commit(&app, &app.state::<Vault>()) {
-            // Das ist kein Diagnosekram, sondern verlorene Arbeit — deshalb
-            // unabhängig von `WKEEPASS_BROWSER_LOG`.
-            eprintln!("[Browser] Nicht gespeichert: {err}");
-            let _ = app.emit("browser-save-failed", err);
+        match crate::database::commit(&app, &app.state::<Vault>()) {
+            // Das Hauptfenster zeichnet neu — sonst erschien ein Passkey
+            // oder Eintrag aus dem Browser erst nach einem Neustart der App.
+            Ok(_) => {
+                let _ = app.emit("browser-saved", ());
+            }
+            Err(err) => {
+                // Das ist kein Diagnosekram, sondern verlorene Arbeit — deshalb
+                // unabhängig von `WKEEPASS_BROWSER_LOG`.
+                eprintln!("[Browser] Nicht gespeichert: {err}");
+                let _ = app.emit("browser-save-failed", err);
+            }
         }
     });
 }
@@ -1174,12 +1202,19 @@ fn database_hash(app: &tauri::AppHandle) -> Result<String, Failure> {
     Ok(database_hash_locked(db))
 }
 
+/// Woran die Erweiterung diese Datenbank wiedererkennt.
+///
+/// Nur aus der Kennung des obersten Ordners — die ändert sich nie. Früher
+/// ging auch der Name der Datenbank ein. Wer ihn in den Einstellungen
+/// änderte (oder bekam ihn beim Zusammenführen von einem anderen Gerät),
+/// hatte für die Erweiterung plötzlich eine neue Datenbank: Sie bat erneut
+/// um „Verbinden" und führte danach denselben Browser mehrfach in ihrer
+/// Liste. KeePassXC rechnet den Wert ebenfalls nur aus festen Kennungen.
 fn database_hash_locked(db: &keepass::Database) -> String {
     use sha2::{Digest, Sha256};
 
     let mut hasher = Sha256::new();
     hasher.update(db.root().id().uuid().to_string().as_bytes());
-    hasher.update(db.meta.database_name.as_deref().unwrap_or_default().as_bytes());
 
     hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -1450,6 +1485,15 @@ fn unpark(app: &tauri::AppHandle, id: &str) {
     }
 }
 
+/// Lehnt alles ab, was gerade wartet — das Fenster wurde geschlossen.
+fn deny_all_pending() {
+    if let Ok(mut map) = pending().lock() {
+        for (_, parked) in map.drain() {
+            let _ = parked.tx.send(Decision { allow: false });
+        }
+    }
+}
+
 fn is_open(app: &tauri::AppHandle) -> bool {
     app.state::<Vault>().lock().is_ok_and(|v| v.db.is_some())
 }
@@ -1497,6 +1541,18 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
     // tippen kann.
     if let Ok(window) = &built {
         let _ = window.set_focus();
+
+        // Das Kreuz der Fensterleiste heißt „Abbrechen". Ohne das zerstörte
+        // es nur das Fenster: Die Anfrage wartete unbeantwortet weiter, der
+        // Browser auch, und die nächste Rückfrage fand kein Fenster vor.
+        let fenster = window.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                deny_all_pending();
+                let _ = fenster.hide();
+            }
+        });
     }
 
     // Klappt das nicht — etwa weil kein Fenstersystem da ist —, bleibt das
@@ -1702,9 +1758,13 @@ fn set_login(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
     node.set_unprotected(keepass::db::fields::USERNAME, login);
     node.set_protected(keepass::db::fields::PASSWORD, password);
 
+    let hash = database_hash_locked(db);
     persist(app);
     crate::favicon::im_hintergrund(app, vec![id.uuid().to_string()], false);
-    Ok(json!({ "count": 1, "entries": [] }))
+    // So wie KeePassXC antwortet. Auf `error: ""` kommt es an: Die
+    // Erweiterung meldet nur dann „gespeichert", sonst „ging nicht" — auch
+    // wenn der Eintrag längst in der Datenbank steht.
+    Ok(json!({ "count": null, "entries": null, "error": "", "hash": hash }))
 }
 
 /// Der gerade gültige TOTP-Code eines Eintrags.
@@ -2132,6 +2192,29 @@ mod tests {
         assert_eq!(innen, erwartet);
         assert_eq!(verpackt["nonce"].as_str().unwrap(), erwartet);
     }
+
+    #[test]
+    fn datenbank_kennung_bleibt_beim_umbenennen() {
+        let mut db = keepass::Database::new();
+        let vorher = database_hash_locked(&db);
+        db.meta.database_name = Some("Neuer Name".into());
+        assert_eq!(database_hash_locked(&db), vorher);
+    }
+
+    #[test]
+    fn bekannter_schluessel_wird_wiedererkannt() {
+        let mut db = keepass::Database::new();
+        db.meta.custom_data.insert(
+            format!("{ASSOCIATION_PREFIX}WKeePass JaLT6Q"),
+            keepass::db::CustomDataItem {
+                value: Some(keepass::db::CustomDataValue::String("schluessel".into())),
+                last_modification_time: None,
+            },
+        );
+        assert_eq!(association_with_key(&db, "schluessel").as_deref(), Some("WKeePass JaLT6Q"));
+        assert_eq!(association_with_key(&db, "anderer"), None);
+    }
+
 }
 
 /* =========================================================
