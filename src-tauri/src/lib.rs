@@ -173,6 +173,9 @@ pub fn run() {
                 webview::enable_camera(&window);
                 // Kein eingebautes Kontextmenü — wir haben ein eigenes.
                 webview::suppress_context_menu(&window);
+                // Vom Browser gestartet: unsichtbar, solange er verbunden ist.
+                #[cfg(desktop)]
+                keepass_extension::api::hauptfenster(&window);
 
                 // Aufs Fenster gezogene Dateien liest der Kern selbst ein und
                 // meldet der Oberfläche nur die Verweise — wie beim
@@ -238,6 +241,7 @@ pub fn run() {
             database::vault_security,
             database::vault_set_security,
             database::vault_lock,
+            system::started_for_others,
             database::vault_touch,
             database::vault_set_auto_lock,
             // Einträge

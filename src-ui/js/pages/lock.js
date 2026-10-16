@@ -845,6 +845,7 @@ export async function enterUnlocked() {
     state.pendingOtp = null;
     handleScan(uri);
   }
+
 }
 
 /**

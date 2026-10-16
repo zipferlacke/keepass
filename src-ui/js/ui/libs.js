@@ -106,8 +106,15 @@ export function closeHostDialog(element, ok = true) {
  * Attribut deshalb `data-sort-value` heißen, nicht `data-sortValue`.
  */
 export function tableview() {
-  return load('tableview/tableview.js');
+  return load('tableview/tableview.js').then(tv => {
+    // Pfeile und Symbole aus der Symbolschrift statt UTF-8-Zeichen — das
+    // Dreieck vor den Ordnern sah sonst aus wie das von <details>, das
+    // jeder Browser anders zeichnet.
+    if (!iconsSet) { iconsSet = true; tv.setIcons('msr'); }
+    return tv;
+  });
 }
+let iconsSet = false;
 
 /* =========================================================
    QR-Codes zeichnen

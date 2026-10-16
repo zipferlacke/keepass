@@ -22,6 +22,8 @@ export const state = {
   expanded: new Set(),
   /** Papierkorb unter der Liste aufgeklappt? */
   binOpen: false,
+  /** Ausgeschnittene Einträge (Kennungen), die auf das Einfügen warten. */
+  cut: [],
   pwned: new Map(),
   reused: new Set(),
   strength: new Map(),

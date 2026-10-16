@@ -214,6 +214,10 @@
         {
           "name": "Versicherungen.txt",
           "ref": "demo-3"
+        },
+        {
+          "name": "Grundriss.svg",
+          "ref": "demo-7"
         }
       ],
       "accessed": "2026-09-16T08:30:00Z"
@@ -438,7 +442,7 @@
     "demo-2": {
       "name": "Mietvertrag.md",
       "type": "text/markdown",
-      "data": "data:text/markdown;base64,IyBNaWV0dmVydHJhZyDigJQgV29obnVuZyBCZWlzcGllbHN0cmHDn2UgMTIKCioqVmVybWlldGVyOioqIE11c3RlciBJbW1vYmlsaWVuIEdtYkgKKipCZWdpbm46KiogMDEuMDQuMjAyNCDCtyAqKkthbHRtaWV0ZToqKiA4MjAg4oKsCgojIyBXaWNodGlnZSBQdW5rdGUKLSBLw7xuZGlndW5nc2ZyaXN0OiAzIE1vbmF0ZQotIEthdXRpb246IDIuNDYwIOKCrCAoTWlldGthdXRpb25za29udG8pCi0gU2Now7ZuaGVpdHNyZXBhcmF0dXJlbjoga2VpbmUgUGZsaWNodAoKPiDDnGJlcmdhYmVwcm90b2tvbGwgbGllZ3QgYWxzIEZvdG8gaW0gc2VsYmVuIEVpbnRyYWcuCg=="
+      "data": "data:text/markdown;base64,IyBNaWV0dmVydHJhZyDigJQgV29obnVuZyBCZWlzcGllbHN0cmHDn2UgMTIKCioqVmVybWlldGVyOioqIE11c3RlciBJbW1vYmlsaWVuIEdtYkgKKipCZWdpbm46KiogMDEuMDQuMjAyNCDCtyAqKkthbHRtaWV0ZToqKiA4MjAg4oKsCgojIyBXaWNodGlnZSBQdW5rdGUKLSBLw7xuZGlndW5nc2ZyaXN0OiAzIE1vbmF0ZQotIEthdXRpb246IDIuNDYwIOKCrCAoTWlldGthdXRpb25za29udG8pCi0gU2Now7ZuaGVpdHNyZXBhcmF0dXJlbjoga2VpbmUgUGZsaWNodAoKIyMgR3J1bmRyaXNzCiFbR3J1bmRyaXNzIGRlciBXb2hudW5nXShHcnVuZHJpc3Muc3ZnKQoKPiA2NyBtwrIsIDIgWmltbWVyLCBLw7xjaGUsIEJhZCDigJQgw5xiZXJnYWJlcHJvdG9rb2xsIGxpZWd0IGltIHNlbGJlbiBFaW50cmFnLgo="
     },
     "demo-3": {
       "name": "Versicherungen.txt",
@@ -459,6 +463,11 @@
       "name": "Gehaltsabrechnung-August.txt",
       "type": "text/plain",
       "data": "data:text/plain;base64,R2VoYWx0c2FicmVjaG51bmcgQXVndXN0IDIwMjYgKEJlaXNwaWVsZGF0ZW4pCgpCcnV0dG86IDQuMjAwLDAwIOKCrApOZXR0bzogMi43MDUsMTMg4oKsCkF1c3phaGx1bmc6IDI5LjA4LjIwMjYK"
+    },
+    "demo-7": {
+      "name": "Grundriss.svg",
+      "type": "image/svg+xml",
+      "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgNDgwIiB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ4MCI+CjxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNDgwIiByeD0iMjQiIGZpbGw9IiNmNGY4ZjYiLz4KPGcgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjMWQzYjJlIiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgo8cmVjdCB4PSI0MCIgeT0iNDAiIHdpZHRoPSI0MzAiIGhlaWdodD0iMjUwIi8+CjxyZWN0IHg9IjQ3MCIgeT0iNDAiIHdpZHRoPSIyOTAiIGhlaWdodD0iMTcwIi8+CjxyZWN0IHg9IjQ3MCIgeT0iMjEwIiB3aWR0aD0iMjkwIiBoZWlnaHQ9IjIzMCIvPgo8cmVjdCB4PSI0MCIgeT0iMjkwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIvPgo8cmVjdCB4PSIyNDAiIHk9IjI5MCIgd2lkdGg9IjIzMCIgaGVpZ2h0PSIxNTAiLz4KPC9nPgo8ZyBzdHJva2U9IiNmNGY4ZjYiIHN0cm9rZS13aWR0aD0iMTAiPgo8bGluZSB4MT0iMzAwIiB5MT0iMjkwIiB4Mj0iMzYwIiB5Mj0iMjkwIi8+PGxpbmUgeDE9IjQ3MCIgeTE9IjExMCIgeDI9IjQ3MCIgeTI9IjE3MCIvPgo8bGluZSB4MT0iNDcwIiB5MT0iMzAwIiB4Mj0iNDcwIiB5Mj0iMzYwIi8+PGxpbmUgeDE9IjI0MCIgeTE9IjM0MCIgeDI9IjI0MCIgeTI9IjQwMCIvPgo8bGluZSB4MT0iNTYwIiB5MT0iNDQwIiB4Mj0iNjQwIiB5Mj0iNDQwIi8+CjwvZz4KPGcgZmlsbD0iIzI2QTI2OSIgb3BhY2l0eT0iMC4xOCI+PHJlY3QgeD0iNDQiIHk9IjQ0IiB3aWR0aD0iNDIyIiBoZWlnaHQ9IjI0MiIvPjwvZz4KPGcgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZpbGw9IiMxZDNiMmUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPgo8dGV4dCB4PSIyNTUiIHk9IjE2MCIgZm9udC1zaXplPSIzMCIgZm9udC13ZWlnaHQ9IjcwMCI+V29obnppbW1lcjwvdGV4dD48dGV4dCB4PSIyNTUiIHk9IjE5NiIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzViN2E2YiI+MjggbcKyPC90ZXh0Pgo8dGV4dCB4PSI2MTUiIHk9IjEyMCIgZm9udC1zaXplPSIyNiIgZm9udC13ZWlnaHQ9IjcwMCI+U2NobGFmemltbWVyPC90ZXh0Pjx0ZXh0IHg9IjYxNSIgeT0iMTUyIiBmb250LXNpemU9IjE4IiBmaWxsPSIjNWI3YTZiIj4xNCBtwrI8L3RleHQ+Cjx0ZXh0IHg9IjYxNSIgeT0iMzIwIiBmb250LXNpemU9IjI2IiBmb250LXdlaWdodD0iNzAwIj5Lw7xjaGU8L3RleHQ+PHRleHQgeD0iNjE1IiB5PSIzNTIiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM1YjdhNmIiPjExIG3CsjwvdGV4dD4KPHRleHQgeD0iMTQwIiB5PSIzNzAiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSI3MDAiPkJhZDwvdGV4dD48dGV4dCB4PSIxNDAiIHk9IjQwMCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzViN2E2YiI+NiBtwrI8L3RleHQ+Cjx0ZXh0IHg9IjM1NSIgeT0iMzcwIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iNzAwIj5GbHVyPC90ZXh0Pjx0ZXh0IHg9IjM1NSIgeT0iNDAwIiBmb250LXNpemU9IjE4IiBmaWxsPSIjNWI3YTZiIj44IG3CsjwvdGV4dD4KPC9nPgo8L3N2Zz4K"
     }
   }
 }

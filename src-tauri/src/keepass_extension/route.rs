@@ -621,6 +621,19 @@ pub fn started_by_browser() -> bool {
     })
 }
 
+/// Der Schalter, mit dem das Sprachrohr die Anwendung startet.
+///
+/// Wer WKeePass nur deshalb startet, weil der Browser fragt, will kein
+/// Fenster sehen: Rückfragen und Entsperren laufen über das kleine Fenster
+/// (`api.rs`). Das Hauptfenster bleibt dann zu, bis man WKeePass selbst
+/// öffnet; geht der letzte Browser, geht auch die Anwendung.
+pub const HINTERGRUND: &str = "--hintergrund";
+
+/// Lief dieser Start über das Sprachrohr?
+pub fn im_hintergrund() -> bool {
+    std::env::args().skip(1).any(|arg| arg == HINTERGRUND)
+}
+
 /// Wie lange nach einem selbst gestarteten Fenster gewartet wird.
 const STARTUP_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
 
@@ -685,11 +698,13 @@ fn start_app_and_wait(socket: &Path) -> Option<std::os::unix::net::UnixStream> {
 
     let program = program_path().ok()?;
 
-    // Ohne Argumente — sonst hielte sich die neue Ausgabe selbst für ein
-    // Sprachrohr und beide warteten aufeinander. Und ohne die Leitungen des
-    // Browsers: Erbte das Fenster stdin/stdout, hinge der Browser an einem
-    // Programm, das nie mit ihm spricht.
+    // Ohne die Argumente des Browsers — sonst hielte sich die neue Ausgabe
+    // selbst für ein Sprachrohr und beide warteten aufeinander. Nur der
+    // Schalter für den Hintergrund. Und ohne die Leitungen des Browsers:
+    // Erbte das Fenster stdin/stdout, hinge der Browser an einem Programm,
+    // das nie mit ihm spricht.
     std::process::Command::new(program)
+        .arg(HINTERGRUND)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -844,7 +859,7 @@ async fn connect_anywhere() -> Option<tokio::net::windows::named_pipe::NamedPipe
     None
 }
 
-/// Startet das Fenster, losgelöst vom Browser.
+/// Startet die Anwendung im Hintergrund, losgelöst vom Browser.
 ///
 /// Chrome legt seine Native-Messaging-Programme in ein Job-Objekt und
 /// beendet beim Trennen alles darin — auch ein Fenster, das wir daraus
@@ -861,6 +876,7 @@ fn spawn_app() -> Option<()> {
     let program = program_path().ok()?;
     let start = |flags: u32| {
         Command::new(&program)
+            .arg(HINTERGRUND)
             .creation_flags(flags)
             .stdin(Stdio::null())
             .stdout(Stdio::null())

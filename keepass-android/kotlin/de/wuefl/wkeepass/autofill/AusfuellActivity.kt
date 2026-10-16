@@ -32,6 +32,7 @@ import android.widget.Toast
 import de.wuefl.wkeepass.R
 import de.wuefl.wkeepass.kern.Kern
 import de.wuefl.wkeepass.sicherheit.Nachweisblatt
+import de.wuefl.wkeepass.system.Kaltstart
 import org.json.JSONObject
 
 /**
@@ -45,8 +46,8 @@ import org.json.JSONObject
  *   * „Anderen Eintrag wählen …" → die Auswahlliste mit Suche. Ein Eintrag,
  *     der noch nicht zur Seite passte, merkt sich dabei die App bzw. Seite.
  *   * Datenbank zu → hier entsperren, mit Biometrie, PIN oder
- *     Master-Passwort. Nur wenn der Kern gar nicht läuft, geht es nicht
- *     anders als über die App.
+ *     Master-Passwort. Läuft die App gar nicht, startet [Kaltstart] sie
+ *     kurz im Hintergrund, und es geht hier weiter.
  *
  * Was vor dem Einsetzen zu tun ist, entscheidet der Kern (Einstellung
  * „Vor dem Ausfüllen"): Kommt statt des Passworts `status: "nachweis"`,
@@ -83,13 +84,18 @@ class AusfuellActivity : Activity() {
         // Hauptfenster, das hier gar nicht steht.
         Kern.vordergrund(this)
 
+        bereit()
+    }
+
+    /** Sorgt dafür, dass die Datenbank offen ist, und macht dann weiter. */
+    private fun bereit() {
         Kern.imHintergrund({ Kern.status() }) { status ->
             when {
                 // Ohne laufenden Kern gibt es weder Einstellungen noch
-                // Schlüsselbund — dann hilft nur die App selbst.
-                Kern.aus(status) -> {
-                    Kern.appOeffnen(this)
-                    abbrechen()
+                // Schlüsselbund — die App kurz starten, dann hier weiter.
+                Kern.aus(status) -> Kaltstart.starten(this) { laeuft ->
+                    Kern.vordergrund(this)
+                    if (laeuft) bereit() else abbrechen()
                 }
                 Kern.gesperrt(status) -> Nachweisblatt.entsperren(this) { offen ->
                     if (offen) weiter() else abbrechen()
@@ -117,6 +123,17 @@ class AusfuellActivity : Activity() {
             val eintraege = (0 until (liste?.length() ?: 0)).map { liste!!.getJSONObject(it) }
             if (eintraege.isEmpty()) {
                 return@imHintergrund fehler("In der Datenbank gibt es keine Einträge mit Passwort.")
+            }
+
+            // Kam man über „entsperren", hat man noch kein Konto gesehen —
+            // bei offener Datenbank hätte Android es direkt angeboten. Passt
+            // genau eines, also gleich das; sonst die Liste, passende oben.
+            // Nur ein Code-Feld? Dann zählen, wie im Dienst, nur Einträge mit TOTP.
+            val passende = eintraege.filter {
+                it.optBoolean("passend") && (passwortId != null || it.optBoolean("totp"))
+            }
+            if (intent.getBooleanExtra(WKeePassAutofillService.EXTRA_NACH_ENTSPERREN, false) && passende.size == 1) {
+                return@imHintergrund einsetzen(passende[0].optString("id"), merken = false)
             }
             auswahl(eintraege)
         }
@@ -210,9 +227,9 @@ class AusfuellActivity : Activity() {
                         if (ok) einsetzen(id, merken) else abbrechen()
                     }
 
-                Kern.aus(zugang) -> {
-                    Kern.appOeffnen(this)
-                    abbrechen()
+                Kern.aus(zugang) -> Kaltstart.starten(this) { laeuft ->
+                    Kern.vordergrund(this)
+                    if (laeuft) einsetzen(id, merken) else abbrechen()
                 }
 
                 // Zwischendurch zugefallen — etwa durch die Untätigkeitssperre.

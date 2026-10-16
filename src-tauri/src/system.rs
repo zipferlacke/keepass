@@ -261,6 +261,32 @@ fn einrichtung(methode: &str, was: Option<&str>) -> Result<String, String> {
     })
 }
 
+/// Wurde die App nur gestartet, damit etwas anderes sie nutzt?
+///
+/// Am Rechner der Browser (`--hintergrund`, siehe `route.rs`), auf Android
+/// das Ausfüllen (`Kaltstart.kt`). Beide fragen selbst nach PIN oder
+/// Biometrie; die Oberfläche soll dann beim Start nicht auch noch fragen.
+/// Auf Android gilt die Auskunft einmal — danach ist es ein gewöhnlicher Start.
+#[tauri::command]
+pub fn started_for_others() -> bool {
+    #[cfg(desktop)]
+    {
+        crate::keepass_extension::route::im_hintergrund()
+    }
+    #[cfg(target_os = "android")]
+    {
+        crate::java::mit_java(|env, activity| {
+            let klasse = crate::java::klasse(env, activity, "de.wuefl.wkeepass.system.Kaltstart")?;
+            env.call_static_method(&klasse, "abholen", "()Z", &[])?.z()
+        })
+        .unwrap_or(false)
+    }
+    #[cfg(all(mobile, not(target_os = "android")))]
+    {
+        false
+    }
+}
+
 /// Öffnet eine Webadresse im Browser des Systems.
 ///
 /// Bewusst nur `http` und `https`: Eine Adresse kommt hier aus Einträgen und

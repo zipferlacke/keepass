@@ -288,7 +288,7 @@
         ],
         [
           "click",
-          "dialog[open] .file-row"
+          "dialog[open] .file-row[title^='Mietvertrag']"
         ],
         [
           "wait",

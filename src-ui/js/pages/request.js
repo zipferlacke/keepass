@@ -31,6 +31,7 @@
 import { invoke, listen } from '../core/platform.js';
 import { applyAppearance } from '../core/theme.js';
 import * as settings from '../data/settings.js';
+import { aufdeckbar } from '../ui/aufdecken.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
@@ -301,6 +302,14 @@ async function answer(allow) {
   } catch { /* Der Kern räumt selbst auf, wenn die Frist abläuft. */ }
 
   $('#request').hidden = true;
+
+  // Wartet noch eine Anfrage, kommt sie gleich dran. Vorher blieb das
+  // Fenster in dem Fall leer stehen — der Kern versteckt es erst, wenn
+  // nichts mehr wartet, und die nächste Anfrage wurde nie gezeigt.
+  try {
+    const naechste = await invoke('browser_pending');
+    if (naechste && !current) render(naechste);
+  } catch { /* dann eben nicht */ }
 }
 
 /* =========================================================
@@ -351,6 +360,10 @@ async function boot() {
   // es lebt also lange. Einstellungen und freigeschaltete Wege können sich
   // inzwischen im Hauptfenster geändert haben: vor jeder Anfrage neu lesen.
   await listen('browser-request', async ev => {
+    // Ist schon eine Anfrage zu sehen, wartet die neue, bis diese
+    // beantwortet ist (siehe answer). Sie zu ersetzen hieße, die erste
+    // unsichtbar weiterwarten zu lassen — und das Fenster ginge nie zu.
+    if (current) return;
     try { await settings.reloadSettings(); } catch { /* alter Stand */ }
     await ermittleMethoden();
     render(ev?.payload ?? {});
@@ -399,11 +412,11 @@ async function boot() {
   });
 
   $('#req-eye').addEventListener('click', () => {
-    const feld = $('#req-secret');
-    const sichtbar = feld.type === 'text';
-    feld.type = sichtbar ? 'password' : 'text';
+    const feld = aufdeckbar($('#req-secret'));
+    const sichtbar = feld.sichtbar;
+    feld.zeigen(!sichtbar);
     $('#req-eye').querySelector('.msr').textContent = sichtbar ? 'visibility' : 'visibility_off';
-    feld.focus();
+    feld.aktiv.focus();
   });
 
   $('#req-bio').addEventListener('click', async () => {

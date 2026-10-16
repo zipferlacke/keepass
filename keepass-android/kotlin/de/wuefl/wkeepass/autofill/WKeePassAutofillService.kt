@@ -84,7 +84,7 @@ class WKeePassAutofillService : AutofillService() {
         if (Kern.gesperrt(stand) || stand.has("fehler")) {
             // Gesperrt: eine Zeile, die zum Entsperren führt. Konten zeigen
             // ginge nicht — ohne offene Datenbank kennen wir keine.
-            antwort.addDataset(vorschlag(ids, zeile("${Kern.name(this)} entsperren", "Mit Biometrie, PIN oder Master-Passwort"), absicht(felder, paket, null)))
+            antwort.addDataset(vorschlag(ids, zeile("${Kern.name(this)} entsperren", "Mit Biometrie, PIN oder Master-Passwort"), absicht(felder, paket, null, nachEntsperren = true)))
         } else {
             val liste = stand.optJSONArray("eintraege")
             val passend = (0 until (liste?.length() ?: 0))
@@ -192,7 +192,7 @@ class WKeePassAutofillService : AutofillService() {
             setAuthentication(absicht.intentSender)
         }.build()
 
-    private fun absicht(felder: FeldFinder.Felder, paket: String, eintrag: String?): PendingIntent {
+    private fun absicht(felder: FeldFinder.Felder, paket: String, eintrag: String?, nachEntsperren: Boolean = false): PendingIntent {
         val weiter = Intent(this, AusfuellActivity::class.java).apply {
             putExtra(EXTRA_PAKET, paket)
             putExtra(EXTRA_WEB, felder.webAdresse)
@@ -200,12 +200,13 @@ class WKeePassAutofillService : AutofillService() {
             putExtra(EXTRA_PASSWORT_ID, felder.passwort)
             putExtra(EXTRA_CODE_ID, felder.code)
             putExtra(EXTRA_EINTRAG, eintrag)
+            putExtra(EXTRA_NACH_ENTSPERREN, nachEntsperren)
         }
         return PendingIntent.getActivity(
             this,
             // Je Vorschlag eine eigene Nummer — sonst überschreibt der
             // nächste die Extras des vorherigen.
-            (paket + felder.webAdresse + felder.ids.joinToString() + eintrag).hashCode(),
+            (paket + felder.webAdresse + felder.ids.joinToString() + eintrag + nachEntsperren).hashCode(),
             weiter,
             // MUTABLE, weil Android das Ergebnis in denselben Intent legt.
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
@@ -218,6 +219,8 @@ class WKeePassAutofillService : AutofillService() {
 
         const val EXTRA_CODE_ID = "de.wuefl.wkeepass.CODE_ID"
         const val EXTRA_EINTRAG = "de.wuefl.wkeepass.EINTRAG"
+        /** Die Zeile „entsperren": Danach passt oft genau ein Konto — das gleich einsetzen. */
+        const val EXTRA_NACH_ENTSPERREN = "de.wuefl.wkeepass.NACH_ENTSPERREN"
         const val EXTRA_PAKET = "de.wuefl.wkeepass.PAKET"
         const val EXTRA_WEB = "de.wuefl.wkeepass.WEB"
         const val EXTRA_BENUTZER_ID = "de.wuefl.wkeepass.BENUTZER_ID"

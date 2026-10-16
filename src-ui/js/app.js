@@ -5,6 +5,7 @@ import * as pick from './ui/multiselect.js';
 import { isTauri, isMobile, invoke, unlockMethods, listen } from './core/platform.js';
 import { banner, selectPicker } from './ui/libs.js';
 import { state, $, $$, esc } from './core/state.js';
+import { bindTasten } from './pages/tasten.js';
 import { seite, nachLaden, renderAll, refreshFromVault, syncFromFile, takeForeign } from './core/render.js';
 import { renderTotp } from './pages/totp.js';
 import { renderPasswords, renderSelectionBar, showContextMenu, closeContextMenu, autoRetitle } from './pages/entries.js';
@@ -151,7 +152,12 @@ async function boot() {
   // Ist die Datenbank an das Gerät gebunden (Windows Hello), wird gleich
   // gefragt — das ersetzt PIN und Master-Passwort. Nur beim Programmstart:
   // Nach einem Sperren von Hand soll nicht sofort wieder etwas aufgehen.
-  if (state.unlock.device && settings.get('database.current', null)) unlock({ method: 'device' });
+  //
+  // Und nicht, wenn uns jemand anderes gestartet hat — der Browser am
+  // Rechner oder das Ausfüllen am Handy. Die fragen selbst, in ihrem
+  // eigenen Fenster; eine zweite Abfrage aus der App käme obendrauf.
+  const fuerAndere = isTauri && await invoke('started_for_others').catch(() => false);
+  if (!fuerAndere && state.unlock.device && settings.get('database.current', null)) unlock({ method: 'device' });
 }
 
 /**
@@ -234,6 +240,14 @@ async function bindBrowserRequests() {
   // Die Erweiterung darf schreiben — verknüpfen, Einträge anlegen, Passkeys.
   // Der Kern schreibt das gleich zurück; klappt das nicht, wäre die Arbeit
   // beim nächsten Sperren weg. Das muss man erfahren.
+  // Was der Browser angelegt oder geändert hat — Einträge, Passkeys —,
+  // steht sofort in der Liste, nicht erst nach einem Neustart.
+  await listen('browser-saved', async () => {
+    if (state.locked) return;
+    await refreshFromVault();
+    renderAll({ ohne: ['einstellungen'] });
+  });
+
   await listen('browser-save-failed', ev => {
     banner(`Änderung aus dem Browser nicht gespeichert: ${ev?.payload ?? ''}`, 'error', 10000);
   });
@@ -270,6 +284,7 @@ function bindStaticEvents() {
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeContextMenu(); });
   window.addEventListener('scroll', closeContextMenu, true);
   $('#btn-add').addEventListener('click', startCreation);
+  bindTasten();
 
   let settingsTimer = null;
   settings.onSettingsChange(() => {

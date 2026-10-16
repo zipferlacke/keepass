@@ -16,8 +16,9 @@
 //! Dialog steht woanders, nämlich in der Activity des Dienstes.
 //!
 //! Läuft der Kern gar nicht (`"aus"`), geht das nicht: Ohne Tauri gibt es
-//! weder Einstellungen noch Schlüsselbund. Dann holt die Kotlin-Seite wie
-//! bisher die App nach vorn.
+//! weder Einstellungen noch Schlüsselbund. Dann startet die Kotlin-Seite die
+//! App kurz (`Kaltstart.kt`), schickt sie wieder nach hinten, sobald der Kern
+//! antwortet, und entsperrt danach im Blatt.
 //!
 //! # Vor dem Einsetzen
 //!

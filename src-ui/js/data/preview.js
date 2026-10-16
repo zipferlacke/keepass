@@ -3,6 +3,11 @@
  *
  * Unterstützt Bilder, reinen Text, Markdown und PDF. Alles wird lokal aus
  * dem gespeicherten Data-URL erzeugt; es geht nichts ins Netz.
+ *
+ * Markdown darf Bilder zeigen — aus demselben Eintrag, über den Dateinamen:
+ * `![Grundriss](Grundriss.svg)`. Eingebettete `data:image/…` gehen auch.
+ * Eine Adresse aus dem Netz wird nicht geladen (das verriete, wann und wo
+ * man die Notiz öffnet); dort steht der Bildtext.
  */
 
 const TEXT_EXTENSIONS = /\.(txt|md|markdown|json|xml|csv|log|ini|conf|yml|yaml|js|css|html|sh|py|rs|php|sql)$/i;
@@ -241,10 +246,34 @@ export function renderMarkdown(src) {
    ========================================================= */
 
 /**
+ * Setzt in gerendertem Markdown die Bilder ein: Ein Name, der zu einem
+ * Bildanhang desselben Eintrags passt, zeigt diesen. Alles andere außer
+ * eingebetteten Bildern wird durch den Bildtext ersetzt.
+ */
+function bilderEinsetzen(container, nachbarn) {
+  for (const img of container.querySelectorAll('img.md-img')) {
+    const src = img.getAttribute('src') ?? '';
+    let name = src.replace(/^\.\//, '');
+    try { name = decodeURIComponent(name); } catch { /* so lassen */ }
+
+    const anhang = nachbarn.find(n => n?.name === name && kindOf(n) === 'image');
+    if (anhang) { img.src = anhang.data; continue; }
+    if (/^data:image\//i.test(src)) continue;
+
+    const ersatz = document.createElement('em');
+    ersatz.className = 'md-img-fehlt';
+    ersatz.textContent = `[Bild: ${img.alt || name}]`;
+    img.replaceWith(ersatz);
+  }
+}
+
+/**
  * Baut die Vorschau in ein Zielelement. Gibt eine Aufräumfunktion zurück,
  * die erzeugte Blob-URLs wieder freigibt.
+ *
+ * `nachbarn` sind die übrigen Anhänge des Eintrags — für Bilder in Markdown.
  */
-export async function renderPreview(container, att) {
+export async function renderPreview(container, att, { nachbarn = [] } = {}) {
   const kind = kindOf(att);
   const cleanups = [];
 
@@ -267,6 +296,7 @@ export async function renderPreview(container, att) {
       case 'markdown': {
         const text = await asText(att);
         container.innerHTML = `<div class="preview-markdown">${renderMarkdown(text)}</div>`;
+        bilderEinsetzen(container, nachbarn);
         break;
       }
 

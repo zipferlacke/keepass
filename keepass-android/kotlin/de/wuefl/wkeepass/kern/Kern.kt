@@ -22,8 +22,8 @@ import org.json.JSONObject
  * Android kann unseren Dienst starten, ohne dass die App je lief. Dann ist
  * die Rust-Bibliothek noch nicht im Prozess, und der erste Aufruf endete
  * mit `UnsatisfiedLinkError`. Laden ist harmlos, wenn sie schon da ist.
- * Der Kern antwortet dann mit `status: "aus"` — die Datenbank ist ja zu —,
- * und wir holen die App nach vorn.
+ * Der Kern antwortet dann mit `status: "aus"`, und
+ * [de.wuefl.wkeepass.system.Kaltstart] startet die App kurz.
  */
 object Kern {
 
@@ -97,8 +97,12 @@ object Kern {
     fun aus(antwort: JSONObject): Boolean = antwort.optString("status") == "aus"
 
     /**
-     * Holt die App nach vorn, damit der Nutzer entsperrt. Danach tippt er
-     * das Feld erneut an — dann ist die Datenbank offen.
+     * Holt die App nach vorn — wenn sich etwas nur dort erledigen lässt,
+     * etwa weil noch keine Datenbank ausgewählt ist. Die App bleibt offen;
+     * danach das Feld erneut antippen.
+     *
+     * Läuft die App bloß nicht, ist das nicht der Weg: Dafür startet
+     * [de.wuefl.wkeepass.system.Kaltstart] sie nur kurz.
      */
     fun appOeffnen(context: Context) {
         val start = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
@@ -106,7 +110,7 @@ object Kern {
         context.startActivity(start)
         Toast.makeText(
             context,
-            "${name(context)} entsperren, dann erneut antippen.",
+            "In ${name(context)} erledigen — dann erneut antippen.",
             Toast.LENGTH_LONG,
         ).show()
     }
