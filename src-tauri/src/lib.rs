@@ -241,6 +241,7 @@ pub fn run() {
             database::vault_security,
             database::vault_set_security,
             database::vault_lock,
+            system::started_for_others,
             database::vault_touch,
             database::vault_set_auto_lock,
             // Einträge

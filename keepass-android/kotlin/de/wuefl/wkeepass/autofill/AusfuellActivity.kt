@@ -124,6 +124,17 @@ class AusfuellActivity : Activity() {
             if (eintraege.isEmpty()) {
                 return@imHintergrund fehler("In der Datenbank gibt es keine Einträge mit Passwort.")
             }
+
+            // Kam man über „entsperren", hat man noch kein Konto gesehen —
+            // bei offener Datenbank hätte Android es direkt angeboten. Passt
+            // genau eines, also gleich das; sonst die Liste, passende oben.
+            // Nur ein Code-Feld? Dann zählen, wie im Dienst, nur Einträge mit TOTP.
+            val passende = eintraege.filter {
+                it.optBoolean("passend") && (passwortId != null || it.optBoolean("totp"))
+            }
+            if (intent.getBooleanExtra(WKeePassAutofillService.EXTRA_NACH_ENTSPERREN, false) && passende.size == 1) {
+                return@imHintergrund einsetzen(passende[0].optString("id"), merken = false)
+            }
             auswahl(eintraege)
         }
     }

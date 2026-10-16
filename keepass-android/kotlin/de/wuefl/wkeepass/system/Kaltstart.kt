@@ -27,6 +27,22 @@ import de.wuefl.wkeepass.kern.Kern
  */
 object Kaltstart {
 
+    /**
+     * Ob die App gerade nur für das Blatt gestartet wurde. Die Oberfläche
+     * fragt beim Start einmal nach (`started_for_others` in `system.rs`) und
+     * lässt dann das automatische Entsperren mit Biometrie weg — sonst
+     * käme die Abfrage doppelt: aus der App und aus dem Blatt.
+     */
+    @Volatile private var fuerBlatt = false
+
+    /** Einmal abholen — danach ist es ein gewöhnlicher Start. */
+    @JvmStatic
+    fun abholen(): Boolean {
+        val war = fuerBlatt
+        fuerBlatt = false
+        return war
+    }
+
     /** So lange darf der Start dauern. */
     private const val FRIST_MS = 20_000L
     private const val TAKT_MS = 100L
@@ -82,6 +98,7 @@ object Kaltstart {
         app.registerActivityLifecycleCallbacks(beobachter)
 
         start.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        fuerBlatt = true
         blatt.startActivity(start)
         Toast.makeText(blatt, "${Kern.name(blatt)} startet …", Toast.LENGTH_SHORT).show()
 

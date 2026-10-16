@@ -152,7 +152,12 @@ async function boot() {
   // Ist die Datenbank an das Gerät gebunden (Windows Hello), wird gleich
   // gefragt — das ersetzt PIN und Master-Passwort. Nur beim Programmstart:
   // Nach einem Sperren von Hand soll nicht sofort wieder etwas aufgehen.
-  if (state.unlock.device && settings.get('database.current', null)) unlock({ method: 'device' });
+  //
+  // Und nicht, wenn uns jemand anderes gestartet hat — der Browser am
+  // Rechner oder das Ausfüllen am Handy. Die fragen selbst, in ihrem
+  // eigenen Fenster; eine zweite Abfrage aus der App käme obendrauf.
+  const fuerAndere = isTauri && await invoke('started_for_others').catch(() => false);
+  if (!fuerAndere && state.unlock.device && settings.get('database.current', null)) unlock({ method: 'device' });
 }
 
 /**

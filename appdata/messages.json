@@ -14,7 +14,7 @@
                 "Tastatur: Strg+N neuer Eintrag, Strg+F Suche, einfach lostippen sucht, Pfeile durch die Liste, Enter öffnet oder klappt um (mit Umschalt samt Unterordnern), Entf löscht",
                 "Einträge ausschneiden und in einem anderen Ordner einfügen – Strg+X / Strg+V oder über das Kontextmenü",
                 "Aufgedeckte Passwörter und TOTP-Secrets sind echte Textfelder – am Handy lassen sie sich mit der Tastatur markieren und kopieren",
-                "Android: Läuft die App beim Ausfüllen nicht, startet sie nur kurz und geht gleich wieder nach hinten – entsperrt wird im Blatt über der App, aus der man kam, ohne erneutes Antippen",
+                "Android: Läuft die App beim Ausfüllen nicht, startet sie nur kurz und geht gleich wieder nach hinten – entsperrt wird im Blatt über der App, aus der man kam, ohne erneutes Antippen. Passt genau ein Konto, wird es danach gleich eingesetzt",
                 "Rechner: Startet der Browser WKeePass, läuft es ohne Hauptfenster im Hintergrund – Rückfragen und Entsperren im kleinen Fenster. Mit dem letzten Browser endet es; WKeePass selbst öffnen holt das Fenster",
                 "Etwas Luft unter dem Kopf, Suchfeld über die ganze Breite, Pfeile zum Aufklappen im selben Stil wie die übrigen Symbole",
                 "Fix: Die Browser-Erweiterung bat nach dem Umbenennen der Datenbank erneut um Verbinden und führte denselben Browser mehrfach",
