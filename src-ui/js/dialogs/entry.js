@@ -874,7 +874,7 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
     editor = null;
     showButtons();
     body().innerHTML = '<p class="empty-state">Wird geladen …</p>';
-    const release = await preview.renderPreview(body(), att);
+    const release = await preview.renderPreview(body(), att, { nachbarn: state.dialogAttachments ?? [] });
     if (closed) release(); else cleanup = release;
   };
 
