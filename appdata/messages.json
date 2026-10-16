@@ -9,17 +9,19 @@
     "changelog":[
         {
             "version":"1.1.1",
-            "date":"2026-10-09",
+            "date":"2026-10-16",
             "changes":[
                 "Tastatur: Strg+N neuer Eintrag, Strg+F Suche, einfach lostippen sucht, Pfeile durch die Liste, Enter öffnet oder klappt um (mit Umschalt samt Unterordnern), Entf löscht",
                 "Einträge ausschneiden und in einem anderen Ordner einfügen – Strg+X / Strg+V oder über das Kontextmenü",
                 "Aufgedeckte Passwörter und TOTP-Secrets sind echte Textfelder – am Handy lassen sie sich mit der Tastatur markieren und kopieren",
-                "Android: Muss die App zum Ausfüllen erst entsperrt werden, geht es danach von selbst zurück in die App, aus der man kam",
+                "Android: Läuft die App beim Ausfüllen nicht, startet sie nur kurz und geht gleich wieder nach hinten – entsperrt wird im Blatt über der App, aus der man kam, ohne erneutes Antippen",
+                "Rechner: Startet der Browser WKeePass, läuft es ohne Hauptfenster im Hintergrund – Rückfragen und Entsperren im kleinen Fenster. Mit dem letzten Browser endet es; WKeePass selbst öffnen holt das Fenster",
                 "Etwas Luft unter dem Kopf, Suchfeld über die ganze Breite, Pfeile zum Aufklappen im selben Stil wie die übrigen Symbole",
                 "Fix: Die Browser-Erweiterung bat nach dem Umbenennen der Datenbank erneut um Verbinden und führte denselben Browser mehrfach",
                 "Fix: Bestätigungsfenster blieben leer stehen oder ließen sich nicht schließen; das Fensterkreuz bricht jetzt ab",
                 "Fix: Neue Zugangsdaten aus dem Browser meldeten „ging nicht“, obwohl sie gespeichert waren",
-                "Fix: Passkeys und Einträge aus dem Browser erschienen erst nach einem Neustart der App"
+                "Fix: Passkeys und Einträge aus dem Browser erschienen erst nach einem Neustart der App",
+                "Fix: KeePassium (iOS) konnte Datenbanken mit gelöschten Einträgen nicht öffnen („Unerwarteter Tag: deletion_time“)"
             ]
         },
         {
