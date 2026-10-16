@@ -19,6 +19,7 @@ import androidx.credentials.provider.PendingIntentHandler
 import de.wuefl.wkeepass.kern.Kern
 import de.wuefl.wkeepass.sicherheit.Bestaetigung
 import de.wuefl.wkeepass.sicherheit.Nachweisblatt
+import de.wuefl.wkeepass.system.Kaltstart
 import org.json.JSONObject
 import java.security.MessageDigest
 
@@ -75,9 +76,10 @@ class PasskeyActivity : Activity() {
     private fun bereit(sonst: () -> Unit, dann: () -> Unit) {
         Kern.imHintergrund({ Kern.status() }) { status ->
             when {
-                Kern.aus(status) -> {
-                    Kern.appOeffnen(this)
-                    sonst()
+                // Die App kurz starten, damit es einen Kern gibt — dann hier weiter.
+                Kern.aus(status) -> Kaltstart.starten(this) { laeuft ->
+                    Kern.vordergrund(this)
+                    if (laeuft) bereit(sonst, dann) else sonst()
                 }
                 Kern.gesperrt(status) -> Nachweisblatt.entsperren(this) { offen ->
                     if (offen) dann() else sonst()

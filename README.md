@@ -27,8 +27,8 @@ Platzhalter. Warum das so ist und wie die Teile zusammenspielen, steht in
 | Abgleich | dieselbe Datei auf mehreren Geräten, Zusammenführen Eintrag für Eintrag | `database.rs`, `storage.rs` |
 | Versionen | die letzten 20 Stände, jeder sagt, was er geändert hat; zurücknehmen | `versions.rs`, `dialogs/versions.js` |
 | Offline | Kopie jeder geöffneten Datei, falls die Cloud gerade nicht erreichbar ist | `offline.rs` |
-| Browser | Anbindung an die Erweiterung keepassxc-browser (Firefox, Chrome, Edge …) | `keepass_extension/`, `pages/request.js` |
-| Android | Autofill, Passkeys, Datenbank über die Dateiauswahl (Nextcloud, Drive); nach dem Entsperren zurück in die aufrufende App | `android_services.rs`, `keepass-android/` |
+| Browser | Anbindung an die Erweiterung keepassxc-browser (Firefox, Chrome, Edge …); startet der Browser WKeePass, läuft es ohne Hauptfenster im Hintergrund und endet mit dem letzten Browser | `keepass_extension/`, `pages/request.js` |
+| Android | Autofill, Passkeys, Datenbank über die Dateiauswahl (Nextcloud, Drive); läuft die App nicht, startet sie nur kurz und entsperrt wird im Blatt über der aufrufenden App | `android_services.rs`, `keepass-android/` |
 | Sicherheitscheck | schwache, mehrfach genutzte, abgelaufene und geleakte Passwörter (HIBP, k-Anonymität) | `pages/checkup.js`, `data/security.js` |
 | Import | 2FAS, Aegis, andOTP, Bitwarden, KeePass-XML, Proton Pass/Authenticator, CSV mit eigener Spaltenzuordnung | `data/import.js`, `dialogs/create.js` |
 | Website-Icons und -Namen | einmal holen, dann in der Datenbank | `favicon.rs`, `web.rs` |

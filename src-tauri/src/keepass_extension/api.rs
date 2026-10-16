@@ -154,9 +154,92 @@ fn register(notify: Notify) -> u64 {
 }
 
 fn unregister(id: u64) {
-    if let Ok(mut map) = listeners().lock() {
-        map.remove(&id);
+    let leer = match listeners().lock() {
+        Ok(mut map) => {
+            map.remove(&id);
+            map.is_empty()
+        }
+        Err(_) => false,
+    };
+    #[cfg(desktop)]
+    if leer {
+        nach_dem_letzten_browser();
     }
+    #[cfg(not(desktop))]
+    let _ = leer;
+}
+
+/// Ist gerade ein Browser verbunden?
+#[cfg(desktop)]
+fn browser_verbunden() -> bool {
+    listeners().lock().map(|map| !map.is_empty()).unwrap_or(true)
+}
+
+/* ---------------------------------------------------------
+   Im Hintergrund
+   ---------------------------------------------------------
+   Startet der Browser WKeePass (`route::HINTERGRUND`), bleibt das
+   Hauptfenster zu — Rückfragen und Entsperren laufen über das kleine
+   Fenster. Die Anwendung lebt dann so lange wie der Browser.
+
+   Dieselbe Regel gilt, wenn man das Hauptfenster schließt, während ein
+   Browser verbunden ist: Es verschwindet nur, die Anbindung bleibt. Erst
+   wenn der letzte Browser geht und kein Hauptfenster offen ist, endet die
+   Anwendung. Öffnet man WKeePass in der Zeit selbst, kommt das Fenster
+   nach vorn (Single-Instance in `lib.rs`), und es gilt wieder: Die
+   Anwendung lebt, bis man es schließt.
+   --------------------------------------------------------- */
+
+/// Wie lange nach dem letzten Browser noch gewartet wird.
+///
+/// Die Erweiterung trennt und verbindet sich auch ohne dass der Browser
+/// geht — beim Neuladen oder nach einem Fehler. Das soll WKeePass nicht
+/// jedes Mal beenden und gleich wieder starten.
+#[cfg(desktop)]
+const NACHLAUF: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Der letzte Browser ist weg: Steht kein Hauptfenster offen, gehen wir.
+#[cfg(desktop)]
+fn nach_dem_letzten_browser() {
+    std::thread::spawn(|| {
+        std::thread::sleep(NACHLAUF);
+        if browser_verbunden() {
+            return;
+        }
+        let Some(app) = crate::app_handle() else { return };
+        let sichtbar = app
+            .get_webview_window("main")
+            .is_some_and(|w| w.is_visible().unwrap_or(true));
+        if !sichtbar {
+            app.exit(0);
+        }
+    });
+}
+
+/// Richtet das Hauptfenster für den Hintergrund ein.
+///
+/// Beim Start über den Browser bleibt es unsichtbar. Schließen versteckt es
+/// nur, solange ein Browser verbunden ist — sonst endet die Anwendung, auch
+/// wenn noch ein verstecktes Rückfragefenster existiert (das hielte sie
+/// sonst unsichtbar am Leben).
+#[cfg(desktop)]
+pub fn hauptfenster(window: &tauri::WebviewWindow) {
+    if route::im_hintergrund() {
+        let _ = window.hide();
+    }
+
+    let app = window.app_handle().clone();
+    let fenster = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if browser_verbunden() {
+                api.prevent_close();
+                let _ = fenster.hide();
+            } else {
+                app.exit(0);
+            }
+        }
+    });
 }
 
 /// Sagt allen verbundenen Browsern, dass die Datenbank zu oder offen ist.
