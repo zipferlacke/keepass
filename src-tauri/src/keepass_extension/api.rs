@@ -163,7 +163,7 @@ fn unregister(id: u64) {
     };
     #[cfg(desktop)]
     if leer {
-        nach_dem_letzten_browser();
+        ohne_browser_beenden(NACHLAUF);
     }
     #[cfg(not(desktop))]
     let _ = leer;
@@ -198,11 +198,18 @@ fn browser_verbunden() -> bool {
 #[cfg(desktop)]
 const NACHLAUF: std::time::Duration = std::time::Duration::from_secs(10);
 
-/// Der letzte Browser ist weg: Steht kein Hauptfenster offen, gehen wir.
+/// So lange darf der Browser nach einem Start im Hintergrund brauchen, bis
+/// er sich meldet. Kommt er nie — etwa weil der Kanal nicht belegbar war —,
+/// stünde sonst eine unsichtbare Anwendung herum, die niemand beendet.
 #[cfg(desktop)]
-fn nach_dem_letzten_browser() {
-    std::thread::spawn(|| {
-        std::thread::sleep(NACHLAUF);
+const ERSTER_BROWSER: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Nach `warten`: Ist kein Browser verbunden und kein Hauptfenster offen,
+/// gehen wir.
+#[cfg(desktop)]
+fn ohne_browser_beenden(warten: std::time::Duration) {
+    std::thread::spawn(move || {
+        std::thread::sleep(warten);
         if browser_verbunden() {
             return;
         }
@@ -226,6 +233,7 @@ fn nach_dem_letzten_browser() {
 pub fn hauptfenster(window: &tauri::WebviewWindow) {
     if route::im_hintergrund() {
         let _ = window.hide();
+        ohne_browser_beenden(ERSTER_BROWSER);
     }
 
     let app = window.app_handle().clone();

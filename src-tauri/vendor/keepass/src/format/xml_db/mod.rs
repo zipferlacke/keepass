@@ -299,7 +299,12 @@ pub struct DeletedObject {
     #[serde(rename = "UUID")]
     uuid: UUID,
 
-    #[serde(default, with = "cs_opt_string")]
+    // KDBX schreibt `DeletionTime`. Ohne den Namen hier stand
+    // `<deletion_time>` in der Datei — KeePassium bricht daran ab, und die
+    // Löschzeit aus Dateien anderer Programme ging beim Lesen verloren.
+    // Der alte Name bleibt lesbar, damit schon so geschriebene Dateien
+    // ihre Löschzeiten behalten.
+    #[serde(default, rename = "DeletionTime", alias = "deletion_time", with = "cs_opt_string")]
     deletion_time: Option<Timestamp>,
 }
 
@@ -367,5 +372,44 @@ mod normalise_integration {
         assert_eq!(entry.get_title(), Some("Mit Anhang"));
         assert_eq!(entry.get_username(), Some("anna"));
         assert_eq!(entry.get_url(), Some("example.com"));
+    }
+    /// Gelöschte Objekte: `DeletionTime` wie bei KeePassXC und KeePassium,
+    /// dazu `deletion_time`, wie es ältere Fassungen hier geschrieben haben.
+    fn mit_geloeschtem(tag: &str) -> crate::db::Database {
+        let xml = format!(
+            r#"<?xml version="1.0" encoding="utf-8"?>
+<KeePassFile>
+  <Meta><Generator>Test</Generator></Meta>
+  <Root>
+    <Group><UUID>hFYlXBl1TEuJqPzOAmYSTQ==</UUID><Name>Wurzel</Name></Group>
+    <DeletedObjects>
+      <DeletedObject><UUID>3nHaEJ6dTHqDkbYWzFMhLg==</UUID><{tag}>2026-10-01T12:00:00Z</{tag}></DeletedObject>
+    </DeletedObjects>
+  </Root>
+</KeePassFile>"#
+        );
+        let mut cipher = InnerCipherConfig::Plain.get_cipher(&[]).unwrap();
+        parse_xml(xml.as_bytes(), &[], &mut *cipher).expect("muss lesbar sein")
+    }
+
+    #[test]
+    fn liest_loeschzeit_beider_schreibweisen() {
+        for tag in ["DeletionTime", "deletion_time"] {
+            let db = mit_geloeschtem(tag);
+            let zeiten: Vec<_> = db.deleted_objects.values().collect();
+            assert_eq!(zeiten.len(), 1, "{tag}");
+            assert!(zeiten[0].is_some(), "Löschzeit aus <{tag}> verloren");
+        }
+    }
+
+    #[cfg(feature = "save_kdbx4")]
+    #[test]
+    fn schreibt_deletion_time() {
+        let db = mit_geloeschtem("deletion_time");
+        let mut cipher = InnerCipherConfig::Plain.get_cipher(&[]).unwrap();
+        let (xml, _) = super::to_xml(&db, &mut *cipher).unwrap();
+        let xml = String::from_utf8(xml).unwrap();
+        assert!(xml.contains("<DeletionTime>"), "{xml}");
+        assert!(!xml.contains("deletion_time"), "{xml}");
     }
 }
