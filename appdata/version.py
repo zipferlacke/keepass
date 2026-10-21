@@ -69,6 +69,8 @@ def metainfo(version, date, check):
 
 
 NATIV = 'appdata/linux/de.wuefl.wkeepass.metainfo.xml'
+# So nennt Tauri das RPM- und DEB-Paket: der Produktname in Kebab-Schreibweise.
+PAKET = 'w-kee-pass'
 
 
 def nativ(check):
@@ -79,7 +81,12 @@ def nativ(check):
     soll = (quelle
             .replace('<launchable type="desktop-id">de.wuefl.wkeepass.desktop</launchable>',
                      '<launchable type="desktop-id">WKeePass.desktop</launchable>')
-            .replace('<icon type="stock">de.wuefl.wkeepass</icon>', '<icon type="stock">wkeepass</icon>'))
+            .replace('<icon type="stock">de.wuefl.wkeepass</icon>',
+                     '<icon type="stock">wkeepass</icon>\n'
+                     # GNOME Software liest Metainfo nur aus Katalogen; bei einem
+                     # einzeln installierten Paket verbindet erst der Paketname die
+                     # App mit dem Paket. Tauri bildet ihn aus „WKeePass“.
+                     f'  <pkgname>{PAKET}</pkgname>'))
     ziel = ROOT / NATIV
     if ziel.exists() and ziel.read_text(encoding='utf-8') == soll:
         return None

@@ -27,6 +27,7 @@
   </description>
   <launchable type="desktop-id">WKeePass.desktop</launchable>
   <icon type="stock">wkeepass</icon>
+  <pkgname>w-kee-pass</pkgname>
   <url type="homepage">https://wuefl.de/wkeepass/</url>
   <url type="bugtracker">https://github.com/zipferlacke/keepass/issues</url>
   <url type="vcs-browser">https://github.com/zipferlacke/keepass</url>
