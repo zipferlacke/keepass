@@ -10,11 +10,62 @@
   </developer>
   <description>
     <p>
-      WKeePass öffnet und schreibt KDBX-Dateien. Alle Klartextwerte bleiben
-      im Kern der Anwendung; die Oberfläche bekommt nur Verweise darauf.
+      WKeePass ist ein Passwortmanager auf Basis des KeePass-Formats. Die Zugangsdaten liegen
+      verschlüsselt in einer Datei, die Ihnen gehört – kein Konto, kein Abo, keine Werbung.
+    </p>
+    <ul>
+      <li>Passwörter in Ordnern, mit Suche, Generator und Stärke-Anzeige</li>
+      <li>2FA-Codes (TOTP) und Passkeys direkt beim Eintrag</li>
+      <li>Ausfüllen im Browser über die Erweiterung KeePassXC-Browser</li>
+      <li>Verschlüsselte Dateiablage mit Vorschau</li>
+      <li>Abgleich über Nextcloud, Dropbox oder jeden anderen Cloud-Ordner – gleichzeitige Änderungen werden zusammengeführt</li>
+      <li>Liest und schreibt KDBX 4.1 – dieselbe Datei öffnen KeePassXC, KeePassDX und Strongbox</li>
+    </ul>
+    <p>
+      Die Passwörter verarbeitet der Kern der App; die Oberfläche sieht nie den Klartext.
     </p>
   </description>
   <launchable type="desktop-id">de.wuefl.wkeepass.desktop</launchable>
+  <icon type="stock">de.wuefl.wkeepass</icon>
+  <url type="homepage">https://wuefl.de/wkeepass/</url>
+  <url type="bugtracker">https://github.com/zipferlacke/keepass/issues</url>
+  <url type="vcs-browser">https://github.com/zipferlacke/keepass</url>
+  <categories>
+    <category>Utility</category>
+  </categories>
+  <keywords>
+    <keyword>KeePass</keyword>
+    <keyword>Passwort</keyword>
+    <keyword>Password</keyword>
+    <keyword>TOTP</keyword>
+    <keyword>Passkey</keyword>
+  </keywords>
+  <branding>
+    <color type="primary" scheme_preference="light">#a4e3c4</color>
+    <color type="primary" scheme_preference="dark">#1d5c3e</color>
+  </branding>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/zipferlacke/keepass/main/appdata/werbung/breit-2-uebersicht.png</image>
+      <caption>Übersicht mit den zuletzt genutzten Einträgen</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/zipferlacke/keepass/main/appdata/werbung/breit-3-passwoerter.png</image>
+      <caption>Passwörter in Ordnern, mit Suche und Stärke-Anzeige</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/zipferlacke/keepass/main/appdata/werbung/breit-4-dateien.png</image>
+      <caption>Verschlüsselte Dateiablage</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/zipferlacke/keepass/main/appdata/werbung/breit-6-vorschau.png</image>
+      <caption>Vorschau von Anhängen – Markdown mit Bildern</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/zipferlacke/keepass/main/appdata/werbung/breit-8-geraete.png</image>
+      <caption>Dieselbe Datenbank auf Rechner und Handy</caption>
+    </screenshot>
+  </screenshots>
   <content_rating type="oars-1.1"/>
   <releases>
     <release version="1.2.1" date="2026-10-21"/>

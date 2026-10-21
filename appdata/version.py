@@ -11,6 +11,9 @@ Ziele:
     src-tauri/Cargo.toml                      Version des Rust-Pakets
     src-tauri/Cargo.lock                      dieselbe, damit Cargo nichts nachträgt
     flatpak/de.wuefl.wkeepass.metainfo.xml    oberste <release> mit Datum aus dem Changelog
+    appdata/linux/de.wuefl.wkeepass.metainfo.xml
+                                              dieselbe für RPM und DEB – Tauri installiert dort
+                                              WKeePass.desktop und das Symbol „wkeepass“
 
 git-release ruft das Skript mit --pruefen vor dem Tag auf, wenn es da ist.
 Vorbild ist appdata/version.py in WMap; ohne Service Worker entfällt dort
@@ -65,6 +68,27 @@ def metainfo(version, date, check):
     return meldung
 
 
+NATIV = 'appdata/linux/de.wuefl.wkeepass.metainfo.xml'
+
+
+def nativ(check):
+    """Die Metainfo fürs RPM/DEB: wie die des Flatpak, nur mit den Namen,
+    unter denen Tauri Desktop-Datei und Symbol installiert. Ohne sie zeigen
+    Software-Zentren kein Symbol, keine Beschreibung und keine Bilder."""
+    quelle = (ROOT / METAINFO).read_text(encoding='utf-8')
+    soll = (quelle
+            .replace('<launchable type="desktop-id">de.wuefl.wkeepass.desktop</launchable>',
+                     '<launchable type="desktop-id">WKeePass.desktop</launchable>')
+            .replace('<icon type="stock">de.wuefl.wkeepass</icon>', '<icon type="stock">wkeepass</icon>'))
+    ziel = ROOT / NATIV
+    if ziel.exists() and ziel.read_text(encoding='utf-8') == soll:
+        return None
+    if not check:
+        ziel.parent.mkdir(parents=True, exist_ok=True)
+        ziel.write_text(soll, encoding='utf-8')
+    return f'{NATIV}: aus {METAINFO} erneuert'
+
+
 def main():
     check = '--pruefen' in sys.argv[1:]
     version, date = target()
@@ -85,6 +109,12 @@ def main():
     meta = metainfo(version, date, check)
     if meta:
         off.append(meta)
+    # Nach der Flatpak-Fassung, damit eine neue <release> gleich mitkommt.
+    # Beim Prüfen zählt der Stand nach dem Eintragen – den gibt es dort nicht.
+    if not (check and meta):
+        meta = nativ(check)
+        if meta:
+            off.append(meta)
     if not off:
         print(f'Version {version} steht überall.')
         return 0
