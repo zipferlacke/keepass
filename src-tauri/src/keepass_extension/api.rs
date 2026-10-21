@@ -150,10 +150,12 @@ fn register(notify: Notify) -> u64 {
     if let Ok(mut map) = listeners().lock() {
         map.insert(id, notify);
     }
+    protokolliere(&format!("Browser {id} verbunden"));
     id
 }
 
 fn unregister(id: u64) {
+    protokolliere(&format!("Browser {id} getrennt"));
     let leer = match listeners().lock() {
         Ok(mut map) => {
             map.remove(&id);
@@ -581,11 +583,47 @@ fn send(
 ///
 /// Das reicht trotzdem für fast jede Diagnose: Man sieht die Reihenfolge der
 /// Aktionen, ob eine Antwort ausbleibt, und ob ein Feld fehlt.
-fn trace(richtung: &str, message: &Value) {
-    use std::sync::OnceLock;
-    static AN: OnceLock<bool> = OnceLock::new();
+/// Wohin das Protokoll der Browser-Anbindung geht — oder `None`, wenn aus.
+///
+/// `WKEEPASS_BROWSER_LOG=1` (bzw. `2`) schreibt auf stderr. Startet der Browser
+/// WKeePass, hängt aber keine Konsole dran und Umgebungsvariablen kommen
+/// nicht an; dann zählt eine vorhandene Datei
+/// `$XDG_RUNTIME_DIR/wkeepass-browser.log`: Wer sie anlegt, schaltet das
+/// Protokoll ein, wer sie löscht, aus (ab dem nächsten Start).
+fn protokoll() -> Option<&'static Mutex<Box<dyn Write + Send>>> {
+    static ZIEL: std::sync::OnceLock<Option<Mutex<Box<dyn Write + Send>>>> = std::sync::OnceLock::new();
+    ZIEL.get_or_init(|| {
+        if std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v != "0") {
+            return Some(Mutex::new(Box::new(std::io::stderr()) as Box<dyn Write + Send>));
+        }
+        let datei = std::path::PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?).join("wkeepass-browser.log");
+        if !datei.is_file() {
+            return None;
+        }
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(datei)
+            .ok()
+            .map(|f| Mutex::new(Box::new(f) as Box<dyn Write + Send>))
+    })
+    .as_ref()
+}
 
-    if !AN.get_or_init(|| std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v != "0")) {
+/// Eine Zeile ins Protokoll, mit Uhrzeit (Millisekunden zählen hier: Die
+/// Erweiterung gibt nach 500 ms auf).
+fn protokolliere(zeile: &str) {
+    let Some(ziel) = protokoll() else { return };
+    let jetzt = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() % 100_000_000)
+        .unwrap_or_default();
+    if let Ok(mut ziel) = ziel.lock() {
+        let _ = writeln!(ziel, "{:>5}.{:03} [{}] {zeile}", jetzt / 1000 % 100_000, jetzt % 1000, std::process::id());
+    }
+}
+
+fn trace(richtung: &str, message: &Value) {
+    if protokoll().is_none() {
         return;
     }
 
@@ -617,12 +655,12 @@ fn trace(richtung: &str, message: &Value) {
         })
         .unwrap_or_default();
 
-    eprintln!("[Browser] {richtung} {action}  {}", felder.join(" "));
+    protokolliere(&format!("{richtung} {action}  {}", felder.join(" ")));
 
     // Stufe 2 zeigt den Umschlag im Klartext. Der Inhalt bleibt verschlüsselt —
     // was hier steht, ist Schlüsseltext und Nonce, kein Geheimnis.
     if std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v == "2") {
-        eprintln!("[Browser]   {}", serde_json::to_string(message).unwrap_or_default());
+        protokolliere(&format!("  {}", serde_json::to_string(message).unwrap_or_default()));
     }
 }
 
@@ -682,6 +720,7 @@ impl Connection {
         let erwuenscht = crate::settings::value(app, "browser.unlockOnConnect")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
+        protokolliere(&format!("Entsperren beim Verbinden: erstes Mal {erstes_mal}, erwünscht {erwuenscht}"));
         if erstes_mal && erwuenscht {
             let app = app.clone();
             std::thread::spawn(move || {
@@ -757,7 +796,14 @@ impl Connection {
         let (inner, nonce) = inner;
 
         // --- ohne Sperre: die eigentliche Arbeit, die warten darf ---
+        let begonnen = std::time::Instant::now();
         let result = Self::dispatch(shared, app, action, &inner);
+        // Was drinnen geschah — im Umschlag steht es nur verschlüsselt. Nur
+        // Aktion, Dauer und unser eigener Fehlertext, nichts aus der Datenbank.
+        protokolliere(&match &result {
+            Ok(_) => format!("= {action} ok ({} ms)", begonnen.elapsed().as_millis()),
+            Err(Failure(code, text)) => format!("= {action} Fehler {code}: {text} ({} ms)", begonnen.elapsed().as_millis()),
+        });
 
         // --- kurz sperren: verpacken ---
         let Ok(conn) = shared.lock() else {
