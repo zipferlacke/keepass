@@ -12,7 +12,8 @@
             "date":"2026-10-21",
             "changes":[
                 "Browser: Meldet sich der Browser bei gesperrter Datenbank, geht gleich das kleine Entsperr-Fenster auf – kein „Verbinden“ in der Erweiterung mehr nötig (abschaltbar unter Einstellungen → Browser)",
-                "Rechner: Symbol in der Leiste mit Öffnen, Sperren und Beenden – so sieht man WKeePass auch, wenn es der Browser ohne Fenster gestartet hat"
+                "Rechner: Symbol in der Leiste mit Öffnen, Sperren und Beenden – so sieht man WKeePass auch, wenn es der Browser ohne Fenster gestartet hat",
+                "Rechner: Im Hintergrund braucht WKeePass nur noch gut die Hälfte des Arbeitsspeichers – das Hauptfenster entsteht erst, wenn man es öffnet"
             ]
         },
         {

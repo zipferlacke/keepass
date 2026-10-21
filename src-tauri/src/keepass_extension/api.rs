@@ -223,27 +223,40 @@ fn ohne_browser_beenden(warten: std::time::Duration) {
     });
 }
 
-/// Richtet das Hauptfenster für den Hintergrund ein.
+/// Start im Hintergrund: Das Hauptfenster wird gar nicht erst gebraucht.
 ///
-/// Beim Start über den Browser bleibt es unsichtbar. Schließen versteckt es
-/// nur, solange ein Browser verbunden ist — sonst endet die Anwendung, auch
-/// wenn noch ein verstecktes Rückfragefenster existiert (das hielte sie
-/// sonst unsichtbar am Leben).
+/// Es kostet als ganze Browser-Engine gut 100 MB, auch unsichtbar.
+/// Rückfragen und Entsperren laufen über das kleine Fenster; das
+/// Hauptfenster entsteht erst, wenn man WKeePass öffnet
+/// ([`crate::hauptfenster_zeigen`]).
+#[cfg(desktop)]
+pub fn hintergrund_start(window: tauri::WebviewWindow) {
+    let _ = window.destroy();
+    ohne_browser_beenden(ERSTER_BROWSER);
+}
+
+/// Darf die Anwendung gehen, wenn ihr letztes Fenster zugeht?
+///
+/// Nicht, solange ein Browser verbunden ist — dann läuft sie ohne Fenster
+/// weiter, bis er geht. Und nicht kurz nach einem Start im Hintergrund, bevor
+/// sich der Browser gemeldet hat ([`ohne_browser_beenden`] räumt dann auf).
+#[cfg(desktop)]
+pub fn ohne_fenster_weiter() -> bool {
+    browser_verbunden() || route::im_hintergrund()
+}
+
+/// Schließen des Hauptfensters.
+///
+/// Ist ein Browser verbunden, geht nur das Fenster — samt seiner
+/// Browser-Engine, statt versteckt weiter Speicher zu belegen. Sonst endet
+/// die Anwendung, auch wenn noch ein verstecktes Rückfragefenster existiert
+/// (das hielte sie sonst unsichtbar am Leben).
 #[cfg(desktop)]
 pub fn hauptfenster(window: &tauri::WebviewWindow) {
-    if route::im_hintergrund() {
-        let _ = window.hide();
-        ohne_browser_beenden(ERSTER_BROWSER);
-    }
-
     let app = window.app_handle().clone();
-    let fenster = window.clone();
     window.on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-            if browser_verbunden() {
-                api.prevent_close();
-                let _ = fenster.hide();
-            } else {
+        if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if !browser_verbunden() {
                 app.exit(0);
             }
         }
@@ -1611,7 +1624,41 @@ fn unpark(app: &tauri::AppHandle, id: &str) {
         if let Some(window) = app.get_webview_window(REQUEST_WINDOW) {
             let _ = window.hide();
         }
+        spaeter_abbauen(app);
     }
+}
+
+/// Wie lange das versteckte Rückfragefenster bereitsteht, bevor es abgebaut
+/// wird. Kommen mehrere Rückfragen kurz hintereinander (ein Formular, mehrere
+/// Felder), steht es sofort wieder da; danach gibt es seinen Speicher frei.
+const BEREIT: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Wird das Rückfragefenster gerade abgebaut? Dann darf es niemand mehr
+/// zeigen — siehe [`open_request_window`].
+static ABBAU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Hält Abbau und Öffnen auseinander.
+fn fenster_riegel() -> &'static Mutex<()> {
+    static RIEGEL: Mutex<()> = Mutex::new(());
+    &RIEGEL
+}
+
+/// Baut das versteckte Rückfragefenster nach [`BEREIT`] ab, wenn es dann
+/// noch unbenutzt ist.
+fn spaeter_abbauen(app: &tauri::AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(BEREIT);
+        let Ok(_riegel) = fenster_riegel().lock() else { return };
+        let leer = pending().lock().map(|m| m.is_empty()).unwrap_or(false);
+        let Some(window) = app.get_webview_window(REQUEST_WINDOW) else { return };
+        if leer && !window.is_visible().unwrap_or(true) {
+            ABBAU.store(true, std::sync::atomic::Ordering::SeqCst);
+            if window.destroy().is_err() {
+                ABBAU.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+    });
 }
 
 /// Lehnt alles ab, was gerade wartet — das Fenster wurde geschlossen.
@@ -1638,6 +1685,17 @@ fn is_open(app: &tauri::AppHandle) -> bool {
 /// ist der eigentliche Punkt: Eine Bestätigung, die im Browser entstünde,
 /// könnte eine Seite nachbauen.
 fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
+    let _riegel = fenster_riegel().lock();
+
+    // Wird es gerade abgebaut, erst das Ende abwarten: Ein sterbendes
+    // Fenster nach vorn zu holen hieße, dass es gleich darauf verschwindet
+    // und die Anfrage ohne sichtbare Maske wartet.
+    let bis = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while ABBAU.load(std::sync::atomic::Ordering::SeqCst) && std::time::Instant::now() < bis {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    ABBAU.store(false, std::sync::atomic::Ordering::SeqCst);
+
     // Schon offen? Dann nur nach vorn holen — sonst stapeln sich Fenster,
     // wenn eine Seite mehrere Formulare hat.
     if let Some(window) = app.get_webview_window(REQUEST_WINDOW) {
@@ -1675,23 +1733,24 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
         // es nur das Fenster: Die Anfrage wartete unbeantwortet weiter, der
         // Browser auch, und die nächste Rückfrage fand kein Fenster vor.
         let fenster = window.clone();
-        window.on_window_event(move |event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        let handle = app.clone();
+        window.on_window_event(move |event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 deny_all_pending();
                 let _ = fenster.hide();
+                spaeter_abbauen(&handle);
             }
+            tauri::WindowEvent::Destroyed => ABBAU.store(false, std::sync::atomic::Ordering::SeqCst),
+            _ => {}
         });
     }
 
     // Klappt das nicht — etwa weil kein Fenstersystem da ist —, bleibt das
     // Hauptfenster als Rückfallweg.
     if built.is_err() {
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.unminimize();
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
+        #[cfg(desktop)]
+        crate::hauptfenster_zeigen(app);
     }
 }
 
@@ -1707,11 +1766,10 @@ const UNLOCK_HEIGHT: f64 = 440.0;
 /// Holt das Hauptfenster nach vorn.
 #[allow(dead_code)]
 fn bring_to_front(app: &tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+    #[cfg(desktop)]
+    crate::hauptfenster_zeigen(app);
+    #[cfg(not(desktop))]
+    let _ = app;
 }
 
 fn now_millis() -> u128 {

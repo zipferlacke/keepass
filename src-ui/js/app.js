@@ -143,6 +143,15 @@ async function boot() {
 
   await showLockscreen();
 
+  // Am Rechner entsteht das Fenster auch später, auf Abruf — nachdem der
+  // Browser WKeePass ohne Fenster gestartet und im kleinen Fenster schon
+  // entsperrt hat. Dann ist die Datenbank im Kern längst offen; übernehmen
+  // statt den Sperrbildschirm zu zeigen. Scheitert es, ist sie eben zu.
+  if (isTauri && !isMobile && await vault.adopt().then(() => true, () => false)) {
+    await enterUnlocked();
+    return;
+  }
+
   // Beim allerersten Start einmal durch die Einrichtung führen.
   if (!settings.get('ui.welcomeSeen', false)) await showWelcome();
   if (isMobile && !settings.get('android.setupSeen', false)) await showAndroidSetup();

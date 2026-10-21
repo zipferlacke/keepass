@@ -125,6 +125,97 @@ fn install_panic_log() {
     }));
 }
 
+/// Richtet das Hauptfenster ein — beim Start und wenn es später auf Abruf
+/// entsteht ([`hauptfenster_zeigen`]).
+fn fenster_einrichten(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    // Fensterknöpfe wie auf dem übrigen Schreibtisch.
+    webview::apply_decoration_layout(window);
+    // Kamera für das Einlesen von QR-Codes.
+    webview::enable_camera(window);
+    // Kein eingebautes Kontextmenü — wir haben ein eigenes.
+    webview::suppress_context_menu(window);
+    // Schließen: ohne Browser endet die Anwendung, mit nur das Fenster.
+    #[cfg(desktop)]
+    keepass_extension::api::hauptfenster(window);
+
+    // Aufs Fenster gezogene Dateien liest der Kern selbst ein und
+    // meldet der Oberfläche nur die Verweise — wie beim
+    // Auswahldialog. Ob sie gebraucht werden, entscheidet sie:
+    // Ohne offenen Eintrag verfallen sie spätestens beim Sperren.
+    let handle = app.clone();
+    window.on_window_event(move |event| {
+        let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event else {
+            return;
+        };
+        let files: Vec<String> = paths
+            .iter()
+            .filter(|p| p.is_file())
+            .map(|p| p.to_string_lossy().to_string())
+            .collect();
+        if files.is_empty() {
+            return;
+        }
+        let Some(state) = handle.try_state::<Vault>() else { return };
+        let result = match state.lock() {
+            Ok(mut vault) if vault.db.is_some() => secrets::stage_paths(&mut vault, files),
+            Ok(_) => Err("Zum Ablegen von Dateien muss die Datenbank offen sein.".into()),
+            Err(_) => Err("Kern blockiert.".into()),
+        };
+        let payload = match result {
+            Ok(staged) => serde_json::json!({ "staged": staged }),
+            Err(error) => serde_json::json!({ "error": error }),
+        };
+        let _ = handle.emit("attachments-dropped", payload);
+    });
+}
+
+/// Holt das Hauptfenster nach vorn — und baut es, falls es noch keins gibt.
+///
+/// Nach einem Start im Hintergrund oder nachdem man es geschlossen hat,
+/// während ein Browser verbunden war, existiert es nicht mehr. Dann entsteht
+/// es neu aus `tauri.conf.json`; die Oberfläche sieht beim Start, ob die
+/// Datenbank schon offen ist (`app.js`).
+///
+/// Gebaut wird auf einem eigenen Faden: Gerufen wird das aus Rückrufen der
+/// Ereignisschleife (zweiter Start, Leistensymbol), und `build()` wartet auf
+/// genau diese Schleife — auf ihr selbst hinge alles, auch der zweite Start,
+/// der auf die Antwort wartet.
+#[cfg(desktop)]
+pub fn hauptfenster_zeigen(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        nach_vorn(&window);
+        return;
+    }
+    let Some(config) = app.config().app.windows.iter().find(|w| w.label == "main").cloned() else {
+        return;
+    };
+    let app = app.clone();
+    std::thread::spawn(move || {
+        // Zwei Aufrufe kurz hintereinander bauen nicht zwei Fenster.
+        static BAU: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let Ok(_bau) = BAU.lock() else { return };
+        if let Some(window) = app.get_webview_window("main") {
+            nach_vorn(&window);
+            return;
+        }
+        match tauri::WebviewWindowBuilder::from_config(&app, &config).and_then(|b| b.build()) {
+            Ok(window) => {
+                fenster_einrichten(&app, &window);
+                nach_vorn(&window);
+            }
+            Err(err) => eprintln!("Hauptfenster nicht gebaut: {err}"),
+        }
+    });
+}
+
+#[cfg(desktop)]
+fn nach_vorn(window: &tauri::WebviewWindow) {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     install_panic_log();
@@ -174,45 +265,14 @@ pub fn run() {
             leiste::einrichten(app.handle());
 
             if let Some(window) = app.get_webview_window("main") {
-                // Fensterknöpfe wie auf dem übrigen Schreibtisch.
-                webview::apply_decoration_layout(&window);
-                // Kamera für das Einlesen von QR-Codes.
-                webview::enable_camera(&window);
-                // Kein eingebautes Kontextmenü — wir haben ein eigenes.
-                webview::suppress_context_menu(&window);
-                // Vom Browser gestartet: unsichtbar, solange er verbunden ist.
+                // Vom Browser gestartet: kein Hauptfenster, bis man WKeePass
+                // öffnet — es kostet sonst unsichtbar gut 100 MB.
                 #[cfg(desktop)]
-                keepass_extension::api::hauptfenster(&window);
-
-                // Aufs Fenster gezogene Dateien liest der Kern selbst ein und
-                // meldet der Oberfläche nur die Verweise — wie beim
-                // Auswahldialog. Ob sie gebraucht werden, entscheidet sie:
-                // Ohne offenen Eintrag verfallen sie spätestens beim Sperren.
-                let handle = app.handle().clone();
-                window.on_window_event(move |event| {
-                    let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event else {
-                        return;
-                    };
-                    let files: Vec<String> = paths
-                        .iter()
-                        .filter(|p| p.is_file())
-                        .map(|p| p.to_string_lossy().to_string())
-                        .collect();
-                    if files.is_empty() {
-                        return;
-                    }
-                    let Some(state) = handle.try_state::<Vault>() else { return };
-                    let result = match state.lock() {
-                        Ok(mut vault) if vault.db.is_some() => secrets::stage_paths(&mut vault, files),
-                        Ok(_) => Err("Zum Ablegen von Dateien muss die Datenbank offen sein.".into()),
-                        Err(_) => Err("Kern blockiert.".into()),
-                    };
-                    let payload = match result {
-                        Ok(staged) => serde_json::json!({ "staged": staged }),
-                        Err(error) => serde_json::json!({ "error": error }),
-                    };
-                    let _ = handle.emit("attachments-dropped", payload);
-                });
+                if keepass_extension::route::im_hintergrund() {
+                    keepass_extension::api::hintergrund_start(window);
+                    return Ok(());
+                }
+                fenster_einrichten(app.handle(), &window);
             }
             Ok(())
         })
@@ -333,6 +393,15 @@ pub fn run() {
                     app,
                     urls.into_iter().filter_map(|u| u.to_file_path().ok()).map(|p| p.to_string_lossy().to_string()),
                 );
+            }
+            // Das letzte Fenster ist zu. Ist ein Browser verbunden, läuft die
+            // Anwendung ohne Fenster weiter (`api.rs`, „Im Hintergrund").
+            // Gewolltes Beenden kommt mit Code und bleibt unberührt.
+            #[cfg(desktop)]
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event {
+                if keepass_extension::api::ohne_fenster_weiter() {
+                    api.prevent_exit();
+                }
             }
             #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             let _ = (app, event);
