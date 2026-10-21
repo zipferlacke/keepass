@@ -729,6 +729,7 @@ async function renderBrowserSection() {
 
   const guard = settings.get('browser.guard', 'identify');
   const grace = Number(settings.get('browser.graceSeconds', 60));
+  const unlockOnConnect = settings.get('browser.unlockOnConnect', true) !== false;
 
   card.innerHTML = `
     <div class="setting">
@@ -760,6 +761,18 @@ async function renderBrowserSection() {
           ${[[0, 'Jedes Mal fragen'], [30, '30 Sekunden'], [60, '1 Minute'], [300, '5 Minuten'], [900, '15 Minuten']]
             .map(([wert, label]) => `<option value="${wert}" ${grace === wert ? 'selected' : ''}>${label}</option>`).join('')}
         </select>
+      </div>
+    </div>
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Beim Start des Browsers entsperren</strong>
+        <small>Ist die Datenbank zu, wenn sich der Browser meldet, geht gleich das kleine Fenster auf —
+        PIN, Fingerabdruck oder Master-Passwort, und die Erweiterung hat ihre Daten. Ohne das erst über
+        „Verbinden“ in der Erweiterung.</small>
+      </div>
+      <div class="setting-control">
+        <input type="checkbox" data-shape="toggle" id="browser-unlock-on-connect"
+          aria-label="Beim Start des Browsers entsperren" ${unlockOnConnect ? 'checked' : ''}>
       </div>
     </div>
     <div class="setting" data-stacked>
@@ -803,6 +816,11 @@ async function renderBrowserSection() {
   // Der Kern liest die Frist bei jeder Anfrage aus den Einstellungen.
   card.querySelector('#browser-grace')?.addEventListener('change', async ev => {
     await settings.set('browser.graceSeconds', Number(ev.target.value), { silent: true });
+  });
+
+  // Der Kern liest den Schalter, wenn sich ein Browser meldet.
+  card.querySelector('#browser-unlock-on-connect')?.addEventListener('change', async ev => {
+    await settings.set('browser.unlockOnConnect', ev.target.checked, { silent: true });
   });
 
   card.querySelector('#btn-browser-install')?.addEventListener('click', () => browserSetup(true));

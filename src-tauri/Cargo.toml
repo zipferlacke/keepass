@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-fs = "2"
 # Links im Browser öffnen — etwa die Seite zum Löschen eines alten Kontos.
 # Nur über unseren eigenen Befehl `open_link`, der nichts außer http(s)

@@ -621,11 +621,46 @@ struct Connection {
     session: Option<Session>,
     /// Der Name, unter dem sich dieser Browser verknüpft hat.
     client_id: Option<String>,
+    /// Wurde auf dieser Verbindung schon von selbst ums Entsperren gebeten?
+    /// Siehe [`Connection::beim_start_entsperren`].
+    entsperren_angeboten: bool,
 }
 
 impl Connection {
     fn new() -> Self {
-        Self { keys: KeyPair::generate(), session: None, client_id: None }
+        Self { keys: KeyPair::generate(), session: None, client_id: None, entsperren_angeboten: false }
+    }
+
+    /// Fragt einmal je Verbindung von selbst nach dem Entsperren.
+    ///
+    /// Die Erweiterung fragt beim Start des Browsers nach der Datenbank
+    /// (`get-databasehash`). Ist sie zu, merkt sie sich das und fragt nicht
+    /// weiter — Felder bleiben leer, im Menü steht „keine Daten“, bis man
+    /// dort „Verbinden“ drückt (das schickt `triggerUnlock`). Wer den Browser
+    /// öffnet, will meist gleich an seine Zugänge: Also geht das kleine
+    /// Fenster beim ersten Mal von selbst auf. Nach dem Entsperren meldet
+    /// [`announce`] es der Erweiterung, und sie holt sich die Daten.
+    ///
+    /// Nur einmal je Verbindung, damit ein „Abbrechen“ gilt und eine später
+    /// (etwa nach Untätigkeit) gesperrte Datenbank nicht bei jedem Tab-Wechsel
+    /// ein Fenster aufreißt. Abschaltbar über `browser.unlockOnConnect`.
+    fn beim_start_entsperren(shared: &std::sync::Arc<Mutex<Self>>, app: &tauri::AppHandle) {
+        if is_open(app) {
+            return;
+        }
+        let erstes_mal = match shared.lock() {
+            Ok(mut conn) => !std::mem::replace(&mut conn.entsperren_angeboten, true),
+            Err(_) => false,
+        };
+        let erwuenscht = crate::settings::value(app, "browser.unlockOnConnect")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        if erstes_mal && erwuenscht {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                let _ = await_unlocked(&app);
+            });
+        }
     }
 
     /// Nimmt eine Nachricht entgegen und liefert die Antwort.
@@ -805,7 +840,10 @@ impl Connection {
     ) -> Result<Value, Failure> {
         match action {
             // Ohne offene Datenbank beantwortbar
-            "get-databasehash" => Ok(json!({ "hash": database_hash(app)? })),
+            "get-databasehash" => {
+                Self::beim_start_entsperren(shared, app);
+                Ok(json!({ "hash": database_hash(app)? }))
+            }
             "generate-password" => Ok(json!({
                 "password": generate_password(),
                 // Ältere Fassungen der Erweiterung lesen es aus `entries`.
@@ -1883,14 +1921,17 @@ fn get_totp(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
 
 /// Sperrt die Datenbank auf Wunsch der Erweiterung.
 fn lock_database(app: &tauri::AppHandle) -> Result<Value, Failure> {
-    app.state::<Vault>()
-        .lock()
-        .map_err(|_| Failure(0, "Kern blockiert.".into()))?
-        .clear();
-
-    announce(true);
-    let _ = app.emit("vault-locked", "Über die Browser-Erweiterung gesperrt.");
+    sperren(app, "Über die Browser-Erweiterung gesperrt.").map_err(|e| Failure(0, e))?;
     Ok(json!({}))
+}
+
+/// Sperrt die Datenbank von außerhalb der Oberfläche — Erweiterung oder
+/// Leistensymbol — und sagt es allen weiter.
+pub fn sperren(app: &tauri::AppHandle, grund: &str) -> Result<(), String> {
+    app.state::<Vault>().lock().map_err(|_| "Kern blockiert.".to_string())?.clear();
+    announce(true);
+    let _ = app.emit("vault-locked", grund);
+    Ok(())
 }
 
 /// Alle Ordner als Baum — die Erweiterung bietet sie beim Speichern an.

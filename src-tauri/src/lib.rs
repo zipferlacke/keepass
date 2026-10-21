@@ -38,6 +38,8 @@ mod storage;
 mod java;
 #[cfg(target_os = "android")]
 mod android_services;
+#[cfg(desktop)]
+mod leiste;
 mod system;
 mod web;
 mod util;
@@ -165,6 +167,11 @@ pub fn run() {
             // läuft die Anwendung trotzdem — nur ohne Browser-Anbindung.
             #[cfg(desktop)]
             keepass_extension::api::start(app.handle().clone());
+
+            // Ein Symbol in der Leiste — vor allem, damit man WKeePass sieht,
+            // wenn es der Browser ohne Fenster gestartet hat.
+            #[cfg(desktop)]
+            leiste::einrichten(app.handle());
 
             if let Some(window) = app.get_webview_window("main") {
                 // Fensterknöpfe wie auf dem übrigen Schreibtisch.

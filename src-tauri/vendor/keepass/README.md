@@ -1,11 +1,6 @@
 # keepass-rs
 
-[![Crates.io](https://img.shields.io/crates/v/keepass.svg)](https://crates.io/crates/keepass)
-[![Documentation](https://docs.rs/keepass/badge.svg)](https://docs.rs/keepass/)
-[![Build Status](https://github.com/sseemayer/keepass-rs/actions/workflows/merge.yml/badge.svg?branch=master)](https://github.com/sseemayer/keepass-rs/actions/workflows/merge.yml)
-[![codecov](https://codecov.io/gh/sseemayer/keepass-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/sseemayer/keepass-rs)
-[![dependency status](https://deps.rs/repo/github/sseemayer/keepass-rs/status.svg)](https://deps.rs/repo/github/sseemayer/keepass-rs)
-[![License file](https://img.shields.io/github/license/sseemayer/keepass-rs)](https://github.com/sseemayer/keepass-rs/blob/master/LICENSE)
+![Crates.io](https://img.shields.io/crates/v/keepass.svg)![Documentation](https://docs.rs/keepass/badge.svg)![Build Status](https://github.com/sseemayer/keepass-rs/actions/workflows/merge.yml/badge.svg?branch=master)![codecov](https://codecov.io/gh/sseemayer/keepass-rs/branch/master/graph/badge.svg)![dependency status](https://deps.rs/repo/github/sseemayer/keepass-rs/status.svg)![License file](https://img.shields.io/github/license/sseemayer/keepass-rs)
 
 Rust KeePass database file parser for KDB, KDBX3 and KDBX4, with experimental support for KDBX4.1 writing.
 
@@ -24,8 +19,8 @@ An example command line for running the `kp-dump-xml` command would be:
 cargo run --release --features "utilities" --bin kp-dump-xml -- path/to/database.kdbx
 ```
 
-
 ## Installation
+
 Add the following to the `dependencies` section of your `Cargo.toml`:
 
 ```ignore
@@ -40,4 +35,5 @@ For the best performance, this crate requires specific cargo configuration to en
 Please see the recommended settings in the [.cargo/config.toml](https://github.com/sseemayer/keepass-rs/blob/master/.cargo/config.toml) file in this repository.
 
 ## License
+
 MIT
