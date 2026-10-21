@@ -212,7 +212,7 @@ pub fn hauptfenster_zeigen(app: &tauri::AppHandle) {
 fn nach_vorn(window: &tauri::WebviewWindow) {
     let _ = window.unminimize();
     let _ = window.show();
-    let _ = window.set_focus();
+    keepass_extension::api::tastatur_hinein(window);
 }
 
 

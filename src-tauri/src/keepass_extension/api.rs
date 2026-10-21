@@ -278,6 +278,20 @@ pub fn announce(locked: bool) {
     if let Ok(mut at) = last_identified().lock() {
         *at = if locked { None } else { Some(std::time::Instant::now()) };
     }
+    if locked {
+        stand_vergessen();
+    } else {
+        // Gleich nach dem Entsperren fragt die Erweiterung nach — und dann
+        // wird oft schon gespeichert. Den Stand jetzt lesen, solange es geht.
+        std::thread::spawn(|| {
+            let Some(app) = crate::app_handle() else { return };
+            if let Ok(vault) = app.state::<Vault>().lock() {
+                if let Ok(db) = vault.database() {
+                    stand_merken(db);
+                }
+            }
+        });
+    }
     let message = json!({ "action": if locked { "database-locked" } else { "database-unlocked" } });
     if let Ok(map) = listeners().lock() {
         for notify in map.values() {
@@ -658,7 +672,7 @@ impl Connection {
     /// (etwa nach Untätigkeit) gesperrte Datenbank nicht bei jedem Tab-Wechsel
     /// ein Fenster aufreißt. Abschaltbar über `browser.unlockOnConnect`.
     fn beim_start_entsperren(shared: &std::sync::Arc<Mutex<Self>>, app: &tauri::AppHandle) {
-        if is_open(app) {
+        if offen_schnell(app) {
             return;
         }
         let erstes_mal = match shared.lock() {
@@ -699,7 +713,7 @@ impl Connection {
         // findet später keine Anfrage mehr. Deshalb geht die Anmeldemaske in
         // einem eigenen Faden auf, und diese Nachricht wird sofort
         // beantwortet.
-        if message.get("triggerUnlock").and_then(Value::as_str) == Some("true") && !is_open(app) {
+        if message.get("triggerUnlock").and_then(Value::as_str) == Some("true") && !offen_schnell(app) {
             let app = app.clone();
             std::thread::spawn(move || {
                 let _ = await_unlocked(&app);
@@ -1177,6 +1191,7 @@ impl Connection {
         }
 
         let antwort = json!({ "id": name, "hash": database_hash_locked(db) });
+        stand_merken(db);
         persist(app);
         Ok(antwort)
     }
@@ -1190,28 +1205,24 @@ impl Connection {
             return Err(Failure(code::ASSOCIATION_FAILED, "Angaben unvollständig.".into()));
         };
 
-        let state = app.state::<Vault>();
-        let vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
-        let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
+        // Nicht auf einen beschäftigten Tresor warten — siehe [`stand`].
+        let stand = match tresor_kurz(app) {
+            Some(vault) => {
+                let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
+                stand_merken(db)
+            }
+            None => stand_zuletzt()
+                .ok_or_else(|| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist gerade beschäftigt.".into()))?,
+        };
 
-        let stored = db
-            .meta
-            .custom_data
-            .get(&format!("{ASSOCIATION_PREFIX}{id}"))
-            .and_then(|item| item.value.as_ref())
-            .and_then(|value| match value {
-                keepass::db::CustomDataValue::String(text) => Some(text.as_str()),
-                _ => None,
-            });
-
-        if stored != Some(key) {
+        if stand.schluessel.get(id).map(String::as_str) != Some(key) {
             return Err(Failure(code::ASSOCIATION_FAILED, "Dieser Browser ist nicht verknüpft.".into()));
         }
 
         if let Ok(mut conn) = shared.lock() {
             conn.client_id = Some(id.to_string());
         }
-        Ok(json!({ "id": id, "hash": database_hash_locked(db) }))
+        Ok(json!({ "id": id, "hash": stand.hash }))
     }
 }
 
@@ -1338,10 +1349,100 @@ fn short(key: &str) -> String {
 /// letzten Mal. Der Wert muss nur stabil sein und sich zwischen Datenbanken
 /// unterscheiden — geprüft wird er nirgends gegen.
 fn database_hash(app: &tauri::AppHandle) -> Result<String, Failure> {
-    let state = app.state::<Vault>();
-    let vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
-    let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
-    Ok(database_hash_locked(db))
+    match tresor_kurz(app) {
+        Some(vault) => {
+            let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
+            Ok(stand_merken(db).hash)
+        }
+        None => stand_zuletzt()
+            .map(|stand| stand.hash)
+            .ok_or_else(|| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist gerade beschäftigt.".into())),
+    }
+}
+
+/* ---------------------------------------------------------
+   Antworten, die nicht warten dürfen
+   ---------------------------------------------------------
+   `get-databasehash` und `test-associate` stellt die Erweiterung mit einer
+   Frist von 500 ms. Bleibt die Antwort auf `test-associate` aus, **löscht**
+   sie ihre gespeicherte Verknüpfung — danach heißt es „nicht konfiguriert“,
+   man muss neu verbinden, und jedes Mal kam ein weiterer „WKeePass …“ in
+   ihre Liste.
+
+   Speichern hält den Tresor aber Sekunden: Datei lesen, zusammenführen,
+   mit Argon2 neu verschlüsseln. Kam die Frage genau dann — etwa gleich nach
+   dem Entsperren, wenn Zuletzt-genutzt und Symbole geschrieben werden —,
+   war die Verknüpfung weg.
+
+   Deshalb: höchstens kurz auf den Tresor warten, sonst aus dem zuletzt
+   gesehenen Stand antworten. Der Stand ist nur, was ohnehin über die
+   Leitung ginge — Kennung der Datenbank und die Schlüssel der verknüpften
+   Browser —, und er gilt nur, solange die Datenbank offen ist.
+   --------------------------------------------------------- */
+
+/// Was die Erweiterung zur Wiedererkennung braucht.
+#[derive(Clone)]
+struct Stand {
+    hash: String,
+    /// Name der Verknüpfung → Schlüssel.
+    schluessel: std::collections::HashMap<String, String>,
+}
+
+fn stand() -> &'static Mutex<Option<Stand>> {
+    static STAND: Mutex<Option<Stand>> = Mutex::new(None);
+    &STAND
+}
+
+/// Liest den Stand aus der offenen Datenbank und merkt ihn sich.
+fn stand_merken(db: &keepass::Database) -> Stand {
+    let schluessel = db
+        .meta
+        .custom_data
+        .iter()
+        .filter_map(|(name, item)| {
+            let id = name.strip_prefix(ASSOCIATION_PREFIX)?;
+            match item.value.as_ref()? {
+                keepass::db::CustomDataValue::String(text) => Some((id.to_string(), text.clone())),
+                _ => None,
+            }
+        })
+        .collect();
+    let neu = Stand { hash: database_hash_locked(db), schluessel };
+    if let Ok(mut s) = stand().lock() {
+        *s = Some(neu.clone());
+    }
+    neu
+}
+
+fn stand_zuletzt() -> Option<Stand> {
+    stand().lock().ok().and_then(|s| s.clone())
+}
+
+/// Beim Sperren: Was nicht offen ist, wird auch nicht aus dem Gedächtnis
+/// beantwortet.
+fn stand_vergessen() {
+    if let Ok(mut s) = stand().lock() {
+        *s = None;
+    }
+}
+
+/// So lange wird höchstens auf einen beschäftigten Tresor gewartet — mit
+/// Luft zur Frist der Erweiterung (500 ms) für Ver- und Entschlüsseln.
+const KURZ: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// Der Tresor, wenn er binnen [`KURZ`] frei wird — sonst `None`.
+fn tresor_kurz(app: &tauri::AppHandle) -> Option<std::sync::MutexGuard<'_, crate::state::VaultState>> {
+    let tresor: &Vault = app.state::<Vault>().inner();
+    let bis = std::time::Instant::now() + KURZ;
+    loop {
+        match tresor.try_lock() {
+            Ok(vault) => return Some(vault),
+            Err(std::sync::TryLockError::WouldBlock) if std::time::Instant::now() < bis => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(_) => return None,
+        }
+    }
 }
 
 /// Woran die Erweiterung diese Datenbank wiedererkennt.
@@ -1674,6 +1775,13 @@ fn is_open(app: &tauri::AppHandle) -> bool {
     app.state::<Vault>().lock().is_ok_and(|v| v.db.is_some())
 }
 
+/// Wie [`is_open`], aber ohne auf einen beschäftigten Tresor zu warten —
+/// für Antworten mit Frist. Beschäftigt ist er nur beim Arbeiten an einer
+/// offenen Datenbank; dann gilt sie als offen.
+fn offen_schnell(app: &tauri::AppHandle) -> bool {
+    tresor_kurz(app).map_or(true, |v| v.db.is_some())
+}
+
 /// Öffnet das kleine Fenster für eine Rückfrage — über allem anderen.
 ///
 /// Bewusst **nicht** das Hauptfenster: Wer im Browser ein Anmeldeformular
@@ -1705,7 +1813,7 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
         let _ = window.set_size(tauri::LogicalSize::new(WINDOW_WIDTH, hoehe));
         let _ = window.unminimize();
         let _ = window.show();
-        let _ = window.set_focus();
+        tastatur_hinein(&window);
         return;
     }
 
@@ -1727,7 +1835,7 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
     // aber die Tastatur nicht bekommt, zwingt zu einem Klick, bevor man
     // tippen kann.
     if let Ok(window) = &built {
-        let _ = window.set_focus();
+        tastatur_hinein(window);
 
         // Das Kreuz der Fensterleiste heißt „Abbrechen". Ohne das zerstörte
         // es nur das Fenster: Die Anfrage wartete unbeantwortet weiter, der
@@ -1752,6 +1860,16 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
         #[cfg(desktop)]
         crate::hauptfenster_zeigen(app);
     }
+}
+
+/// Holt das Fenster nach vorn **und** gibt der Seite darin die Tastatur.
+///
+/// `set_focus` am Fenster allein reicht unter Linux nicht: Das Fenster ist
+/// vorn, aber die Webansicht darin hat den Tastaturfokus nicht — wer gleich
+/// seine PIN tippt, tippt ins Leere und muss erst ins Feld klicken.
+pub fn tastatur_hinein(window: &tauri::WebviewWindow) {
+    let _ = window.set_focus();
+    let _ = AsRef::<tauri::Webview>::as_ref(window).set_focus();
 }
 
 /// Der Name des Rückfragefensters.
@@ -2403,6 +2521,37 @@ mod tests {
         );
         assert_eq!(association_with_key(&db, "schluessel").as_deref(), Some("WKeePass JaLT6Q"));
         assert_eq!(association_with_key(&db, "anderer"), None);
+    }
+
+    /// Ist der Tresor beim Speichern beschäftigt, antworten `get-databasehash`
+    /// und `test-associate` aus dem gemerkten Stand — der muss dieselbe
+    /// Kennung und dieselben Schlüssel kennen und beim Sperren verfallen.
+    #[test]
+    fn gemerkter_stand_kennt_verknuepfungen() {
+        let mut db = keepass::Database::new();
+        db.meta.custom_data.insert(
+            format!("{ASSOCIATION_PREFIX}Firefox"),
+            keepass::db::CustomDataItem {
+                value: Some(keepass::db::CustomDataValue::String("schluessel".into())),
+                last_modification_time: None,
+            },
+        );
+        db.meta.custom_data.insert(
+            "fremd".into(),
+            keepass::db::CustomDataItem {
+                value: Some(keepass::db::CustomDataValue::String("nicht verknüpft".into())),
+                last_modification_time: None,
+            },
+        );
+
+        let stand = stand_merken(&db);
+        assert_eq!(stand.hash, database_hash_locked(&db));
+        assert_eq!(stand.schluessel.get("Firefox").map(String::as_str), Some("schluessel"));
+        assert_eq!(stand.schluessel.len(), 1, "nur Verknüpfungen, keine anderen Daten");
+        assert!(stand_zuletzt().is_some());
+
+        stand_vergessen();
+        assert!(stand_zuletzt().is_none(), "gesperrt: nichts aus dem Gedächtnis");
     }
 
 }

@@ -403,6 +403,14 @@ async function boot() {
 
   $('#req-deny').addEventListener('click', () => answer(false));
 
+  // Wird das Fenster aktiv, gehört die Tastatur ins Feld: Beim Öffnen kommt
+  // `focus()` sonst manchmal zu früh, bevor das Fenster vorn ist — und wer
+  // gleich seine PIN tippt, tippt ins Leere.
+  window.addEventListener('focus', () => {
+    const feld = aufdeckbar($('#req-secret')).aktiv;
+    if (current && !$('#req-identify').hidden && document.activeElement !== feld) feld.focus();
+  });
+
   // Escape lehnt ab. Ein Fenster, das man nur wegklicken kann, ohne dass
   // klar ist was passiert, wäre die falsche Voreinstellung.
   document.addEventListener('keydown', ev => {

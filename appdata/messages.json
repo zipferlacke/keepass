@@ -13,7 +13,8 @@
             "changes":[
                 "Fix, Rechner: Extension muss sich nicht mehr jeden Bowserstart neu mit Wkeepass am Rechner vebinden sondern Befählt verbing bei.",
                 "Fix, Rechner: Wkeepass ist auch als Hintergrunddienst optisch für den Nutzbar sichtbar.",
-                "Rechner: Speichereinparungen im Hintegrund"
+                "Rechner: Speichereinparungen im Hintegrund",
+                "Entsperren: gleich lostippen – PIN bzw. Master-Passwort hat sofort den Fokus"
             ]
         },
         {
