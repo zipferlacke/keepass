@@ -398,6 +398,10 @@ pub fn run() {
             // Anwendung ohne Fenster weiter (`api.rs`, „Im Hintergrund").
             // Gewolltes Beenden kommt mit Code und bleibt unberührt.
             #[cfg(desktop)]
+            if let tauri::RunEvent::Exit = &event {
+                database::spur_beim_beenden(app);
+            }
+            #[cfg(desktop)]
             if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event {
                 if keepass_extension::api::ohne_fenster_weiter() {
                     api.prevent_exit();

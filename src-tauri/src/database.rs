@@ -271,6 +271,11 @@ fn open_blocking(
     // Zurückschreiben kann die Bibliothek nur KDBX 4.1.
     let format = db.config.version.to_string();
     let read_only = !matches!(db.config.version, keepass::config::DatabaseVersion::KDB4(1));
+    spur(
+        if matches!(source, crate::offline::Source::Original) { "geöffnet" } else { "geöffnet (Offline-Kopie)" },
+        &raw,
+        Some(&db),
+    );
 
     // Erst nach dem Entschlüsseln kopieren: So landet nur eine Datei im
     // Zwischenspeicher, die sich mit diesem Schlüssel auch öffnen lässt.
@@ -342,6 +347,32 @@ pub async fn vault_create(
 fn digest(bytes: &[u8]) -> [u8; 32] {
     use sha2::{Digest, Sha256};
     Sha256::digest(bytes).into()
+}
+
+/// Eine Zeile ins Browser-Protokoll (`api::protokolliere`), wenn es an ist:
+/// Kurzform des Fingerabdrucks und wie viele Browser verknüpft sind — um zu
+/// sehen, ob die Datei zwischen zwei Starts ersetzt wurde.
+fn spur(was: &str, bytes: &[u8], db: Option<&Database>) {
+    #[cfg(desktop)]
+    {
+        let abdruck: String = digest(bytes)[..4].iter().map(|b| format!("{b:02x}")).collect();
+        let verknuepft = db.map_or(String::new(), |db| {
+            let n = db.meta.custom_data.keys().filter(|k| k.starts_with("KPXC_BROWSER_")).count();
+            format!(", Verknüpfungen {n}")
+        });
+        crate::keepass_extension::api::protokolliere(&format!("Datei {was}: Abdruck {abdruck}{verknuepft}"));
+    }
+    #[cfg(not(desktop))]
+    let _ = (was, bytes, db);
+}
+
+/// Wie die Datei beim Beenden aussieht — fürs Protokoll.
+pub fn spur_beim_beenden(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let Some(ziel) = app.state::<Vault>().lock().ok().and_then(|v| v.path.clone()) else { return };
+    if let Ok(bytes) = crate::storage::read(&ziel.to_string_lossy()) {
+        spur("beim Beenden", &bytes, None);
+    }
 }
 
 /// Legt die PIN des Programms fest. Sie gilt für alle Datenbanken.
@@ -931,6 +962,7 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
     if let Ok(current) = current {
         if vault.opened_hash != Some(digest(&current)) {
             let theirs = parse_foreign(&vault, &current)?;
+            spur("seit dem Öffnen fremd geändert", &current, Some(&theirs));
             crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
             merged = merge(vault.database_mut()?, &theirs)?.0;
         }
@@ -1139,6 +1171,10 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
         .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
 
     crate::storage::write(ziel, &bytes)?;
+    spur("geschrieben", &bytes, Some(vault.database()?));
+    if let Ok(wieder) = crate::storage::read(ziel) {
+        spur("danach gelesen", &wieder, None);
+    }
     let abdruck = crate::versions::abdruck(vault.database()?);
     crate::versions::sichern(app, ziel, &bytes, crate::versions::Grund::Gespeichert, abdruck);
 

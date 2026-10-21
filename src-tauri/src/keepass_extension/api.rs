@@ -611,7 +611,7 @@ fn protokoll() -> Option<&'static Mutex<Box<dyn Write + Send>>> {
 
 /// Eine Zeile ins Protokoll, mit Uhrzeit (Millisekunden zählen hier: Die
 /// Erweiterung gibt nach 500 ms auf).
-fn protokolliere(zeile: &str) {
+pub(crate) fn protokolliere(zeile: &str) {
     let Some(ziel) = protokoll() else { return };
     let jetzt = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -708,7 +708,9 @@ impl Connection {
     ///
     /// Nur einmal je Verbindung, damit ein „Abbrechen“ gilt und eine später
     /// (etwa nach Untätigkeit) gesperrte Datenbank nicht bei jedem Tab-Wechsel
-    /// ein Fenster aufreißt. Abschaltbar über `browser.unlockOnConnect`.
+    /// ein Fenster aufreißt. Einschaltbar über `browser.unlockOnConnect` —
+    /// Voreinstellung aus: Ein Fenster bei jedem Browserstart, auch wenn man
+    /// gar nichts anmelden will, stört mehr, als es hilft.
     fn beim_start_entsperren(shared: &std::sync::Arc<Mutex<Self>>, app: &tauri::AppHandle) {
         if offen_schnell(app) {
             return;
@@ -719,7 +721,7 @@ impl Connection {
         };
         let erwuenscht = crate::settings::value(app, "browser.unlockOnConnect")
             .and_then(|v| v.as_bool())
-            .unwrap_or(true);
+            .unwrap_or(false);
         protokolliere(&format!("Entsperren beim Verbinden: erstes Mal {erstes_mal}, erwünscht {erwuenscht}"));
         if erstes_mal && erwuenscht {
             let app = app.clone();
@@ -1285,11 +1287,25 @@ impl Connection {
 fn association_with_key(db: &keepass::Database, key: &str) -> Option<String> {
     db.meta.custom_data.iter().find_map(|(name, item)| {
         let rest = name.strip_prefix(ASSOCIATION_PREFIX)?;
-        match item.value.as_ref()? {
-            keepass::db::CustomDataValue::String(text) if text == key => Some(rest.to_string()),
-            _ => None,
-        }
+        (als_text(item.value.as_ref()?) == key).then(|| rest.to_string())
     })
+}
+
+/// Der Wert einer Zusatzangabe als Text.
+///
+/// Die Bibliothek rät beim Einlesen: Was sich als Base64 lesen lässt, wird
+/// `Binary` — die Schlüssel der Erweiterung sind aber immer Base64, und
+/// „true“ ist es auch. Im laufenden Programm stand dort noch `String`, nach
+/// einem Neustart `Binary`, und die Verknüpfung galt als unbekannt: Bei
+/// jedem Start des Browsers kam „nicht konfiguriert … Verbinden“.
+/// Zurückkodiert ergibt das genau den gespeicherten Text — die Bibliothek
+/// nimmt nur Base64 in seiner einzigen gültigen Schreibweise als `Binary`.
+fn als_text(wert: &keepass::db::CustomDataValue) -> std::borrow::Cow<'_, str> {
+    use base64::Engine as _;
+    match wert {
+        keepass::db::CustomDataValue::String(text) => text.into(),
+        keepass::db::CustomDataValue::Binary(bytes) => base64::engine::general_purpose::STANDARD.encode(bytes).into(),
+    }
 }
 
 /// Baut die Hülle, die die Erweiterung um einen Passkey erwartet.
@@ -1461,10 +1477,7 @@ fn stand_merken(db: &keepass::Database) -> Stand {
         .iter()
         .filter_map(|(name, item)| {
             let id = name.strip_prefix(ASSOCIATION_PREFIX)?;
-            match item.value.as_ref()? {
-                keepass::db::CustomDataValue::String(text) => Some((id.to_string(), text.clone())),
-                _ => None,
-            }
+            Some((id.to_string(), als_text(item.value.as_ref()?).into_owned()))
         })
         .collect();
     let neu = Stand { hash: database_hash_locked(db), schluessel };
@@ -1622,7 +1635,7 @@ fn ask_user(app: &tauri::AppHandle, mut details: Value) -> Result<Decision, Fail
         return Ok(Decision { allow: true });
     }
 
-    let id = format!("br{}", now_millis());
+    let id = neue_id();
     let (tx, rx) = std::sync::mpsc::channel();
 
     details["id"] = json!(id);
@@ -1654,21 +1667,50 @@ fn ask_user(app: &tauri::AppHandle, mut details: Value) -> Result<Decision, Fail
     Ok(answer.unwrap_or(Decision { allow: false }))
 }
 
+/// Kennung einer geparkten Anfrage. Nur die Uhrzeit reichte nicht: Zwei
+/// Anfragen in derselben Millisekunde hätten einander überschrieben.
+fn neue_id() -> String {
+    static ZAEHLER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    format!("br{}-{}", now_millis(), ZAEHLER.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+}
+
 /// Beantwortet eine geparkte Anfrage. Wird von der Oberfläche aufgerufen.
+///
+/// Die Antwort gilt für alle wartenden Anfragen derselben Art von derselben
+/// Seite: Ein Formular mit mehreren Feldern fragt oft zweimal kurz
+/// hintereinander. Nach „Übernehmen“ stand dann dieselbe Frage noch einmal
+/// da — es sah aus, als schlösse das Fenster nicht.
+///
+/// Ein „Übernehmen“ ohne Nachweis (Stufe `confirm`) setzt die Schonfrist
+/// wie ein Nachweis: Wer eben geklickt hat, sitzt noch am Rechner.
 #[tauri::command]
 pub fn browser_answer(id: String, allow: bool) -> Result<bool, String> {
     let Ok(mut map) = pending().lock() else {
         return Err("Rückfrage blockiert.".into());
     };
 
-    match map.remove(&id) {
-        Some(parked) => {
-            let _ = parked.tx.send(Decision { allow });
-            Ok(true)
-        }
+    let Some(parked) = map.remove(&id) else {
         // Schon abgelaufen oder doppelt beantwortet — kein Fehler.
-        None => Ok(false),
+        return Ok(false);
+    };
+
+    let gleiche_frage = |d: &Value| {
+        d.get("kind") == parked.details.get("kind") && d.get("host") == parked.details.get("host")
+    };
+    let geschwister: Vec<String> =
+        map.iter().filter(|(_, p)| gleiche_frage(&p.details)).map(|(k, _)| k.clone()).collect();
+    for k in geschwister {
+        if let Some(p) = map.remove(&k) {
+            let _ = p.tx.send(Decision { allow });
+        }
     }
+    let _ = parked.tx.send(Decision { allow });
+    drop(map);
+
+    if allow && parked.details.get("guard").and_then(Value::as_str) == Some("confirm") {
+        browser_identified()?;
+    }
+    Ok(true)
 }
 
 /// Was gerade auf eine Antwort wartet.
@@ -1713,7 +1755,7 @@ fn await_unlocked(app: &tauri::AppHandle) -> Result<(), Failure> {
         .map(|m| m.values().any(|p| p.details.get("kind").and_then(Value::as_str) == Some("unlock")))
         .unwrap_or(false);
 
-    let id = format!("br{}", now_millis());
+    let id = neue_id();
     let (tx, rx) = std::sync::mpsc::channel();
 
     if !laeuft_schon {
@@ -2030,10 +2072,7 @@ fn matching_entries(
             .custom_data
             .get(&format!("{DECISION_PREFIX}{host}"))
             .and_then(|item| item.value.as_ref())
-            .and_then(|value| match value {
-                keepass::db::CustomDataValue::String(text) => Some(text == "true"),
-                _ => None,
-            });
+            .map(|value| als_text(value) == "true");
 
         // Ein ausdrückliches Nein bleibt ein Nein — nicht erneut fragen.
         if decision == Some(false) {
@@ -2346,6 +2385,32 @@ pub fn browser_forget(state: tauri::State<'_, Vault>, name: String) -> Result<bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Ein Formular fragt zweimal: Eine Antwort beantwortet beide — eine
+    /// Anfrage von einer anderen Seite wartet weiter.
+    #[test]
+    fn eine_antwort_fuer_dieselbe_frage() {
+        let parken = |kind: &str, host: &str| {
+            let id = neue_id();
+            let (tx, rx) = std::sync::mpsc::channel();
+            let details = json!({ "id": id, "kind": kind, "host": host, "guard": "identify" });
+            pending().lock().unwrap().insert(id.clone(), Parked { tx, details });
+            (id, rx)
+        };
+        let (erste, rx1) = parken("logins", "example.org");
+        let (_, rx2) = parken("logins", "example.org");
+        let (andere, rx3) = parken("logins", "andere.org");
+        assert_ne!(erste, neue_id(), "Kennungen sind eindeutig");
+
+        assert!(browser_answer(erste, true).unwrap());
+        assert!(rx1.try_recv().unwrap().allow);
+        assert!(rx2.try_recv().unwrap().allow, "dieselbe Frage ist mitbeantwortet");
+        assert!(rx3.try_recv().is_err(), "andere Seite wartet weiter");
+
+        assert!(browser_answer(andere, false).unwrap());
+        assert!(!rx3.try_recv().unwrap().allow);
+        assert!(pending().lock().unwrap().is_empty());
+    }
     use crate::keepass_extension::protocol::{self, KeyPair};
 
     /// Entsperren zählt als Ausweisen, Sperren beendet die Frist sofort.
@@ -2587,18 +2652,32 @@ mod tests {
     /// heißt es nach jedem Neustart von WKeePass „nicht konfiguriert“.
     #[test]
     fn verknuepfung_uebersteht_speichern() {
+        const KEY: &str = "lRnhOlGs4yUfqJAhd1Rv1ClXbrEOEhq3HKJFfNG0rFk=";
         let mut db = keepass::Database::new();
         db.meta.custom_data.insert(
             format!("{ASSOCIATION_PREFIX}WKeePass abc"),
             keepass::db::CustomDataItem {
-                value: Some(keepass::db::CustomDataValue::String("schluessel".into())),
+                // Wie von der Erweiterung: Base64. Mit „schluessel“ fiel
+                // nicht auf, dass er nach dem Einlesen `Binary` ist.
+                value: Some(keepass::db::CustomDataValue::String(KEY.into())),
                 last_modification_time: Some(keepass::db::Times::now()),
             },
         );
         let mut bytes = Vec::new();
         db.save(&mut bytes, keepass::DatabaseKey::new().with_password("test")).unwrap();
         let wieder = keepass::Database::parse(&bytes, keepass::DatabaseKey::new().with_password("test")).unwrap();
-        assert_eq!(association_with_key(&wieder, "schluessel").as_deref(), Some("WKeePass abc"));
+        assert_eq!(association_with_key(&wieder, KEY).as_deref(), Some("WKeePass abc"));
+        assert_eq!(stand_merken(&wieder).schluessel.get("WKeePass abc").map(String::as_str), Some(KEY));
+        stand_vergessen();
+    }
+
+    /// „Immer erlauben“ steht als „true“ am Eintrag — auch das liest die
+    /// Bibliothek als Base64.
+    #[test]
+    fn zusatzangabe_true_bleibt_text() {
+        use base64::Engine as _;
+        let gelesen = keepass::db::CustomDataValue::Binary(base64::engine::general_purpose::STANDARD.decode("true").unwrap());
+        assert_eq!(als_text(&gelesen), "true");
     }
 
     /// Ist der Tresor beim Speichern beschäftigt, antworten `get-databasehash`

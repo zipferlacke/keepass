@@ -69,8 +69,10 @@ let gewaehlt = 'master';
 
 const TEXTE = {
   unlock: () => 'Die Datenbank ist gesperrt. Ein Browser wartet darauf.',
-  logins: req => `${esc(req.client ?? 'Ein Browser')} möchte Benutzername und Passwort einsetzen.`,
-  totp: req => `${esc(req.client ?? 'Ein Browser')} möchte einen Einmalcode abrufen.`,
+  // Nicht der Name der Verknüpfung („WKeePass kt249N“) — der sagt niemandem
+  // etwas. Welche Seite fragt, steht darüber.
+  logins: () => 'Der Browser möchte Benutzername und Passwort einsetzen.',
+  totp: () => 'Der Browser möchte einen Einmalcode abrufen.',
   create: () => 'Ein neuer Eintrag soll angelegt werden.',
   update: () => 'Das Passwort soll geändert werden.',
   delete: () => 'Ein Eintrag soll in den Papierkorb wandern.',
