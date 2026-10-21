@@ -1216,6 +1216,7 @@ impl Connection {
         // vorhandenen Verknüpfung — sonst stünde derselbe Browser nach jedem
         // erneuten „Verbinden" ein weiteres Mal in der Liste.
         if let Some(bekannt) = association_with_key(db, key) {
+            protokolliere(&format!("associate: Schlüssel schon bekannt als „{bekannt}“"));
             if let Ok(mut conn) = shared.lock() {
                 conn.client_id = Some(bekannt.clone());
             }
@@ -1236,6 +1237,7 @@ impl Connection {
             conn.client_id = Some(name.clone());
         }
 
+        protokolliere(&format!("associate: neu als „{name}“"));
         let antwort = json!({ "id": name, "hash": database_hash_locked(db) });
         stand_merken(db);
         persist(app);
@@ -1262,6 +1264,13 @@ impl Connection {
         };
 
         if stand.schluessel.get(id).map(String::as_str) != Some(key) {
+            // Fürs Protokoll nur Namen, keine Schlüssel.
+            let mut bekannt: Vec<&str> = stand.schluessel.keys().map(String::as_str).collect();
+            bekannt.sort_unstable();
+            protokolliere(&format!(
+                "test-associate: gefragt „{id}“ ({}), in der Datenbank: {bekannt:?}",
+                if stand.schluessel.contains_key(id) { "Name bekannt, Schlüssel anders" } else { "Name unbekannt" }
+            ));
             return Err(Failure(code::ASSOCIATION_FAILED, "Dieser Browser ist nicht verknüpft.".into()));
         }
 
@@ -1343,7 +1352,12 @@ fn credential(id: &str, response: Value) -> Value {
 fn persist(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
-        match crate::database::commit(&app, &app.state::<Vault>()) {
+        let ergebnis = crate::database::commit(&app, &app.state::<Vault>());
+        protokolliere(&match &ergebnis {
+            Ok(_) => "Gespeichert".to_string(),
+            Err(err) => format!("NICHT gespeichert: {err}"),
+        });
+        match ergebnis {
             // Das Hauptfenster zeichnet neu — sonst erschien ein Passkey
             // oder Eintrag aus dem Browser erst nach einem Neustart der App.
             Ok(_) => {
@@ -2567,6 +2581,24 @@ mod tests {
         );
         assert_eq!(association_with_key(&db, "schluessel").as_deref(), Some("WKeePass JaLT6Q"));
         assert_eq!(association_with_key(&db, "anderer"), None);
+    }
+
+    /// Eine Verknüpfung muss Speichern und Wiedereinlesen überstehen — sonst
+    /// heißt es nach jedem Neustart von WKeePass „nicht konfiguriert“.
+    #[test]
+    fn verknuepfung_uebersteht_speichern() {
+        let mut db = keepass::Database::new();
+        db.meta.custom_data.insert(
+            format!("{ASSOCIATION_PREFIX}WKeePass abc"),
+            keepass::db::CustomDataItem {
+                value: Some(keepass::db::CustomDataValue::String("schluessel".into())),
+                last_modification_time: Some(keepass::db::Times::now()),
+            },
+        );
+        let mut bytes = Vec::new();
+        db.save(&mut bytes, keepass::DatabaseKey::new().with_password("test")).unwrap();
+        let wieder = keepass::Database::parse(&bytes, keepass::DatabaseKey::new().with_password("test")).unwrap();
+        assert_eq!(association_with_key(&wieder, "schluessel").as_deref(), Some("WKeePass abc"));
     }
 
     /// Ist der Tresor beim Speichern beschäftigt, antworten `get-databasehash`
