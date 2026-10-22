@@ -1,0 +1,7 @@
+<de-DE>
+• Ausfüllen auch bei geschlossener App: entsperren direkt im Blatt, passendes Konto wird gleich eingesetzt
+• Aufgedeckte Passwörter lassen sich markieren und kopieren
+• Markdown-Anhänge zeigen Bilder aus demselben Eintrag
+• Einträge ausschneiden und in andere Ordner einfügen
+• Fehler behoben: KeePassium (iOS) konnte Datenbanken mit gelöschten Einträgen nicht öffnen
+</de-DE>

@@ -434,7 +434,7 @@
   ],
   "brand": {
     "name": "WKeePass",
-    "claim": "Passwortmanger & 2FA Codes in einem mit Passkeys unterstützung und Dateienablage — sicher lokal speichern ohne Konto und bei bedarf geräteübergreifent.",
+    "claim": "Passwortmanger & 2FA-Codes \n\n  Mit Passkey-Unterstützung und Dateienablage. \n — \n Sicher lokal speichern, ohne Konto und bei Bedarf geräteübergreifend.",
     "logo": "../appdata/icons/icon.png",
     "colors": {
       "from": "#76cc47",
@@ -663,7 +663,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Ordner und Tags um den Überblick zu behalten eine Ampel um den Passwortstatus: schwach, geleakt, mehrfach genutzt, super immer im Blick zu haben.",
+              "text": "Ordner und Tags um den Überblick zu behalten. Eine Ampel um den Passwortstatus immer im Blick zu haben (schwach, geleakt, mehrfach genutzt).",
               "size": 3.8
             }
           ]
@@ -845,7 +845,7 @@
             {
               "type": "text",
               "style": "body",
-              "text": "Ordner und Tags um den Überblick zu behalten eine Ampel um den Passwortstatus: schwach, geleakt, mehrfach genutzt, super immer im Blick zu haben.",
+              "text": "Ordner und Tags um den Überblick zu behalten. Eine Ampel um den Passwortstatus immer im Blick zu haben (schwach, geleakt, mehrfach genutzt).",
               "size": 2.8
             }
           ]

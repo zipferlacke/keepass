@@ -155,14 +155,10 @@ static UEBERGEBEN: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None
 /// dafür; das Fenster kommt nach vorn.
 #[cfg(not(target_os = "android"))]
 pub fn datei_uebergeben(app: &tauri::AppHandle, args: impl IntoIterator<Item = String>) {
-    use tauri::{Emitter, Manager};
+    use tauri::Emitter;
 
     #[cfg(desktop)]
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+    crate::hauptfenster_zeigen(app);
     let Some(path) = kdbx_aus(args) else { return };
     if let Ok(mut p) = UEBERGEBEN.lock() {
         *p = Some(path.clone());

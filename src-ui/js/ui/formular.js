@@ -78,6 +78,18 @@ export function captureFields(...names) {
   };
 }
 
+/**
+ * Setzt den Fokus ins genannte Feld des offenen Dialogs, sobald er steht.
+ *
+ * Der Dialog setzt beim Öffnen selbst einen Fokus (das erste bedienbare
+ * Element, meist ein Knopf) — deshalb erst danach, zwei Bildaufbauten später.
+ */
+export function fokusInsFeld(name) {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelector(`dialog[open] [name="${name}"]`)?.focus();
+  }));
+}
+
 /** Häkchen aus einem Dialog — kommt mal als `true`, mal als `"on"`. */
 export function fieldChecked(data, name) {
   const value = data?.[name];

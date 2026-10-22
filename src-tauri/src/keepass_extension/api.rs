@@ -150,10 +150,12 @@ fn register(notify: Notify) -> u64 {
     if let Ok(mut map) = listeners().lock() {
         map.insert(id, notify);
     }
+    protokolliere(&format!("Browser {id} verbunden"));
     id
 }
 
 fn unregister(id: u64) {
+    protokolliere(&format!("Browser {id} getrennt"));
     let leer = match listeners().lock() {
         Ok(mut map) => {
             map.remove(&id);
@@ -223,27 +225,40 @@ fn ohne_browser_beenden(warten: std::time::Duration) {
     });
 }
 
-/// Richtet das Hauptfenster für den Hintergrund ein.
+/// Start im Hintergrund: Das Hauptfenster wird gar nicht erst gebraucht.
 ///
-/// Beim Start über den Browser bleibt es unsichtbar. Schließen versteckt es
-/// nur, solange ein Browser verbunden ist — sonst endet die Anwendung, auch
-/// wenn noch ein verstecktes Rückfragefenster existiert (das hielte sie
-/// sonst unsichtbar am Leben).
+/// Es kostet als ganze Browser-Engine gut 100 MB, auch unsichtbar.
+/// Rückfragen und Entsperren laufen über das kleine Fenster; das
+/// Hauptfenster entsteht erst, wenn man WKeePass öffnet
+/// ([`crate::hauptfenster_zeigen`]).
+#[cfg(desktop)]
+pub fn hintergrund_start(window: tauri::WebviewWindow) {
+    let _ = window.destroy();
+    ohne_browser_beenden(ERSTER_BROWSER);
+}
+
+/// Darf die Anwendung gehen, wenn ihr letztes Fenster zugeht?
+///
+/// Nicht, solange ein Browser verbunden ist — dann läuft sie ohne Fenster
+/// weiter, bis er geht. Und nicht kurz nach einem Start im Hintergrund, bevor
+/// sich der Browser gemeldet hat ([`ohne_browser_beenden`] räumt dann auf).
+#[cfg(desktop)]
+pub fn ohne_fenster_weiter() -> bool {
+    browser_verbunden() || route::im_hintergrund()
+}
+
+/// Schließen des Hauptfensters.
+///
+/// Ist ein Browser verbunden, geht nur das Fenster — samt seiner
+/// Browser-Engine, statt versteckt weiter Speicher zu belegen. Sonst endet
+/// die Anwendung, auch wenn noch ein verstecktes Rückfragefenster existiert
+/// (das hielte sie sonst unsichtbar am Leben).
 #[cfg(desktop)]
 pub fn hauptfenster(window: &tauri::WebviewWindow) {
-    if route::im_hintergrund() {
-        let _ = window.hide();
-        ohne_browser_beenden(ERSTER_BROWSER);
-    }
-
     let app = window.app_handle().clone();
-    let fenster = window.clone();
     window.on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-            if browser_verbunden() {
-                api.prevent_close();
-                let _ = fenster.hide();
-            } else {
+        if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if !browser_verbunden() {
                 app.exit(0);
             }
         }
@@ -264,6 +279,20 @@ pub fn hauptfenster(window: &tauri::WebviewWindow) {
 pub fn announce(locked: bool) {
     if let Ok(mut at) = last_identified().lock() {
         *at = if locked { None } else { Some(std::time::Instant::now()) };
+    }
+    if locked {
+        stand_vergessen();
+    } else {
+        // Gleich nach dem Entsperren fragt die Erweiterung nach — und dann
+        // wird oft schon gespeichert. Den Stand jetzt lesen, solange es geht.
+        std::thread::spawn(|| {
+            let Some(app) = crate::app_handle() else { return };
+            if let Ok(vault) = app.state::<Vault>().lock() {
+                if let Ok(db) = vault.database() {
+                    stand_merken(db);
+                }
+            }
+        });
     }
     let message = json!({ "action": if locked { "database-locked" } else { "database-unlocked" } });
     if let Ok(map) = listeners().lock() {
@@ -554,11 +583,49 @@ fn send(
 ///
 /// Das reicht trotzdem für fast jede Diagnose: Man sieht die Reihenfolge der
 /// Aktionen, ob eine Antwort ausbleibt, und ob ein Feld fehlt.
-fn trace(richtung: &str, message: &Value) {
-    use std::sync::OnceLock;
-    static AN: OnceLock<bool> = OnceLock::new();
+/// Wohin das Protokoll der Browser-Anbindung geht — oder `None`, wenn aus.
+///
+/// `WKEEPASS_BROWSER_LOG=1` (bzw. `2`) schreibt auf stderr. Startet der Browser
+/// WKeePass, hängt aber keine Konsole dran und Umgebungsvariablen kommen
+/// nicht an; dann zählt eine vorhandene Datei
+/// `$XDG_RUNTIME_DIR/wkeepass-browser.log`: Wer sie anlegt, schaltet das
+/// Protokoll ein, wer sie löscht, aus (ab dem nächsten Start).
+fn protokoll() -> Option<&'static Mutex<Box<dyn std::io::Write + Send>>> {
+    static ZIEL: std::sync::OnceLock<Option<Mutex<Box<dyn std::io::Write + Send>>>> = std::sync::OnceLock::new();
+    ZIEL.get_or_init(|| {
+        if std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v != "0") {
+            return Some(Mutex::new(Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>));
+        }
+        let datei = std::path::PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?).join("wkeepass-browser.log");
+        if !datei.is_file() {
+            return None;
+        }
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(datei)
+            .ok()
+            .map(|f| Mutex::new(Box::new(f) as Box<dyn std::io::Write + Send>))
+    })
+    .as_ref()
+}
 
-    if !AN.get_or_init(|| std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v != "0")) {
+/// Eine Zeile ins Protokoll, mit Uhrzeit (Millisekunden zählen hier: Die
+/// Erweiterung gibt nach 500 ms auf).
+pub(crate) fn protokolliere(zeile: &str) {
+    // Hier eingebunden: Oben gilt der Import nur außerhalb von Windows.
+    use std::io::Write as _;
+    let Some(ziel) = protokoll() else { return };
+    let jetzt = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() % 100_000_000)
+        .unwrap_or_default();
+    if let Ok(mut ziel) = ziel.lock() {
+        let _ = writeln!(ziel, "{:>5}.{:03} [{}] {zeile}", jetzt / 1000 % 100_000, jetzt % 1000, std::process::id());
+    }
+}
+
+fn trace(richtung: &str, message: &Value) {
+    if protokoll().is_none() {
         return;
     }
 
@@ -590,12 +657,12 @@ fn trace(richtung: &str, message: &Value) {
         })
         .unwrap_or_default();
 
-    eprintln!("[Browser] {richtung} {action}  {}", felder.join(" "));
+    protokolliere(&format!("{richtung} {action}  {}", felder.join(" ")));
 
     // Stufe 2 zeigt den Umschlag im Klartext. Der Inhalt bleibt verschlüsselt —
     // was hier steht, ist Schlüsseltext und Nonce, kein Geheimnis.
     if std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v == "2") {
-        eprintln!("[Browser]   {}", serde_json::to_string(message).unwrap_or_default());
+        protokolliere(&format!("  {}", serde_json::to_string(message).unwrap_or_default()));
     }
 }
 
@@ -621,11 +688,49 @@ struct Connection {
     session: Option<Session>,
     /// Der Name, unter dem sich dieser Browser verknüpft hat.
     client_id: Option<String>,
+    /// Wurde auf dieser Verbindung schon von selbst ums Entsperren gebeten?
+    /// Siehe [`Connection::beim_start_entsperren`].
+    entsperren_angeboten: bool,
 }
 
 impl Connection {
     fn new() -> Self {
-        Self { keys: KeyPair::generate(), session: None, client_id: None }
+        Self { keys: KeyPair::generate(), session: None, client_id: None, entsperren_angeboten: false }
+    }
+
+    /// Fragt einmal je Verbindung von selbst nach dem Entsperren.
+    ///
+    /// Die Erweiterung fragt beim Start des Browsers nach der Datenbank
+    /// (`get-databasehash`). Ist sie zu, merkt sie sich das und fragt nicht
+    /// weiter — Felder bleiben leer, im Menü steht „keine Daten“, bis man
+    /// dort „Verbinden“ drückt (das schickt `triggerUnlock`). Wer den Browser
+    /// öffnet, will meist gleich an seine Zugänge: Also geht das kleine
+    /// Fenster beim ersten Mal von selbst auf. Nach dem Entsperren meldet
+    /// [`announce`] es der Erweiterung, und sie holt sich die Daten.
+    ///
+    /// Nur einmal je Verbindung, damit ein „Abbrechen“ gilt und eine später
+    /// (etwa nach Untätigkeit) gesperrte Datenbank nicht bei jedem Tab-Wechsel
+    /// ein Fenster aufreißt. Einschaltbar über `browser.unlockOnConnect` —
+    /// Voreinstellung aus: Ein Fenster bei jedem Browserstart, auch wenn man
+    /// gar nichts anmelden will, stört mehr, als es hilft.
+    fn beim_start_entsperren(shared: &std::sync::Arc<Mutex<Self>>, app: &tauri::AppHandle) {
+        if offen_schnell(app) {
+            return;
+        }
+        let erstes_mal = match shared.lock() {
+            Ok(mut conn) => !std::mem::replace(&mut conn.entsperren_angeboten, true),
+            Err(_) => false,
+        };
+        let erwuenscht = crate::settings::value(app, "browser.unlockOnConnect")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        protokolliere(&format!("Entsperren beim Verbinden: erstes Mal {erstes_mal}, erwünscht {erwuenscht}"));
+        if erstes_mal && erwuenscht {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                let _ = await_unlocked(&app);
+            });
+        }
     }
 
     /// Nimmt eine Nachricht entgegen und liefert die Antwort.
@@ -651,7 +756,7 @@ impl Connection {
         // findet später keine Anfrage mehr. Deshalb geht die Anmeldemaske in
         // einem eigenen Faden auf, und diese Nachricht wird sofort
         // beantwortet.
-        if message.get("triggerUnlock").and_then(Value::as_str) == Some("true") && !is_open(app) {
+        if message.get("triggerUnlock").and_then(Value::as_str) == Some("true") && !offen_schnell(app) {
             let app = app.clone();
             std::thread::spawn(move || {
                 let _ = await_unlocked(&app);
@@ -695,7 +800,14 @@ impl Connection {
         let (inner, nonce) = inner;
 
         // --- ohne Sperre: die eigentliche Arbeit, die warten darf ---
+        let begonnen = std::time::Instant::now();
         let result = Self::dispatch(shared, app, action, &inner);
+        // Was drinnen geschah — im Umschlag steht es nur verschlüsselt. Nur
+        // Aktion, Dauer und unser eigener Fehlertext, nichts aus der Datenbank.
+        protokolliere(&match &result {
+            Ok(_) => format!("= {action} ok ({} ms)", begonnen.elapsed().as_millis()),
+            Err(Failure(code, text)) => format!("= {action} Fehler {code}: {text} ({} ms)", begonnen.elapsed().as_millis()),
+        });
 
         // --- kurz sperren: verpacken ---
         let Ok(conn) = shared.lock() else {
@@ -805,7 +917,10 @@ impl Connection {
     ) -> Result<Value, Failure> {
         match action {
             // Ohne offene Datenbank beantwortbar
-            "get-databasehash" => Ok(json!({ "hash": database_hash(app)? })),
+            "get-databasehash" => {
+                Self::beim_start_entsperren(shared, app);
+                Ok(json!({ "hash": database_hash(app)? }))
+            }
             "generate-password" => Ok(json!({
                 "password": generate_password(),
                 // Ältere Fassungen der Erweiterung lesen es aus `entries`.
@@ -1105,6 +1220,7 @@ impl Connection {
         // vorhandenen Verknüpfung — sonst stünde derselbe Browser nach jedem
         // erneuten „Verbinden" ein weiteres Mal in der Liste.
         if let Some(bekannt) = association_with_key(db, key) {
+            protokolliere(&format!("associate: Schlüssel schon bekannt als „{bekannt}“"));
             if let Ok(mut conn) = shared.lock() {
                 conn.client_id = Some(bekannt.clone());
             }
@@ -1125,7 +1241,9 @@ impl Connection {
             conn.client_id = Some(name.clone());
         }
 
+        protokolliere(&format!("associate: neu als „{name}“"));
         let antwort = json!({ "id": name, "hash": database_hash_locked(db) });
+        stand_merken(db);
         persist(app);
         Ok(antwort)
     }
@@ -1139,28 +1257,31 @@ impl Connection {
             return Err(Failure(code::ASSOCIATION_FAILED, "Angaben unvollständig.".into()));
         };
 
-        let state = app.state::<Vault>();
-        let vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
-        let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
+        // Nicht auf einen beschäftigten Tresor warten — siehe [`stand`].
+        let stand = match tresor_kurz(app) {
+            Some(vault) => {
+                let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
+                stand_merken(db)
+            }
+            None => stand_zuletzt()
+                .ok_or_else(|| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist gerade beschäftigt.".into()))?,
+        };
 
-        let stored = db
-            .meta
-            .custom_data
-            .get(&format!("{ASSOCIATION_PREFIX}{id}"))
-            .and_then(|item| item.value.as_ref())
-            .and_then(|value| match value {
-                keepass::db::CustomDataValue::String(text) => Some(text.as_str()),
-                _ => None,
-            });
-
-        if stored != Some(key) {
+        if stand.schluessel.get(id).map(String::as_str) != Some(key) {
+            // Fürs Protokoll nur Namen, keine Schlüssel.
+            let mut bekannt: Vec<&str> = stand.schluessel.keys().map(String::as_str).collect();
+            bekannt.sort_unstable();
+            protokolliere(&format!(
+                "test-associate: gefragt „{id}“ ({}), in der Datenbank: {bekannt:?}",
+                if stand.schluessel.contains_key(id) { "Name bekannt, Schlüssel anders" } else { "Name unbekannt" }
+            ));
             return Err(Failure(code::ASSOCIATION_FAILED, "Dieser Browser ist nicht verknüpft.".into()));
         }
 
         if let Ok(mut conn) = shared.lock() {
             conn.client_id = Some(id.to_string());
         }
-        Ok(json!({ "id": id, "hash": database_hash_locked(db) }))
+        Ok(json!({ "id": id, "hash": stand.hash }))
     }
 }
 
@@ -1168,11 +1289,25 @@ impl Connection {
 fn association_with_key(db: &keepass::Database, key: &str) -> Option<String> {
     db.meta.custom_data.iter().find_map(|(name, item)| {
         let rest = name.strip_prefix(ASSOCIATION_PREFIX)?;
-        match item.value.as_ref()? {
-            keepass::db::CustomDataValue::String(text) if text == key => Some(rest.to_string()),
-            _ => None,
-        }
+        (als_text(item.value.as_ref()?) == key).then(|| rest.to_string())
     })
+}
+
+/// Der Wert einer Zusatzangabe als Text.
+///
+/// Die Bibliothek rät beim Einlesen: Was sich als Base64 lesen lässt, wird
+/// `Binary` — die Schlüssel der Erweiterung sind aber immer Base64, und
+/// „true“ ist es auch. Im laufenden Programm stand dort noch `String`, nach
+/// einem Neustart `Binary`, und die Verknüpfung galt als unbekannt: Bei
+/// jedem Start des Browsers kam „nicht konfiguriert … Verbinden“.
+/// Zurückkodiert ergibt das genau den gespeicherten Text — die Bibliothek
+/// nimmt nur Base64 in seiner einzigen gültigen Schreibweise als `Binary`.
+fn als_text(wert: &keepass::db::CustomDataValue) -> std::borrow::Cow<'_, str> {
+    use base64::Engine as _;
+    match wert {
+        keepass::db::CustomDataValue::String(text) => text.into(),
+        keepass::db::CustomDataValue::Binary(bytes) => base64::engine::general_purpose::STANDARD.encode(bytes).into(),
+    }
 }
 
 /// Baut die Hülle, die die Erweiterung um einen Passkey erwartet.
@@ -1235,7 +1370,12 @@ fn credential(id: &str, response: Value) -> Value {
 fn persist(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
-        match crate::database::commit(&app, &app.state::<Vault>()) {
+        let ergebnis = crate::database::commit(&app, &app.state::<Vault>());
+        protokolliere(&match &ergebnis {
+            Ok(_) => "Gespeichert".to_string(),
+            Err(err) => format!("NICHT gespeichert: {err}"),
+        });
+        match ergebnis {
             // Das Hauptfenster zeichnet neu — sonst erschien ein Passkey
             // oder Eintrag aus dem Browser erst nach einem Neustart der App.
             Ok(_) => {
@@ -1287,10 +1427,97 @@ fn short(key: &str) -> String {
 /// letzten Mal. Der Wert muss nur stabil sein und sich zwischen Datenbanken
 /// unterscheiden — geprüft wird er nirgends gegen.
 fn database_hash(app: &tauri::AppHandle) -> Result<String, Failure> {
-    let state = app.state::<Vault>();
-    let vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
-    let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
-    Ok(database_hash_locked(db))
+    match tresor_kurz(app) {
+        Some(vault) => {
+            let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
+            Ok(stand_merken(db).hash)
+        }
+        None => stand_zuletzt()
+            .map(|stand| stand.hash)
+            .ok_or_else(|| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist gerade beschäftigt.".into())),
+    }
+}
+
+/* ---------------------------------------------------------
+   Antworten, die nicht warten dürfen
+   ---------------------------------------------------------
+   `get-databasehash` und `test-associate` stellt die Erweiterung mit einer
+   Frist von 500 ms. Bleibt die Antwort auf `test-associate` aus, **löscht**
+   sie ihre gespeicherte Verknüpfung — danach heißt es „nicht konfiguriert“,
+   man muss neu verbinden, und jedes Mal kam ein weiterer „WKeePass …“ in
+   ihre Liste.
+
+   Speichern hält den Tresor aber Sekunden: Datei lesen, zusammenführen,
+   mit Argon2 neu verschlüsseln. Kam die Frage genau dann — etwa gleich nach
+   dem Entsperren, wenn Zuletzt-genutzt und Symbole geschrieben werden —,
+   war die Verknüpfung weg.
+
+   Deshalb: höchstens kurz auf den Tresor warten, sonst aus dem zuletzt
+   gesehenen Stand antworten. Der Stand ist nur, was ohnehin über die
+   Leitung ginge — Kennung der Datenbank und die Schlüssel der verknüpften
+   Browser —, und er gilt nur, solange die Datenbank offen ist.
+   --------------------------------------------------------- */
+
+/// Was die Erweiterung zur Wiedererkennung braucht.
+#[derive(Clone)]
+struct Stand {
+    hash: String,
+    /// Name der Verknüpfung → Schlüssel.
+    schluessel: std::collections::HashMap<String, String>,
+}
+
+fn stand() -> &'static Mutex<Option<Stand>> {
+    static STAND: Mutex<Option<Stand>> = Mutex::new(None);
+    &STAND
+}
+
+/// Liest den Stand aus der offenen Datenbank und merkt ihn sich.
+fn stand_merken(db: &keepass::Database) -> Stand {
+    let schluessel = db
+        .meta
+        .custom_data
+        .iter()
+        .filter_map(|(name, item)| {
+            let id = name.strip_prefix(ASSOCIATION_PREFIX)?;
+            Some((id.to_string(), als_text(item.value.as_ref()?).into_owned()))
+        })
+        .collect();
+    let neu = Stand { hash: database_hash_locked(db), schluessel };
+    if let Ok(mut s) = stand().lock() {
+        *s = Some(neu.clone());
+    }
+    neu
+}
+
+fn stand_zuletzt() -> Option<Stand> {
+    stand().lock().ok().and_then(|s| s.clone())
+}
+
+/// Beim Sperren: Was nicht offen ist, wird auch nicht aus dem Gedächtnis
+/// beantwortet.
+fn stand_vergessen() {
+    if let Ok(mut s) = stand().lock() {
+        *s = None;
+    }
+}
+
+/// So lange wird höchstens auf einen beschäftigten Tresor gewartet — mit
+/// Luft zur Frist der Erweiterung (500 ms) für Ver- und Entschlüsseln.
+const KURZ: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// Der Tresor, wenn er binnen [`KURZ`] frei wird — sonst `None`.
+fn tresor_kurz(app: &tauri::AppHandle) -> Option<std::sync::MutexGuard<'_, crate::state::VaultState>> {
+    let tresor: &Vault = app.state::<Vault>().inner();
+    let bis = std::time::Instant::now() + KURZ;
+    loop {
+        match tresor.try_lock() {
+            Ok(vault) => return Some(vault),
+            Err(std::sync::TryLockError::WouldBlock) if std::time::Instant::now() < bis => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(_) => return None,
+        }
+    }
 }
 
 /// Woran die Erweiterung diese Datenbank wiedererkennt.
@@ -1410,7 +1637,7 @@ fn ask_user(app: &tauri::AppHandle, mut details: Value) -> Result<Decision, Fail
         return Ok(Decision { allow: true });
     }
 
-    let id = format!("br{}", now_millis());
+    let id = neue_id();
     let (tx, rx) = std::sync::mpsc::channel();
 
     details["id"] = json!(id);
@@ -1442,21 +1669,50 @@ fn ask_user(app: &tauri::AppHandle, mut details: Value) -> Result<Decision, Fail
     Ok(answer.unwrap_or(Decision { allow: false }))
 }
 
+/// Kennung einer geparkten Anfrage. Nur die Uhrzeit reichte nicht: Zwei
+/// Anfragen in derselben Millisekunde hätten einander überschrieben.
+fn neue_id() -> String {
+    static ZAEHLER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    format!("br{}-{}", now_millis(), ZAEHLER.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+}
+
 /// Beantwortet eine geparkte Anfrage. Wird von der Oberfläche aufgerufen.
+///
+/// Die Antwort gilt für alle wartenden Anfragen derselben Art von derselben
+/// Seite: Ein Formular mit mehreren Feldern fragt oft zweimal kurz
+/// hintereinander. Nach „Übernehmen“ stand dann dieselbe Frage noch einmal
+/// da — es sah aus, als schlösse das Fenster nicht.
+///
+/// Ein „Übernehmen“ ohne Nachweis (Stufe `confirm`) setzt die Schonfrist
+/// wie ein Nachweis: Wer eben geklickt hat, sitzt noch am Rechner.
 #[tauri::command]
 pub fn browser_answer(id: String, allow: bool) -> Result<bool, String> {
     let Ok(mut map) = pending().lock() else {
         return Err("Rückfrage blockiert.".into());
     };
 
-    match map.remove(&id) {
-        Some(parked) => {
-            let _ = parked.tx.send(Decision { allow });
-            Ok(true)
-        }
+    let Some(parked) = map.remove(&id) else {
         // Schon abgelaufen oder doppelt beantwortet — kein Fehler.
-        None => Ok(false),
+        return Ok(false);
+    };
+
+    let gleiche_frage = |d: &Value| {
+        d.get("kind") == parked.details.get("kind") && d.get("host") == parked.details.get("host")
+    };
+    let geschwister: Vec<String> =
+        map.iter().filter(|(_, p)| gleiche_frage(&p.details)).map(|(k, _)| k.clone()).collect();
+    for k in geschwister {
+        if let Some(p) = map.remove(&k) {
+            let _ = p.tx.send(Decision { allow });
+        }
     }
+    let _ = parked.tx.send(Decision { allow });
+    drop(map);
+
+    if allow && parked.details.get("guard").and_then(Value::as_str) == Some("confirm") {
+        browser_identified()?;
+    }
+    Ok(true)
 }
 
 /// Was gerade auf eine Antwort wartet.
@@ -1501,7 +1757,7 @@ fn await_unlocked(app: &tauri::AppHandle) -> Result<(), Failure> {
         .map(|m| m.values().any(|p| p.details.get("kind").and_then(Value::as_str) == Some("unlock")))
         .unwrap_or(false);
 
-    let id = format!("br{}", now_millis());
+    let id = neue_id();
     let (tx, rx) = std::sync::mpsc::channel();
 
     if !laeuft_schon {
@@ -1573,7 +1829,41 @@ fn unpark(app: &tauri::AppHandle, id: &str) {
         if let Some(window) = app.get_webview_window(REQUEST_WINDOW) {
             let _ = window.hide();
         }
+        spaeter_abbauen(app);
     }
+}
+
+/// Wie lange das versteckte Rückfragefenster bereitsteht, bevor es abgebaut
+/// wird. Kommen mehrere Rückfragen kurz hintereinander (ein Formular, mehrere
+/// Felder), steht es sofort wieder da; danach gibt es seinen Speicher frei.
+const BEREIT: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Wird das Rückfragefenster gerade abgebaut? Dann darf es niemand mehr
+/// zeigen — siehe [`open_request_window`].
+static ABBAU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Hält Abbau und Öffnen auseinander.
+fn fenster_riegel() -> &'static Mutex<()> {
+    static RIEGEL: Mutex<()> = Mutex::new(());
+    &RIEGEL
+}
+
+/// Baut das versteckte Rückfragefenster nach [`BEREIT`] ab, wenn es dann
+/// noch unbenutzt ist.
+fn spaeter_abbauen(app: &tauri::AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(BEREIT);
+        let Ok(_riegel) = fenster_riegel().lock() else { return };
+        let leer = pending().lock().map(|m| m.is_empty()).unwrap_or(false);
+        let Some(window) = app.get_webview_window(REQUEST_WINDOW) else { return };
+        if leer && !window.is_visible().unwrap_or(true) {
+            ABBAU.store(true, std::sync::atomic::Ordering::SeqCst);
+            if window.destroy().is_err() {
+                ABBAU.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+    });
 }
 
 /// Lehnt alles ab, was gerade wartet — das Fenster wurde geschlossen.
@@ -1589,6 +1879,13 @@ fn is_open(app: &tauri::AppHandle) -> bool {
     app.state::<Vault>().lock().is_ok_and(|v| v.db.is_some())
 }
 
+/// Wie [`is_open`], aber ohne auf einen beschäftigten Tresor zu warten —
+/// für Antworten mit Frist. Beschäftigt ist er nur beim Arbeiten an einer
+/// offenen Datenbank; dann gilt sie als offen.
+fn offen_schnell(app: &tauri::AppHandle) -> bool {
+    tresor_kurz(app).map_or(true, |v| v.db.is_some())
+}
+
 /// Öffnet das kleine Fenster für eine Rückfrage — über allem anderen.
 ///
 /// Bewusst **nicht** das Hauptfenster: Wer im Browser ein Anmeldeformular
@@ -1600,6 +1897,17 @@ fn is_open(app: &tauri::AppHandle) -> bool {
 /// ist der eigentliche Punkt: Eine Bestätigung, die im Browser entstünde,
 /// könnte eine Seite nachbauen.
 fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
+    let _riegel = fenster_riegel().lock();
+
+    // Wird es gerade abgebaut, erst das Ende abwarten: Ein sterbendes
+    // Fenster nach vorn zu holen hieße, dass es gleich darauf verschwindet
+    // und die Anfrage ohne sichtbare Maske wartet.
+    let bis = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while ABBAU.load(std::sync::atomic::Ordering::SeqCst) && std::time::Instant::now() < bis {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    ABBAU.store(false, std::sync::atomic::Ordering::SeqCst);
+
     // Schon offen? Dann nur nach vorn holen — sonst stapeln sich Fenster,
     // wenn eine Seite mehrere Formulare hat.
     if let Some(window) = app.get_webview_window(REQUEST_WINDOW) {
@@ -1609,7 +1917,7 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
         let _ = window.set_size(tauri::LogicalSize::new(WINDOW_WIDTH, hoehe));
         let _ = window.unminimize();
         let _ = window.show();
-        let _ = window.set_focus();
+        tastatur_hinein(&window);
         return;
     }
 
@@ -1631,30 +1939,41 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
     // aber die Tastatur nicht bekommt, zwingt zu einem Klick, bevor man
     // tippen kann.
     if let Ok(window) = &built {
-        let _ = window.set_focus();
+        tastatur_hinein(window);
 
         // Das Kreuz der Fensterleiste heißt „Abbrechen". Ohne das zerstörte
         // es nur das Fenster: Die Anfrage wartete unbeantwortet weiter, der
         // Browser auch, und die nächste Rückfrage fand kein Fenster vor.
         let fenster = window.clone();
-        window.on_window_event(move |event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        let handle = app.clone();
+        window.on_window_event(move |event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 deny_all_pending();
                 let _ = fenster.hide();
+                spaeter_abbauen(&handle);
             }
+            tauri::WindowEvent::Destroyed => ABBAU.store(false, std::sync::atomic::Ordering::SeqCst),
+            _ => {}
         });
     }
 
     // Klappt das nicht — etwa weil kein Fenstersystem da ist —, bleibt das
     // Hauptfenster als Rückfallweg.
     if built.is_err() {
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.unminimize();
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
+        #[cfg(desktop)]
+        crate::hauptfenster_zeigen(app);
     }
+}
+
+/// Holt das Fenster nach vorn **und** gibt der Seite darin die Tastatur.
+///
+/// `set_focus` am Fenster allein reicht unter Linux nicht: Das Fenster ist
+/// vorn, aber die Webansicht darin hat den Tastaturfokus nicht — wer gleich
+/// seine PIN tippt, tippt ins Leere und muss erst ins Feld klicken.
+pub fn tastatur_hinein(window: &tauri::WebviewWindow) {
+    let _ = window.set_focus();
+    let _ = AsRef::<tauri::Webview>::as_ref(window).set_focus();
 }
 
 /// Der Name des Rückfragefensters.
@@ -1669,11 +1988,10 @@ const UNLOCK_HEIGHT: f64 = 440.0;
 /// Holt das Hauptfenster nach vorn.
 #[allow(dead_code)]
 fn bring_to_front(app: &tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+    #[cfg(desktop)]
+    crate::hauptfenster_zeigen(app);
+    #[cfg(not(desktop))]
+    let _ = app;
 }
 
 fn now_millis() -> u128 {
@@ -1756,10 +2074,7 @@ fn matching_entries(
             .custom_data
             .get(&format!("{DECISION_PREFIX}{host}"))
             .and_then(|item| item.value.as_ref())
-            .and_then(|value| match value {
-                keepass::db::CustomDataValue::String(text) => Some(text == "true"),
-                _ => None,
-            });
+            .map(|value| als_text(value) == "true");
 
         // Ein ausdrückliches Nein bleibt ein Nein — nicht erneut fragen.
         if decision == Some(false) {
@@ -1883,14 +2198,17 @@ fn get_totp(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
 
 /// Sperrt die Datenbank auf Wunsch der Erweiterung.
 fn lock_database(app: &tauri::AppHandle) -> Result<Value, Failure> {
-    app.state::<Vault>()
-        .lock()
-        .map_err(|_| Failure(0, "Kern blockiert.".into()))?
-        .clear();
-
-    announce(true);
-    let _ = app.emit("vault-locked", "Über die Browser-Erweiterung gesperrt.");
+    sperren(app, "Über die Browser-Erweiterung gesperrt.").map_err(|e| Failure(0, e))?;
     Ok(json!({}))
+}
+
+/// Sperrt die Datenbank von außerhalb der Oberfläche — Erweiterung oder
+/// Leistensymbol — und sagt es allen weiter.
+pub fn sperren(app: &tauri::AppHandle, grund: &str) -> Result<(), String> {
+    app.state::<Vault>().lock().map_err(|_| "Kern blockiert.".to_string())?.clear();
+    announce(true);
+    let _ = app.emit("vault-locked", grund);
+    Ok(())
 }
 
 /// Alle Ordner als Baum — die Erweiterung bietet sie beim Speichern an.
@@ -2069,6 +2387,32 @@ pub fn browser_forget(state: tauri::State<'_, Vault>, name: String) -> Result<bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Ein Formular fragt zweimal: Eine Antwort beantwortet beide — eine
+    /// Anfrage von einer anderen Seite wartet weiter.
+    #[test]
+    fn eine_antwort_fuer_dieselbe_frage() {
+        let parken = |kind: &str, host: &str| {
+            let id = neue_id();
+            let (tx, rx) = std::sync::mpsc::channel();
+            let details = json!({ "id": id, "kind": kind, "host": host, "guard": "identify" });
+            pending().lock().unwrap().insert(id.clone(), Parked { tx, details });
+            (id, rx)
+        };
+        let (erste, rx1) = parken("logins", "example.org");
+        let (_, rx2) = parken("logins", "example.org");
+        let (andere, rx3) = parken("logins", "andere.org");
+        assert_ne!(erste, neue_id(), "Kennungen sind eindeutig");
+
+        assert!(browser_answer(erste, true).unwrap());
+        assert!(rx1.try_recv().unwrap().allow);
+        assert!(rx2.try_recv().unwrap().allow, "dieselbe Frage ist mitbeantwortet");
+        assert!(rx3.try_recv().is_err(), "andere Seite wartet weiter");
+
+        assert!(browser_answer(andere, false).unwrap());
+        assert!(!rx3.try_recv().unwrap().allow);
+        assert!(pending().lock().unwrap().is_empty());
+    }
     use crate::keepass_extension::protocol::{self, KeyPair};
 
     /// Entsperren zählt als Ausweisen, Sperren beendet die Frist sofort.
@@ -2304,6 +2648,69 @@ mod tests {
         );
         assert_eq!(association_with_key(&db, "schluessel").as_deref(), Some("WKeePass JaLT6Q"));
         assert_eq!(association_with_key(&db, "anderer"), None);
+    }
+
+    /// Eine Verknüpfung muss Speichern und Wiedereinlesen überstehen — sonst
+    /// heißt es nach jedem Neustart von WKeePass „nicht konfiguriert“.
+    #[test]
+    fn verknuepfung_uebersteht_speichern() {
+        const KEY: &str = "lRnhOlGs4yUfqJAhd1Rv1ClXbrEOEhq3HKJFfNG0rFk=";
+        let mut db = keepass::Database::new();
+        db.meta.custom_data.insert(
+            format!("{ASSOCIATION_PREFIX}WKeePass abc"),
+            keepass::db::CustomDataItem {
+                // Wie von der Erweiterung: Base64. Mit „schluessel“ fiel
+                // nicht auf, dass er nach dem Einlesen `Binary` ist.
+                value: Some(keepass::db::CustomDataValue::String(KEY.into())),
+                last_modification_time: Some(keepass::db::Times::now()),
+            },
+        );
+        let mut bytes = Vec::new();
+        db.save(&mut bytes, keepass::DatabaseKey::new().with_password("test")).unwrap();
+        let wieder = keepass::Database::parse(&bytes, keepass::DatabaseKey::new().with_password("test")).unwrap();
+        assert_eq!(association_with_key(&wieder, KEY).as_deref(), Some("WKeePass abc"));
+        assert_eq!(stand_merken(&wieder).schluessel.get("WKeePass abc").map(String::as_str), Some(KEY));
+        stand_vergessen();
+    }
+
+    /// „Immer erlauben“ steht als „true“ am Eintrag — auch das liest die
+    /// Bibliothek als Base64.
+    #[test]
+    fn zusatzangabe_true_bleibt_text() {
+        use base64::Engine as _;
+        let gelesen = keepass::db::CustomDataValue::Binary(base64::engine::general_purpose::STANDARD.decode("true").unwrap());
+        assert_eq!(als_text(&gelesen), "true");
+    }
+
+    /// Ist der Tresor beim Speichern beschäftigt, antworten `get-databasehash`
+    /// und `test-associate` aus dem gemerkten Stand — der muss dieselbe
+    /// Kennung und dieselben Schlüssel kennen und beim Sperren verfallen.
+    #[test]
+    fn gemerkter_stand_kennt_verknuepfungen() {
+        let mut db = keepass::Database::new();
+        db.meta.custom_data.insert(
+            format!("{ASSOCIATION_PREFIX}Firefox"),
+            keepass::db::CustomDataItem {
+                value: Some(keepass::db::CustomDataValue::String("schluessel".into())),
+                last_modification_time: None,
+            },
+        );
+        db.meta.custom_data.insert(
+            "fremd".into(),
+            keepass::db::CustomDataItem {
+                value: Some(keepass::db::CustomDataValue::String("nicht verknüpft".into())),
+                last_modification_time: None,
+            },
+        );
+
+        let stand = stand_merken(&db);
+        assert_eq!(stand.hash, database_hash_locked(&db));
+        assert_eq!(stand.schluessel.get("Firefox").map(String::as_str), Some("schluessel"));
+        assert_eq!(stand.schluessel.len(), 1, "nur Verknüpfungen, keine anderen Daten");
+        assert!(stand_zuletzt().is_some());
+
+        stand_vergessen();
+        assert!(stand_zuletzt().is_none(), "gesperrt: nichts aus dem Gedächtnis");
     }
 
 }

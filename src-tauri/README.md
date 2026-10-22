@@ -21,19 +21,19 @@ Dateien flach in die Wurzel, `js/app.js` würde zu `app.js`.
 
 ## Module
 
-| Datei | Zweck |
-|---|---|
-| `lib.rs` | Plugins und Kommandoregistrierung, sonst nichts |
-| `dto.rs` | die Typen, die über die IPC-Grenze gehen |
-| `state.rs` | `VaultState`, Token-Tabelle, Gruppenbaum ↔ Ordnerpfad |
-| `database.rs` | entsperren, auslesen, zurückschreiben |
-| `entries.rs` | Einträge und Ordner ändern |
-| `secrets.rs` | Werte verwahren, Stärke, Hash, TOTP, Anhänge |
-| `seal.rs` | Master-Passwort unter einer PIN versiegeln |
-| `settings.rs` | `settings.json` im Konfigurationsverzeichnis |
-| `system.rs` | Dateiauswahl, Seitentitel |
-| `qr.rs` | QR-Dekodierung mit [`rqrr`](https://crates.io/crates/rqrr) |
-| `util.rs` | `write_atomic` |
+| Datei         | Zweck                                                      |
+|---------------|------------------------------------------------------------|
+| `lib.rs`      | Plugins und Kommandoregistrierung, sonst nichts            |
+| `dto.rs`      | die Typen, die über die IPC-Grenze gehen                   |
+| `state.rs`    | `VaultState`, Token-Tabelle, Gruppenbaum ↔ Ordnerpfad      |
+| `database.rs` | entsperren, auslesen, zurückschreiben                      |
+| `entries.rs`  | Einträge und Ordner ändern                                 |
+| `secrets.rs`  | Werte verwahren, Stärke, Hash, TOTP, Anhänge               |
+| `seal.rs`     | Master-Passwort unter einer PIN versiegeln                 |
+| `settings.rs` | `settings.json` im Konfigurationsverzeichnis               |
+| `system.rs`   | Dateiauswahl, Seitentitel                                  |
+| `qr.rs`       | QR-Dekodierung mit [`rqrr`](https://crates.io/crates/rqrr) |
+| `util.rs`     | `write_atomic`                                             |
 
 ## Warum die `keepass`-Crate
 
@@ -71,19 +71,8 @@ Für den modernen GNOME-Dateidialog statt des alten GTK3-Fensters ist
 
 ## Was noch fehlt
 
-- `vault_store_attachment` — in KDBX gehört ein Anhang immer zu einem
-  Eintrag. Die Oberfläche legt ihn aber ab, bevor der Eintrag gespeichert
-  wird. Dafür braucht es eine Zwischenablage im Kern, die `vault_save_entry`
-  auflöst.
-- Reihenfolge innerhalb eines Ordners — `Group::entries` ist crate-intern,
-  deshalb setzen `vault_reorder_*` nur den Zielordner durch.
-- `fetch_page_title` — braucht `reqwest` mit Zeitlimit, begrenzten
-  Weiterleitungen und gedeckelter Antwortgröße.
-- Biometrie — unter Windows gerätegebunden über Windows Hello (`device.json`,
-  ersetzt PIN und Master-Passwort). macOS fehlt noch der Keychain-Eintrag mit
-  `SecAccessControl`; dort und unter Linux bleibt es ein Ja/Nein. Siehe
-  `biometric.rs` und `seal.rs`. Der Windows-Teil ist bisher weder unter Windows
-  übersetzt noch auf einem echten Gerät ausprobiert.
-- Fremdänderung erkennen: beim Öffnen den SHA-256 der Datei merken und vor
-  `write_atomic` erneut prüfen. Die Datei liegt in Nextcloud und wird parallel
-  von KeePassXC angefasst.
+- `vault_store_attachment` — in KDBX gehört ein Anhang immer zu einem Eintrag. Die Oberfläche legt ihn aber ab, bevor der Eintrag gespeichert wird. Dafür braucht es eine Zwischenablage im Kern, die `vault_save_entry` auflöst.
+- Reihenfolge innerhalb eines Ordners — `Group::entries` ist crate-intern, deshalb setzen `vault_reorder_*` nur den Zielordner durch.
+- `fetch_page_title` — braucht `reqwest` mit Zeitlimit, begrenzten Weiterleitungen und gedeckelter Antwortgröße.
+- Biometrie — erst sinnvoll mit einem Schlüsselspeicher, der die Herausgabe an die Prüfung bindet. Siehe den Kommentar oben in `seal.rs`.
+- Fremdänderung erkennen: beim Öffnen den SHA-256 der Datei merken und vor `write_atomic` erneut prüfen. Die Datei liegt in Nextcloud und wird parallel von KeePassXC angefasst.

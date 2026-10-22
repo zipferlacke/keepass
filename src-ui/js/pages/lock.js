@@ -15,7 +15,7 @@ import { isTauri, isMobile, invoke, unlockMethods, pickDatabaseFile, pickSavePat
 import { dialog, banner, closeHostDialog } from '../ui/libs.js';
 import { state, $, $$, esc } from '../core/state.js';
 import { renderAll, refreshFromVault } from '../core/render.js';
-import { captureFields, fieldChecked, pinStrengthNote, passwordField, wirePasswordFields } from '../ui/formular.js';
+import { captureFields, fieldChecked, fokusInsFeld, pinStrengthNote, passwordField, wirePasswordFields } from '../ui/formular.js';
 import { tickTotp } from './totp.js';
 import { restoreCheck, runSecurityCheck } from './checkup.js';
 import { showView } from '../core/navigation.js';
@@ -224,6 +224,9 @@ export async function openUnlockDialog() {
     cancelText: 'Abbrechen',
     onInsert: () => {
       fields.onInsert();
+      // Gleich lostippen können: Ohne das steht der Fokus auf dem ersten
+      // Knopf des Dialogs, und PIN oder Passwort gehen ins Leere.
+      fokusInsFeld(u.pin ? 'pin' : 'pw');
       queueMicrotask(() => {
         document.getElementById('dlg-bio')?.addEventListener('click', () => {
           closeHostDialog(document.getElementById('dlg-bio'), false);

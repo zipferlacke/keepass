@@ -8,6 +8,16 @@
 
     "changelog":[
         {
+            "version":"1.2.1",
+            "date":"2026-10-21",
+            "changes":[
+                "Fix, Rechner: Extension muss sich nicht mehr jeden Bowserstart neu mit Wkeepass am Rechner vebinden sondern Befählt verbing bei.",
+                "Fix, Rechner: Wkeepass ist auch als Hintergrunddienst optisch für den Nutzbar sichtbar.",
+                "Rechner: Speichereinparungen im Hintegrund",
+                "Entsperren: gleich lostippen – PIN bzw. Master-Passwort hat sofort den Fokus"
+            ]
+        },
+        {
             "version":"1.2.0",
             "date":"2026-10-16",
             "changes":[

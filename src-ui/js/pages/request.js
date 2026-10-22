@@ -69,8 +69,10 @@ let gewaehlt = 'master';
 
 const TEXTE = {
   unlock: () => 'Die Datenbank ist gesperrt. Ein Browser wartet darauf.',
-  logins: req => `${esc(req.client ?? 'Ein Browser')} möchte Benutzername und Passwort einsetzen.`,
-  totp: req => `${esc(req.client ?? 'Ein Browser')} möchte einen Einmalcode abrufen.`,
+  // Nicht der Name der Verknüpfung („WKeePass kt249N“) — der sagt niemandem
+  // etwas. Welche Seite fragt, steht darüber.
+  logins: () => 'Der Browser möchte Benutzername und Passwort einsetzen.',
+  totp: () => 'Der Browser möchte einen Einmalcode abrufen.',
   create: () => 'Ein neuer Eintrag soll angelegt werden.',
   update: () => 'Das Passwort soll geändert werden.',
   delete: () => 'Ein Eintrag soll in den Papierkorb wandern.',
@@ -402,6 +404,14 @@ async function boot() {
   });
 
   $('#req-deny').addEventListener('click', () => answer(false));
+
+  // Wird das Fenster aktiv, gehört die Tastatur ins Feld: Beim Öffnen kommt
+  // `focus()` sonst manchmal zu früh, bevor das Fenster vorn ist — und wer
+  // gleich seine PIN tippt, tippt ins Leere.
+  window.addEventListener('focus', () => {
+    const feld = aufdeckbar($('#req-secret')).aktiv;
+    if (current && !$('#req-identify').hidden && document.activeElement !== feld) feld.focus();
+  });
 
   // Escape lehnt ab. Ein Fenster, das man nur wegklicken kann, ohne dass
   // klar ist was passiert, wäre die falsche Voreinstellung.

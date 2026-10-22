@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "WKeePass",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "identifier": "de.wuefl.wkeepass",
   "build": {
     "frontendDist": "../src-ui",
@@ -37,9 +37,24 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },
+    "linux": {
+      "deb": {
+        "recommends": ["libayatana-appindicator3-1"],
+        "files": {
+          "/usr/share/metainfo/de.wuefl.wkeepass.metainfo.xml": "../appdata/linux/de.wuefl.wkeepass.metainfo.xml"
+        }
+      },
+      "rpm": {
+        "recommends": ["libayatana-appindicator-gtk3"],
+        "files": {
+          "/usr/share/metainfo/de.wuefl.wkeepass.metainfo.xml": "../appdata/linux/de.wuefl.wkeepass.metainfo.xml"
+        }
+      }
+    },
     "category": "Utility",
+    "homepage": "https://wuefl.de/wkeepass/",
     "shortDescription": "Passwortverwaltung für KeePass-Datenbanken",
-    "longDescription": "WKeePass öffnet und schreibt KDBX-Dateien. Alle Klartextwerte bleiben im Kern der Anwendung; die Oberfläche bekommt nur Verweise darauf.",
+    "longDescription": "WKeePass ist ein Passwortmanager auf Basis des KeePass-Formats: Passwörter, 2FA-Codes, Passkeys und Dateien verschlüsselt in einer Datei, die Ihnen gehört. Ausfüllen im Browser über KeePassXC-Browser, Abgleich über jeden Cloud-Ordner, kompatibel mit KeePassXC, KeePassDX und Strongbox. Kein Konto, kein Abo, keine Werbung.",
     "fileAssociations": [
       {
         "ext": [
