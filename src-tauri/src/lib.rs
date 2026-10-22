@@ -385,15 +385,6 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Anwendung konnte nicht gestartet werden")
         .run(|app, event| {
-            // macOS reicht eine doppelgeklickte Datei nicht als Argument
-            // weiter, sondern als eigenes Ereignis.
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            if let tauri::RunEvent::Opened { urls } = event {
-                system::datei_uebergeben(
-                    app,
-                    urls.into_iter().filter_map(|u| u.to_file_path().ok()).map(|p| p.to_string_lossy().to_string()),
-                );
-            }
             // Das letzte Fenster ist zu. Ist ein Browser verbunden, läuft die
             // Anwendung ohne Fenster weiter (`api.rs`, „Im Hintergrund").
             // Gewolltes Beenden kommt mit Code und bleibt unberührt.
@@ -406,6 +397,16 @@ pub fn run() {
                 if keepass_extension::api::ohne_fenster_weiter() {
                     api.prevent_exit();
                 }
+            }
+            // macOS reicht eine doppelgeklickte Datei nicht als Argument
+            // weiter, sondern als eigenes Ereignis. Zuletzt: Das verbraucht
+            // `event`, die Prüfungen oben brauchen es vorher.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            if let tauri::RunEvent::Opened { urls } = event {
+                system::datei_uebergeben(
+                    app,
+                    urls.into_iter().filter_map(|u| u.to_file_path().ok()).map(|p| p.to_string_lossy().to_string()),
+                );
             }
             #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             let _ = (app, event);

@@ -590,11 +590,11 @@ fn send(
 /// nicht an; dann zählt eine vorhandene Datei
 /// `$XDG_RUNTIME_DIR/wkeepass-browser.log`: Wer sie anlegt, schaltet das
 /// Protokoll ein, wer sie löscht, aus (ab dem nächsten Start).
-fn protokoll() -> Option<&'static Mutex<Box<dyn Write + Send>>> {
-    static ZIEL: std::sync::OnceLock<Option<Mutex<Box<dyn Write + Send>>>> = std::sync::OnceLock::new();
+fn protokoll() -> Option<&'static Mutex<Box<dyn std::io::Write + Send>>> {
+    static ZIEL: std::sync::OnceLock<Option<Mutex<Box<dyn std::io::Write + Send>>>> = std::sync::OnceLock::new();
     ZIEL.get_or_init(|| {
         if std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v != "0") {
-            return Some(Mutex::new(Box::new(std::io::stderr()) as Box<dyn Write + Send>));
+            return Some(Mutex::new(Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>));
         }
         let datei = std::path::PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?).join("wkeepass-browser.log");
         if !datei.is_file() {
@@ -604,7 +604,7 @@ fn protokoll() -> Option<&'static Mutex<Box<dyn Write + Send>>> {
             .append(true)
             .open(datei)
             .ok()
-            .map(|f| Mutex::new(Box::new(f) as Box<dyn Write + Send>))
+            .map(|f| Mutex::new(Box::new(f) as Box<dyn std::io::Write + Send>))
     })
     .as_ref()
 }
@@ -612,6 +612,8 @@ fn protokoll() -> Option<&'static Mutex<Box<dyn Write + Send>>> {
 /// Eine Zeile ins Protokoll, mit Uhrzeit (Millisekunden zählen hier: Die
 /// Erweiterung gibt nach 500 ms auf).
 pub(crate) fn protokolliere(zeile: &str) {
+    // Hier eingebunden: Oben gilt der Import nur außerhalb von Windows.
+    use std::io::Write as _;
     let Some(ziel) = protokoll() else { return };
     let jetzt = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
