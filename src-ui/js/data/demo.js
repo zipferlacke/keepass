@@ -30,7 +30,7 @@ let nextRef = 0;
 const binaries = new Map();
 
 /** Name und Stärke der Demo-Datenbank — im Kern steht das in der Datei. */
-const demoSecurity = { name: 'Demodaten', level: 'standard', iterations: 10, memoryMib: 64, parallelism: 4 };
+const demoSecurity = { name: 'Demodaten', level: 'standard', iterations: 40, memoryMib: 16, parallelism: 4 };
 let settingsMemory = null;
 let demoPin = null;       // in der Demo nur im Speicher, kein Siegel
 const demoAllowed = new Set();  // Pfade, die mit der PIN aufgehen dürfen
@@ -354,6 +354,15 @@ const commands = {
 
   async vault_version_restore() {
     return 0;
+  },
+
+  /** Die Demo hat nur eine Seite — Konflikte gibt es hier nicht. */
+  async vault_conflicts() {
+    return [];
+  },
+
+  async vault_conflict_resolve() {
+    return false;
   },
 
   async vault_lock() {

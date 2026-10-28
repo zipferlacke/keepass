@@ -628,8 +628,16 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false, f
   const cols = COLUMNS[variant] ?? COLUMNS.full;
   const iconsOn = settings.get('icons.download', true);
 
+  // Ordner ohne Einträge (auch darunter): Eine Gruppe entsteht nur aus
+  // Zeilen, deshalb trägt sie eine Platzhalterzeile (t-placeholder). Sonst
+  // erschien ein neuer Ordner erst mit seinem ersten Eintrag.
+  // Mit Filter nach Art (nur 2FA, nur Passkeys …) zählen nur die Treffer.
+  const leer = folders && !state.kindFilter ? leereOrdner(list) : [];
+
   // Nach Ordnern gruppiert: je Ebene eine versteckte Spalte hinten dran.
-  const levels = folders ? Math.max(1, ...list.map(e => folderParts(e).length)) : 0;
+  const levels = folders
+    ? Math.max(1, ...list.map(e => folderParts(e).length), ...leer.map(f => f.split('/').length))
+    : 0;
   const levelHeads = Array.from({ length: levels }, (_, i) =>
     `<th t-group="active:${i}">${i ? 'Unterordner' : 'Ordner'}</th>`).join('');
   const levelCells = e => {
@@ -643,7 +651,8 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false, f
              ${folders ? 'data-folders t-group-empty="inline"' : ''}>
         <thead><tr>${headerHtml(cols, sortable, variant === 'full')}${levelHeads}</tr></thead>
         <tbody>${list.map(e => entryRowHtml(e, cols, { iconsOn, drag: variant === 'full' })
-          .replace(/<\/tr>$/, `${levels ? levelCells(e) : ''}</tr>`)).join('')}</tbody>
+          .replace(/<\/tr>$/, `${levels ? levelCells(e) : ''}</tr>`)).join('')}${leer.map(f =>
+          `<tr t-placeholder>${cols.map(() => '<td></td>').join('')}${levelCells({ folder: f })}</tr>`).join('')}</tbody>
       </table>
     </div>`;
 }
@@ -664,6 +673,18 @@ export function renderEntryTable(host, list, options = {}) {
    versteckten Spalten, eine je Ebene, und tableview gruppiert fest danach.
    Mit t-group-empty="inline" stehen die Einträge eines Ordners direkt
    darin, hinter seinen Unterordnern — nicht in einer Gruppe „—". */
+
+/** Ordner, in denen (auch weiter unten) kein Eintrag aus `list` liegt. */
+function leereOrdner(list) {
+  const belegt = new Set();
+  for (const e of list) {
+    const parts = folderParts(e);
+    parts.forEach((_, i) => belegt.add(parts.slice(0, i + 1).join('/')));
+  }
+  return vault.folders().filter(f => f && f !== 'Allgemein' && !belegt.has(f)
+    // Nur die tiefsten: „Bank/Neu" bringt „Bank" mit.
+    && !vault.folders().some(g => g.startsWith(`${f}/`) && !belegt.has(g)));
+}
 
 /** Trenner in den Gruppenpfaden von tableview ("0:Bank\x1f1:Konten"). */
 const GROUP_SEP = '\x1f';
@@ -780,11 +801,12 @@ export function renderPasswords() {
   const live = list.filter(e => !e.recycled);
 
   // Ohne t-search: Die Suche oben in der App gilt für alles.
-  host.innerHTML = (live.length
+  const zeigen = live.length || (!state.kindFilter && leereOrdner(live).length);
+  host.innerHTML = (zeigen
     ? tableHtml(live, { sortable: true, folders: true })
     : `<p class="empty-state">Keine Einträge gefunden.</p>`) + binHtml(bin);
   wireBin(host);
-  if (!live.length) { wireEntryRows(host); ensureTableview(); return; }
+  if (!zeigen) { wireEntryRows(host); ensureTableview(); return; }
 
   // Offene Ordner vorgeben, bevor tableview die Tabelle zum ersten Mal
   // zeichnet (das passiert erst nach diesem Durchlauf).

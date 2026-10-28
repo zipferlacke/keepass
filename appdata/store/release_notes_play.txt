@@ -1,7 +1,8 @@
 <de-DE>
-• Ausfüllen auch bei geschlossener App: entsperren direkt im Blatt, passendes Konto wird gleich eingesetzt
-• Aufgedeckte Passwörter lassen sich markieren und kopieren
-• Markdown-Anhänge zeigen Bilder aus demselben Eintrag
-• Einträge ausschneiden und in andere Ordner einfügen
-• Fehler behoben: KeePassium (iOS) konnte Datenbanken mit gelöschten Einträgen nicht öffnen
+• Öffnet und speichert sofort – die Datei in der Cloud wird im Hintergrund abgeglichen
+• Ausfüllen wartet nicht mehr, wenn Nextcloud langsam antwortet
+• Konflikte: Eintrag hier und anderswo verschieden geändert? Du wählst, welche Fassung gilt
+• Versionen: 30 bis 100 Stände, mit Herkunft je Änderung
+• Passkeys: nach dem Entsperren keine zweite Abfrage
+• Neue Ordner sofort sichtbar
 </de-DE>

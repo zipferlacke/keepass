@@ -83,7 +83,7 @@ pub async fn vault_unlock(
     let worker = app.clone();
     let target = path.clone();
 
-    let Opened { db, raw, master, keyfile, format, read_only, offline } =
+    let Opened { db, raw, master, keyfile, format, read_only, offline, vorab } =
         tauri::async_runtime::spawn_blocking(move || open_blocking(&worker, &target, &method, secret, keyfile))
             .await
             .map_err(|e| format!("Entsperren abgebrochen: {e}"))??;
@@ -148,7 +148,7 @@ pub async fn vault_unlock(
     // Was länger als die Frist im Papierkorb liegt, ist jetzt weg. Erst nach
     // dem Abdruck: Die Version „geöffnet" soll zeigen, was in der Datei stand.
     let mut db = db;
-    let aufgeraeumt = if read_only || offline.is_some() {
+    let aufgeraeumt = if read_only || offline.is_some() || vorab {
         0
     } else {
         crate::state::papierkorb_aufraeumen(&mut db, crate::state::PAPIERKORB_TAGE, keepass::db::Times::now())
@@ -156,6 +156,7 @@ pub async fn vault_unlock(
 
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.clear();
+    vault.opened_config = Some(db.config.clone());
     vault.db = Some(db);
     vault.path = Some(path.clone().into());
     vault.master = Some(master);
@@ -163,7 +164,9 @@ pub async fn vault_unlock(
     vault.opened_hash = Some(digest(&raw));
     vault.seen_modified = crate::storage::modified_ms(&path);
     vault.read_only = read_only;
-    vault.offline = offline.is_some();
+    // Vorab aus der Kopie: Bis der Stand vom Ort da ist, gilt die Datei als
+    // nicht gelesen — `commit` liest dann vor dem Schreiben selbst.
+    vault.offline = offline.is_some() || vorab;
     vault.auto_lock_minutes = auto_lock_minutes;
     vault.touch();
 
@@ -174,7 +177,16 @@ pub async fn vault_unlock(
     // Ohne diese Nachricht bliebe ein danebenstehendes Hauptfenster auf dem
     // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
     // Netz unter dem Abgleich: So lag die Datei beim Öffnen da.
-    crate::versions::sichern(&app, &path, &raw, crate::versions::Grund::Geoeffnet, abdruck);
+    // Im Hintergrund, aus demselben Grund wie die Offline-Kopie. Nach dem
+    // Öffnen aus der Kopie nicht: Das wäre kein Stand der Datei.
+    if !vorab {
+        let (app, path) = (app.clone(), path.clone());
+        std::thread::spawn(move || {
+            let mut uhr = Uhr::neu();
+            crate::versions::sichern(&app, &path, &raw, crate::versions::Grund::Geoeffnet, abdruck);
+            uhr.schritt("Version gesichert (Hintergrund)");
+        });
+    }
 
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
@@ -182,7 +194,17 @@ pub async fn vault_unlock(
 
     // Was Autofill während der Sperre speichern wollte, jetzt eintragen.
     #[cfg(target_os = "android")]
-    crate::android_services::nach_entsperren(&app);
+    {
+        let mut uhr = Uhr::neu();
+        crate::android_services::nach_entsperren(&app);
+        uhr.schritt("Ausstehendes nachgetragen");
+    }
+
+    // Aus der Kopie geöffnet: den Stand vom Ort holen und einmischen.
+    if vorab {
+        let worker = app.clone();
+        std::thread::spawn(move || nachladen(worker));
+    }
 
     // Das Aufräumen im Papierkorb gleich zurückschreiben — im Hintergrund,
     // die Oberfläche hat ihre Liste schon ohne die alten Einträge.
@@ -204,6 +226,21 @@ pub async fn vault_unlock(
     Ok(dto::DatabaseInfo { name, path, read_only, format, cached_at, offline_reason })
 }
 
+/// Zeitmessung beim Entsperren — eine Zeile je Schritt im Protokoll
+/// (Android: logcat, Tag `RustStdoutStderr`). Am Handy dauerte das Öffnen
+/// aus dem Ausfüll-Blatt einmal über 30 Sekunden; so sieht man, wo.
+struct Uhr(std::time::Instant);
+
+impl Uhr {
+    fn neu() -> Self {
+        Self(std::time::Instant::now())
+    }
+    fn schritt(&mut self, was: &str) {
+        eprintln!("[entsperren] {was}: {} ms", self.0.elapsed().as_millis());
+        self.0 = std::time::Instant::now();
+    }
+}
+
 /// Ergebnis der teuren Arbeit, die außerhalb des Hauptfadens läuft.
 struct Opened {
     db: Database,
@@ -217,6 +254,9 @@ struct Opened {
     /// Gesetzt, wenn statt der Datei die Offline-Kopie geöffnet wurde:
     /// (Zeitpunkt der Kopie, Grund).
     offline: Option<(String, String)>,
+    /// Aus der Kopie geöffnet, ohne den Ort zu fragen — der Stand vom Ort
+    /// kommt im Hintergrund nach (`nachladen`).
+    vorab: bool,
 }
 
 /// Master-Passwort beschaffen, Datei lesen, Container aufschließen.
@@ -228,6 +268,7 @@ fn open_blocking(
     secret: Option<String>,
     keyfile: Option<String>,
 ) -> Result<Opened, String> {
+    let mut uhr = Uhr::neu();
     let master: Zeroizing<String> = match method {
         "password" => Zeroizing::new(secret.unwrap_or_default()),
         "pin" => seal::unseal_with_pin(app, path, &secret.unwrap_or_default())?,
@@ -241,6 +282,7 @@ fn open_blocking(
         }
         other => return Err(format!("Unbekannter Weg zum Entsperren: {other}")),
     };
+    uhr.schritt("Schlüssel freigegeben");
 
     if master.is_empty() && keyfile.is_none() {
         return Err("Ohne Master-Passwort geht es nicht.".into());
@@ -259,7 +301,25 @@ fn open_blocking(
     // Einmal komplett lesen: Daraus entsteht sowohl die Datenbank als auch
     // der Fingerabdruck, gegen den beim Speichern geprüft wird. Ist der Ort
     // nicht erreichbar, springt die Offline-Kopie ein.
+    // Zuerst die eigene Kopie — der letzte Stand der App. Den Stand vom Ort
+    // holt `nachladen` gleich danach und mischt ihn ein. Am Handy fragt
+    // Nextcloud beim Öffnen erst seinen Server und lässt bis zu 30 Sekunden
+    // warten, wenn der nicht antwortet; so lange stand vorher das
+    // Ausfüll-Blatt. Gibt es keine Kopie oder passt sie nicht zum Schlüssel
+    // (Passwort anderswo geändert), geht es den gewohnten Weg.
+    {
+        if let Some(kopie) = crate::offline::kopie(app, path) {
+            if let Ok(db) = Database::parse(&kopie, key.clone()) {
+                uhr.schritt("aus der Kopie entschlüsselt");
+                let format = db.config.version.to_string();
+                let read_only = !matches!(db.config.version, keepass::config::DatabaseVersion::KDB4(1));
+                return Ok(Opened { db, raw: kopie, master, keyfile, format, read_only, offline: None, vorab: true });
+            }
+        }
+    }
+
     let (raw, source) = crate::offline::read(app, path)?;
+    uhr.schritt("Datei gelesen");
 
     let db = Database::parse(&raw, key).map_err(|e| match e {
         keepass::error::DatabaseOpenError::Key(_) => {
@@ -267,6 +327,7 @@ fn open_blocking(
         }
         other => format!("Datenbank konnte nicht geöffnet werden: {other}"),
     })?;
+    uhr.schritt("entschlüsselt");
 
     // Zurückschreiben kann die Bibliothek nur KDBX 4.1.
     let format = db.config.version.to_string();
@@ -279,15 +340,19 @@ fn open_blocking(
 
     // Erst nach dem Entschlüsseln kopieren: So landet nur eine Datei im
     // Zwischenspeicher, die sich mit diesem Schlüssel auch öffnen lässt.
+    //
+    // Im Hintergrund: Die Kopie ist ein Netz für später, und auf sie zu
+    // warten hält am Handy das Ausfüll-Blatt auf.
     let offline = match source {
         crate::offline::Source::Original => {
-            crate::offline::store(app, path, &raw);
+            let (app, path, raw) = (app.clone(), path.to_string(), raw.clone());
+            std::thread::spawn(move || crate::offline::store(&app, &path, &raw));
             None
         }
         crate::offline::Source::Cached { saved_at, reason } => Some((saved_at, reason)),
     };
 
-    Ok(Opened { db, raw, master, keyfile, format, read_only, offline })
+    Ok(Opened { db, raw, master, keyfile, format, read_only, offline, vorab: false })
 }
 
 /// Legt eine neue, leere Datenbank an und öffnet sie gleich.
@@ -301,6 +366,7 @@ pub async fn vault_create(
     path: String,
     password: String,
     name: Option<String>,
+    level: Option<String>,
     #[allow(non_snake_case)] autoLockMinutes: Option<u64>,
     remember: Option<dto::Remember>,
 ) -> Result<dto::DatabaseInfo, String> {
@@ -321,6 +387,10 @@ pub async fn vault_create(
         // `Database::new` liefert KDBX 4.1 — genau das, was sich auch
         // zurückschreiben lässt.
         let mut db = Database::new();
+
+        // Ohne Stufe bliebe die Voreinstellung der Bibliothek: Argon2d mit
+        // 1 MiB — viel zu wenig.
+        stufe_setzen(&mut db, level.as_deref().unwrap_or("standard"))?;
 
         // Der Name steht in der Datei selbst. Das ist unter Android die
         // einzige verlässliche Bezeichnung: Aus der Adresse des Systems
@@ -608,6 +678,38 @@ pub async fn vault_version_step(
         let Some(vorher) = crate::versions::vorgaenger(&worker, &pfad, &id) else {
             return Ok(dto::VersionStep { previous: None, changes: Vec::new() });
         };
+
+        // Ein zusammengeführter Stand: Davor liegt der Stand der Datei
+        // („Vom anderen Gerät“), davor der letzte eigene. Gezeigt wird alles
+        // seit dem eigenen — je Änderung mit Herkunft: aus der Datei
+        // (`extern`), aus der App (`hier`) oder beides.
+        if crate::versions::grund_von(&id) == "zusammengefuehrt" && crate::versions::grund_von(&vorher) == "fremd" {
+            if let Some(basis_id) = crate::versions::vorgaenger(&worker, &pfad, &vorher) {
+                let basis = oeffne(&basis_id)?;
+                let datei = oeffne(&vorher)?;
+                let jetzt = oeffne(&id)?;
+                let extern_: std::collections::HashSet<String> =
+                    crate::versions::vergleich(&basis, &datei).into_iter().map(|c| c.id).collect();
+                let hier: std::collections::HashSet<String> =
+                    crate::versions::vergleich(&datei, &jetzt).into_iter().map(|c| c.id).collect();
+                let changes = crate::versions::vergleich(&basis, &jetzt)
+                    .into_iter()
+                    .map(|mut c| {
+                        c.origin = Some(
+                            match (extern_.contains(&c.id), hier.contains(&c.id)) {
+                                (true, true) => "beide",
+                                (true, false) => "extern",
+                                _ => "hier",
+                            }
+                            .to_string(),
+                        );
+                        c
+                    })
+                    .collect();
+                return Ok(dto::VersionStep { previous: Some(basis_id), changes });
+            }
+        }
+
         let changes = crate::versions::vergleich(&oeffne(&vorher)?, &oeffne(&id)?);
         Ok(dto::VersionStep { previous: Some(vorher), changes })
     })
@@ -795,16 +897,45 @@ fn iso(time: Option<NaiveDateTime>) -> String {
    Öffnen. Deshalb fünf Stufen statt einer Zahl.
    ========================================================= */
 
-/// Die fünf Stufen: (Durchgänge, Speicher in MiB, Fäden). Benannt sind in
-/// der Oberfläche nur die drei bekannten; die beiden dazwischen teilen den
-/// Abstand etwa zur Hälfte (Aufwand = Durchgänge × Speicher).
-const STUFEN: [(&str, u64, u64, u32); 5] = [
-    ("schnell", 5, 32, 2),
-    ("zuegig", 8, 48, 2),
-    ("standard", 10, 64, 4),
-    ("erhoeht", 14, 128, 4),
+/// Die Stufen: (Durchgänge, Speicher in MiB, Fäden). Benannt sind in der
+/// Oberfläche nur „Schnell“, „Standard“ und „Stark“.
+///
+/// „Standard“ belegt nur 16 MiB: Mehr gibt iOS dem Ausfüllen über die
+/// Tastatur nicht (KeePassium meldet sich dann mit einem Hinweis), und die
+/// Datei soll auf jedem Gerät aufgehen. Die Durchgänge gleichen das aus —
+/// Standard rechnet so lange wie früher 10 × 64 MiB. Darüber geht es mit
+/// dem Speicher hoch (64, 128, 256 MiB); das sind genau die früheren
+/// Stufen Standard, Erhöht und Stark, Dateien mit diesen Werten werden also
+/// weiter erkannt.
+const STUFEN: [(&str, u64, u64, u32); 6] = [
+    ("schnell", 10, 16, 2),
+    ("zuegig", 20, 16, 2),
+    ("standard", 40, 16, 4),
+    ("erhoeht", 10, 64, 4),
+    ("hoch", 14, 128, 4),
     ("stark", 20, 256, 4),
 ];
+
+/// Setzt die Schlüsselableitung einer Stufe.
+fn stufe_setzen(db: &mut Database, level: &str) -> Result<(), String> {
+    use keepass::config::KdfConfig;
+
+    let (_, iterations, memory_mib, parallelism) = STUFEN
+        .iter()
+        .find(|(name, ..)| *name == level)
+        .ok_or_else(|| format!("Unbekannte Stufe: {level}"))?;
+
+    // Argon2id statt Argon2d: Es hält zusätzlich Angriffen über
+    // Seitenkanäle stand und ist das, was KeePassXC heute vorgibt.
+    db.config.kdf_config = KdfConfig::Argon2id {
+        iterations: *iterations,
+        memory: memory_mib * 1024 * 1024,
+        parallelism: *parallelism,
+        // Die Fassung, die auch die Bibliothek voreinstellt (0x13).
+        version: Default::default(),
+    };
+    Ok(())
+}
 
 fn stufe_von(iterations: u64, memory_mib: u64, parallelism: u32) -> String {
     STUFEN
@@ -862,8 +993,6 @@ pub fn vault_set_security(
     name: Option<String>,
     level: Option<String>,
 ) -> Result<bool, String> {
-    use keepass::config::KdfConfig;
-
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.touch();
     if vault.read_only {
@@ -879,20 +1008,7 @@ pub fn vault_set_security(
     }
 
     if let Some(level) = level {
-        let (_, iterations, memory_mib, parallelism) = STUFEN
-            .iter()
-            .find(|(name, ..)| *name == level)
-            .ok_or_else(|| format!("Unbekannte Stufe: {level}"))?;
-
-        // Argon2id statt Argon2d: Es hält zusätzlich Angriffen über
-        // Seitenkanäle stand und ist das, was KeePassXC heute vorgibt.
-        db.config.kdf_config = KdfConfig::Argon2id {
-            iterations: *iterations,
-            memory: memory_mib * 1024 * 1024,
-            parallelism: *parallelism,
-            // Die Fassung, die auch die Bibliothek voreinstellt (0x13).
-            version: Default::default(),
-        };
+        stufe_setzen(db, &level)?;
     }
 
     Ok(true)
@@ -918,24 +1034,100 @@ pub fn vault_commit(app: tauri::AppHandle, state: tauri::State<'_, Vault>) -> Re
 /// eingelesen und mit dem eigenen zusammengeführt (`merge`). Geschrieben
 /// wird dann beides; verloren geht keine Seite.
 pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
-    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
-    vault.touch();
-
-    if vault.read_only {
-        return Err(
-            "Diese Datei lässt sich nicht zurückschreiben — gespeichert wird nur KDBX 4.1. \
-             Wandle sie in KeePassXC um (Datenbank → Datenbankeinstellungen → Format)."
-                .into(),
-        );
+    // Erst in der App: verschlüsselt in die eigene Kopie. Das ist der Stand,
+    // mit dem die App arbeitet — er bleibt, auch wenn die Cloud gerade nicht
+    // antwortet oder die App beendet wird.
+    {
+        let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+        vault.touch();
+        if vault.read_only {
+            return Err(
+                "Diese Datei lässt sich nicht zurückschreiben — gespeichert wird nur KDBX 4.1. \
+                 Wandle sie in KeePassXC um (Datenbank → Datenbankeinstellungen → Format)."
+                    .into(),
+            );
+        }
+        let ziel = vault.path.clone().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        let bytes = verschluesseln(&vault)?;
+        crate::offline::store(app, &ziel, &bytes);
+        vault.ausstehend = true;
     }
 
-    let ziel = vault.path.clone().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+    // Dann der Ort: Datei holen, zusammenführen, schreiben — im Hintergrund.
+    im_hintergrund_abgleichen(app);
+    Ok(true)
+}
+
+/// Verschlüsselt den Stand im Kern, wie er in eine Datei käme.
+fn verschluesseln(vault: &crate::state::VaultState) -> Result<Vec<u8>, String> {
+    let master = vault.master.as_ref().ok_or("Kein Master-Passwort im Kern.")?;
+    let key = key_of(master, vault.keyfile.as_deref().map(|k| k.as_slice()))?;
+    let mut bytes: Vec<u8> = Vec::new();
+    vault
+        .database()?
+        .save(&mut bytes, key)
+        .map_err(|e| format!("Verschlüsseln fehlgeschlagen: {e}"))?;
+    Ok(bytes)
+}
+
+/// Immer nur ein Abgleich mit dem Ort zugleich — sonst schrieben zwei
+/// Fäden dieselbe Datei.
+fn abgleich_riegel() -> &'static std::sync::Mutex<()> {
+    static RIEGEL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    &RIEGEL
+}
+
+/// Startet [`abgleichen`] auf einem eigenen Faden. Klappt es nicht, bleibt
+/// der Stand in der App und wird beim nächsten Abgleich nachgeholt; die
+/// Oberfläche erfährt es (`vault-sync-failed`).
+fn im_hintergrund_abgleichen(app: &tauri::AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        use tauri::{Emitter, Manager};
+        let Ok(_riegel) = abgleich_riegel().lock() else { return };
+        // Ein früherer Faden hat es schon erledigt.
+        if !app.state::<Vault>().lock().is_ok_and(|v| v.ausstehend && v.db.is_some()) {
+            return;
+        }
+        match abgleichen(&app, &app.state::<Vault>()) {
+            Ok(_) => {}
+            Err(err) => {
+                eprintln!("[abgleich] nicht geschrieben, bleibt in der App: {err}");
+                let _ = app.emit("vault-sync-failed", err);
+            }
+        }
+    });
+}
+
+/// Bringt den Stand der App in die Datei am Ort: Datei frisch holen (es
+/// könnte sich inzwischen etwas getan haben), mit dem Stand in der App
+/// zusammenführen, schreiben — Datei und eigene Kopie.
+pub fn abgleichen(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
+    // Die Datei erst lesen, dann den Kern festhalten: Am Handy fragt
+    // Nextcloud beim Öffnen seinen Server, und antwortet der nicht, dauert
+    // das bis zu 30 Sekunden. So lange war vorher der ganze Kern blockiert —
+    // auch das nächste Ausfüllen.
+    // Kein `touch`: Das läuft im Hintergrund (auch der regelmäßige Abgleich)
+    // und ist keine Nutzung — sonst sperrte sich die Datenbank nie.
+    let (ziel, offline) = {
+        let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+
+        if vault.read_only {
+            return Err(
+                "Diese Datei lässt sich nicht zurückschreiben — gespeichert wird nur KDBX 4.1. \
+                 Wandle sie in KeePassXC um (Datenbank → Datenbankeinstellungen → Format)."
+                    .into(),
+            );
+        }
+        let ziel = vault.path.clone().ok_or("Keine Datenbank geöffnet.")?.to_string_lossy().to_string();
+        (ziel, vault.offline)
+    };
 
     // Geöffnet ist nur die Offline-Kopie. Zurückschreiben geht erst, wenn
     // die Datei wieder lesbar ist — sonst entstünde am Ort womöglich eine
     // neue Datei neben einer, die gerade nur nicht erreichbar ist.
     let current = crate::storage::read(&ziel);
-    if vault.offline && current.is_err() {
+    if offline && current.is_err() {
         return Err(
             "Der Speicherort ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie. \
              Gespeichert werden kann erst, wenn die Datei wieder da ist."
@@ -958,24 +1150,83 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
         }
     }
 
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    // Inzwischen gesperrt oder eine andere Datei geöffnet: nichts zu tun.
+    if vault.path.as_deref().map(|p| p.to_string_lossy().to_string()).as_deref() != Some(ziel.as_str()) || vault.db.is_none() {
+        return Err("Keine Datenbank geöffnet.".into());
+    }
+
     let mut merged = false;
+    let mut konflikte = 0;
     if let Ok(current) = current {
         if vault.opened_hash != Some(digest(&current)) {
             let theirs = parse_foreign(&vault, &current)?;
             spur("seit dem Öffnen fremd geändert", &current, Some(&theirs));
+            let basis = basis_lesen(app, &ziel, &vault);
             crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
+            let gesehen = vault.opened_config.clone();
+            einstellungen_uebernehmen(vault.database_mut()?, &theirs, gesehen.as_ref());
+            let vorher = vault.database()?.clone();
             merged = merge(vault.database_mut()?, &theirs)?.0;
+            konflikte = konflikte_merken(&mut vault, basis.as_ref(), vorher, theirs)?;
         }
     }
 
-    write_back(app, &mut vault, &ziel)?;
+    let grund = if merged { crate::versions::Grund::Zusammengefuehrt } else { crate::versions::Grund::Gespeichert };
+    write_back_als(app, &mut vault, &ziel, grund)?;
     drop(vault);
 
+    use tauri::Emitter;
     if merged {
-        use tauri::Emitter;
         let _ = app.emit("vault-merged", ());
     }
+    if konflikte > 0 {
+        let _ = app.emit("vault-conflicts", konflikte);
+    }
     Ok(true)
+}
+
+/// Der letzte gemeinsame Stand mit der Datei: der jüngste aufgehobene —
+/// zu lesen, bevor der fremde Stand selbst abgelegt wird.
+fn basis_lesen(app: &tauri::AppHandle, ziel: &str, vault: &crate::state::VaultState) -> Option<Database> {
+    let bytes = crate::versions::juengster(app, ziel)?;
+    parse_foreign(vault, &bytes).ok()
+}
+
+/// Sucht nach dem Zusammenführen die Einträge, die beide Seiten verschieden
+/// geändert haben, und hält sie zur Entscheidung bereit. Zurück: wie viele
+/// jetzt offen sind.
+fn konflikte_merken(
+    vault: &mut crate::state::VaultState,
+    basis: Option<&Database>,
+    hier: Database,
+    datei: Database,
+) -> Result<usize, String> {
+    let Some(basis) = basis else { return Ok(vault.konflikte.len()) };
+    let neu = crate::konflikt::finden(basis, &hier, &datei, vault.database()?);
+    let gefunden = neu.len();
+    crate::konflikt::merken(&mut vault.konflikte, neu, hier, datei);
+    Ok(if gefunden > 0 { vault.konflikte.len() } else { 0 })
+}
+
+/// Die offenen Konflikte — für den Dialog.
+#[tauri::command]
+pub fn vault_conflicts(state: tauri::State<'_, Vault>) -> Result<Vec<dto::Conflict>, String> {
+    let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    Ok(vault.konflikte.iter().map(|o| o.info.clone()).collect())
+}
+
+/// Entscheidet einen Konflikt: `choice` ist `hier` (die Fassung der App)
+/// oder `extern` (die aus der Datei). Gespeichert wird danach wie bei jeder
+/// Änderung (`vault_commit`).
+#[tauri::command]
+pub fn vault_conflict_resolve(state: tauri::State<'_, Vault>, id: String, choice: String) -> Result<bool, String> {
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.touch();
+    let mut offen = std::mem::take(&mut vault.konflikte);
+    let ergebnis = crate::konflikt::entscheiden(vault.database_mut()?, &mut offen, &id, &choice);
+    vault.konflikte = offen;
+    ergebnis.map(|_| true)
 }
 
 /// Holt Änderungen, die ein anderes Gerät in die Datei geschrieben hat.
@@ -999,6 +1250,13 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
     use tauri::Manager;
     let state = app.state::<Vault>();
 
+    // Läuft schon ein Abgleich (etwa das Nachladen nach dem Öffnen), nicht
+    // darauf warten: Er meldet Änderungen selbst (`vault-merged`). Sonst
+    // stand die Oberfläche, bis Nextcloud am Handy aufgab — bis zu 30 s.
+    if abgleich_riegel().try_lock().is_err() {
+        return Ok(false);
+    }
+
     // Erst nachsehen, ohne den Kern festzuhalten: Lesen und Entschlüsseln
     // dauern, und so lange soll die Oberfläche weiterarbeiten können.
     let (ziel, before, seen, master, keyfile) = {
@@ -1006,6 +1264,12 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
         let (Some(path), Some(master)) = (&vault.path, &vault.master) else { return Ok(false) };
         if vault.db.is_none() {
             return Ok(false);
+        }
+        // Noch nicht in der Datei: Jetzt ist eine Gelegenheit, das nachzuholen.
+        if vault.ausstehend {
+            drop(vault);
+            let Ok(_riegel) = abgleich_riegel().try_lock() else { return Ok(false) };
+            return abgleichen(app, &state).map(|_| false);
         }
         (
             path.to_string_lossy().to_string(),
@@ -1022,19 +1286,75 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
     }
 
     let Ok(current) = crate::storage::read(&ziel) else { return Ok(false) };
-    let hash = digest(&current);
+    einmischen(app, &ziel, &current, modified, before, &master, keyfile.as_deref().map(|k| k.as_slice()))
+}
+
+/// Holt nach dem Öffnen aus der Offline-Kopie den Stand vom eigentlichen
+/// Ort und mischt ihn ein (siehe `vault_unlock`, „sofort aus der Kopie“).
+///
+/// Läuft auf einem eigenen Faden: Nextcloud fragt beim Öffnen erst seinen
+/// Server, und ist der nicht erreichbar, dauert das bis zu 30 Sekunden.
+fn nachladen(app: tauri::AppHandle) {
+    use tauri::Manager;
+    let Ok(_riegel) = abgleich_riegel().lock() else { return };
+    let mut uhr = Uhr::neu();
+    let state = app.state::<Vault>();
+    let Some((ziel, before, master, keyfile)) = state.lock().ok().and_then(|v| {
+        Some((v.path.clone()?.to_string_lossy().to_string(), v.opened_hash, v.master.clone()?, v.keyfile.clone()))
+    }) else {
+        return;
+    };
+
+    let current = match crate::storage::read(&ziel) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("[entsperren] Datei im Hintergrund nicht lesbar, es bleibt bei der Kopie: {err}");
+            return;
+        }
+    };
+    uhr.schritt("Datei im Hintergrund gelesen");
+
+    match einmischen(&app, &ziel, &current, None, before, &master, keyfile.as_deref().map(|k| k.as_slice())) {
+        Ok(geaendert) => {
+            uhr.schritt("eingemischt");
+            if geaendert {
+                use tauri::Emitter;
+                let _ = app.emit("vault-merged", ());
+            }
+        }
+        Err(err) => eprintln!("[entsperren] Einmischen im Hintergrund fehlgeschlagen: {err}"),
+    }
+}
+
+/// Mischt den Stand `current` vom Ort in die offene Datenbank — der Kern
+/// von `vault_sync`, auch nach dem Öffnen aus der Kopie gebraucht.
+fn einmischen(
+    app: &tauri::AppHandle,
+    ziel: &str,
+    current: &[u8],
+    modified: Option<i64>,
+    before: Option<[u8; 32]>,
+    master: &str,
+    keyfile: Option<&[u8]>,
+) -> Result<bool, String> {
+    use tauri::Manager;
+    let state = app.state::<Vault>();
+    let hash = digest(current);
     if Some(hash) == before {
         if let Ok(mut vault) = state.lock() {
             vault.seen_modified = modified;
+            // Die Kopie war schon der Stand der Datei.
+            vault.offline = false;
         }
         return Ok(false);
     }
 
-    let theirs = parse_with(&master, keyfile.as_deref().map(|k| k.as_slice()), &current)?;
+    let theirs = parse_with(master, keyfile, current)?;
+    let basis = crate::versions::juengster(app, ziel).and_then(|b| parse_with(master, keyfile, &b).ok());
 
     // Der fremde Stand, bevor wir ihn einmischen: Geht beim Zusammenführen
     // etwas verloren, steht er hier noch.
-    crate::versions::sichern(app, &ziel, &current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
+    crate::versions::sichern(app, ziel, current, crate::versions::Grund::Fremd, crate::versions::abdruck(&theirs));
 
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     // Inzwischen selbst gespeichert? Dann ist dieser Stand schon drin oder
@@ -1043,15 +1363,26 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
         return Ok(false);
     }
 
+    let gesehen = vault.opened_config.clone();
+    einstellungen_uebernehmen(vault.database_mut()?, &theirs, gesehen.as_ref());
+    let vorher = vault.database()?.clone();
     let (changed, ours_ahead) = merge(vault.database_mut()?, &theirs)?;
+    let neue_konflikte = konflikte_merken(&mut vault, basis.as_ref(), vorher, theirs.clone())?;
+    if neue_konflikte > 0 {
+        use tauri::Emitter;
+        let _ = app.emit("vault-conflicts", neue_konflikte);
+    }
 
     if ours_ahead && !vault.read_only {
-        write_back(app, &mut vault, &ziel)?;
+        write_back_als(app, &mut vault, ziel, crate::versions::Grund::Zusammengefuehrt)?;
     } else {
+        vault.opened_config = Some(theirs.config.clone());
         vault.opened_hash = Some(hash);
         vault.seen_modified = modified;
         vault.offline = false;
-        crate::offline::store(app, &ziel, &current);
+        // Die Datei hat alles, was die App hat — nichts mehr nachzuholen.
+        vault.ausstehend = false;
+        crate::offline::store(app, ziel, current);
     }
     Ok(changed)
 }
@@ -1084,14 +1415,14 @@ pub(crate) fn merge(ours: &mut Database, theirs: &Database) -> Result<(bool, boo
     // Verknüpfung mit dem Browser. Ohne diesen Schritt warf das nächste
     // Speichern weg, was das andere Gerät dort eingetragen hatte — in der
     // Erweiterung musste man dann wieder auf „Verbinden" drücken.
-    let custom = zusatzangaben(ours, theirs);
-    let log = ours.merge(theirs).map_err(merge_error)?;
+    let custom = zusatzangaben(ours, theirs) | kopfangaben(ours, theirs);
+    let log = zusammenfuehren(ours, theirs)?;
 
     // Umgekehrt noch einmal auf einer Kopie: Kommt dabei nichts heraus,
     // steht in der Datei schon alles, und sie muss nicht neu geschrieben werden.
     let mut probe = theirs.clone();
-    let custom_back = zusatzangaben(&mut probe, ours);
-    let back = probe.merge(ours).map_err(merge_error)?;
+    let custom_back = zusatzangaben(&mut probe, ours) | kopfangaben(&mut probe, ours);
+    let back = zusammenfuehren(&mut probe, ours)?;
 
     Ok((!log.events.is_empty() || custom, !back.events.is_empty() || custom_back))
 }
@@ -1107,7 +1438,7 @@ fn zusatzangaben(ziel: &mut Database, quelle: &Database) -> bool {
 
     for (schluessel, fremd) in &quelle.meta.custom_data {
         match ziel.meta.custom_data.get(schluessel) {
-            Some(eigen) if eigen.value == fremd.value => continue,
+            Some(eigen) if gleicher_wert(&eigen.value, &fremd.value) => continue,
             // Ohne Zeitstempel lässt sich nichts vergleichen; dann bleibt
             // der eigene Wert stehen, statt ihn blind zu ersetzen.
             Some(eigen) if fremd.last_modification_time <= eigen.last_modification_time => continue,
@@ -1118,6 +1449,95 @@ fn zusatzangaben(ziel: &mut Database, quelle: &Database) -> bool {
     }
 
     geaendert
+}
+
+/// Zwei Zusatzwerte als Text verglichen. Die Bibliothek liest Base64 als
+/// `Binary` ein; derselbe Wert, eben erst als Text angelegt, gälte sonst als
+/// anders — und die Datei würde ohne Not neu geschrieben.
+fn gleicher_wert(a: &Option<keepass::db::CustomDataValue>, b: &Option<keepass::db::CustomDataValue>) -> bool {
+    use base64::Engine as _;
+    use keepass::db::CustomDataValue::{Binary, String as Text};
+    let text = |v: &Option<keepass::db::CustomDataValue>| match v {
+        Some(Text(t)) => Some(t.clone()),
+        Some(Binary(b)) => Some(base64::engine::general_purpose::STANDARD.encode(b)),
+        None => None,
+    };
+    text(a) == text(b)
+}
+
+/// Name und Beschreibung der Datenbank: Der jüngere gilt, wie bei den
+/// Einträgen. Die Bibliothek führt beides nicht zusammen — ein in KeePassXC
+/// oder auf dem Handy geänderter Name kam sonst beim nächsten Speichern
+/// wieder zurück.
+fn kopfangaben(ziel: &mut Database, quelle: &Database) -> bool {
+    let mut geaendert = false;
+    let (z, q) = (&mut ziel.meta, &quelle.meta);
+    if q.database_name_changed > z.database_name_changed && q.database_name != z.database_name {
+        z.database_name = q.database_name.clone();
+        z.database_name_changed = q.database_name_changed;
+        geaendert = true;
+    }
+    if q.database_description_changed > z.database_description_changed
+        && q.database_description != z.database_description
+    {
+        z.database_description = q.database_description.clone();
+        z.database_description_changed = q.database_description_changed;
+        geaendert = true;
+    }
+    geaendert
+}
+
+/// Verschlüsselung, Schlüsselableitung und Kompression der Datei.
+///
+/// Die stehen nicht in den Einträgen, sondern im Kopf der Datei, und
+/// `merge` fasst sie nicht an. Geschrieben wurde deshalb immer mit dem, was
+/// beim Öffnen galt: Stellte ein anderes Programm (KeePassXC, eine App auf
+/// dem Handy) die Verschlüsselung um, machte das nächste Speichern hier es
+/// wieder rückgängig.
+///
+/// Jetzt gilt: Steht in der Datei etwas anderes als beim letzten Lesen oder
+/// Schreiben (`gesehen`), hat jemand anderes umgestellt — das wird
+/// übernommen. Außer es wurde auch hier umgestellt (Einstellungen →
+/// Sicherheit); dann gilt das eigene, denn das ist die jüngere Absicht.
+fn einstellungen_uebernehmen(ours: &mut Database, theirs: &Database, gesehen: Option<&keepass::config::DatabaseConfig>) -> bool {
+    let Some(gesehen) = gesehen else { return false };
+    let fremd_umgestellt = theirs.config != *gesehen;
+    let hier_umgestellt = ours.config != *gesehen;
+    if fremd_umgestellt && !hier_umgestellt {
+        ours.config = theirs.config.clone();
+        return true;
+    }
+    false
+}
+
+/// `ours.merge(theirs)` — mit einem Ausweg für denselben Zeitpunkt.
+///
+/// Die Bibliothek entscheidet nach der Änderungszeit, auf die Sekunde. Haben
+/// beide Seiten denselben Eintrag in derselben Sekunde verschieden geändert,
+/// bricht sie ab — und mit ihr der ganze Abgleich. Dann gilt die Fassung der
+/// App (eine Sekunde jünger gemacht); dass beide Seiten ihn geändert haben,
+/// meldet danach die Konfliktsuche, und der Nutzer entscheidet.
+///
+/// Zusammengeführt wird auf einer Kopie: Was die Bibliothek bis zum Abbruch
+/// schon geändert hat, soll nicht im Stand der App stehen bleiben.
+fn zusammenfuehren(ours: &mut Database, theirs: &Database) -> Result<keepass::db::merge::MergeLog, String> {
+    use keepass::db::merge::MergeError;
+    for _ in 0..64 {
+        let mut probe = ours.clone();
+        match probe.merge(theirs) {
+            Ok(log) => {
+                *ours = probe;
+                return Ok(log);
+            }
+            Err(MergeError::EntryModificationTimeNotUpdated(id)) => {
+                let mut eintrag = ours.entry_mut(id).ok_or_else(|| merge_error(MergeError::EntryModificationTimeNotUpdated(id)))?;
+                let zeit = eintrag.times.last_modification.unwrap_or_else(keepass::db::Times::now);
+                eintrag.times.last_modification = Some(zeit + chrono::Duration::seconds(1));
+            }
+            Err(e) => return Err(merge_error(e)),
+        }
+    }
+    Err("Zu viele Einträge mit derselben Änderungszeit — es wurde nichts zusammengeführt.".into())
 }
 
 fn merge_error(e: keepass::db::merge::MergeError) -> String {
@@ -1160,7 +1580,15 @@ fn key_of(master: &str, keyfile: Option<&[u8]>) -> Result<DatabaseKey, String> {
 }
 
 /// Verschlüsselt den Stand im Kern und schreibt ihn an `ziel`.
-fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel: &str) -> Result<(), String> {
+///
+/// `grund` sagt, als was der Stand bei den Versionen steht: gespeichert
+/// oder zusammengeführt.
+fn write_back_als(
+    app: &tauri::AppHandle,
+    vault: &mut crate::state::VaultState,
+    ziel: &str,
+    grund: crate::versions::Grund,
+) -> Result<(), String> {
     let master = vault.master.as_ref().ok_or("Kein Master-Passwort im Kern.")?;
     let key = key_of(master, vault.keyfile.as_deref().map(|k| k.as_slice()))?;
 
@@ -1172,16 +1600,15 @@ fn write_back(app: &tauri::AppHandle, vault: &mut crate::state::VaultState, ziel
 
     crate::storage::write(ziel, &bytes)?;
     spur("geschrieben", &bytes, Some(vault.database()?));
-    if let Ok(wieder) = crate::storage::read(ziel) {
-        spur("danach gelesen", &wieder, None);
-    }
     let abdruck = crate::versions::abdruck(vault.database()?);
-    crate::versions::sichern(app, ziel, &bytes, crate::versions::Grund::Gespeichert, abdruck);
+    crate::versions::sichern(app, ziel, &bytes, grund, abdruck);
 
     // Ab jetzt ist unser eigener Stand der maßgebliche.
+    vault.opened_config = Some(vault.database()?.config.clone());
     vault.opened_hash = Some(digest(&bytes));
     vault.seen_modified = crate::storage::modified_ms(ziel);
     vault.offline = false;
+    vault.ausstehend = false;
     crate::offline::store(app, ziel, &bytes);
     Ok(())
 }
@@ -1483,6 +1910,61 @@ mod tests {
     /// Beide Seiten kennen denselben Schlüssel mit verschiedenem Wert: Der
     /// jüngere gilt, in beide Richtungen — und ohne Zeitstempel bleibt der
     /// eigene stehen, statt blind ersetzt zu werden.
+    /// Ein anderes Programm stellt die Schlüsselableitung um: Das nächste
+    /// Speichern hier übernimmt das, statt es zurückzudrehen. Wurde auch hier
+    /// umgestellt, bleibt es beim eigenen.
+    #[test]
+    fn fremd_umgestellte_verschluesselung_bleibt() {
+        use keepass::config::KdfConfig;
+        let stufe = |iterations| KdfConfig::Argon2id { iterations, memory: 1 << 20, parallelism: 1, version: Default::default() };
+
+        let mut ours = Database::new();
+        ours.config.kdf_config = stufe(2);
+        let gesehen = ours.config.clone();
+        let mut theirs = ours.clone();
+        theirs.config.kdf_config = stufe(9);
+
+        assert!(einstellungen_uebernehmen(&mut ours, &theirs, Some(&gesehen)));
+        assert_eq!(ours.config.kdf_config, stufe(9));
+
+        let mut eigen = Database::new();
+        eigen.config.kdf_config = stufe(5);
+        assert!(!einstellungen_uebernehmen(&mut eigen, &theirs, Some(&gesehen)), "hier umgestellt: bleibt");
+        assert_eq!(eigen.config.kdf_config, stufe(5));
+    }
+
+    /// „Standard“ muss am iPhone/iPad beim Ausfüllen über die Tastatur
+    /// aufgehen: höchstens 16 MiB. Und neue Dateien bekommen eine Stufe,
+    /// nicht die Voreinstellung der Bibliothek (Argon2d, 1 MiB).
+    #[test]
+    fn standard_passt_aufs_ipad() {
+        use keepass::config::KdfConfig;
+        let mut db = Database::new();
+        stufe_setzen(&mut db, "standard").unwrap();
+        let KdfConfig::Argon2id { iterations, memory, parallelism, .. } = db.config.kdf_config else { panic!("kein Argon2id") };
+        assert!(memory <= 16 * 1024 * 1024);
+        assert_eq!(stufe_von(iterations, memory / (1024 * 1024), parallelism), "standard");
+        // Die früheren Stufen 10 × 64, 14 × 128, 20 × 256 werden weiter erkannt.
+        assert_eq!(stufe_von(10, 64, 4), "erhoeht");
+        assert_eq!(stufe_von(20, 256, 4), "stark");
+        assert!(stufe_setzen(&mut db, "gibtsnicht").is_err());
+    }
+
+    /// Ein anderswo umbenannter Tresor behält seinen neuen Namen.
+    #[test]
+    fn juengerer_name_gilt() {
+        let mut ours = Database::new();
+        ours.meta.database_name = Some("Alt".into());
+        ours.meta.database_name_changed = Some(am(1));
+        let mut theirs = ours.clone();
+        theirs.meta.database_name = Some("Neu".into());
+        theirs.meta.database_name_changed = Some(am(5));
+
+        let (geaendert, _) = merge(&mut ours, &theirs).unwrap();
+        assert!(geaendert);
+        assert_eq!(ours.meta.database_name.as_deref(), Some("Neu"));
+    }
+
     #[test]
     fn bei_zusatzangaben_gilt_die_juengere() {
         use keepass::db::{CustomDataItem, CustomDataValue};
@@ -1536,3 +2018,196 @@ mod tests {
         assert!(!unveraendert_laut_datum(adresse, None, None));
     }
 }
+
+/// Der ganze Weg mit echtem AppHandle und echten Dateien: öffnen,
+/// ändern, in die eigene Kopie und in die Datei schreiben, die Datei von
+/// außen ändern (wie ein anderes Gerät), zusammenführen, Konflikt
+/// entscheiden, aus der Kopie wieder öffnen und nachladen.
+#[cfg(all(test, desktop))]
+mod ablauf {
+    use super::*;
+    use tauri::Manager;
+
+    const PW: &str = "geheim";
+
+    fn schluessel() -> DatabaseKey {
+        DatabaseKey::new().with_password(PW)
+    }
+
+    fn lesen(pfad: &std::path::Path) -> Database {
+        Database::parse(&std::fs::read(pfad).unwrap(), schluessel()).unwrap()
+    }
+
+    fn schreiben(pfad: &std::path::Path, db: &Database) {
+        let mut bytes = Vec::new();
+        db.save(&mut bytes, schluessel()).unwrap();
+        std::fs::write(pfad, bytes).unwrap();
+    }
+
+    fn neu(db: &mut Database, titel: &str) -> String {
+        let mut wurzel = db.root_mut();
+        let mut e = wurzel.add_entry();
+        e.set_unprotected("Title", titel);
+        e.id().uuid().to_string()
+    }
+
+    fn setzen(db: &mut Database, uuid: &str, feld: &str, wert: &str, sek: i64) {
+        let id = db.iter_all_entries().find(|e| e.id().uuid().to_string() == uuid).unwrap().id();
+        let mut e = db.entry_mut(id).unwrap();
+        e.set_unprotected(feld.to_string(), wert);
+        e.times.last_modification = Some(keepass::db::Times::now() + chrono::Duration::seconds(sek));
+    }
+
+    fn feld(db: &Database, uuid: &str, feld: &str) -> Option<String> {
+        db.iter_all_entries()
+            .find(|e| e.id().uuid().to_string() == uuid)
+            .map(|e| e.get(feld).unwrap_or_default().to_string())
+    }
+
+    fn titel(db: &Database) -> Vec<String> {
+        let mut t: Vec<String> = db.iter_all_entries().map(|e| e.get_title().unwrap_or_default().to_string()).collect();
+        t.sort();
+        t
+    }
+
+    /// Wartet, bis `fertig` gilt — die Abgleiche laufen auf eigenen Fäden.
+    fn warten(app: &tauri::AppHandle, fertig: impl Fn(&crate::state::VaultState) -> bool) {
+        for _ in 0..200 {
+            if app.state::<Vault>().lock().is_ok_and(|v| fertig(&v)) {
+                // Den Riegel einmal nehmen: Ein laufender Abgleich ist dann fertig.
+                drop(abgleich_riegel().lock());
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+        panic!("Zeitüberschreitung");
+    }
+
+    #[test]
+    fn kopie_abgleich_konflikt() {
+        let tmp = std::env::temp_dir().join(format!("wkeepass-ablauf-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        // Datenverzeichnis der Probe-App (Offline-Kopie, Versionen) in den Test.
+        std::env::set_var("XDG_DATA_HOME", tmp.join("data"));
+        std::env::set_var("XDG_CONFIG_HOME", tmp.join("config"));
+
+        // Eine echte App, aber ohne Fenster: Es soll nichts auf dem
+        // Bildschirm erscheinen. Ohne Anzeige (CI) geht es nicht.
+        if std::env::var_os("WAYLAND_DISPLAY").is_none() && std::env::var_os("DISPLAY").is_none() {
+            eprintln!("übersprungen: keine Anzeige");
+            return;
+        }
+        let mut kontext: tauri::Context<tauri::Wry> = tauri::generate_context!();
+        kontext.config_mut().app.windows.clear();
+        let app = tauri::Builder::default()
+            .any_thread()
+            .manage(Vault::default())
+            .build(kontext)
+            .unwrap();
+        let h = app.handle().clone();
+        let datei = tmp.join("tresor.kdbx");
+        let pfad = datei.to_string_lossy().to_string();
+
+        // Ausgangslage: Eintrag A in der Datei.
+        let mut db = Database::new();
+        let a = neu(&mut db, "A");
+        schreiben(&datei, &db);
+
+        let entsperren = |h: &tauri::AppHandle| {
+            tauri::async_runtime::block_on(vault_unlock(
+                h.clone(), h.state::<Vault>(), pfad.clone(), "password".into(), Some(PW.into()), None, Some(0), None,
+            ))
+            .unwrap();
+        };
+
+        // 1. Öffnen (noch keine eigene Kopie: von der Datei), ändern, speichern.
+        entsperren(&h);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        {
+            let state = h.state::<Vault>();
+            let mut v = state.lock().unwrap();
+            setzen(v.database_mut().unwrap(), &a, "URL", "https://erst", 5);
+        }
+        commit(&h, &h.state::<Vault>()).unwrap();
+        // Sofort in der eigenen Kopie …
+        let kopie = crate::offline::kopie(&h, &pfad).expect("eigene Kopie");
+        assert_eq!(feld(&Database::parse(&kopie, schluessel()).unwrap(), &a, "URL").as_deref(), Some("https://erst"));
+        // … und im Hintergrund in der Datei.
+        warten(&h, |v| !v.ausstehend);
+        assert_eq!(feld(&lesen(&datei), &a, "URL").as_deref(), Some("https://erst"));
+
+        // 2. Das Beispiel: extern zwei neue Einträge und A geändert, hier
+        //    einer neu und A anders geändert.
+        let mut fremd = lesen(&datei);
+        neu(&mut fremd, "Extern 1");
+        neu(&mut fremd, "Extern 2");
+        setzen(&mut fremd, &a, "UserName", "extern", 40);
+        schreiben(&datei, &fremd);
+        {
+            let state = h.state::<Vault>();
+            let mut v = state.lock().unwrap();
+            let db = v.database_mut().unwrap();
+            neu(db, "Hier");
+            setzen(db, &a, "Notes", "hier", 30);
+        }
+        commit(&h, &h.state::<Vault>()).unwrap();
+        warten(&h, |v| !v.ausstehend);
+
+        let jetzt = lesen(&datei);
+        assert_eq!(titel(&jetzt), vec!["A", "Extern 1", "Extern 2", "Hier"], "beide Seiten in der Datei");
+        let konflikte = vault_conflicts(h.state::<Vault>()).unwrap();
+        assert_eq!(konflikte.len(), 1, "A wurde auf beiden Seiten geändert");
+        assert_eq!(konflikte[0].id, a);
+        assert_eq!(konflikte[0].winner, "extern", "die jüngere Fassung gilt bis zur Wahl");
+
+        // Der zusammengeführte Stand nennt jede Änderung mit Herkunft.
+        let staende = vault_versions(h.clone(), h.state::<Vault>()).unwrap();
+        assert_eq!(staende[0].reason, "Zusammengeführt");
+        let schritt = tauri::async_runtime::block_on(vault_version_step(h.clone(), h.state::<Vault>(), staende[0].id.clone())).unwrap();
+        let herkunft = |name: &str| schritt.changes.iter().find(|c| c.name == name).and_then(|c| c.origin.clone());
+        assert_eq!(herkunft("Extern 1").as_deref(), Some("extern"));
+        assert_eq!(herkunft("Hier").as_deref(), Some("hier"));
+        // A: Im Stand steht die jüngere Fassung aus der Datei; die eigene
+        // Änderung wartet im Konflikt auf die Entscheidung.
+        assert_eq!(herkunft("A").as_deref(), Some("extern"));
+
+        // 3. Konflikt entscheiden: meine Fassung von A.
+        vault_conflict_resolve(h.state::<Vault>(), a.clone(), "hier".into()).unwrap();
+        commit(&h, &h.state::<Vault>()).unwrap();
+        warten(&h, |v| !v.ausstehend);
+        let jetzt = lesen(&datei);
+        assert_eq!(feld(&jetzt, &a, "Notes").as_deref(), Some("hier"));
+        assert_eq!(feld(&jetzt, &a, "UserName").as_deref(), Some(""));
+        assert!(vault_conflicts(h.state::<Vault>()).unwrap().is_empty());
+
+        // 4. Sperren, die Datei ändert sich von außen, wieder öffnen: sofort
+        //    aus der Kopie, der neue Eintrag kommt im Hintergrund dazu.
+        vault_lock(h.state::<Vault>()).unwrap();
+        let mut fremd = lesen(&datei);
+        neu(&mut fremd, "Später extern");
+        schreiben(&datei, &fremd);
+        entsperren(&h);
+        warten(&h, |v| !v.offline);
+        let titel_jetzt = titel(h.state::<Vault>().lock().unwrap().database().unwrap());
+        assert!(titel_jetzt.contains(&"Später extern".to_string()), "nachgeladen: {titel_jetzt:?}");
+
+        // 5. Selbstsperre: Der TOTP-Takt der Oberfläche (jede Sekunde) und
+        //    der Abgleich im Hintergrund zählen nicht als Nutzung.
+        let lange_her = std::time::Instant::now() - std::time::Duration::from_secs(3600);
+        {
+            let state = h.state::<Vault>();
+            let mut v = state.lock().unwrap();
+            v.auto_lock_minutes = 5;
+            v.last_activity = Some(lange_her);
+            v.secrets.insert("t".into(), zeroize::Zeroizing::new("JBSWY3DPEHPK3PXP".into()));
+        }
+        crate::secrets::vault_totp(h.state::<Vault>(), "t".into(), dto::TotpConfig::default()).unwrap();
+        h.state::<Vault>().lock().unwrap().ausstehend = true;
+        abgleichen(&h, &h.state::<Vault>()).unwrap();
+        assert!(h.state::<Vault>().lock().unwrap().idle_expired(), "Takt und Abgleich halten die Sperre nicht auf");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+}
+

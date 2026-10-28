@@ -183,10 +183,15 @@ object Nachweisblatt {
         fun arbeite(aufruf: () -> String) {
             weiterKnopf.isEnabled = false
             bioKnopf.isEnabled = false
-            meldung.visibility = View.GONE
+            // Sichtbar machen, dass gearbeitet wird: Das Öffnen kann dauern
+            // (Datei aus der Cloud, Argon2), und zwei gesperrte Knöpfe ohne
+            // Wort sahen aus, als hinge alles.
+            meldung.text = "Datenbank wird geöffnet …"
+            meldung.visibility = View.VISIBLE
             Kern.imHintergrund(aufruf) { antwort ->
                 weiterKnopf.isEnabled = true
                 bioKnopf.isEnabled = true
+                meldung.visibility = View.GONE
                 val fehler = fehlertext(antwort)
                 if (fehler == null) return@imHintergrund fertig(true)
                 eingabe.text.clear()

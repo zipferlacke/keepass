@@ -1,19 +1,32 @@
 {
     "welcome":[
-        "Die App <b>WKeePass</b> ist eien Passwort & 2FA Manager das dden Keepass Standard implemtiert hat und so mit allen KeepassDatenbanken kompatibel ist.",
-        "Starte jetzt und übergezeuge dich selber!"
+        "Die App <b>WKeePass</b> ist ein Passwort- und 2FA-Manager, der den KeePass-Standard umsetzt und so mit allen KeePass-Datenbanken kompatibel ist.",
+        "Starte jetzt und überzeuge dich selbst!"
     ], 
     "minVersion":"0.0.1",
 
 
     "changelog":[
         {
+            "version":"1.2.2",
+            "date":"2026-10-28",
+            "changes":[
+                "Performance-Optimierungen: Die App läuft im Offline-Fall bzw. wenn die Datenbank vom NAS oder aus der Cloud kommt, deutlich performanter.",
+                "Versionen: Es ist nun einstellbar, wie viele Datenbankversionen zwischengespeichert werden (30–100), um bei Datenverlust schnell zurückzugehen",
+                "Konflikte: Wurde ein Eintrag hier und auf einem anderen Gerät verschieden geändert, fragt die App, welche Fassung gelten soll",
+                "Verschlüsselungsstärke: Standard braucht nur noch 16 MB Speicher, damit die Datenbank auch beim Ausfüllen am iPhone/iPad aufgeht",
+                "Fix: Neue Ordner tauchen sofort in der Liste auf, auch ohne Eintrag darin",
+                "Fix, Rechner: Die App sperrt sich nach der eingestellten Ruhezeit wieder von selbst – auch wenn 2FA-Codes angezeigt werden",
+                "Fix, Passkeys: Seiten ohne eigene Kennung bekommen am Rechner einen gültigen Passkey; gelöschte Passkeys im Papierkorb melden nicht mehr an"
+            ]
+        },
+        {
             "version":"1.2.1",
             "date":"2026-10-21",
             "changes":[
-                "Fix, Rechner: Extension muss sich nicht mehr jeden Bowserstart neu mit Wkeepass am Rechner vebinden sondern Befählt verbing bei.",
-                "Fix, Rechner: Wkeepass ist auch als Hintergrunddienst optisch für den Nutzbar sichtbar.",
-                "Rechner: Speichereinparungen im Hintegrund",
+                "Fix, Rechner: Die Erweiterung muss sich nicht mehr bei jedem Browserstart neu mit WKeePass verbinden, sondern behält die Verbindung bei.",
+                "Fix, Rechner: WKeePass ist auch als Hintergrunddienst für den Nutzer sichtbar.",
+                "Rechner: Speichereinsparungen im Hintergrund",
                 "Entsperren: gleich lostippen – PIN bzw. Master-Passwort hat sofort den Fokus"
             ]
         },

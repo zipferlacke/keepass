@@ -16,17 +16,17 @@ Platzhalter. Warum das so ist und wie die Teile zusammenspielen, steht in
 
 | Bereich                  | Was                                                                                                                                                                                 | Wo im Code                                                              |
 |--------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| Datenbank                | KDBX 4 öffnen und schreiben, Schlüsseldatei, fünf Stufen der Verschlüsselungsstärke                                                                                                 | `database.rs`, `pages/settings.js`                                      |
+| Datenbank                | KDBX 4 öffnen und schreiben, Schlüsseldatei, sechs Stufen der Verschlüsselungsstärke (Standard 16 MiB, geht auch am iPhone/iPad auf)                                              | `database.rs`, `pages/settings.js`                                      |
 | Entsperren               | Master-Passwort, App-PIN, Fingerabdruck/Gesicht, Geräteschlüssel (Windows Hello u. a.)                                                                                              | `seal.rs`, `biometric.rs`, `keystore.rs`, `pages/lock.js`               |
-| Einträge                 | Ordner als aufklappbare Gruppen, Tags, Ziehen zum Umsortieren, Mehrfachauswahl, Ausschneiden und Einfügen                                                                           | `entries.rs`, `pages/entries.js`, `ui/dragmove.js`, `ui/multiselect.js` |
+| Einträge                 | Ordner als aufklappbare Gruppen (auch leere), Tags, Ziehen zum Umsortieren, Mehrfachauswahl, Ausschneiden und Einfügen                                                              | `entries.rs`, `pages/entries.js`, `ui/dragmove.js`, `ui/multiselect.js` |
 | Tastatur                 | Strg+N, Strg+F, Tippen sucht, Pfeile, Enter, Entf, Strg+X/V (siehe unten)                                                                                                           | `pages/tasten.js`                                                       |
 | Papierkorb               | eigener Block unter den Einträgen; nach 30 Tagen endgültig weg                                                                                                                      | `state.rs`, `pages/entries.js`                                          |
 | 2FA                      | TOTP-Codes, QR-Code per Kamera oder aus einem Bild, Sammelexporte (Google Authenticator)                                                                                            | `secrets.rs`, `qr.rs`, `pages/totp.js`, `dialogs/create.js`             |
 | Passkeys                 | WebAuthn-Schlüssel in der Datenbank, auf Android über den Credential Manager                                                                                                        | `passkey.rs`, `android_services.rs`                                     |
 | Dateien                  | Anhänge verschlüsselt ablegen, mit Vorschau (Bild, PDF, Text, Markdown)                                                                                                             | `dialogs/entry.js`, `data/preview.js`                                   |
-| Abgleich                 | dieselbe Datei auf mehreren Geräten, Zusammenführen Eintrag für Eintrag                                                                                                             | `database.rs`, `storage.rs`                                             |
-| Versionen                | die letzten 20 Stände, jeder sagt, was er geändert hat; zurücknehmen                                                                                                                | `versions.rs`, `dialogs/versions.js`                                    |
-| Offline                  | Kopie jeder geöffneten Datei, falls die Cloud gerade nicht erreichbar ist                                                                                                           | `offline.rs`                                                            |
+| Abgleich                 | dieselbe Datei auf mehreren Geräten; die App arbeitet mit ihrer eigenen Fassung, die Datei wird im Hintergrund geholt, zusammengeführt, geschrieben; Konflikte zur Wahl             | `database.rs`, `konflikt.rs`, `dialogs/konflikte.js`                    |
+| Versionen                | die letzten 30–100 Stände (einstellbar), jeder sagt, was er geändert hat – nach dem Zusammenführen mit Herkunft; einzeln oder ganz zurücknehmen                                     | `versions.rs`, `dialogs/versions.js`                                    |
+| Offline                  | eigene Fassung jeder geöffneten Datei: daraus wird sofort geöffnet, Änderungen landen zuerst dort                                                                                   | `offline.rs`                                                            |
 | Browser                  | Anbindung an die Erweiterung keepassxc-browser (Firefox, Chrome, Edge …); startet der Browser WKeePass, läuft es ohne Hauptfenster im Hintergrund (Symbol in der Leiste) und endet mit dem letzten Browser; auf Wunsch fragt es bei gesperrter Datenbank schon beim Browserstart nach dem Entsperren | `keepass_extension/`, `pages/request.js`                                |
 | Android                  | Autofill, Passkeys, Datenbank über die Dateiauswahl (Nextcloud, Drive); läuft die App nicht, startet sie nur kurz und entsperrt wird im Blatt über der aufrufenden App              | `android_services.rs`, `keepass-android/`                               |
 | Sicherheitscheck         | schwache, mehrfach genutzte, abgelaufene und geleakte Passwörter (HIBP, k-Anonymität)                                                                                               | `pages/checkup.js`, `data/security.js`                                  |
@@ -112,11 +112,18 @@ tools/              Hilfsskripte: Android-Bau, Symbole, Web-Demo, Entwicklungsse
 ## Abgleich zwischen Geräten
 
 Die Datei liegt in einem Ordner, den die Cloud abgleicht (Nextcloud, Drive …), und jedes Gerät öffnet
-dieselbe Datei. WKeePass sieht nach, sobald die App nach vorn kommt und danach jede Minute; vor jedem
-Speichern wird die Datei noch einmal gelesen. Hat ein anderes Gerät inzwischen geschrieben, werden beide
-Stände Eintrag für Eintrag zusammengeführt: Die jüngere Änderung gilt, die ältere bleibt im Verlauf des
-Eintrags, Gelöschtes bleibt gelöscht. Lässt sich die Datei gerade nicht lesen, wird nicht geschrieben —
-die Änderungen bleiben in der App.
+dieselbe Datei. Die App hat dabei immer ihre eigene, zuletzt gespeicherte Fassung (verschlüsselt wie die
+Datei): Daraus öffnet sie sofort, und jede Änderung landet zuerst dort. Die Datei am Ort wird parallel
+geholt – beim Öffnen, nach jeder Änderung und sonst höchstens alle fünf Minuten. Hat ein
+anderes Gerät inzwischen geschrieben, werden beide Stände Eintrag für Eintrag zusammengeführt und Datei
+und eigene Fassung geschrieben. Ist der Ort nicht erreichbar (am Handy fragt Nextcloud bei jedem Öffnen
+seinen Server und wartet bis zu 30 s), arbeitet die App mit ihrer Fassung weiter und holt das Schreiben
+nach. Beim Zusammenführen gilt die jüngere Änderung, die ältere bleibt im Verlauf des Eintrags, Gelöschtes
+bleibt gelöscht. Haben beide Seiten denselben Eintrag seit dem letzten gemeinsamen Stand verschieden
+geändert, fragt die App, welche Fassung gelten soll (bis dahin gilt die jüngere). Name und Beschreibung der Datenbank: der jüngere gilt. Hat ein
+anderes Programm die Verschlüsselung umgestellt (Schlüsselableitung, Verfahren, Kompression), übernimmt
+WKeePass das beim nächsten Speichern, statt es zurückzudrehen — außer es wurde auch hier umgestellt. Lässt
+sich die Datei gerade nicht lesen, wird nicht geschrieben — die Änderungen bleiben in der App.
 
 ## Tastatur
 

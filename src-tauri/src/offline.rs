@@ -45,6 +45,11 @@ pub fn read(app: &tauri::AppHandle, path: &str) -> Result<(Vec<u8>, Source), Str
     }
 }
 
+/// Nur die Kopie, ohne den Ort zu fragen — `None`, wenn es keine gibt.
+pub fn kopie(app: &tauri::AppHandle, path: &str) -> Option<Vec<u8>> {
+    std::fs::read(copy_path(app, path)?).ok()
+}
+
 /// Legt die Kopie ab oder erneuert sie. Fehler werden nur gemeldet, nicht
 /// weitergereicht: Ohne Kopie geht alles weiter wie bisher.
 pub fn store(app: &tauri::AppHandle, path: &str, bytes: &[u8]) {

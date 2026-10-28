@@ -120,13 +120,19 @@ pub fn vault_duplicate_groups(state: tauri::State<'_, Vault>) -> Result<Vec<Vec<
     Ok(by_value.into_values().filter(|g| g.len() > 1).collect())
 }
 
+/// Der aktuelle Code. Zählt **nicht** als Nutzung: Die Oberfläche fragt
+/// jede Sekunde für jeden sichtbaren Code — sonst sperrte sich die
+/// Datenbank nie von selbst, solange ein Eintrag mit 2FA darin war.
 #[tauri::command]
 pub fn vault_totp(
     state: tauri::State<'_, Vault>,
     token: String,
     config: dto::TotpConfig,
 ) -> Result<dto::TotpResult, String> {
-    let raw = take(&state, &token)?;
+    let raw = {
+        let vault = state.inner().lock().map_err(|_| "Kern blockiert.".to_string())?;
+        value_of(&vault, &token)?
+    };
     totp_code(&raw, &config)
 }
 

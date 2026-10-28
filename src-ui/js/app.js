@@ -15,7 +15,8 @@ import { renderTags, renderHome } from './pages/home.js';
 import { bindFileDrops } from './dialogs/entry.js';
 import { markUsed } from './core/entries.js';
 import { handleScan, startCreation } from './dialogs/create.js';
-import { BRAND_MARK, dbName, enterUnlocked, lockDatabase, openUnlockDialog, rememberDatabase, renderLockscreen, showLockscreen, showWelcome, unlock, unlockBusy } from './pages/lock.js';
+import { openKonflikte } from './dialogs/konflikte.js';
+import { BRAND_MARK, dbName, enterUnlocked, gesperrtAufraeumen, lockDatabase, openUnlockDialog, rememberDatabase, renderLockscreen, showLockscreen, showWelcome, unlock, unlockBusy } from './pages/lock.js';
 import { closeSettingsPage, renderSettings, showAndroidSetup, showBrowserSetupPage, updateSettingsPreview } from './pages/settings.js';
 
 /* =========================================================
@@ -48,9 +49,12 @@ async function boot() {
 
   // Der Kern sperrt sich selbst, wenn zu lange nichts passiert — ein Timer
   // im Fenster liefe nicht zuverlässig weiter, wenn es im Hintergrund liegt.
-  await listen('vault-locked', ev => {
+  // Dasselbe wie der Klick aufs Schloss: auch die Listen im Fenster leeren
+  // und einen offenen Dialog (etwa einen Eintrag mit Passwort) schließen.
+  await listen('vault-locked', async ev => {
     if (state.locked) return;
-    showLockscreen(String(ev?.payload ?? 'Wegen Untätigkeit gesperrt.'));
+    document.querySelectorAll('dialog[open]').forEach(d => d.close());
+    await gesperrtAufraeumen(String(ev?.payload ?? 'Wegen Untätigkeit gesperrt.'));
   });
 
   // Lesen, Scrollen und Tippen rufen keinen Befehl im Kern auf — ohne diese
@@ -81,11 +85,22 @@ async function boot() {
   // Stand beim Speichern eingemischt — auch bei Browser und Autofill.
   await listen('vault-merged', () => takeForeign());
 
-  // Fremde Änderungen holen: sobald die App wieder vorn ist, und jede
-  // Minute, solange sie sichtbar ist. Ist die Datei unverändert, schaut der
-  // Kern nur aufs Änderungsdatum.
+  // Beim Zusammenführen hat der Kern Einträge gefunden, die hier und in der
+  // Datei verschieden geändert waren: gleich fragen, welche Fassung gilt.
+  await listen('vault-conflicts', () => { if (!state.locked) openKonflikte(); });
+
+  // Fremde Änderungen holen. Beim Öffnen gleicht der Kern ohnehin ab, und
+  // jede Änderung schreibt über die Datei; dazwischen höchstens alle fünf
+  // Minuten — auch wenn die App öfter nach vorn kommt. Am Handy fragt
+  // Nextcloud dabei jedes Mal seinen Server.
+  const ABSTAND = 5 * 60_000;
+  let zuletztAbgeglichen = Date.now();
+  await listen('vault-unlocked', () => { zuletztAbgeglichen = Date.now(); });
   const syncNow = () => {
-    if (!state.locked && document.visibilityState === 'visible') syncFromFile();
+    if (state.locked || document.visibilityState !== 'visible') return;
+    if (Date.now() - zuletztAbgeglichen < ABSTAND) return;
+    zuletztAbgeglichen = Date.now();
+    syncFromFile();
   };
   document.addEventListener('visibilitychange', syncNow);
   window.addEventListener('focus', syncNow);
@@ -255,6 +270,12 @@ async function bindBrowserRequests() {
     if (state.locked) return;
     await refreshFromVault();
     renderAll({ ohne: ['einstellungen'] });
+  });
+
+  // Gespeichert ist in der App schon; nur die Datei am Ort war nicht
+  // erreichbar. Der Kern holt das beim nächsten Abgleich nach.
+  await listen('vault-sync-failed', ev => {
+    banner(`In der App gespeichert, die Datei aber noch nicht: ${ev?.payload ?? ''} – wird nachgeholt.`, 'warning', 8000);
   });
 
   await listen('browser-save-failed', ev => {

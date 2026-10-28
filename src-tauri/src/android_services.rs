@@ -426,8 +426,9 @@ fn entsperren(methode: &str, geheimnis: &str) -> Result<Value, String> {
         other => return Err(format!("Unbekannter Weg zum Entsperren: {other}")),
     };
 
+    let start = std::time::Instant::now();
     let state = app.state::<Vault>();
-    tauri::async_runtime::block_on(crate::database::vault_unlock(
+    let ergebnis = tauri::async_runtime::block_on(crate::database::vault_unlock(
         app.clone(),
         state,
         pfad,
@@ -436,7 +437,9 @@ fn entsperren(methode: &str, geheimnis: &str) -> Result<Value, String> {
         None,
         Some(minuten),
         None,
-    ))?;
+    ));
+    eprintln!("[entsperren] insgesamt ({weg}): {} ms", start.elapsed().as_millis());
+    ergebnis?;
 
     // Wer gerade entsperrt hat, hat sich damit ausgewiesen.
     merke_nachweis();

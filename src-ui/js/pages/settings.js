@@ -69,9 +69,10 @@ function settingsMarkup() {
         </div>
         <div class="setting">
           <div class="setting-label">
-            <strong>Bequem entsperren</strong>
+            <strong>Entsperren dieser Datenbank</strong>
             <small>${[state.unlock.device ? esc(deviceName()) : null, state.unlock.pin ? 'PIN' : null, state.unlock.biometric ? 'Fingerabdruck' : null]
               .filter(Boolean).join(' und ') || 'Nur mit Master-Passwort'}</small>
+            <small>Was die App überhaupt anbietet: <button type="button" class="link-btn" data-scroll="app-unlock">Entsperrmethoden der App</button></small>
           </div>
           <div class="setting-control"><button type="button" class="button" id="btn-access">Wählen …</button></div>
         </div>
@@ -89,35 +90,8 @@ function settingsMarkup() {
     </div>`}
 
     <div class="settings-group">
-      <div class="section-label">Entsperren</div>
+      <div class="section-label">Sperren</div>
       <div class="settings-card">
-        <div class="setting">
-          <div class="setting-label">
-            <strong>Biometrie verwenden</strong>
-            <small>${state.unlock.deviceAvailable
-              ? `${esc(deviceName())} — beim Öffnen anbieten, ersetzt PIN und Master-Passwort`
-              : state.unlock.biometricAvailable
-                ? 'Fingerabdruck oder Gesichtserkennung'
-                : 'Auf diesem Gerät nicht verfügbar'}</small>
-          </div>
-          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="unlock.biometrics" name="unlock.biometrics" ${s.unlock?.biometrics ? 'checked' : ''} ${state.unlock.biometricAvailable || state.unlock.deviceAvailable ? '' : 'disabled'}></div>
-        </div>
-        <div class="setting">
-          <div class="setting-label">
-            <strong>PIN des Programms</strong>
-            <small>${state.unlock.pinSet
-              ? (state.unlock.keyring
-                  ? 'Festgelegt — geschützt durch PIN und Schlüsselbund'
-                  : 'Festgelegt — ohne Schlüsselbund hängt alles an der PIN')
-              : 'Noch keine PIN. Gilt für alle Datenbanken.'}</small>
-          </div>
-          <div class="setting-control">
-            ${state.unlock.pinSet
-              ? `<button type="button" class="button" id="btn-pin-change">Ändern …</button>
-                 <button type="button" class="button" id="btn-pin-clear">Entfernen</button>`
-              : '<button type="button" class="button" id="btn-pin-create">Festlegen …</button>'}
-          </div>
-        </div>
         <div class="setting">
           <div class="setting-label"><strong>Automatisch sperren</strong><small>Minuten ohne Aktivität</small></div>
           <div class="setting-control"><input type="number" inputmode="numeric" min="1" max="120" data-set="unlock.autoLockMinutes" name="unlock.autoLockMinutes" value="${s.unlock?.autoLockMinutes ?? 5}"></div>
@@ -221,6 +195,41 @@ function settingsMarkup() {
       </div>
     </div>
 
+    <div class="settings-group" id="app-unlock">
+      <div class="section-label">Entsperrmethoden der App</div>
+      <div class="settings-card">
+        <p class="setting-intro">Was dieses Gerät zum Entsperren anbietet. Welche davon eine Datenbank
+        nutzen darf, legst du je Datenbank fest: Datenbank → Entsperren dieser Datenbank.</p>
+        <div class="setting">
+          <div class="setting-label">
+            <strong>Biometrie verwenden</strong>
+            <small>${state.unlock.deviceAvailable
+              ? `${esc(deviceName())} — beim Öffnen anbieten, ersetzt PIN und Master-Passwort`
+              : state.unlock.biometricAvailable
+                ? 'Fingerabdruck oder Gesichtserkennung'
+                : 'Auf diesem Gerät nicht verfügbar'}</small>
+          </div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="unlock.biometrics" name="unlock.biometrics" ${s.unlock?.biometrics ? 'checked' : ''} ${state.unlock.biometricAvailable || state.unlock.deviceAvailable ? '' : 'disabled'}></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label">
+            <strong>PIN des Programms</strong>
+            <small>${state.unlock.pinSet
+              ? (state.unlock.keyring
+                  ? 'Festgelegt — geschützt durch PIN und Schlüsselbund'
+                  : 'Festgelegt — ohne Schlüsselbund hängt alles an der PIN')
+              : 'Noch keine PIN. Gilt für alle Datenbanken.'}</small>
+          </div>
+          <div class="setting-control">
+            ${state.unlock.pinSet
+              ? `<button type="button" class="button" id="btn-pin-change">Ändern …</button>
+                 <button type="button" class="button" id="btn-pin-clear">Entfernen</button>`
+              : '<button type="button" class="button" id="btn-pin-create">Festlegen …</button>'}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-group">
       <div class="section-label">Exportieren und Importieren</div>
       <div class="settings-card">
@@ -247,6 +256,22 @@ function settingsMarkup() {
     </details>
 
     <p class="app-version" id="app-version">WKeePass</p>`
+}
+
+/**
+ * Scrollt zu einem Abschnitt der Einstellungen, sodass er unter der
+ * Kopfzeile steht. `scrollIntoView` schöbe ihn unter die Kopfzeile.
+ */
+function springeZu(id) {
+  const ziel = document.getElementById(id);
+  if (!ziel) return;
+  let box = ziel.parentElement;
+  while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+  // Ohne eigenen Scrollbereich scrollt das Dokument.
+  box ??= document.scrollingElement;
+  const oben = box === document.scrollingElement ? 0 : box.getBoundingClientRect().top;
+  const kopf = document.querySelector('.app-header, header')?.getBoundingClientRect().bottom ?? 0;
+  box.scrollBy({ top: ziel.getBoundingClientRect().top - Math.max(oben, kopf) - 8, behavior: 'smooth' });
 }
 
 export function renderSettings() {
@@ -437,15 +462,14 @@ export async function showAndroidSetup() {
   });
 }
 
-/** Die drei Stufen der Schlüsselableitung, wie sie der Kern kennt. */
-/** Die Stufen des Kerns (database.rs): Durchgänge und Speicher je Stufe. */
 /** Wie im Kern (database.rs): Wert, Name, Hinweis, Durchgänge, MiB, Fäden. */
 export const STUFEN = [
-  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten', 5, 32, 2],
-  ['zuegig', 'Zügig', 'Etwas mehr Schutz, kaum langsamer', 8, 48, 2],
-  ['standard', 'Standard', 'Guter Mittelweg — Empfehlung', 10, 64, 4],
-  ['erhoeht', 'Erhöht', 'Mehr Schutz, öffnet etwas langsamer', 14, 128, 4],
-  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen', 20, 256, 4]
+  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten', 10, 16, 2],
+  ['zuegig', 'Zügig', 'Etwas mehr Schutz, kaum langsamer', 20, 16, 2],
+  ['standard', 'Standard', 'Guter Mittelweg, geht überall auf — Empfehlung', 40, 16, 4],
+  ['erhoeht', 'Erhöht', 'Mehr Speicher, schwerer für Grafikkarten — am iPhone/iPad geht Ausfüllen über die Tastatur nicht mehr', 10, 64, 4],
+  ['hoch', 'Hoch', 'Noch mehr Speicher — am iPhone/iPad kein Ausfüllen über die Tastatur', 14, 128, 4],
+  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen — am iPhone/iPad kein Ausfüllen über die Tastatur', 20, 256, 4]
 ];
 
 /** Auf der Skala beschriftet sind nur diese — die beiden dazwischen nicht. */
@@ -572,16 +596,34 @@ async function renderDatabaseSection() {
     <div class="setting">
       <div class="setting-label">
         <strong>Versionen</strong>
-        <small>Die letzten Stände dieser Datei — beim Öffnen, nach dem Speichern und nach
-        Änderungen von einem anderen Gerät. Daraus lässt sich Einzelnes oder alles zurückholen.</small>
+        <small>Die letzten Stände dieser Datei — beim Öffnen, nach dem Speichern, nach
+        Änderungen von einem anderen Gerät und nach jedem Zusammenführen. Daraus lässt sich
+        Einzelnes oder alles zurückholen.</small>
       </div>
       <div class="setting-control">
         <button type="button" class="button" id="btn-versions">Versionen ansehen …</button>
       </div>
     </div>
+
+    <div class="setting">
+      <div class="setting-label">
+        <strong>Stände aufheben</strong>
+        <small>30 bis 100</small>
+      </div>
+      <div class="setting-control">
+        <input type="number" inputmode="numeric" min="30" max="100" id="versions-keep" name="versions.keep"
+          aria-label="Wie viele Stände aufheben" value="${Math.min(100, Math.max(30, Number(settings.get('versions.keep', 30)) || 30))}">
+      </div>
+    </div>
 `;
 
   card.querySelector('#btn-versions')?.addEventListener('click', () => openVersionsDialog());
+  card.querySelector('#versions-keep')?.addEventListener('change', async ev => {
+    const zahl = Math.min(100, Math.max(30, Math.round(Number(ev.target.value)) || 30));
+    ev.target.value = zahl;
+    await settings.set('versions.keep', zahl, { silent: true });
+    banner(`Es werden ${zahl} Stände aufgehoben.`, 'success', 1600);
+  });
   card.querySelector('#kdf-info')?.addEventListener('click', kdfErklaeren);
 
   const speichern = async (feld, wert) => {
@@ -1074,6 +1116,7 @@ function wireSettings(root = $('#settings-body')) {
   root.querySelector('#btn-pin-change')?.addEventListener('click', changePin);
   root.querySelector('#btn-pin-clear')?.addEventListener('click', clearAppPin);
   root.querySelector('#btn-access')?.addEventListener('click', manageAccess);
+  root.querySelectorAll('[data-scroll]').forEach(btn => btn.addEventListener('click', () => springeZu(btn.dataset.scroll)));
 
   root.querySelector('#btn-empty-bin')?.addEventListener('click', emptyBin);
 

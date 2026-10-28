@@ -29,6 +29,20 @@ pub struct VaultState {
     /// Nextcloud-Synchronisierung zugeschlagen, wird nicht überschrieben.
     pub opened_hash: Option<[u8; 32]>,
 
+    /// Verschlüsselung und Format der Datei, wie sie zuletzt gelesen oder
+    /// geschrieben wurde. Stellt ein anderes Programm sie um, steht in der
+    /// Datei etwas anderes — dann gilt das, sofern hier nichts umgestellt
+    /// wurde (siehe `database::einstellungen_uebernehmen`).
+    pub opened_config: Option<keepass::config::DatabaseConfig>,
+
+    /// In der App gespeichert, aber noch nicht in der Datei am Ort: Die
+    /// eigene Kopie ist voraus. `database::abgleichen` holt das nach.
+    pub ausstehend: bool,
+
+    /// Einträge, die beide Seiten seit dem letzten gemeinsamen Stand
+    /// verschieden geändert haben — bis der Nutzer entscheidet.
+    pub konflikte: Vec<crate::konflikt::Offen>,
+
     /// Nur KDBX 4.1 lässt sich zurückschreiben. Alles andere wird geöffnet,
     /// aber `vault_commit` verweigert die Arbeit.
     pub read_only: bool,
@@ -129,6 +143,9 @@ impl VaultState {
         self.keyfile = None;
         self.seen_modified = None;
         self.opened_hash = None;
+        self.opened_config = None;
+        self.ausstehend = false;
+        self.konflikte.clear();
         self.read_only = false;
         self.offline = false;
         self.last_activity = None;
@@ -278,8 +295,9 @@ pub fn all_folders(db: &Database) -> Vec<String> {
     let root = db.root().id();
     let mut out = vec![ROOT_LABEL.to_string()];
 
+    // Der Papierkorb ist kein Ordner im Baum — er steht für sich, ganz unten.
     for group in db.iter_all_groups() {
-        if group.id() != root {
+        if group.id() != root && !is_recycled(db, group.id()) {
             out.push(folder_path(db, group.id()));
         }
     }
@@ -373,6 +391,17 @@ mod tests {
     #[test]
     fn alle_ordner_enthalten_die_wurzel() {
         let (db, _, _) = baum();
+        let mut ordner = all_folders(&db);
+        ordner.sort();
+
+        assert_eq!(ordner, vec!["Allgemein", "Arbeit", "Arbeit/KoG"]);
+    }
+
+    #[test]
+    fn papierkorb_ist_kein_ordner() {
+        let (mut db, _, _) = baum();
+        ensure_recycle_bin(&mut db);
+        ensure_group(&mut db, &format!("{RECYCLE_BIN_NAME}/Alt"));
         let mut ordner = all_folders(&db);
         ordner.sort();
 
