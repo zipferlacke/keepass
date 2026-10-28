@@ -804,13 +804,10 @@ async function createDatabase() {
 
   try {
     const info = await vault.create({
-      path, password: pw, name,
+      path, password: pw, name, level,
       autoLockMinutes: Number(settings.get('unlock.autoLockMinutes', 5)) || 0
     });
 
-    // Die Stufe steht erst in der offenen Datenbank; sie zu setzen schreibt
-    // die Datei gleich noch einmal — beim Anlegen fällt das nicht auf.
-    if (level !== 'standard') await vault.setSecurity({ level });
     await rememberDatabase({ name: info.name, path: info.path });
     await settings.set('database.current', info.path, { silent: true });
 
@@ -837,6 +834,10 @@ export async function enterUnlocked() {
 
   startTicker();
   maybeAutoCheck();
+
+  // Offene Konflikte aus einem Abgleich im Hintergrund (etwa beim Ausfüllen
+  // am Handy, ohne dass die App offen war) — jetzt fragen.
+  import('../dialogs/konflikte.js').then(m => m.openKonflikte()).catch(() => {});
 
   // Fehlende Website-Icons nachholen — im Hintergrund, der Kern speichert sie
   // in der Datenbank und meldet sich mit `vault-changed`.
@@ -967,6 +968,16 @@ export async function lockDatabase() {
     }
   }
   await vault.lock();
+  await gesperrtAufraeumen('Gesperrt — die Werte wurden aus dem Speicher entfernt.');
+  banner('Datenbank gesperrt.', 'info');
+}
+
+/**
+ * Was nach dem Sperren im Fenster passiert — beim Klick aufs Schloss und
+ * genauso, wenn der Kern wegen Untätigkeit gesperrt hat: Werte aus dem
+ * Speicher, Takt aus, Sperrbildschirm.
+ */
+export async function gesperrtAufraeumen(meldung) {
   stopTicker();
   state.entries = [];
   state.strength.clear();
@@ -975,8 +986,7 @@ export async function lockDatabase() {
   state.emailFindings = [];
   state.lastCheck = null;
   state.reused = new Set();
-  await showLockscreen('Gesperrt — die Werte wurden aus dem Speicher entfernt.');
-  banner('Datenbank gesperrt.', 'info');
+  await showLockscreen(meldung);
 }
 
 /* =========================================================

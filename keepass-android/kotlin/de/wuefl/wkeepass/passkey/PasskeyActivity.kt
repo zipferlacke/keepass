@@ -82,6 +82,9 @@ class PasskeyActivity : Activity() {
                     if (laeuft) bereit(sonst, dann) else sonst()
                 }
                 Kern.gesperrt(status) -> Nachweisblatt.entsperren(this) { offen ->
+                    // Entsperrt heißt: gerade nachgewiesen. Die Rückfrage vor
+                    // dem Anmelden entfällt dann (siehe Bestaetigung).
+                    if (offen) Bestaetigung.bestaetigt()
                     if (offen) dann() else sonst()
                 }
                 else -> dann()

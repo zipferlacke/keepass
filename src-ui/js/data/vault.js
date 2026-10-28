@@ -87,8 +87,8 @@ export async function adopt() {
 }
 
 /** Legt eine neue, leere Datenbank an und öffnet sie gleich. */
-export async function create({ path, password, name = null, autoLockMinutes = 0, remember = null }) {
-  const info = await invoke('vault_create', { path, password, name, autoLockMinutes, remember });
+export async function create({ path, password, name = null, level = null, autoLockMinutes = 0, remember = null }) {
+  const info = await invoke('vault_create', { path, password, name, level, autoLockMinutes, remember });
   await refresh();
   dirty = false;
   opened = true;
@@ -185,6 +185,19 @@ export async function versionRestore(id, entries = null) {
   dirty = true;
   return zahl;
 }
+
+/* =========================================================
+   Konflikte
+   ---------------------------------------------------------
+   Einträge, die beim Zusammenführen auf beiden Seiten verschieden geändert
+   waren (konflikt.rs). Entscheiden ändert den Stand in der App; geschrieben
+   wird wie immer mit `commit()`.
+   ========================================================= */
+
+export const conflicts = () => invoke('vault_conflicts');
+
+/** `choice`: `hier` (Fassung der App) oder `extern` (aus der Datei). */
+export const resolveConflict = (id, choice) => mutate('vault_conflict_resolve', { id, choice });
 
 /** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
 export const security = () => invoke('vault_security');

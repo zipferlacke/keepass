@@ -276,7 +276,7 @@ pub struct Version {
 }
 
 /// Ein Eintrag, der sich seit einem Stand geändert hat.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionChange {
     pub id: String,
@@ -285,11 +285,34 @@ pub struct VersionChange {
     /// `neu`, `geloescht` oder `geaendert`.
     pub kind: String,
     pub fields: Vec<VersionField>,
+    /// Nur bei einem zusammengeführten Stand: woher die Änderung kam —
+    /// `extern` (aus der Datei), `hier` (aus der App) oder `beide`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+
+/// Ein Eintrag, den beide Seiten seit dem letzten gemeinsamen Stand
+/// verschieden geändert haben. Bis zur Entscheidung gilt die jüngere
+/// Fassung (`winner`); die andere hält der Kern bereit.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Conflict {
+    pub id: String,
+    pub name: String,
+    pub folder: String,
+    /// Was die App geändert hat (`geaendert` oder `geloescht`).
+    pub here_kind: String,
+    pub here: Vec<VersionField>,
+    /// Was in der Datei geändert wurde.
+    pub file_kind: String,
+    pub file: Vec<VersionField>,
+    /// Welche Fassung gerade gilt: `hier` oder `extern`.
+    pub winner: String,
 }
 
 /// Ein einzelnes geändertes Feld. Bei Geheimnissen bleiben die Werte leer —
 /// die Oberfläche braucht nur zu wissen, **dass** sich etwas geändert hat.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionField {
     pub name: String,

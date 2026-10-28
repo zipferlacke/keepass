@@ -69,7 +69,11 @@ const OHNE_ANZEIGE = new Set([
   'android_setup_status', 'android_setup_open',
   // Die Zusammenfassungen der Versionen laden im Hintergrund nach; die
   // Liste zeigt dafür schon „…". Ein Schleier sperrte sie währenddessen.
-  'vault_version_step',
+  'vault_version_step', 'vault_conflicts',
+  // Der Abgleich mit der Datei läuft im Hintergrund (beim Vordergrund und
+  // höchstens alle fünf Minuten). Am Handy wartet Nextcloud bis zu 30 s —
+  // so lange lag sonst der Schleier über der App.
+  'vault_sync',
   'plugin:app|version', 'database_modified',
   // Die Auswahlfenster des Systems stehen offen, solange der Nutzer sucht.
   'pick_database_file', 'pick_save_path', 'pick_attachments', 'save_attachment',

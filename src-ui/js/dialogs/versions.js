@@ -37,6 +37,9 @@ function schritt(id) {
   return schritte.get(id);
 }
 
+/** Woher eine Änderung in einem zusammengeführten Stand kam. */
+const HERKUNFT = { extern: 'aus der Datei', hier: 'hier', beide: 'hier und in der Datei' };
+
 const ART = {
   neu: ['Dazugekommen', 'add_circle', 'neu'],
   geloescht: ['Gelöscht', 'remove_circle', 'gelöscht'],
@@ -148,7 +151,7 @@ async function openVersionChangesDialog(stand) {
       <div class="version-change-head">
         <span class="msr">${icon}</span>
         <strong>${esc(c.name || '(ohne Titel)')}</strong>
-        <small>${esc(label)}${c.folder ? ` · ${esc(c.folder)}` : ''}</small>
+        <small>${esc(label)}${c.folder ? ` · ${esc(c.folder)}` : ''}${c.origin ? ` · ${esc(HERKUNFT[c.origin] ?? c.origin)}` : ''}</small>
         <button type="button" class="button" data-undo="${esc(c.id)}"
                 title="Den Eintrag so zurückholen, wie er vor diesem Stand war">Zurücknehmen</button>
       </div>

@@ -1048,10 +1048,14 @@ impl Connection {
             .get("publicKey")
             .ok_or_else(|| Failure(code::PASSKEYS_EMPTY_PUBLIC_KEY, "Keine Angaben zum Passkey.".into()))?;
 
+        // Fehlt `rp.id`, gilt nach WebAuthn der Rechner der Seite — nicht
+        // `rp.name`: Das ist der Anzeigename („GitHub“), und ein Passkey für
+        // „GitHub“ weist jede Seite ab, weil der Hash nicht passt.
         let rp_id = options
             .get("rp")
-            .and_then(|rp| rp.get("id").or_else(|| rp.get("name")))
+            .and_then(|rp| rp.get("id"))
             .and_then(Value::as_str)
+            .filter(|id| !id.is_empty())
             .or_else(|| inner.get("origin").and_then(Value::as_str).and_then(host_of_str))
             .ok_or_else(|| Failure(code::PASSKEYS_UNKNOWN_ERROR, "Kein Ziel angegeben.".into()))?
             .to_string();

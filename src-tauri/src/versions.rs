@@ -7,7 +7,7 @@
 //! ein Passwort, das die ältere Fassung überschrieben hat. Ohne Netz wäre
 //! das endgültig — die Datei ist ja nur eine.
 //!
-//! Deshalb hebt der Kern [`WIE_VIELE`] Stände auf: bei jedem Öffnen, nach
+//! Deshalb hebt der Kern die letzten Stände auf (eingestellt: 30 bis 100): bei jedem Öffnen, nach
 //! jedem Speichern und immer dann, wenn ein anderes Gerät die Datei
 //! geändert hat. Jeder Stand ist die vollständige Datei, **verschlüsselt
 //! wie das Original** — Klartext liegt hier nie.
@@ -31,9 +31,18 @@ use tauri::Manager;
 
 use crate::dto;
 
-/// So viele Stände je Datenbank. Mehr hilft nicht — wer weiter zurück will,
-/// sucht ohnehin in der Sicherung des Rechners.
-pub const WIE_VIELE: usize = 20;
+/// So viele Stände je Datenbank, wenn nichts eingestellt ist. Einstellbar
+/// unter `versions.keep` zwischen [`MINDESTENS`] und [`HOECHSTENS`].
+pub const WIE_VIELE: usize = 30;
+pub const MINDESTENS: usize = 30;
+pub const HOECHSTENS: usize = 100;
+
+/// Wie viele Stände aufgehoben werden — aus den Einstellungen.
+pub fn anzahl(app: &tauri::AppHandle) -> usize {
+    crate::settings::value(app, "versions.keep")
+        .and_then(|v| v.as_u64())
+        .map_or(WIE_VIELE, |n| (n as usize).clamp(MINDESTENS, HOECHSTENS))
+}
 
 /// Warum ein Stand abgelegt wurde. Steht im Dateinamen und in der Liste.
 #[derive(Clone, Copy, PartialEq)]
@@ -44,6 +53,9 @@ pub enum Grund {
     Gespeichert,
     /// Ein anderes Gerät hat die Datei geändert.
     Fremd,
+    /// Der Stand der Datei und der Stand der App, zusammengeführt und
+    /// zurückgeschrieben. Der Stand davor ist der der Datei (`Fremd`).
+    Zusammengefuehrt,
 }
 
 impl Grund {
@@ -52,6 +64,7 @@ impl Grund {
             Grund::Geoeffnet => "geoeffnet",
             Grund::Gespeichert => "gespeichert",
             Grund::Fremd => "fremd",
+            Grund::Zusammengefuehrt => "zusammengefuehrt",
         }
     }
 
@@ -59,6 +72,7 @@ impl Grund {
         match kennung {
             "gespeichert" => "Gespeichert",
             "fremd" => "Vom anderen Gerät",
+            "zusammengefuehrt" => "Zusammengeführt",
             _ => "Beim Öffnen",
         }
     }
@@ -99,38 +113,7 @@ pub fn abdruck(db: &Database) -> [u8; 32] {
     // ausmachen.
     let mut einzeln: Vec<[u8; 32]> = db
         .iter_all_entries()
-        .map(|e| {
-            let mut h = Sha256::new();
-            let teil = |h: &mut Sha256, text: &str| {
-                h.update((text.len() as u64).to_le_bytes());
-                h.update(text.as_bytes());
-            };
-
-            teil(&mut h, &e.id().uuid().to_string());
-            teil(&mut h, &ordnerpfad(db, &e));
-
-            let mut schluessel: Vec<&String> = e.fields.keys().collect();
-            schluessel.sort();
-            for k in schluessel {
-                teil(&mut h, k);
-                teil(&mut h, e.get(k).unwrap_or_default());
-            }
-
-            let mut tags: Vec<&String> = e.tags.iter().collect();
-            tags.sort();
-            for t in tags {
-                teil(&mut h, t);
-            }
-
-            let mut anhaenge: Vec<[u8; 32]> =
-                e.attachments().map(|a| Sha256::digest(a.data.get()).into()).collect();
-            anhaenge.sort();
-            for a in anhaenge {
-                h.update(a);
-            }
-
-            h.finalize().into()
-        })
+        .map(|e| eintrag_abdruck_von(db, &e))
         .collect();
     einzeln.sort();
 
@@ -139,6 +122,49 @@ pub fn abdruck(db: &Database) -> [u8; 32] {
         gesamt.update(e);
     }
     gesamt.finalize().into()
+}
+
+/// Der Abdruck eines einzelnen Eintrags — wie in [`abdruck`].
+fn eintrag_abdruck_von(db: &Database, e: &EntryRef<'_>) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+
+    let mut h = Sha256::new();
+    let teil = |h: &mut Sha256, text: &str| {
+        h.update((text.len() as u64).to_le_bytes());
+        h.update(text.as_bytes());
+    };
+
+    teil(&mut h, &e.id().uuid().to_string());
+    teil(&mut h, &ordnerpfad(db, &e));
+
+    let mut schluessel: Vec<&String> = e.fields.keys().collect();
+    schluessel.sort();
+    for k in schluessel {
+        teil(&mut h, k);
+        teil(&mut h, e.get(k).unwrap_or_default());
+    }
+
+    let mut tags: Vec<&String> = e.tags.iter().collect();
+    tags.sort();
+    for t in tags {
+        teil(&mut h, t);
+    }
+
+    let mut anhaenge: Vec<[u8; 32]> =
+        e.attachments().map(|a| Sha256::digest(a.data.get()).into()).collect();
+    anhaenge.sort();
+    for a in anhaenge {
+        h.update(a);
+    }
+
+    h.finalize().into()
+}
+
+/// Der Abdruck des Eintrags `uuid` — `None`, wenn es ihn nicht gibt.
+pub fn eintrag_abdruck(db: &Database, uuid: &str) -> Option<[u8; 32]> {
+    db.iter_all_entries()
+        .find(|e| e.id().uuid().to_string() == uuid)
+        .map(|e| eintrag_abdruck_von(db, &e))
 }
 
 /// Der Abdruck des zuletzt abgelegten Stands, je Datenbank.
@@ -184,7 +210,7 @@ pub fn sichern(app: &tauri::AppHandle, pfad: &str, bytes: &[u8], grund: Grund, a
         }
         Err(err) => eprintln!("[versionen] nicht gesichert: {err}"),
     }
-    aufraeumen(&dir);
+    aufraeumen(&dir, anzahl(app));
 }
 
 fn schreiben(dir: &std::path::Path, bytes: &[u8], grund: Grund) -> Result<(), String> {
@@ -205,10 +231,10 @@ fn schreiben(dir: &std::path::Path, bytes: &[u8], grund: Grund) -> Result<(), St
     std::fs::rename(&tmp, &ziel).map_err(|e| e.to_string())
 }
 
-/// Wirft die ältesten Stände weg, bis nur noch [`WIE_VIELE`] da sind.
-fn aufraeumen(dir: &std::path::Path) {
+/// Wirft die ältesten Stände weg, bis nur noch `behalten` da sind.
+fn aufraeumen(dir: &std::path::Path, behalten: usize) {
     let mut staende = liste_roh(dir);
-    while staende.len() > WIE_VIELE {
+    while staende.len() > behalten {
         let alt = staende.remove(0);
         let _ = std::fs::remove_file(&alt.datei);
     }
@@ -281,6 +307,19 @@ pub fn vorgaenger(app: &tauri::AppHandle, pfad: &str, id: &str) -> Option<String
     i.checked_sub(1).map(|j| staende[j].id.clone())
 }
 
+/// Weshalb ein Stand abgelegt wurde — die Kennung aus seinem Namen
+/// (`gespeichert`, `fremd`, `zusammengefuehrt` …).
+pub fn grund_von(id: &str) -> &str {
+    id.split_once('-').map_or("", |(_, g)| g)
+}
+
+/// Der jüngste Stand — der letzte Stand der Datei, den dieses Gerät
+/// gesehen hat. Beim Zusammenführen die gemeinsame Basis beider Seiten.
+pub fn juengster(app: &tauri::AppHandle, pfad: &str) -> Option<Vec<u8>> {
+    let dir = ordner(app, pfad)?;
+    std::fs::read(&liste_roh(&dir).last()?.datei).ok()
+}
+
 /// Die Bytes eines Stands.
 pub fn lesen(app: &tauri::AppHandle, pfad: &str, id: &str) -> Result<Vec<u8>, String> {
     // Keine Schrägstriche, keine Punkte: `id` kommt aus der Oberfläche, und
@@ -335,6 +374,7 @@ pub fn vergleich(alt: &Database, jetzt: &Database) -> Vec<dto::VersionChange> {
                 folder: ordnerpfad(jetzt, &heute),
                 kind: "neu".into(),
                 fields: Vec::new(),
+                origin: None,
             });
             continue;
         };
@@ -389,6 +429,7 @@ pub fn vergleich(alt: &Database, jetzt: &Database) -> Vec<dto::VersionChange> {
                 folder: jetzt_ordner,
                 kind: "geaendert".into(),
                 fields: felder,
+                origin: None,
             });
         }
     }
@@ -404,6 +445,7 @@ pub fn vergleich(alt: &Database, jetzt: &Database) -> Vec<dto::VersionChange> {
             folder: ordnerpfad(alt, damals),
             kind: "geloescht".into(),
             fields: Vec::new(),
+            origin: None,
         });
     }
 

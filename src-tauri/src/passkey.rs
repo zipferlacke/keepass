@@ -281,8 +281,12 @@ pub fn assert_in(
 ) -> Result<AssertResponse, String> {
     let db = vault.database()?;
 
+    // Nicht aus dem Papierkorb: Ein gelöschter Passkey stand sonst womöglich
+    // vor dem neuen derselben Seite — die Anmeldung schlug dann fehl, weil
+    // die Seite seine Kennung nicht mehr kennt.
     let entry = db
         .iter_all_entries()
+        .filter(|e| !crate::state::is_recycled(db, e.parent().id()))
         .find(|e| {
             e.get(F_RP) == Some(rp_id)
                 && (allowed.is_empty() || e.get(F_ID).is_some_and(|id| allowed.iter().any(|a| a == id)))
@@ -391,4 +395,65 @@ fn attestation_object(auth_data: &[u8]) -> Vec<u8> {
 fn getrandom_bytes(buffer: &mut [u8]) {
     use chacha20poly1305::aead::rand_core::RngCore;
     chacha20poly1305::aead::OsRng.fill_bytes(buffer);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use p256::ecdsa::signature::Verifier;
+    use p256::pkcs8::DecodePublicKey;
+
+    fn anfrage(rp: &str, name: &str) -> CreateRequest {
+        CreateRequest {
+            rp_id: rp.into(),
+            user_name: name.into(),
+            user_display_name: None,
+            challenge: "Y2hhbGxlbmdl".into(),
+            user_handle: None,
+            origin: None,
+        }
+    }
+
+    fn tresor() -> VaultState {
+        let mut v = VaultState::default();
+        v.db = Some(keepass::Database::new());
+        v
+    }
+
+    /// Die Signatur muss sich mit dem hinterlegten Schlüssel prüfen lassen,
+    /// über authenticatorData ‖ SHA-256(clientDataJSON).
+    #[test]
+    fn anmeldung_ist_gueltig_signiert() {
+        let mut v = tresor();
+        let neu = create_in(&mut v, anfrage("example.org", "anna")).unwrap();
+        let a = assert_in(&v, "example.org", "abc", &[], None, None).unwrap();
+        assert_eq!(a.credential_id, neu.response.credential_id);
+
+        let auth = B64URL.decode(&a.authenticator_data).unwrap();
+        assert_eq!(&auth[..32], Sha256::digest(b"example.org").as_slice(), "rpIdHash");
+        let mut nachricht = auth.clone();
+        nachricht.extend_from_slice(&Sha256::digest(B64URL.decode(&a.client_data_json).unwrap()));
+
+        let key = p256::PublicKey::from_public_key_der(&neu.public_key_der).unwrap();
+        let sig = Signature::from_der(&B64URL.decode(&a.signature).unwrap()).unwrap();
+        p256::ecdsa::VerifyingKey::from(key).verify(&nachricht, &sig).unwrap();
+    }
+
+    /// Ein gelöschter Passkey im Papierkorb darf nicht vor dem neuen stehen.
+    #[test]
+    fn papierkorb_meldet_nicht_an() {
+        let mut v = tresor();
+        let alt = create_in(&mut v, anfrage("example.org", "anna")).unwrap();
+        {
+            let db = v.database_mut().unwrap();
+            let bin = crate::state::ensure_recycle_bin(db);
+            let id = db.iter_all_entries().find(|e| e.get(F_ID) == Some(alt.response.credential_id.as_str())).unwrap().id();
+            db.entry_mut(id).unwrap().move_to(bin).unwrap();
+        }
+        assert!(assert_in(&v, "example.org", "abc", &[], None, None).is_err(), "nur der gelöschte da");
+
+        let neu = create_in(&mut v, anfrage("example.org", "anna")).unwrap();
+        let a = assert_in(&v, "example.org", "abc", &[], None, None).unwrap();
+        assert_eq!(a.credential_id, neu.response.credential_id);
+    }
 }

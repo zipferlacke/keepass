@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PIN und Freigabe: „Festlegen …" und „Bequem entsperren → Wählen …" öffnen
+# PIN und Freigabe: „Festlegen …" und „Entsperren dieser Datenbank → Wählen …" öffnen
 # ihren Dialog. Prüft pages/lock.js und ui/formular.js (Hinweis zur PIN).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
