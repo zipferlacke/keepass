@@ -1,5 +1,7 @@
 # WKeePass
 
+**Deutsch** · [English](README.en.md)
+
 Passwortverwaltung für KeePass-Datenbanken (KDBX) — für Linux, Windows,
 macOS und Android. Öffnet und schreibt dieselben Dateien wie KeePassXC und
 KeePassDX, gleicht Änderungen anderer Geräte über die Cloud ab, kann
@@ -9,6 +11,10 @@ Gebaut mit Tauri 2: Der Kern in Rust verwahrt alle Geheimnisse, die
 Oberfläche (HTML, CSS, JavaScript ohne Bundler) sieht nur Namen und
 Platzhalter. Warum das so ist und wie die Teile zusammenspielen, steht in
 [CONTEXT.md](CONTEXT.md).
+
+Für alle, die nachprüfen wollen: die [technische Dokumentation](https://wuefl.de/wkeepass/doku.html) und
+[Sicherheit im Detail](https://wuefl.de/wkeepass/sicherheit.html) – Kryptografie, Bedrohungsmodell und was
+das Programm ins Netz schickt.
 
 ---
 
