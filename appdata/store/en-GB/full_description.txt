@@ -1,0 +1,29 @@
+WKeePass is a modern password manager built on the proven KeePass format. Your credentials are stored encrypted in a file that belongs to you – not in a provider's cloud. No account, no subscription, no ads.
+
+Everything in one app
+• Passwords in folders, with tags, search, password generator and strength indicator
+• 2FA codes (TOTP) right next to the password – scan the QR code with the camera, including exports from Google Authenticator
+• Passkeys for passwordless sign-in – WKeePass can be used as the system's passkey provider
+• Autofill: insert username and password directly in apps and in the browser
+• File storage: keep IDs, contracts or recovery codes encrypted and view them
+• Website icons and entries that are automatically named after the service
+• Recycle Bin: deleted items can be restored for 30 days, after which they are gone for good
+
+KeePass-compatible
+WKeePass reads and writes KDBX 4.1. You can open the same file with KeePassXC, KeePassDX or Strongbox – you're not tied to any provider.
+
+On all your devices
+Put the database in a cloud folder you already use – such as Nextcloud, Dropbox, Google Drive or OneDrive. If you change something on two devices at the same time, WKeePass merges both versions entry by entry: the newer version wins, the older one stays in the history. The last 30 to 100 versions of the file (your choice) are kept on the device – each shows what it changed and can be restored individually or in full. If the folder can't be reached, you carry on working with an offline copy. WKeePass is also available for Linux, Windows and macOS.
+
+Security
+• Encryption to the KeePass standard with Argon2
+• Passwords are processed in the core of the app; the interface never sees the plain text
+• Unlock with fingerprint, face recognition or PIN – your master password stays protected
+• Auto-lock after a period of inactivity; the clipboard is cleared automatically
+• Security check: weak, duplicate and expired passwords; comparison with known data breaches (Have I Been Pwned) without your password ever leaving the device
+
+Switching made easy
+Import from Bitwarden, 1Password, LastPass, Proton Pass, Chrome, Firefox, KeePass XML, 2FAS, Aegis, andOTP and Proton Authenticator. With CSV files, you assign the columns yourself.
+
+Open source
+WKeePass is open source under the Apache License 2.0: https://github.com/zipferlacke/keepass

@@ -12,6 +12,7 @@ import { copyPlain } from '../ui/clipboard.js';
 import { avatarMarkup } from '../core/icons.js';
 import { markUsed } from '../core/entries.js';
 import { openEntryDialog } from '../dialogs/entry.js';
+import { t } from '../core/i18n.js';
 
 /* ---------- TOTP ---------- */
 export const PREVIEW_SECONDS = 10;   // ab hier den kommenden Code klein einblenden
@@ -21,12 +22,12 @@ export function renderTotp() {
   const host = $('#totp-list');
 
   if (!list.length) {
-    host.innerHTML = `<p class="empty-state">Keine TOTP-Einträge vorhanden.</p>`;
+    host.innerHTML = `<p class="empty-state">${t('totp.leer')}</p>`;
     return;
   }
 
   host.innerHTML = list.map(e => `
-    <div class="totp-card" data-totp-card="${e.id}" title="Klick kopiert, Doppelklick öffnet den Eintrag">
+    <div class="totp-card" data-totp-card="${e.id}" title="${t('totp.karte.hinweis')}">
       <div class="totp-ring">
         <svg viewBox="0 0 36 36">
           <circle class="track" cx="18" cy="18" r="15"></circle>
@@ -55,7 +56,7 @@ export function renderTotp() {
         timer = null;
         const code = state.codes.get(card.dataset.totpCard)?.code;
         if (code) markUsed(card.dataset.totpCard);
-        if (code) copyPlain(code, 'Code kopiert');
+        if (code) copyPlain(code, t('totp.kopiert'));
       }, 220);
     });
 
@@ -104,7 +105,7 @@ async function tickTotpInner() {
       if (result.remaining <= PREVIEW_SECONDS) {
         const upcoming = await vault.totpFor(e, { at: Date.now() + (result.remaining + 1) * 1000 });
         nextNodes.forEach(el => {
-          el.textContent = `als Nächstes ${upcoming?.code ?? '······'}`;
+          el.textContent = t('totp.alsNaechstes', { code: upcoming?.code ?? '······' });
           el.hidden = false;
         });
       } else {

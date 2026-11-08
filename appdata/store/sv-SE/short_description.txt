@@ -1,0 +1,1 @@
+Lösenord, 2FA-koder och passkeys – lokalt i KeePass-format, utan konto

@@ -11,39 +11,38 @@
 import * as vault from '../data/vault.js';
 import { dialog, banner } from '../ui/libs.js';
 import { esc } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { renderAll, refreshFromVault } from '../core/render.js';
 
 /** Steht der Dialog schon? Dann nicht ein zweites Mal öffnen. */
 let offen = false;
 
-const ART = { geaendert: 'geändert', geloescht: 'gelöscht' };
-
 /** Die Änderungen einer Seite — Passwörter ohne Wert, wie bei den Versionen. */
 function seite(titel, art, felder) {
-  if (art === 'geloescht') return `<div class="konflikt-seite"><strong>${titel}</strong><p>Eintrag gelöscht</p></div>`;
+  if (art === 'geloescht') return `<div class="konflikt-seite"><strong>${titel}</strong><p>${t('dialoge.konflikte.seite.geloescht')}</p></div>`;
   const zeilen = felder.map(f => f.before == null && f.after == null
-    ? `<li>${esc(f.name)} geändert</li>`
+    ? `<li>${t('dialoge.konflikte.seite.feldGeaendert', { name: esc(f.name) })}</li>`
     : `<li>${esc(f.name)}: <del>${esc(f.before || '—')}</del> <span class="msr">arrow_forward</span> ${esc(f.after || '—')}</li>`).join('');
-  return `<div class="konflikt-seite"><strong>${titel}</strong><ul>${zeilen || `<li>${ART[art] ?? art}</li>`}</ul></div>`;
+  return `<div class="konflikt-seite"><strong>${titel}</strong><ul>${zeilen || `<li>${art === 'geaendert' ? t('dialoge.konflikte.art.geaendert') : art === 'geloescht' ? t('dialoge.konflikte.art.geloescht') : art}</li>`}</ul></div>`;
 }
 
 function karte(k) {
-  const gilt = k.winner === 'hier' ? 'Gerade gilt die Fassung von hier.' : 'Gerade gilt die Fassung aus der Datei.';
+  const gilt = k.winner === 'hier' ? t('dialoge.konflikte.gilt.hier') : t('dialoge.konflikte.gilt.datei');
   return `
     <div class="konflikt" data-konflikt="${esc(k.id)}">
       <div class="konflikt-kopf">
         <span class="msr">call_split</span>
-        <strong>${esc(k.name || '(ohne Titel)')}</strong>
+        <strong>${esc(k.name || t('dialoge.konflikte.ohneTitel'))}</strong>
         ${k.folder ? `<small>${esc(k.folder)}</small>` : ''}
       </div>
       <div class="konflikt-seiten">
-        ${seite('Hier geändert', k.hereKind, k.here)}
-        ${seite('In der Datei geändert', k.fileKind, k.file)}
+        ${seite(t('dialoge.konflikte.seite.hier'), k.hereKind, k.here)}
+        ${seite(t('dialoge.konflikte.seite.datei'), k.fileKind, k.file)}
       </div>
       <small class="konflikt-gilt">${gilt}</small>
       <div class="konflikt-wahl">
-        <button type="button" class="button ${k.winner === 'hier' ? 'hightlight' : ''}" data-wahl="hier">Meine behalten</button>
-        <button type="button" class="button ${k.winner === 'extern' ? 'hightlight' : ''}" data-wahl="extern">Aus der Datei nehmen</button>
+        <button type="button" class="button ${k.winner === 'hier' ? 'hightlight' : ''}" data-wahl="hier">${t('dialoge.konflikte.wahl.behalten')}</button>
+        <button type="button" class="button ${k.winner === 'extern' ? 'hightlight' : ''}" data-wahl="extern">${t('dialoge.konflikte.wahl.nehmen')}</button>
       </div>
     </div>`;
 }
@@ -66,13 +65,12 @@ export async function openKonflikte() {
   let entschieden = 0;
   try {
     await dialog({
-      title: liste.length === 1 ? 'Ein Eintrag wurde auf beiden Seiten geändert' : `${liste.length} Einträge wurden auf beiden Seiten geändert`,
+      title: liste.length === 1 ? t('dialoge.konflikte.titel.eins') : t('dialoge.konflikte.titel.mehrere', { n: liste.length }),
       content: `
-        <p class="dlg-note">Seit dem letzten Abgleich wurden diese Einträge hier und in der Datei
-        verschieden geändert. Welche Fassung soll gelten? Bis du entscheidest, gilt die jüngere.</p>
+        <p class="dlg-note">${t('dialoge.konflikte.hinweis')}</p>
         <div class="konflikte">${liste.map(karte).join('')}</div>`,
       confirmText: null,
-      cancelText: 'Später',
+      cancelText: t('dialoge.konflikte.spaeter'),
       onInsert: id => {
         const host = document.getElementById(String(id));
         host?.querySelectorAll('[data-wahl]').forEach(btn => btn.addEventListener('click', async () => {
@@ -84,10 +82,10 @@ export async function openKonflikte() {
             entschieden++;
             box.classList.add('entschieden');
             box.querySelector('.konflikt-gilt').textContent = btn.dataset.wahl === 'hier'
-              ? 'Entschieden: deine Fassung.' : 'Entschieden: die Fassung aus der Datei.';
+              ? t('dialoge.konflikte.entschieden.hier') : t('dialoge.konflikte.entschieden.datei');
           } catch (err) {
             box.querySelectorAll('button').forEach(b => { b.disabled = false; });
-            banner(`Nicht übernommen: ${err.message}`, 'error', 6000);
+            banner(t('dialoge.konflikte.fehler', { fehler: err.message }), 'error', 6000);
           }
         }));
       }

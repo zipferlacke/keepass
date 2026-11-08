@@ -3,7 +3,7 @@
 # Oberflächentest: die App als Demo im Browser, eine Folge von Schritten,
 # und die Konsole als Text.
 #
-#   tests/oberflaeche/lauf.sh "#wc-skip,#lock-pick" [bild.png] [breite] [hoehe]
+#   tests/oberflaeche/lauf.sh "#wc-skip,#online-ok,#lock-pick" [bild.png] [breite] [hoehe]
 #
 # Ein Schritt mit „:::" schreibt in ein Feld, alles andere wird geklickt.
 # Ohne Tauri antwortet js/data/demo.js aus config/demo.json — es gibt

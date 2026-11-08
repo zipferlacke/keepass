@@ -11,6 +11,7 @@
 
 import { isTauri, isMobile, invoke } from '../core/platform.js';
 import { renderQrCode } from '../ui/libs.js';
+import { t } from '../core/i18n.js';
 
 const SCAN_INTERVAL_MS = 60;  // Pause zwischen zwei Prüfungen; die Prüfung selbst dauert länger
 
@@ -109,11 +110,11 @@ function toBase64(bytes) {
    ========================================================= */
 
 export async function scanFile(file) {
-  if (!scannerAvailable()) throw new Error('Diese Umgebung kann keine QR-Codes lesen.');
+  if (!scannerAvailable()) throw new Error(t('daten.qr.fehler.scannerFehlt'));
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const value = await decodeBytes(bytes);
-  if (!value) throw new Error('Kein QR-Code im Bild gefunden.');
+  if (!value) throw new Error(t('daten.qr.fehler.keinCodeBild'));
   return value;
 }
 
@@ -126,7 +127,7 @@ export async function scanFile(file) {
  * auf dem Telefon Sekunden.
  */
 export async function scanPhoto(file) {
-  if (!scannerAvailable()) throw new Error('Diese Umgebung kann keine QR-Codes lesen.');
+  if (!scannerAvailable()) throw new Error(t('daten.qr.fehler.scannerFehlt'));
   const bitmap = await createImageBitmap(file);
   try {
     for (const crop of [1, 0.6]) {
@@ -136,7 +137,7 @@ export async function scanPhoto(file) {
   } finally {
     bitmap.close?.();
   }
-  throw new Error('Kein QR-Code im Foto gefunden.');
+  throw new Error(t('daten.qr.fehler.keinCodeFoto'));
 }
 
 /* =========================================================
@@ -161,11 +162,13 @@ export async function scanPhoto(file) {
  * aus, was das Gerät wirklich kann. Der Wunsch nach der rückwärtigen Kamera
  * kommt danach — auf einem Telefon ist er richtig, dort greift er dann.
  */
+// i18n: daten.qr.kamera.standard daten.qr.kamera.rueck daten.qr.kamera.k640 daten.qr.kamera.rueckHd daten.qr.kamera.rueckWunsch
+// (label ist ein Schlüssel, übersetzt wird beim Einsatz)
 const DESKTOP_ATTEMPTS = [
-  { label: 'Standardkamera', constraints: { video: true, audio: false } },
-  { label: 'rückwärtige Kamera', constraints: { video: { facingMode: 'environment' }, audio: false } },
+  { label: 'daten.qr.kamera.standard', constraints: { video: true, audio: false } },
+  { label: 'daten.qr.kamera.rueck', constraints: { video: { facingMode: 'environment' }, audio: false } },
   // Anderes Format erzwingen — manche Treiber liefern nur im Standardformat Schwarz.
-  { label: 'Kamera 640×480', constraints: { video: { width: { exact: 640 }, height: { exact: 480 } }, audio: false } }
+  { label: 'daten.qr.kamera.k640', constraints: { video: { width: { exact: 640 }, height: { exact: 480 } }, audio: false } }
 ];
 
 /**
@@ -174,10 +177,10 @@ const DESKTOP_ATTEMPTS = [
  * Bildschirm. Also zuerst ausdrücklich die rückwärtige.
  */
 const MOBILE_ATTEMPTS = [
-  { label: 'rückwärtige Kamera (HD)', constraints: { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false } },
-  { label: 'rückwärtige Kamera', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
-  { label: 'rückwärtige Kamera (Wunsch)', constraints: { video: { facingMode: 'environment' }, audio: false } },
-  { label: 'Standardkamera', constraints: { video: true, audio: false } }
+  { label: 'daten.qr.kamera.rueckHd', constraints: { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false } },
+  { label: 'daten.qr.kamera.rueck', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
+  { label: 'daten.qr.kamera.rueckWunsch', constraints: { video: { facingMode: 'environment' }, audio: false } },
+  { label: 'daten.qr.kamera.standard', constraints: { video: true, audio: false } }
 ];
 
 const CAMERA_ATTEMPTS = isMobile ? MOBILE_ATTEMPTS : DESKTOP_ATTEMPTS;
@@ -193,7 +196,7 @@ function waitForFrames(video, timeout) {
     const check = () => {
       if (video.videoWidth && video.videoHeight) return resolve();
       if (Date.now() > deadline) {
-        return reject(new Error('Die Kamera liefert kein Bild.'));
+        return reject(new Error(t('daten.qr.fehler.keinBild')));
       }
       setTimeout(check, 120);
     };
@@ -239,8 +242,8 @@ async function autofocus(stream) {
 }
 
 export async function scanCamera(video) {
-  if (!scannerAvailable()) throw new Error('Diese Umgebung kann keine QR-Codes lesen.');
-  if (!navigator.mediaDevices?.getUserMedia) throw new Error('Kein Kamerazugriff möglich.');
+  if (!scannerAvailable()) throw new Error(t('daten.qr.fehler.scannerFehlt'));
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error(t('daten.qr.fehler.keinKamerazugriff'));
 
   video.setAttribute('playsinline', '');
   video.muted = true;
@@ -255,12 +258,12 @@ export async function scanCamera(video) {
       video.srcObject = candidate;
       await video.play();
       await waitForFrames(video, FIRST_FRAME_TIMEOUT_MS);
-      if (!await hasPicture(video)) throw new Error('liefert nur ein schwarzes Bild');
+      if (!await hasPicture(video)) throw new Error(t('daten.qr.fehler.schwarzesBild'));
 
       stream = candidate;
       break;
     } catch (err) {
-      problems.push(`${attempt.label}: ${err.message}`);
+      problems.push(`${t(attempt.label)}: ${err.message}`);
       candidate?.getTracks().forEach(t => t.stop());
       video.srcObject = null;
     }
@@ -269,7 +272,7 @@ export async function scanCamera(video) {
   // Ohne Bild lieber laut scheitern als eine schwarze Fläche zeigen: Sonst
   // sitzt man davor und weiß nicht, ob es lädt oder nicht geht.
   if (!stream) {
-    throw new Error(`Kein Kamerabild. ${problems.join(' — ')}. Stattdessen geht „QR-Code aus Bild“ mit einem Screenshot oder Foto.`);
+    throw new Error(t('daten.qr.fehler.keinKamerabild', { probleme: problems.join(' — ') }));
   }
 
   await autofocus(stream);
@@ -297,7 +300,7 @@ export async function scanCamera(video) {
 
   const promise = new Promise((resolve, reject) => {
     const tick = async () => {
-      if (stopped) return reject(new Error('abgebrochen'));
+      if (stopped) return reject(new Error(t('daten.qr.fehler.abgebrochen')));
 
       try {
         if (detector && video.videoWidth) {
@@ -316,7 +319,7 @@ export async function scanCamera(video) {
       } catch (err) {
         // Einzelne Bilder dürfen scheitern. Scheitert aber jedes, kann der
         // Scanner nie etwas finden — dann laut werden statt ewig zu suchen.
-        if (++failures >= 15) { stop(); return reject(new Error(`Auswertung fehlgeschlagen: ${err.message ?? err}`)); }
+        if (++failures >= 15) { stop(); return reject(new Error(t('daten.qr.fehler.auswertung', { fehler: err.message ?? err }))); }
       }
 
       timer = setTimeout(tick, SCAN_INTERVAL_MS);
@@ -405,7 +408,7 @@ const DIGITS = { 1: 6, 2: 8 };
 /** Zerlegt otpauth-migration://offline?data=… in einzelne Konten. */
 export function parseMigration(uri) {
   const raw = new URL(uri).searchParams.get('data');
-  if (!raw) throw new Error('Der Code enthält keine Daten.');
+  if (!raw) throw new Error(t('daten.qr.fehler.keineDaten'));
 
   const binary = atob(raw.replace(/-/g, '+').replace(/_/g, '/'));
   const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
@@ -430,7 +433,7 @@ export function parseMigration(uri) {
 
     accounts.push({
       secret: base32Encode(secretBytes),
-      name: name.trim() || issuer || 'Konto',
+      name: name.trim() || issuer || t('daten.qr.konto'),
       issuer: issuer.trim(),
       algorithm: ALGORITHMS[get(4)?.value] ?? 'SHA1',
       digits: DIGITS[get(5)?.value] ?? 6,
@@ -439,7 +442,7 @@ export function parseMigration(uri) {
     });
   }
 
-  if (!accounts.length) throw new Error('Im Code stecken keine lesbaren Konten.');
+  if (!accounts.length) throw new Error(t('daten.qr.fehler.keineKonten'));
   return accounts;
 }
 
@@ -451,10 +454,10 @@ function parseWifi(value) {
     if (key) fields[key.toUpperCase()] = rest.join(':');
   }
   return {
-    name: fields.S ? `WLAN ${fields.S}` : 'WLAN',
+    name: fields.S ? t('daten.qr.wlan.name', { name: fields.S }) : t('daten.qr.wlan.ohneName'),
     username: fields.S ?? '',
     password: fields.P ?? '',
-    notes: fields.T ? `Verschlüsselung: ${fields.T}` : ''
+    notes: fields.T ? t('daten.qr.wlan.verschluesselung', { art: fields.T }) : ''
   };
 }
 

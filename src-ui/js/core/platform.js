@@ -10,6 +10,8 @@
  * Schnittstelle, und der Unterschied steckt allein hier.
  */
 
+import { t } from './i18n.js';
+
 export const isTauri = typeof window !== 'undefined' &&
   ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 
@@ -163,7 +165,7 @@ function asError(cause, command) {
   const text = cause?.message ?? cause?.error ?? null;
   if (typeof text === 'string' && text) return new Error(text);
 
-  return new Error(`Der Kern meldet einen Fehler bei „${command}“: ${JSON.stringify(cause)}`);
+  return new Error(t('ui.kern.fehler', { befehl: command, ursache: JSON.stringify(cause) }));
 }
 
 /* =========================================================

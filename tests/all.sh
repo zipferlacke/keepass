@@ -29,6 +29,7 @@ lauf() {
 }
 
 [ "${1:-}" = "--ohne-rust" ] || lauf "Kern (cargo test)" tests/rust.sh
+lauf "Sprachdateien" python3 tools/sprachen.py
 lauf "Module" tests/einheit/lauf.sh
 
 for f in tests/oberflaeche/*.sh; do

@@ -9,7 +9,8 @@
  * die über das Zahnrad am Sperrbildschirm erreichbar sind.
  */
 
-import { state, $, $$, VIEW_TITLES } from './state.js';
+import { state, $, $$, viewTitle } from './state.js';
+import { t } from './i18n.js';
 import { zeichne } from './render.js';
 
 /* =========================================================
@@ -36,7 +37,7 @@ export function showView(name) {
   $('#btn-add').hidden = name === 'settings' || name === 'security';
 
   $('#app-title').textContent = isPasswords && state.kindFilter === 'files'
-    ? 'Dateien' : (VIEW_TITLES[name] ?? 'WKeePass');
+    ? t('navigation.titel.dateien') : viewTitle(name);
 
   // Nur die Seite zeichnen, die man gerade ansieht.
   if (isPasswords) { zeichne('schlagworte'); zeichne('einträge'); }

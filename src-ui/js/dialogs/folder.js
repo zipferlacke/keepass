@@ -9,6 +9,7 @@
 import * as vault from '../data/vault.js';
 import { dialog, banner, zurueckZu } from '../ui/libs.js';
 import { esc } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { nachStrukturaenderung, refreshFromVault, renderAll } from '../core/render.js';
 
 export async function openFolderDialog({ parent = '', path = null, zurueck = null } = {}) {
@@ -19,22 +20,22 @@ export async function openFolderDialog({ parent = '', path = null, zurueck = nul
   const options = ['', ...vault.folders()].filter(f => !isEdit || (f !== path && !f.startsWith(`${path}/`)));
 
   const res = await dialog({
-    title: isEdit ? `Ordner „${esc(currentName)}"` : 'Ordner anlegen',
+    title: isEdit ? t('dialoge.ordner.titel.bearbeiten', { name: esc(currentName) }) : t('dialoge.ordner.titel.anlegen'),
     content: `
       <div class="dlg-field">
-        <label for="fld-folder-name">Name</label>
+        <label for="fld-folder-name">${t('dialoge.ordner.felder.name')}</label>
         <div class="dlg-input-row"><input id="fld-folder-name" type="text" name="name" value="${esc(currentName)}" required></div>
       </div>
       <div class="dlg-field">
-        <label for="fld-folder-parent">Übergeordneter Ordner</label>
+        <label for="fld-folder-parent">${t('dialoge.ordner.felder.uebergeordnet')}</label>
         <div class="dlg-input-row">
           <select id="fld-folder-parent" name="parent" data-sp-picker>
-            ${options.map(f => `<option value="${esc(f)}" ${f === parentPath ? 'selected' : ''}>${f ? esc(f) : '— oberste Ebene —'}</option>`).join('')}
+            ${options.map(f => `<option value="${esc(f)}" ${f === parentPath ? 'selected' : ''}>${f ? esc(f) : t('dialoge.ordner.felder.obersteEbene')}</option>`).join('')}
           </select>
         </div>
       </div>`,
-    confirmText: isEdit ? 'Speichern' : 'Anlegen',
-    cancelText: 'Abbrechen',
+    confirmText: isEdit ? t('dialoge.ordner.knoepfe.speichern') : t('dialoge.ordner.knoepfe.anlegen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onBack: zurueckZu(zurueck)
   });
 
@@ -42,8 +43,8 @@ export async function openFolderDialog({ parent = '', path = null, zurueck = nul
 
   const name = String(res.data?.name ?? '').trim();
   const newParent = String(res.data?.parent ?? '');
-  if (!name) { banner('Der Name darf nicht leer sein.', 'warning'); return; }
-  if (name.includes('/')) { banner('Schrägstriche sind im Ordnernamen nicht erlaubt.', 'warning'); return; }
+  if (!name) { banner(t('dialoge.ordner.meldungen.nameLeer'), 'warning'); return; }
+  if (name.includes('/')) { banner(t('dialoge.ordner.meldungen.schraegstrich'), 'warning'); return; }
 
   if (isEdit) {
     if (name !== currentName) await vault.renameFolder(path, name);
@@ -56,5 +57,5 @@ export async function openFolderDialog({ parent = '', path = null, zurueck = nul
   await vault.commit();
   await refreshFromVault();
   renderAll({ ohne: ['einstellungen'] });
-  banner(isEdit ? 'Ordner gespeichert.' : 'Ordner angelegt.', 'success');
+  banner(isEdit ? t('dialoge.ordner.meldungen.gespeichert') : t('dialoge.ordner.meldungen.angelegt'), 'success');
 }

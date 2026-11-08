@@ -1,0 +1,29 @@
+WKeePass est un gestionnaire de mots de passe moderne, basé sur le format KeePass éprouvé. Vos identifiants sont stockés chiffrés dans un fichier qui vous appartient – et non dans le cloud d’un fournisseur. Pas de compte, pas d’abonnement, pas de publicité.
+
+Tout dans une seule app
+• Mots de passe classés en dossiers, avec tags, recherche, générateur de mots de passe et indicateur de robustesse
+• Codes 2FA (TOTP) juste à côté du mot de passe – scannez le code QR avec la caméra, y compris les exports de Google Authenticator
+• Passkeys pour se connecter sans mot de passe – WKeePass peut servir de fournisseur de passkeys du système
+• Remplissage automatique : insérez le nom d’utilisateur et le mot de passe directement dans les apps et le navigateur
+• Stockage de fichiers : conservez et consultez chiffrés pièces d’identité, contrats ou codes de récupération
+• Icônes de sites web et entrées qui portent automatiquement le nom du service
+• Corbeille : les éléments supprimés peuvent être récupérés pendant 30 jours, après quoi ils disparaissent définitivement
+
+Compatible KeePass
+WKeePass lit et écrit KDBX 4.1. Vous pouvez ouvrir le même fichier avec KeePassXC, KeePassDX ou Strongbox – vous ne dépendez d’aucun fournisseur.
+
+Sur tous vos appareils
+Placez la base de données dans un dossier cloud que vous utilisez déjà – par exemple Nextcloud, Dropbox, Google Drive ou OneDrive. Si vous modifiez quelque chose sur deux appareils en même temps, WKeePass fusionne les deux versions entrée par entrée : la plus récente l’emporte, l’ancienne reste dans l’historique. Les 30 à 100 dernières versions du fichier (au choix) sont conservées sur l’appareil – chacune indique ce qu’elle a modifié et peut être restaurée en partie ou en totalité. Si le dossier est inaccessible, vous continuez à travailler avec une copie hors ligne. WKeePass existe aussi pour Linux, Windows et macOS.
+
+Sécurité
+• Chiffrement selon le standard KeePass avec Argon2
+• Les mots de passe sont traités dans le noyau de l’app, l’interface ne voit jamais le texte en clair
+• Déverrouillage par empreinte digitale, reconnaissance faciale ou PIN – le mot de passe principal reste protégé
+• Verrouillage automatique après un temps d’inactivité, presse-papiers vidé automatiquement
+• Contrôle de sécurité : mots de passe faibles, en double et expirés ; comparaison avec les fuites de données connues (Have I Been Pwned), sans que votre mot de passe ne quitte l’appareil
+
+Changement facile
+Import depuis Bitwarden, 1Password, LastPass, Proton Pass, Chrome, Firefox, KeePass XML, 2FAS, Aegis, andOTP et Proton Authenticator. Pour les fichiers CSV, vous associez vous-même les colonnes.
+
+Open source
+WKeePass est open source sous licence Apache 2.0 : https://github.com/zipferlacke/keepass

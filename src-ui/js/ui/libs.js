@@ -20,6 +20,8 @@
  * Wird umgestellt, muss die `@import`-Zeile ganz oben in `css/app.css` mit.
  */
 
+import { t } from '../core/i18n.js';
+
 const BASE = '../../libs/wuefl-libs-v2-2-1';
 
 const modules = new Map();
@@ -57,7 +59,12 @@ export async function dialog(options) {
   const { userDialog } = await load('userDialog/userDialog.js');
   // Am Handy von unten, am Rechner rechts — für alle Dialoge gleich; wer
   // eine eigene Lage braucht, gibt `position` selbst an.
-  return userDialog({ position: { small: 'bottom', wide: 'right' }, ...options });
+  // Die Bibliothek beschriftet „Abbrechen“ und „Zurück“ deutsch; hier in
+  // der gewählten Sprache. Ein Pfeil „Zurück“ entsteht erst durch `onBack`.
+  const zurueck = options.onBack && !options.barLeft
+    ? { barLeft: { icon: '<span class="msr">arrow_back</span>', title: t('allgemein.knoepfe.zurueck'), onClick: options.onBack } }
+    : {};
+  return userDialog({ position: { small: 'bottom', wide: 'right' }, cancelText: t('allgemein.knoepfe.abbrechen'), ...zurueck, ...options });
 }
 
 /** showBanner(content, type, duration) */

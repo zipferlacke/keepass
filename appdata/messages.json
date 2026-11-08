@@ -8,6 +8,18 @@
 
     "changelog":[
         {
+            "version":"1.3.0",
+            "date":"2026-11-08",
+            "changes":[
+                "Sprachen: Die App gibt es jetzt auf Deutsch, Englisch, Französisch, Dänisch, Norwegisch, Polnisch und Schwedisch – automatisch in der Sprache des Geräts oder unter Einstellungen → Darstellung → Sprache wählbar",
+                "Was darf ins Netz? Beim Start fragt die App einmal, welche Online-Funktionen du möchtest: Website-Symbole, Namen, Passwort-Leaks, E-Mail-Leaks und Löschanleitungen – alles später unter Einstellungen umstellbar",
+                "E-Mail-Prüfung und Löschanleitungen für alte Konten sind ab Werk aus; der Knopf im Sicherheitscheck heißt jetzt „Löschseite öffnen“ und öffnet nur die Seite des Dienstes",
+                "Rechner: Passkeys bei gesperrter Datenbank – erst entsperren, dann geht die Anmeldung weiter",
+                "Rechner: Passkeys verlangen immer PIN, Master-Passwort oder Fingerabdruck; 2FA-Codes gibt die App dem Browser nur nach Rückfrage",
+                "Neu auf der Webseite: technische Dokumentation und „Sicherheit im Detail“ zum Nachprüfen"
+            ]
+        },
+        {
             "version":"1.2.2",
             "date":"2026-10-28",
             "changes":[

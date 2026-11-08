@@ -1,14 +1,20 @@
 # WKeePass
 
+**Deutsch** · [English](README.en.md)
+
 Passwortverwaltung für KeePass-Datenbanken (KDBX) — für Linux, Windows,
 macOS und Android. Öffnet und schreibt dieselben Dateien wie KeePassXC und
 KeePassDX, gleicht Änderungen anderer Geräte über die Cloud ab, kann
 2FA-Codes, Passkeys, Autofill und den Browser.
 
-Gebaut mit Tauri 2: Der Kern in Rust verwahrt alle Geheimnisse, die
+Gebaut mit Tauri 2: Der Kern in Rust verwahrt alle Passwörter, die
 Oberfläche (HTML, CSS, JavaScript ohne Bundler) sieht nur Namen und
 Platzhalter. Warum das so ist und wie die Teile zusammenspielen, steht in
 [CONTEXT.md](CONTEXT.md).
+
+Für alle, die nachprüfen wollen: die [technische Dokumentation](https://wuefl.de/wkeepass/doku.html) und
+[Sicherheit im Detail](https://wuefl.de/wkeepass/sicherheit.html) – Kryptografie, Bedrohungsmodell und was
+das Programm ins Netz schickt.
 
 ---
 
@@ -27,10 +33,11 @@ Platzhalter. Warum das so ist und wie die Teile zusammenspielen, steht in
 | Abgleich                 | dieselbe Datei auf mehreren Geräten; die App arbeitet mit ihrer eigenen Fassung, die Datei wird im Hintergrund geholt, zusammengeführt, geschrieben; Konflikte zur Wahl             | `database.rs`, `konflikt.rs`, `dialogs/konflikte.js`                    |
 | Versionen                | die letzten 30–100 Stände (einstellbar), jeder sagt, was er geändert hat – nach dem Zusammenführen mit Herkunft; einzeln oder ganz zurücknehmen                                     | `versions.rs`, `dialogs/versions.js`                                    |
 | Offline                  | eigene Fassung jeder geöffneten Datei: daraus wird sofort geöffnet, Änderungen landen zuerst dort                                                                                   | `offline.rs`                                                            |
-| Browser                  | Anbindung an die Erweiterung keepassxc-browser (Firefox, Chrome, Edge …); startet der Browser WKeePass, läuft es ohne Hauptfenster im Hintergrund (Symbol in der Leiste) und endet mit dem letzten Browser; auf Wunsch fragt es bei gesperrter Datenbank schon beim Browserstart nach dem Entsperren | `keepass_extension/`, `pages/request.js`                                |
+| Browser                  | Anbindung an die Erweiterung keepassxc-browser (Firefox, Chrome, Edge …); startet der Browser WKeePass, läuft es ohne Hauptfenster im Hintergrund (Symbol in der Leiste) und endet mit dem letzten Browser; auf Wunsch fragt es bei gesperrter Datenbank schon beim Browserstart nach dem Entsperren; Passkeys und Klick aufs Feldsymbol bitten bei gesperrter Datenbank erst ums Entsperren, ein bloßer Seitenaufruf nicht; Passkeys verlangen immer einen Nachweis, 2FA-Codes gehen nur nach Rückfrage hinaus | `keepass_extension/`, `pages/request.js`                                |
 | Android                  | Autofill, Passkeys, Datenbank über die Dateiauswahl (Nextcloud, Drive); läuft die App nicht, startet sie nur kurz und entsperrt wird im Blatt über der aufrufenden App              | `android_services.rs`, `keepass-android/`                               |
 | Sicherheitscheck         | schwache, mehrfach genutzte, abgelaufene und geleakte Passwörter (HIBP, k-Anonymität)                                                                                               | `pages/checkup.js`, `data/security.js`                                  |
 | Import                   | 2FAS, Aegis, andOTP, Bitwarden, KeePass-XML, Proton Pass/Authenticator, CSV mit eigener Spaltenzuordnung                                                                            | `data/import.js`, `dialogs/create.js`                                   |
+| Sprachen                 | Deutsch, English, Français, Dansk, Norsk bokmål, Polski, Svenska – Gerätesprache oder in den Einstellungen gewählt; je Sprache eine Datei, gegliedert nach Seite und Bereich; Store-Texte ebenso | `core/i18n.js`, `appdata/lang/`, `appdata/store/`                       |
 | Website-Icons und -Namen | einmal holen, dann in der Datenbank                                                                                                                                                 | `favicon.rs`, `web.rs`                                                  |
 
 ---
@@ -52,8 +59,9 @@ src-ui/             die Oberfläche
   js/dialogs/       die größeren Dialoge
   css/app.css       Stil (nested CSS, Variablen für wuefl-libs)
   libs/             Verweis auf wuefl-libs (Nachbarprojekt)
+  lang/             Verweis auf appdata/lang (die Sprachdateien)
 keepass-android/    Kotlin für Autofill und Passkeys — eingebunden von tools/android-einbinden.py
-appdata/            Neuigkeiten, Symbole, Screenshots, Werbebilder, Store-Texte, version.py
+appdata/            Neuigkeiten, Sprachdateien (lang/), Symbole, Screenshots, Werbebilder, Store-Texte je Sprache, version.py
 flatpak/            Flatpak-Manifest und Metainfo
 tests/              alle Tests, siehe unten
 tools/              Hilfsskripte: Android-Bau, Symbole, Web-Demo, Entwicklungsserver
@@ -97,7 +105,7 @@ tools/              Hilfsskripte: Android-Bau, Symbole, Web-Demo, Entwicklungsse
 | `versions.rs`                                                 | die letzten Stände, Vergleich, Zurückholen                                       |
 | `storage.rs`                                                  | lesen und schreiben, auch `content://` auf Android                               |
 | `offline.rs`                                                  | Offline-Kopie jeder geöffneten Datei                                             |
-| `secrets.rs`                                                  | Geheimnisse verwahren, TOTP, Passwortstärke                                      |
+| `secrets.rs`                                                  | Passwörter verwahren, TOTP, Passwortstärke                                       |
 | `seal.rs`, `keystore.rs`, `biometric.rs`                      | App-PIN, Schlüssel im Schlüsselbund, Nachweis des Besitzers                      |
 | `passkey.rs`                                                  | Passkeys (WebAuthn)                                                              |
 | `keepass_extension/`                                          | Anbindung an keepassxc-browser: Protokoll, Verschlüsselung, Verteiler            |
@@ -142,7 +150,7 @@ Ist ein Dialog offen oder steht die Schreibmarke in einem anderen Feld, gehören
 
 ## Versionen
 
-Die letzten 20 Stände der Datei bleiben auf dem Gerät, verschlüsselt wie das Original: beim Öffnen, bei
+Die letzten 30 bis 100 Stände der Datei (einstellbar) bleiben auf dem Gerät, verschlüsselt wie das Original: beim Öffnen, bei
 jedem Speichern und jedes Mal, bevor der Stand eines anderen Geräts eingemischt wird. Unter
 *Einstellungen → Datenbank → Versionen* steht unter jedem Stand, was er gegenüber dem davor geändert hat —
 die Liste liest sich wie ein Verlauf. Ein Stand lässt sich öffnen; dort nimmt „Zurücknehmen" eine einzelne

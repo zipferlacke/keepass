@@ -6,6 +6,8 @@
  * nur mit Warnung: Auf der Platte ist die Datei nicht mehr verschlüsselt.
  */
 
+import { t } from '../core/i18n.js';
+
 import * as vault from '../data/vault.js';
 import { dialog, banner } from '../ui/libs.js';
 import { pickSavePath } from '../core/platform.js';
@@ -45,14 +47,11 @@ export async function downloadWithWarning(att) {
   if (!att) return;
 
   const res = await dialog({
-    title: 'Unverschlüsselt speichern?',
+    title: t('daten.anhaenge.warnung.titel'),
     type: 'warning',
-    content: `<p>„${esc(att.name)}“ liegt in der Datenbank verschlüsselt. Beim Herunterladen
-      wird die Datei <strong>unverschlüsselt</strong> auf die Festplatte geschrieben.</p>
-      <p>Danach kann sie jedes Programm und jeder mit Zugriff auf diesen Ordner lesen, und eine
-      Synchronisierung nimmt sie womöglich mit. Lösche die Kopie, wenn du sie nicht mehr brauchst.</p>`,
-    confirmText: 'Unverschlüsselt speichern',
-    cancelText: 'Abbrechen'
+    content: t('daten.anhaenge.warnung.text1', { name: esc(att.name) }) + t('daten.anhaenge.warnung.text2'),
+    confirmText: t('daten.anhaenge.warnung.bestaetigen'),
+    cancelText: t('allgemein.knoepfe.abbrechen')
   });
 
   if (!(res?.submit ?? res)) return;
@@ -69,9 +68,9 @@ export async function downloadWithWarning(att) {
 export async function saveAttachment(att) {
   try {
     const path = await vault.saveAttachment(att.ref);
-    if (path) banner(`Gespeichert unter ${path}`, 'success', 5000);
+    if (path) banner(t('daten.anhaenge.meldung.gespeichert', { pfad: path }), 'success', 5000);
   } catch (err) {
-    banner(`Speichern fehlgeschlagen: ${err.message}`, 'error', 6000);
+    banner(t('daten.anhaenge.meldung.fehler', { fehler: err.message }), 'error', 6000);
   }
 }
 

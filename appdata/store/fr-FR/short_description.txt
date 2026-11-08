@@ -1,0 +1,1 @@
+Mots de passe, codes 2FA et passkeys – en local au format KeePass, sans compte

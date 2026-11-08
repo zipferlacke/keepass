@@ -13,6 +13,7 @@
 
 import { esc, state } from '../core/state.js';
 import { aufdeckbar } from './aufdecken.js';
+import { t } from '../core/i18n.js';
 
 /**
  * Liest Textfelder eines Dialogs unverfälscht ab.
@@ -99,11 +100,8 @@ export function fieldChecked(data, name) {
 /** Erklärt in einem Satz, wie stark die PIN auf diesem Gerät ist. */
 export function pinStrengthNote() {
   return state.unlock.keyring
-    ? `Der Schlüssel entsteht aus deiner PIN <em>und</em> einem Zufallswert im
-       Schlüsselbund des Systems. Ein Angreifer bräuchte beides: die PIN und
-       deine angemeldete Sitzung.`
-    : `<strong>Auf diesem Gerät ist kein Schlüsselbund erreichbar.</strong>
-       Dann hängt alles allein an der PIN — wähle sie entsprechend lang.`;
+    ? t('ui.formular.pinMitSchluesselbund')
+    : t('ui.formular.pinOhneSchluesselbund');
 }
 
 /**
@@ -117,7 +115,7 @@ export function passwordField(name, placeholder, { required = true, minlength = 
     <input type="password" name="${name}" placeholder="${placeholder}" autocomplete="new-password"
            ${required ? 'required' : ''} ${minlength ? `minlength="${minlength}"` : ''}>
     <button type="button" class="pw-eye" data-shape="square no-background"
-            title="Sichtbar machen" aria-label="Sichtbar machen"><span class="msr">visibility</span></button>
+            title="${t('ui.formular.sichtbarMachen')}" aria-label="${t('ui.formular.sichtbarMachen')}"><span class="msr">visibility</span></button>
   </span>`;
 }
 
@@ -135,7 +133,7 @@ export function wirePasswordFields(root = document) {
       const shown = feld.sichtbar;
       feld.zeigen(!shown);
       btn.querySelector('.msr').textContent = shown ? 'visibility' : 'visibility_off';
-      btn.title = btn.ariaLabel = shown ? 'Sichtbar machen' : 'Verbergen';
+      btn.title = btn.ariaLabel = shown ? t('ui.formular.sichtbarMachen') : t('ui.formular.verbergen');
       feld.aktiv.focus();
     });
   });

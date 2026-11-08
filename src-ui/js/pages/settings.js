@@ -14,6 +14,7 @@ import { hostFromUrl } from '../core/icons.js';
 import * as preview from '../data/preview.js';
 import { isTauri, isMobile, invoke } from '../core/platform.js';
 import { dialog, banner } from '../ui/libs.js';
+import { t, gebiet, sprachListe } from '../core/i18n.js';
 import { state, $, esc } from '../core/state.js';
 import { autoRetitle, adoptTitles, emptyBin } from './entries.js';
 import { showView } from '../core/navigation.js';
@@ -35,17 +36,18 @@ import { BRAND_MARK, deviceName, changePin, clearAppPin, createAppPin, manageAcc
 function settingsMarkup() {
   const s = settings.getSettings();
   const theme = s.appearance?.theme ?? 'system';
+  const sprache = s.appearance?.language ?? 'auto';
   const dbSettings = settings.forDatabase(s.database?.current ?? null);
 
   return `
     <div class="settings-group">
-      <div class="section-label">Darstellung</div>
+      <div class="section-label">${t('einstellungen.darstellung.titel')}</div>
       <div class="settings-card">
         <div class="setting">
-          <div class="setting-label"><strong>Farbschema</strong><small>System folgt der Einstellung des Betriebssystems</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.darstellung.farbschema')}</strong><small>${t('einstellungen.darstellung.farbschemaHinweis')}</small></div>
           <div class="setting-control">
             <div class="group-radio" id="theme-switch">
-              ${[['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']].map(([value, label]) => `
+              ${[['light', t('einstellungen.darstellung.hell')], ['dark', t('einstellungen.darstellung.dunkel')], ['system', t('einstellungen.darstellung.system')]].map(([value, label]) => `
                 <label>
                   <input type="radio" name="appearance.theme" value="${value}" ${theme === value ? 'checked' : ''}>${label}
                 </label>`).join('')}
@@ -53,51 +55,60 @@ function settingsMarkup() {
           </div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Akzentfarbe</strong><small>Warn- und Gefahrfarben bleiben unverändert, damit Hinweise erkennbar bleiben</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.darstellung.akzentfarbe')}</strong><small>${t('einstellungen.darstellung.akzentfarbeHinweis')}</small></div>
           <div class="setting-control">
             <input type="color" id="primary-color" name="appearance.primary" value="${esc(s.appearance?.primary ?? '#2FA69A')}">
+          </div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>${t('einstellungen.darstellung.sprache')}</strong><small>${t('einstellungen.darstellung.spracheHinweis')}</small></div>
+          <div class="setting-control">
+            <select id="app-language" name="appearance.language" data-sp-picker data-sp-search="false" aria-label="${t('einstellungen.darstellung.sprache')}">
+              <option value="auto" ${sprache === 'auto' ? 'selected' : ''}>${t('einstellungen.darstellung.spracheAuto')}</option>
+              ${sprachListe().map(l => `<option value="${esc(l.code)}" ${sprache === l.code ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}
+            </select>
           </div>
         </div>
       </div>
     </div>
 
     ${state.locked ? '' : `<div class="settings-group" data-needs-db>
-      <div class="section-label">Datenbank</div>
+      <div class="section-label">${t('einstellungen.datenbank.titel')}</div>
       <div class="settings-card">
         <div id="database-card">
-          <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+          <div class="setting"><div class="setting-label"><small>${t('einstellungen.allgemein.wirdGeladen')}</small></div></div>
         </div>
         <div class="setting">
           <div class="setting-label">
-            <strong>Entsperren dieser Datenbank</strong>
-            <small>${[state.unlock.device ? esc(deviceName()) : null, state.unlock.pin ? 'PIN' : null, state.unlock.biometric ? 'Fingerabdruck' : null]
-              .filter(Boolean).join(' und ') || 'Nur mit Master-Passwort'}</small>
-            <small>Was die App überhaupt anbietet: <button type="button" class="link-btn" data-scroll="app-unlock">Entsperrmethoden der App</button></small>
+            <strong>${t('einstellungen.datenbank.entsperren')}</strong>
+            <small>${[state.unlock.device ? esc(deviceName()) : null, state.unlock.pin ? t('einstellungen.datenbank.pin') : null, state.unlock.biometric ? t('einstellungen.datenbank.fingerabdruck') : null]
+              .filter(Boolean).join(t('einstellungen.datenbank.und')) || t('einstellungen.datenbank.nurMaster')}</small>
+            <small>${t('einstellungen.datenbank.appMethoden', { link: `<button type="button" class="link-btn" data-scroll="app-unlock">${t('einstellungen.datenbank.appMethodenLink')}</button>` })}</small>
           </div>
-          <div class="setting-control"><button type="button" class="button" id="btn-access">Wählen …</button></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-access">${t('einstellungen.datenbank.waehlen')}</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Warnen vor Ablauf</strong><small>Tage im Voraus</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.datenbank.warnen')}</strong><small>${t('einstellungen.datenbank.warnenHinweis')}</small></div>
           <div class="setting-control">
             <input type="number" inputmode="numeric" min="1" max="180" data-set-db="expiryWarnDays" name="db.expiryWarnDays" value="${dbSettings.expiryWarnDays ?? 14}">
           </div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Papierkorb leeren</strong><small>Entfernt die gelöschten Einträge endgültig</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-empty-bin">Leeren …</button></div>
+          <div class="setting-label"><strong>${t('einstellungen.datenbank.papierkorb')}</strong><small>${t('einstellungen.datenbank.papierkorbHinweis')}</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-empty-bin">${t('einstellungen.datenbank.papierkorbKnopf')}</button></div>
         </div>
       </div>
     </div>`}
 
     <div class="settings-group">
-      <div class="section-label">Sperren</div>
+      <div class="section-label">${t('einstellungen.sperren.titel')}</div>
       <div class="settings-card">
         <div class="setting">
-          <div class="setting-label"><strong>Automatisch sperren</strong><small>Minuten ohne Aktivität</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.sperren.automatisch')}</strong><small>${t('einstellungen.sperren.automatischHinweis')}</small></div>
           <div class="setting-control"><input type="number" inputmode="numeric" min="1" max="120" data-set="unlock.autoLockMinutes" name="unlock.autoLockMinutes" value="${s.unlock?.autoLockMinutes ?? 5}"></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Zwischenablage leeren</strong><small>Sekunden nach dem Kopieren</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.sperren.zwischenablage')}</strong><small>${t('einstellungen.sperren.zwischenablageHinweis')}</small></div>
           <div class="setting-control"><input type="number" inputmode="numeric" min="0" max="300" data-set="unlock.clipboardClearSeconds" name="unlock.clipboardClearSeconds" value="${s.unlock?.clipboardClearSeconds ?? 30}"></div>
         </div>
       </div>
@@ -106,85 +117,87 @@ function settingsMarkup() {
     ${isMobile ? `<div class="settings-group">
       <div class="section-label">Android</div>
       <div class="settings-card" id="android-card">
-        <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+        <div class="setting"><div class="setting-label"><small>${t('einstellungen.allgemein.wirdGeladen')}</small></div></div>
       </div>
     </div>` : ''}
 
     ${isMobile ? '' : `<div class="settings-group">
-      <div class="section-label">Browser-Erweiterung</div>
+      <div class="section-label">${t('einstellungen.browser.titel')}</div>
       <div class="settings-card" id="browser-card">
-        <div class="setting"><div class="setting-label"><small>Wird geladen …</small></div></div>
+        <div class="setting"><div class="setting-label"><small>${t('einstellungen.allgemein.wirdGeladen')}</small></div></div>
       </div>
     </div>`}
 
     <div class="settings-group">
-      <div class="section-label">Einträge und Websites</div>
+      <div class="section-label">${t('einstellungen.eintraege.titel')}</div>
       <div class="settings-card">
         <div class="setting" data-needs-db>
-          <div class="setting-label"><strong>Aus anderen Apps importieren</strong>
-            <small>Passwörter und 2FA-Codes aus Bitwarden, 1Password, LastPass, Browsern, Aegis, 2FAS …</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-import-entries">Importieren …</button></div>
+          <div class="setting-label"><strong>${t('einstellungen.eintraege.importieren')}</strong>
+            <small>${t('einstellungen.eintraege.importierenHinweis')}</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-import-entries">${t('einstellungen.eintraege.importierenKnopf')}</button></div>
         </div>
         <div class="setting">
           <div class="setting-label">
-            <strong>Icons der Websites laden</strong>
-            <small>Einmal direkt von der jeweiligen Seite, ohne Sammeldienst — am besten beim Anmelden, wenn sie erreichbar ist.
-              Danach liegt das Icon in der Datenbank und steht auch offline und auf allen Geräten bereit.</small>
+            <strong>${t('einstellungen.eintraege.iconsLaden')}</strong>
+            <small>${t('einstellungen.eintraege.iconsLadenHinweis')}</small>
           </div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="icons.download" name="icons.download" ${s.icons?.download ? 'checked' : ''}></div>
         </div>
         <div class="setting" data-needs-db>
-          <div class="setting-label"><strong>Alle Icons neu abrufen</strong><small>Ersetzt die gespeicherten durch frisch geladene</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-refresh-icons"><span class="msr">refresh</span>&nbsp;Neu laden</button></div>
+          <div class="setting-label"><strong>${t('einstellungen.eintraege.iconsNeu')}</strong><small>${t('einstellungen.eintraege.iconsNeuHinweis')}</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-refresh-icons"><span class="msr">refresh</span>&nbsp;${t('einstellungen.eintraege.iconsNeuKnopf')}</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Namen von der Website</strong>
-            <small>An: Steht als Name nur eine Adresse, heißt der Eintrag von selbst wie der Dienst —
-              etwa „GitHub“ statt „https://github.com/login“. Selbst vergebene Namen bleiben.</small>
-            <small data-needs-db>„Jetzt prüfen“ gleicht alle Einträge mit Adresse ab und ersetzt nach Rückfrage auch selbst vergebene Namen.</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.eintraege.namen')}</strong>
+            <small>${t('einstellungen.eintraege.namenHinweis')}</small>
+            <small data-needs-db>${t('einstellungen.eintraege.namenPruefenHinweis')}</small></div>
           <div class="setting-control control-pair">
-            <input type="checkbox" data-shape="toggle" data-set="names.fromWebsite" name="names.fromWebsite" ${s.names?.fromWebsite ?? true ? 'checked' : ''} aria-label="Namen automatisch setzen">
-            <button type="button" class="button" id="btn-adopt-titles" data-needs-db><span class="msr">travel_explore</span>&nbsp;Jetzt prüfen</button>
+            <input type="checkbox" data-shape="toggle" data-set="names.fromWebsite" name="names.fromWebsite" ${s.names?.fromWebsite ?? true ? 'checked' : ''} aria-label="${t('einstellungen.eintraege.namenAutomatisch')}">
+            <button type="button" class="button" id="btn-adopt-titles" data-needs-db><span class="msr">travel_explore</span>&nbsp;${t('einstellungen.eintraege.namenPruefen')}</button>
           </div>
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <div class="section-label">Prüfungen</div>
+      <div class="section-label">${t('einstellungen.pruefungen.titel')}</div>
       <div class="settings-card">
         <div class="setting">
-          <div class="setting-label"><strong>Passwortstärke anzeigen</strong><small>Berechnung läuft im Kern</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.staerke')}</strong><small>${t('einstellungen.pruefungen.staerkeHinweis')}</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.passwordStrength" name="checks.passwordStrength" ${s.checks?.passwordStrength ? 'checked' : ''}></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Mehrfachnutzung erkennen</strong><small>Vergleich innerhalb der Datenbank</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.mehrfach')}</strong><small>${t('einstellungen.pruefungen.mehrfachHinweis')}</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.reuseDetection" name="checks.reuseDetection" ${s.checks?.reuseDetection ? 'checked' : ''}></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Vorwarnzeit bei Ablauf</strong><small>Tage vor dem Ablaufdatum</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.vorwarn')}</strong><small>${t('einstellungen.pruefungen.vorwarnHinweis')}</small></div>
           <div class="setting-control"><input type="number" inputmode="numeric" min="1" max="180" data-set="checks.expiryWarnDays" name="checks.expiryWarnDays" value="${s.checks?.expiryWarnDays ?? 14}"></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Passwörter auf Leaks prüfen</strong><small>Have I Been Pwned — es wird nur ein Hash-Präfix gesendet, nie das Passwort</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.leaks')}</strong><small>${t('einstellungen.pruefungen.leaksHinweis')}</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.passwordBreach" name="checks.passwordBreach" ${s.checks?.passwordBreach ? 'checked' : ''}></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>E-Mail-Adressen prüfen</strong><small>Über XposedOrNot</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.email')}</strong><small>${t('einstellungen.pruefungen.emailHinweis')}</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.emailBreach" name="checks.emailBreach" ${s.checks?.emailBreach ? 'checked' : ''}></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Bei neuen Funden benachrichtigen</strong><small>Wenn eine Prüfung ein neues Leck findet — auch bei der automatischen</small></div>
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.loeschlinks')}</strong><small>${t('einstellungen.pruefungen.loeschlinksHinweis')}</small></div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.deletionLinks" name="checks.deletionLinks" ${s.checks?.deletionLinks ? 'checked' : ''}></div>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.benachrichtigen')}</strong><small>${t('einstellungen.pruefungen.benachrichtigenHinweis')}</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.notify" name="checks.notify" ${s.checks?.notify !== false ? 'checked' : ''}></div>
         </div>
         <div class="setting">
           <div class="setting-label">
-            <strong>Automatisch prüfen</strong>
-            <small>Beim Öffnen der App, sofern die letzte Prüfung länger her ist${s.checks?.lastRunAt ? ` — zuletzt am ${new Date(s.checks.lastRunAt).toLocaleDateString('de-DE')}` : ''}</small>
+            <strong>${t('einstellungen.pruefungen.automatisch')}</strong>
+            <small>${t('einstellungen.pruefungen.automatischHinweis')}${s.checks?.lastRunAt ? t('einstellungen.pruefungen.zuletzt', { datum: new Date(s.checks.lastRunAt).toLocaleDateString(gebiet()) }) : ''}</small>
           </div>
           <div class="setting-control">
             <div class="group-radio" id="auto-check">
-              ${[['daily', 'Täglich'], ['weekly', 'Wöchentlich'], ['off', 'Aus']].map(([value, label]) => `
+              ${[['daily', t('einstellungen.pruefungen.taeglich')], ['weekly', t('einstellungen.pruefungen.woechentlich')], ['off', t('einstellungen.pruefungen.aus')]].map(([value, label]) => `
                 <label>
                   <input type="radio" name="checks.automatic" value="${value}"
                     ${(s.checks?.automatic ?? 'off') === value ? 'checked' : ''}>${label}
@@ -196,60 +209,59 @@ function settingsMarkup() {
     </div>
 
     <div class="settings-group" id="app-unlock">
-      <div class="section-label">Entsperrmethoden der App</div>
+      <div class="section-label">${t('einstellungen.datenbank.appMethodenLink')}</div>
       <div class="settings-card">
-        <p class="setting-intro">Was dieses Gerät zum Entsperren anbietet. Welche davon eine Datenbank
-        nutzen darf, legst du je Datenbank fest: Datenbank → Entsperren dieser Datenbank.</p>
+        <p class="setting-intro">${t('einstellungen.appEntsperren.einleitung')}</p>
         <div class="setting">
           <div class="setting-label">
-            <strong>Biometrie verwenden</strong>
+            <strong>${t('einstellungen.appEntsperren.biometrie')}</strong>
             <small>${state.unlock.deviceAvailable
-              ? `${esc(deviceName())} — beim Öffnen anbieten, ersetzt PIN und Master-Passwort`
+              ? t('einstellungen.appEntsperren.biometrieGeraet', { geraet: esc(deviceName()) })
               : state.unlock.biometricAvailable
-                ? 'Fingerabdruck oder Gesichtserkennung'
-                : 'Auf diesem Gerät nicht verfügbar'}</small>
+                ? t('einstellungen.appEntsperren.biometrieFinger')
+                : t('einstellungen.appEntsperren.biometrieNicht')}</small>
           </div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="unlock.biometrics" name="unlock.biometrics" ${s.unlock?.biometrics ? 'checked' : ''} ${state.unlock.biometricAvailable || state.unlock.deviceAvailable ? '' : 'disabled'}></div>
         </div>
         <div class="setting">
           <div class="setting-label">
-            <strong>PIN des Programms</strong>
+            <strong>${t('einstellungen.appEntsperren.pin')}</strong>
             <small>${state.unlock.pinSet
               ? (state.unlock.keyring
-                  ? 'Festgelegt — geschützt durch PIN und Schlüsselbund'
-                  : 'Festgelegt — ohne Schlüsselbund hängt alles an der PIN')
-              : 'Noch keine PIN. Gilt für alle Datenbanken.'}</small>
+                  ? t('einstellungen.appEntsperren.pinSchluesselbund')
+                  : t('einstellungen.appEntsperren.pinOhne'))
+              : t('einstellungen.appEntsperren.pinKeine')}</small>
           </div>
           <div class="setting-control">
             ${state.unlock.pinSet
-              ? `<button type="button" class="button" id="btn-pin-change">Ändern …</button>
-                 <button type="button" class="button" id="btn-pin-clear">Entfernen</button>`
-              : '<button type="button" class="button" id="btn-pin-create">Festlegen …</button>'}
+              ? `<button type="button" class="button" id="btn-pin-change">${t('einstellungen.appEntsperren.aendern')}</button>
+                 <button type="button" class="button" id="btn-pin-clear">${t('einstellungen.appEntsperren.entfernen')}</button>`
+              : `<button type="button" class="button" id="btn-pin-create">${t('einstellungen.appEntsperren.festlegen')}</button>`}
           </div>
         </div>
       </div>
     </div>
 
     <div class="settings-group">
-      <div class="section-label">Exportieren und Importieren</div>
+      <div class="section-label">${t('einstellungen.export.titel')}</div>
       <div class="settings-card">
         <div class="setting">
-          <div class="setting-label"><strong>Einstellungen exportieren</strong><small>Als settings.json sichern</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-export">Exportieren</button></div>
+          <div class="setting-label"><strong>${t('einstellungen.export.exportieren')}</strong><small>${t('einstellungen.export.exportierenHinweis')}</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-export">${t('einstellungen.export.exportierenKnopf')}</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Einstellungen importieren</strong><small>Aus einer settings.json übernehmen</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-import">Importieren</button></div>
+          <div class="setting-label"><strong>${t('einstellungen.export.importieren')}</strong><small>${t('einstellungen.export.importierenHinweis')}</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-import">${t('einstellungen.export.importierenKnopf')}</button></div>
         </div>
         <div class="setting">
-          <div class="setting-label"><strong>Auf Standard zurücksetzen</strong><small>Nur die Einstellungen — Datenbanken, PIN und Browser-Verknüpfungen bleiben</small></div>
-          <div class="setting-control"><button type="button" class="button" id="btn-reset">Zurücksetzen</button></div>
+          <div class="setting-label"><strong>${t('einstellungen.export.zuruecksetzen')}</strong><small>${t('einstellungen.export.zuruecksetzenHinweis')}</small></div>
+          <div class="setting-control"><button type="button" class="button" id="btn-reset">${t('einstellungen.export.zuruecksetzenKnopf')}</button></div>
         </div>
       </div>
     </div>
 
     <details class="settings-group settings-raw">
-      <summary class="section-label">Aktuelle Konfiguration (settings.json)</summary>
+      <summary class="section-label">${t('einstellungen.export.konfiguration')}</summary>
       <div class="settings-card">
         <pre id="settings-preview">${esc(settings.exportSettings())}</pre>
       </div>
@@ -295,7 +307,7 @@ async function zeigeVersion() {
     el.textContent = `WKeePass ${await invoke('plugin:app|version')}`;
   } catch {
     // Im Browser ohne Tauri gibt es keine App-Version.
-    el.textContent = 'WKeePass · Demo im Browser';
+    el.textContent = t('einstellungen.allgemein.demo');
   }
 }
 
@@ -307,16 +319,16 @@ async function zeigeVersion() {
    ein Knopf führt genau dorthin, wo es fehlt.
    ========================================================= */
 
-const ANDROID_FREIGABEN = [
-  { key: 'autofill', icon: 'password', title: 'Passwortmanager',
-    text: 'Füllt Anmeldungen in Apps und im Browser aus und bietet an, neue Zugänge zu speichern.',
-    action: 'Als Standard festlegen' },
-  { key: 'passkeys', icon: 'passkey', title: 'Passkeys',
-    text: 'Anmelden ohne Passwort. Die Passkeys liegen in deiner Datenbank, nicht bei Google.',
-    action: 'Aktivieren', missing: 'Erst ab Android 14' },
-  { key: 'kamera', icon: 'photo_camera', title: 'Kamera',
-    text: 'Nur für den QR-Scanner: Zwei-Faktor-Codes einrichten, ohne das Geheimnis abzutippen.',
-    action: 'Erlauben' }
+const androidFreigaben = () => [
+  { key: 'autofill', icon: 'password', title: t('einstellungen.android.passwortmanager'),
+    text: t('einstellungen.android.passwortmanagerText'),
+    action: t('einstellungen.android.passwortmanagerAktion') },
+  { key: 'passkeys', icon: 'passkey', title: t('einstellungen.android.passkeys'),
+    text: t('einstellungen.android.passkeysText'),
+    action: t('einstellungen.android.passkeysAktion'), missing: t('einstellungen.android.passkeysFehlt') },
+  { key: 'kamera', icon: 'photo_camera', title: t('einstellungen.android.kamera'),
+    text: t('einstellungen.android.kameraText'),
+    action: t('einstellungen.android.kameraAktion') }
 ];
 
 /**
@@ -336,13 +348,12 @@ function ausfuellMarkup() {
   return `
     <div class="setting">
       <div class="setting-label">
-        <strong>Vor dem Ausfüllen</strong>
-        <small>Was passiert, wenn du einen Zugang aus der Liste antippst:
-        nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Biometrie.</small>
+        <strong>${t('einstellungen.stufe.titel')}</strong>
+        <small>${t('einstellungen.android.stufeHinweis')}</small>
       </div>
       <div class="setting-control">
         <div class="group-radio" id="android-guard">
-          ${[['never', 'Nichts'], ['confirm', 'Bestätigen'], ['identify', 'Legitimieren']]
+          ${[['never', t('einstellungen.stufe.nichts')], ['confirm', t('einstellungen.stufe.bestaetigen')], ['identify', t('einstellungen.stufe.legitimieren')]]
             .map(([value, label]) => `
               <label>
                 <input type="radio" name="android.guard" value="${value}"
@@ -353,14 +364,12 @@ function ausfuellMarkup() {
     </div>
     <div class="setting">
       <div class="setting-label">
-        <strong>Danach nicht erneut fragen</strong>
-        <small>Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen —
-        ein Formular mit Name und Passwort fragt sonst zweimal.
-        Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.</small>
+        <strong>${t('einstellungen.frist.titel')}</strong>
+        <small>${t('einstellungen.android.fristHinweis')}</small>
       </div>
       <div class="setting-control">
         <select id="android-grace" name="android.graceSeconds" data-sp-picker data-sp-search="false">
-          ${[[0, 'Jedes Mal fragen'], [30, '30 Sekunden'], [60, '1 Minute'], [300, '5 Minuten'], [900, '15 Minuten']]
+          ${[[0, t('einstellungen.frist.jedesMal')], [30, t('einstellungen.frist.sek30')], [60, t('einstellungen.frist.min1')], [300, t('einstellungen.frist.min5')], [900, t('einstellungen.frist.min15')]]
             .map(([wert, label]) => `<option value="${wert}" ${grace === wert ? 'selected' : ''}>${label}</option>`).join('')}
         </select>
       </div>
@@ -379,14 +388,14 @@ async function renderAndroidSection(card, { ausfuellen = true } = {}) {
   if (ausfuellen) wireAusfuellen(card);
   if (!status) return;
 
-  card.insertAdjacentHTML('beforeend', ANDROID_FREIGABEN.map(f => {
+  card.insertAdjacentHTML('beforeend', androidFreigaben().map(f => {
     const s = status[f.key] ?? {};
     const control = s.aktiv
-      ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Aktiv</span>`
+      ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>${t('einstellungen.android.aktiv')}</span>`
       : !s.moeglich
-        ? `<span class="setting-state">${esc(f.missing ?? 'Nicht verfügbar')}</span>`
+        ? `<span class="setting-state">${esc(f.missing ?? t('einstellungen.android.nichtVerfuegbar'))}</span>`
         : `<button type="button" class="button hightlight" data-setup="${f.key}">
-            ${s.gesperrt ? 'In App-Einstellungen erlauben' : esc(f.action)}</button>`;
+            ${s.gesperrt ? t('einstellungen.android.inAppErlauben') : esc(f.action)}</button>`;
     return `<div class="setting">
       <div class="setting-label"><strong><span class="msr">${f.icon}</span> ${esc(f.title)}</strong><small>${esc(f.text)}</small></div>
       <div class="setting-control">${control}</div>
@@ -405,9 +414,9 @@ function wireAusfuellen(card) {
     el.addEventListener('change', async () => {
       await settings.set('android.guard', el.value, { silent: true });
       banner({
-        never: 'Zugänge werden ohne Rückfrage eingesetzt.',
-        confirm: 'Ein Knopfdruck genügt — ohne Nachweis.',
-        identify: 'PIN, Master-Passwort oder Biometrie vor dem Einsetzen.'
+        never: t('einstellungen.android.stufeNichts'),
+        confirm: t('einstellungen.stufe.bestaetigenMeldung'),
+        identify: t('einstellungen.android.stufeLegitimieren')
       }[el.value], el.value === 'never' ? 'warning' : 'success', 5000);
     }));
 
@@ -440,13 +449,12 @@ export async function showAndroidSetup() {
     $('#welcome').hidden = false;
     $('#welcome-card').innerHTML = `
       ${BRAND_MARK}
-      <h2>Drei Freigaben für den Alltag</h2>
-      <p class="lock-sub">Damit WKeePass nicht nur Tresor ist, sondern dir beim Anmelden hilft, braucht es die Erlaubnis von Android.
-        Nichts davon schickt Daten irgendwohin — die Passwörter bleiben in deiner Datei.</p>
+      <h2>${t('einstellungen.androidStart.titel')}</h2>
+      <p class="lock-sub">${t('einstellungen.androidStart.text')}</p>
       <div class="settings-card" id="android-setup"></div>
       <div class="lock-actions">
-        <button type="button" class="button hightlight" data-shape="full" id="as-done"><span class="msr">check</span>&nbsp;Weiter</button>
-        <button type="button" class="button" data-shape="full" id="as-later">Später in den Einstellungen</button>
+        <button type="button" class="button hightlight" data-shape="full" id="as-done"><span class="msr">check</span>&nbsp;${t('einstellungen.allgemein.weiter')}</button>
+        <button type="button" class="button" data-shape="full" id="as-later">${t('einstellungen.allgemein.spaeter')}</button>
       </div>`;
 
     renderAndroidSection($('#android-setup'), { ausfuellen: false });
@@ -463,20 +471,32 @@ export async function showAndroidSetup() {
 }
 
 /** Wie im Kern (database.rs): Wert, Name, Hinweis, Durchgänge, MiB, Fäden. */
+/**
+ * Eine Stufe als Feld [Wert, Name, Hinweis, Durchgänge, MiB, Fäden]. Name und
+ * Hinweis werden erst beim Lesen übersetzt — beim Import ist i18n noch nicht
+ * geladen, und lock.js zerlegt das Feld weiterhin per Destrukturierung.
+ */
+function stufe(wert, nameKey, hinweisKey, it, mib, p) {
+  const f = [wert, null, null, it, mib, p];
+  Object.defineProperty(f, 1, { get: () => t(nameKey), enumerable: true });
+  Object.defineProperty(f, 2, { get: () => t(hinweisKey), enumerable: true });
+  return f;
+}
+
 export const STUFEN = [
-  ['schnell', 'Schnell', 'Öffnet zügig, auch auf älteren Geräten', 10, 16, 2],
-  ['zuegig', 'Zügig', 'Etwas mehr Schutz, kaum langsamer', 20, 16, 2],
-  ['standard', 'Standard', 'Guter Mittelweg, geht überall auf — Empfehlung', 40, 16, 4],
-  ['erhoeht', 'Erhöht', 'Mehr Speicher, schwerer für Grafikkarten — am iPhone/iPad geht Ausfüllen über die Tastatur nicht mehr', 10, 64, 4],
-  ['hoch', 'Hoch', 'Noch mehr Speicher — am iPhone/iPad kein Ausfüllen über die Tastatur', 14, 128, 4],
-  ['stark', 'Stark', 'Bestmöglicher Schutz, spürbar längeres Öffnen — am iPhone/iPad kein Ausfüllen über die Tastatur', 20, 256, 4]
+  stufe('schnell', 'einstellungen.verschluesselung.stufeSchnell', 'einstellungen.verschluesselung.hinweisSchnell', 10, 16, 2),
+  stufe('zuegig', 'einstellungen.verschluesselung.stufeZuegig', 'einstellungen.verschluesselung.hinweisZuegig', 20, 16, 2),
+  stufe('standard', 'einstellungen.verschluesselung.stufeStandard', 'einstellungen.verschluesselung.hinweisStandard', 40, 16, 4),
+  stufe('erhoeht', 'einstellungen.verschluesselung.stufeErhoeht', 'einstellungen.verschluesselung.hinweisErhoeht', 10, 64, 4),
+  stufe('hoch', 'einstellungen.verschluesselung.stufeHoch', 'einstellungen.verschluesselung.hinweisHoch', 14, 128, 4),
+  stufe('stark', 'einstellungen.verschluesselung.stufeStark', 'einstellungen.verschluesselung.hinweisStark', 20, 256, 4)
 ];
 
 /** Auf der Skala beschriftet sind nur diese — die beiden dazwischen nicht. */
 const BENANNT = new Set(['schnell', 'standard', 'stark']);
 
 /** „10 Durchgänge · 64 MiB · 4 Fäden" */
-const kdfWerte = (it, mib, p) => `${it} Durchgänge · ${mib} MiB · ${p} ${p === 1 ? 'Faden' : 'Fäden'}`;
+const kdfWerte = (it, mib, p) => t('einstellungen.verschluesselung.werte', { it, mib, faeden: t('einstellungen.verschluesselung.faeden', { n: p }) });
 
 /**
  * Welche Stufe einer eigenen Einstellung am nächsten kommt. Der Aufwand
@@ -495,27 +515,22 @@ function naechsteStufe(iterations, memoryMib) {
 /** Was hinter Durchgängen, Speicher und Fäden steckt — hinter dem ⓘ. */
 function kdfErklaeren() {
   dialog({
-    title: 'Verschlüsselungsstärke',
+    title: t('einstellungen.verschluesselung.titel'),
     content: `
-      <p>Aus dem Master-Passwort wird erst ein Schlüssel abgeleitet — absichtlich langsam, mit
-      Argon2. Jeder Rateversuch eines Angreifers muss diese Arbeit genauso leisten.</p>
+      <p>${t('einstellungen.verschluesselung.erklaerung.einleitung')}</p>
       <dl class="kdf-begriffe">
-        <dt>Durchgänge</dt>
-        <dd>Wie oft Argon2 über den Speicher rechnet. Doppelt so viele dauern doppelt so lange.</dd>
-        <dt>Speicher (MiB)</dt>
-        <dd>Wie viel Arbeitsspeicher jeder Versuch belegt (1 MiB ≈ 1 MB). Das bremst Angriffe mit
-        Grafikkarten am stärksten, weil dort Speicher knapp ist.</dd>
-        <dt>Fäden</dt>
-        <dd>Wie viele Prozessorkerne gleichzeitig rechnen. Am Schutz ändert das nichts — es macht
-        nur das Öffnen auf deinem Gerät schneller.</dd>
-        <dt>Eigene Einstellung</dt>
-        <dd>Andere Apps und ältere Dateien bringen eigene Werte mit, etwa 50 Durchgänge mit nur
-        1 MiB. Die App zeigt dann die Stufe, die am nächsten liegt, und lässt die Werte stehen, bis
-        du eine Stufe übernimmst.</dd>
+        <dt>${t('einstellungen.verschluesselung.erklaerung.durchgaengeBegriff')}</dt>
+        <dd>${t('einstellungen.verschluesselung.erklaerung.durchgaenge')}</dd>
+        <dt>${t('einstellungen.verschluesselung.erklaerung.speicherBegriff')}</dt>
+        <dd>${t('einstellungen.verschluesselung.erklaerung.speicher')}</dd>
+        <dt>${t('einstellungen.verschluesselung.erklaerung.faedenBegriff')}</dt>
+        <dd>${t('einstellungen.verschluesselung.erklaerung.faeden')}</dd>
+        <dt>${t('einstellungen.verschluesselung.erklaerung.eigenBegriff')}</dt>
+        <dd>${t('einstellungen.verschluesselung.erklaerung.eigen')}</dd>
       </dl>`,
     confirmText: null,
-    cancelText: 'Schließen',
-    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' }
+    cancelText: t('allgemein.knoepfe.schliessen'),
+    barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), action: 'cancel' }
   });
 }
 
@@ -540,7 +555,7 @@ async function renderDatabaseSection() {
     info = await vault.security();
   } catch (err) {
     card.innerHTML = `<div class="setting"><div class="setting-label">
-      <strong>Nicht verfügbar</strong><small>${esc(err.message)}</small></div></div>`;
+      <strong>${t('einstellungen.allgemein.nichtVerfuegbar')}</strong><small>${esc(err.message)}</small></div></div>`;
     return;
   }
 
@@ -551,88 +566,85 @@ async function renderDatabaseSection() {
     ? naechsteStufe(info.iterations, info.memoryMib)
     : Math.max(0, STUFEN.findIndex(([wert]) => wert === info.level));
   const hinweis = i => eigen && i === stufe && Number(regler?.value ?? stufe) === stufe
-    ? `Eigene Einstellung, etwa aus einer anderen App — liegt ungefähr bei „${STUFEN[i][1]}“. Eine Stufe übernehmen ersetzt sie.`
+    ? t('einstellungen.verschluesselung.eigenHinweis', { stufe: STUFEN[i][1] })
     : STUFEN[i][2];
   let regler = null;
 
   card.innerHTML = `
     <div class="setting db-name-row">
       <div class="setting-label">
-        <strong>Name der Datenbank</strong>
-        <small>${path ? esc(pfadLabel(path, eintrag?.label)) : 'Steht in der Datei'}<span id="db-modified"></span></small>
+        <strong>${t('einstellungen.datenbank.name')}</strong>
+        <small>${path ? esc(pfadLabel(path, eintrag?.label)) : t('einstellungen.datenbank.nameInDatei')}<span id="db-modified"></span></small>
       </div>
       <div class="setting-control">
-        <input type="text" id="db-name" value="${esc(info.name)}" placeholder="Passwörter"
-               aria-label="Name der Datenbank" ${info.readOnly ? 'disabled' : ''}>
+        <input type="text" id="db-name" value="${esc(info.name)}" placeholder="${t('einstellungen.datenbank.namePlatzhalter')}"
+               aria-label="${t('einstellungen.datenbank.name')}" ${info.readOnly ? 'disabled' : ''}>
       </div>
     </div>
 
     <div class="setting" data-stacked>
       <div class="setting-label">
         <strong>Verschlüsselungsstärke
-          <button type="button" class="info-btn" id="kdf-info" title="Was bedeuten die Werte?"
-                  aria-label="Was bedeuten die Werte?"><span class="msr">info</span></button></strong>
-        <small>Wie lange das Ableiten des Schlüssels dauert — für dich einmal beim Öffnen,
-        für einen Angreifer bei jedem Rateversuch</small>
+          <button type="button" class="info-btn" id="kdf-info" title="${t('einstellungen.verschluesselung.werteFrage')}"
+                  aria-label="${t('einstellungen.verschluesselung.werteFrage')}"><span class="msr">info</span></button></strong>
+        <small>${t('einstellungen.verschluesselung.hinweis')}</small>
       </div>
       <div class="setting-control kdf-slider">
         <input type="range" id="db-level" min="0" max="${STUFEN.length - 1}" step="1" value="${stufe}"
-               aria-label="Verschlüsselungsstärke" ${info.readOnly ? 'disabled' : ''}>
+               aria-label="${t('einstellungen.verschluesselung.titel')}" ${info.readOnly ? 'disabled' : ''}>
         <div class="kdf-labels">
           ${STUFEN.map(([wert, name], i) => `<button type="button" data-stufe="${i}" ${i === stufe ? 'aria-current="true"' : ''}
-            ${BENANNT.has(wert) ? '' : 'data-zwischen'} title="${name}"
+            ${BENANNT.has(wert) ? '' : 'data-zwischen'} title="${esc(name)}"
             ${info.readOnly ? 'disabled' : ''}>${BENANNT.has(wert) ? name : '·'}</button>`).join('')}
         </div>
         <small class="kdf-note" id="db-level-note"></small>
         <small class="kdf-values" id="db-level-values"></small>
         <small class="kdf-values" id="db-details">${esc(info.format)} · ${esc(info.cipher)} · ${esc(info.kdf)}</small>
         <div class="kdf-apply" id="db-level-apply" hidden>
-          <button type="button" class="button" id="db-level-undo">Zurück</button>
-          <button type="button" class="button hightlight" id="db-level-ok">Übernehmen</button>
+          <button type="button" class="button" id="db-level-undo">${t('allgemein.knoepfe.zurueck')}</button>
+          <button type="button" class="button hightlight" id="db-level-ok">${t('einstellungen.allgemein.uebernehmen')}</button>
         </div>
       </div>
     </div>
 
     <div class="setting">
       <div class="setting-label">
-        <strong>Versionen</strong>
-        <small>Die letzten Stände dieser Datei — beim Öffnen, nach dem Speichern, nach
-        Änderungen von einem anderen Gerät und nach jedem Zusammenführen. Daraus lässt sich
-        Einzelnes oder alles zurückholen.</small>
+        <strong>${t('einstellungen.versionen.titel')}</strong>
+        <small>${t('einstellungen.versionen.hinweis')}</small>
       </div>
       <div class="setting-control">
-        <button type="button" class="button" id="btn-versions">Versionen ansehen …</button>
+        <button type="button" class="button" id="btn-versions">${t('einstellungen.versionen.ansehen')}</button>
       </div>
     </div>
 
     <div class="setting">
       <div class="setting-label">
-        <strong>Stände aufheben</strong>
-        <small>30 bis 100</small>
+        <strong>${t('einstellungen.versionen.aufheben')}</strong>
+        <small>${t('einstellungen.versionen.aufhebenBereich')}</small>
       </div>
       <div class="setting-control">
         <input type="number" inputmode="numeric" min="30" max="100" id="versions-keep" name="versions.keep"
-          aria-label="Wie viele Stände aufheben" value="${Math.min(100, Math.max(30, Number(settings.get('versions.keep', 30)) || 30))}">
+          aria-label="${t('einstellungen.versionen.aufhebenFrage')}" value="${Math.min(100, Math.max(30, Number(settings.get('versions.keep', 30)) || 30))}">
       </div>
     </div>
 `;
 
   card.querySelector('#btn-versions')?.addEventListener('click', () => openVersionsDialog());
   card.querySelector('#versions-keep')?.addEventListener('change', async ev => {
-    const zahl = Math.min(100, Math.max(30, Math.round(Number(ev.target.value)) || 30));
-    ev.target.value = zahl;
-    await settings.set('versions.keep', zahl, { silent: true });
-    banner(`Es werden ${zahl} Stände aufgehoben.`, 'success', 1600);
+    const anzahl = Math.min(100, Math.max(30, Math.round(Number(ev.target.value)) || 30));
+    ev.target.value = anzahl;
+    await settings.set('versions.keep', anzahl, { silent: true });
+    banner(t('einstellungen.versionen.aufgehoben', { n: anzahl }), 'success', 1600);
   });
   card.querySelector('#kdf-info')?.addEventListener('click', kdfErklaeren);
 
   const speichern = async (feld, wert) => {
     try {
       await vault.setSecurity(wert);
-      banner(feld === 'name' ? 'Name gespeichert.' : 'Verschlüsselung geändert — die Datei wurde neu geschrieben.', 'success');
+      banner(feld === 'name' ? t('einstellungen.datenbank.nameGespeichert') : t('einstellungen.verschluesselung.geaendert'), 'success');
       renderDatabaseSection();
     } catch (err) {
-      banner(`Nicht gespeichert: ${err.message}`, 'error', 6000);
+      banner(t('einstellungen.allgemein.nichtGespeichert', { fehler: err.message }), 'error', 6000);
     }
   };
 
@@ -668,13 +680,13 @@ async function renderDatabaseSection() {
   const zeige = () => {
     const i = Number(regler.value);
     note.textContent = offen() && eigen
-      ? `Ersetzt die eigene Einstellung durch „${STUFEN[i][1]}“.`
-      : hinweis(i) === STUFEN[i][2] ? `${STUFEN[i][1]}: ${STUFEN[i][2]}` : hinweis(i);
+      ? t('einstellungen.verschluesselung.ersetzt', { stufe: STUFEN[i][1] })
+      : hinweis(i) === STUFEN[i][2] ? t('einstellungen.verschluesselung.stufeHinweis', { stufe: STUFEN[i][1], hinweis: STUFEN[i][2] }) : hinweis(i);
     // Klein darunter: was jetzt gilt — und, sobald etwas gewählt ist,
     // was danach gilt.
     const [, , , it, mib, p] = STUFEN[i];
-    werte.innerHTML = `Jetzt: ${kdfWerte(info.iterations, info.memoryMib, info.parallelism)}${
-      offen() ? `<br>Danach: ${kdfWerte(it, mib, p)}` : ''}`;
+    werte.innerHTML = `${t('einstellungen.verschluesselung.jetzt', { werte: kdfWerte(info.iterations, info.memoryMib, info.parallelism) })}${
+      offen() ? `<br>${t('einstellungen.verschluesselung.danach', { werte: kdfWerte(it, mib, p) })}` : ''}`;
     card.querySelectorAll('[data-stufe]').forEach(b =>
       b.toggleAttribute('aria-current', Number(b.dataset.stufe) === i));
     zeile.hidden = !offen();
@@ -711,9 +723,9 @@ async function renderDatabaseSection() {
       if (einzeln) {
         einzeln.textContent = `${info.format} · ${info.cipher} · ${info.kdf}`;
       }
-      banner('Verschlüsselung geändert — die Datei wurde neu geschrieben.', 'success');
+      banner(t('einstellungen.verschluesselung.geaendert'), 'success');
     } catch (err) {
-      banner(`Nicht gespeichert: ${err.message}`, 'error', 6000);
+      banner(t('einstellungen.allgemein.nichtGespeichert', { fehler: err.message }), 'error', 6000);
     } finally {
       ok.disabled = false;
       undo.disabled = false;
@@ -729,7 +741,7 @@ async function renderDatabaseSection() {
   if (path && modifiedEl) {
     invoke('database_modified', { path }).then(ms => {
       if (!ms) return;
-      modifiedEl.textContent = ` · geändert ${new Date(ms).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}`;
+      modifiedEl.textContent = ` · ${t('einstellungen.datenbank.geaendert', { datum: new Date(ms).toLocaleString(gebiet(), { dateStyle: 'medium', timeStyle: 'short' }) })}`;
     }).catch(() => {});
   }
 }
@@ -750,24 +762,24 @@ async function renderBrowserSection() {
     status = await vault.browserStatus();
   } catch (err) {
     card.innerHTML = `<div class="setting"><div class="setting-label">
-      <strong>Nicht verfügbar</strong><small>${esc(err.message)}</small></div></div>`;
+      <strong>${t('einstellungen.allgemein.nichtVerfuegbar')}</strong><small>${esc(err.message)}</small></div></div>`;
     return;
   }
 
   const eingerichtet = status.installed.length
     ? status.installed.join(', ')
-    : 'Bei keinem Browser eingetragen';
+    : t('einstellungen.browser.keinerEingetragen');
 
   const verknuepft = status.associations.length
     ? status.associations.map(name => `
         <div class="setting">
-          <div class="setting-label"><strong>${esc(name)}</strong><small>verknüpft</small></div>
+          <div class="setting-label"><strong>${esc(name)}</strong><small>${t('einstellungen.browser.verknuepft')}</small></div>
           <div class="setting-control">
-            <button type="button" class="button" data-forget="${esc(name)}">Trennen</button>
+            <button type="button" class="button" data-forget="${esc(name)}">${t('einstellungen.browser.trennen')}</button>
           </div>
         </div>`).join('')
     : `<div class="setting"><div class="setting-label">
-         <small>Noch kein Browser verknüpft.</small></div></div>`;
+         <small>${t('einstellungen.browser.keinerVerknuepft')}</small></div></div>`;
 
   const guard = settings.get('browser.guard', 'identify');
   const grace = Number(settings.get('browser.graceSeconds', 60));
@@ -776,13 +788,12 @@ async function renderBrowserSection() {
   card.innerHTML = `
     <div class="setting">
       <div class="setting-label">
-        <strong>Vor dem Ausfüllen</strong>
-        <small>Was passiert, wenn ein verknüpfter Browser Zugangsdaten anfragt:
-        nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Fingerabdruck.</small>
+        <strong>${t('einstellungen.stufe.titel')}</strong>
+        <small>${t('einstellungen.browser.stufeHinweis')}</small>
       </div>
       <div class="setting-control">
         <div class="group-radio" id="browser-guard">
-          ${[['never', 'Nichts'], ['confirm', 'Bestätigen'], ['identify', 'Legitimieren']]
+          ${[['never', t('einstellungen.stufe.nichts')], ['confirm', t('einstellungen.stufe.bestaetigen')], ['identify', t('einstellungen.stufe.legitimieren')]]
             .map(([value, label]) => `
               <label>
                 <input type="radio" name="browser.guard" value="${value}"
@@ -793,34 +804,30 @@ async function renderBrowserSection() {
     </div>
     <div class="setting">
       <div class="setting-label">
-        <strong>Danach nicht erneut fragen</strong>
-        <small>Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen —
-        eine Anmeldung mit mehreren Feldern fragt sonst mehrmals. Danach wird wieder gefragt.
-        Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.</small>
+        <strong>${t('einstellungen.frist.titel')}</strong>
+        <small>${t('einstellungen.browser.fristHinweis')}</small>
       </div>
       <div class="setting-control">
         <select id="browser-grace" name="browser.graceSeconds" data-sp-picker data-sp-search="false">
-          ${[[0, 'Jedes Mal fragen'], [30, '30 Sekunden'], [60, '1 Minute'], [300, '5 Minuten'], [900, '15 Minuten']]
+          ${[[0, t('einstellungen.frist.jedesMal')], [30, t('einstellungen.frist.sek30')], [60, t('einstellungen.frist.min1')], [300, t('einstellungen.frist.min5')], [900, t('einstellungen.frist.min15')]]
             .map(([wert, label]) => `<option value="${wert}" ${grace === wert ? 'selected' : ''}>${label}</option>`).join('')}
         </select>
       </div>
     </div>
     <div class="setting">
       <div class="setting-label">
-        <strong>Beim Start des Browsers entsperren</strong>
-        <small>Ist die Datenbank zu, wenn sich der Browser meldet, geht gleich das kleine Fenster auf —
-        PIN, Fingerabdruck oder Master-Passwort, und die Erweiterung hat ihre Daten. Ohne das entsperrst du
-        über das Menü der Erweiterung, wenn du etwas brauchst.</small>
+        <strong>${t('einstellungen.browser.beimStart')}</strong>
+        <small>${t('einstellungen.browser.beimStartHinweis')}</small>
       </div>
       <div class="setting-control">
         <input type="checkbox" data-shape="toggle" id="browser-unlock-on-connect"
-          aria-label="Beim Start des Browsers entsperren" ${unlockOnConnect ? 'checked' : ''}>
+          aria-label="${t('einstellungen.browser.beimStart')}" ${unlockOnConnect ? 'checked' : ''}>
       </div>
     </div>
     <div class="setting" data-stacked>
       <div class="setting-label">
-        <strong>Erweiterung</strong>
-        <small>KeePassXC-Browser — WKeePass spricht dasselbe Protokoll, deshalb gibt es keine eigene.</small>
+        <strong>${t('einstellungen.browser.erweiterung')}</strong>
+        <small>${t('einstellungen.browser.erweiterungHinweis')}</small>
       </div>
       <div class="setting-control store-buttons">
         ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
@@ -828,20 +835,20 @@ async function renderBrowserSection() {
     </div>
     <div class="setting">
       <div class="setting-label">
-        <strong>Eingetragen bei</strong>
+        <strong>${t('einstellungen.browser.eingetragen')}</strong>
         <small>${esc(eingerichtet)}</small>
-        <small>„Einrichten“ legt je Browser eine Datei ab, die auf WKeePass zeigt — ohne sie darf der Browser WKeePass nicht starten.</small>
+        <small>${t('einstellungen.browser.eingetragenHinweis')}</small>
       </div>
       <div class="setting-control">
-        <button type="button" class="button" id="btn-browser-install">Einrichten</button>
-        <button type="button" class="button" id="btn-browser-remove">Entfernen</button>
+        <button type="button" class="button" id="btn-browser-install">${t('einstellungen.browser.einrichten')}</button>
+        <button type="button" class="button" id="btn-browser-remove">${t('einstellungen.browser.entfernen')}</button>
       </div>
     </div>
     ${verknuepft}
     <div class="setting">
       <div class="setting-label">
-        <strong>Kanal</strong>
-        <small>${status.listening ? 'Aktiv' : 'Nicht aktiv'} — <code>${esc(status.socket)}</code></small>
+        <strong>${t('einstellungen.browser.kanal')}</strong>
+        <small>${status.listening ? t('einstellungen.android.aktiv') : t('einstellungen.browser.nichtAktiv')} — <code>${esc(status.socket)}</code></small>
       </div>
     </div>`;
 
@@ -849,9 +856,9 @@ async function renderBrowserSection() {
     el.addEventListener('change', async () => {
       await settings.set('browser.guard', el.value, { silent: true });
       banner({
-        never: 'Verknüpfte Browser füllen ohne Rückfrage aus.',
-        confirm: 'Ein Knopfdruck genügt — ohne Nachweis.',
-        identify: 'PIN, Master-Passwort oder Fingerabdruck vor dem Ausfüllen.'
+        never: t('einstellungen.browser.stufeNichts'),
+        confirm: t('einstellungen.stufe.bestaetigenMeldung'),
+        identify: t('einstellungen.browser.stufeLegitimieren')
       }[el.value], el.value === 'never' ? 'warning' : 'success', 5000);
     }));
 
@@ -875,10 +882,10 @@ async function renderBrowserSection() {
       try {
         await vault.browserForget(btn.dataset.forget);
         await vault.commit();
-        banner('Verknüpfung getrennt.', 'success');
+        banner(t('einstellungen.browser.getrennt'), 'success');
         renderBrowserSection();
       } catch (err) {
-        banner(`Trennen fehlgeschlagen: ${err.message}`, 'error');
+        banner(t('einstellungen.browser.trennenFehler', { fehler: err.message }), 'error');
       }
     }));
 }
@@ -910,42 +917,36 @@ export async function showBrowserSetupPage() {
 
       card.innerHTML = `
         ${BRAND_MARK}
-        <h2>Passwörter direkt im Browser</h2>
-        <p class="lock-sub">Mit einer Browser-Erweiterung füllt WKeePass Anmeldungen auf Webseiten aus,
-          bietet neue Zugänge zum Speichern an und meldet dich mit Passkeys an. Die Passwörter bleiben in deiner Datei —
-          der Browser fragt jedes Mal bei WKeePass nach. Dafür braucht es alle drei Schritte.</p>
+        <h2>${t('einstellungen.browserStart.titel')}</h2>
+        <p class="lock-sub">${t('einstellungen.browserStart.text')}</p>
 
         <div class="settings-card">
           <div class="setting">
-            <div class="setting-label"><strong>1. WKeePass bei den Browsern anmelden</strong>
-              <small>Notwendig: Ein Browser darf nur Programme starten, die bei ihm eingetragen sind. Der Knopf legt dafür
-                je Browser eine kleine Datei ab, die auf WKeePass zeigt — am Browser selbst ändert sich nichts.
-                Ist KeePassXC installiert, spricht die Erweiterung danach mit WKeePass statt mit KeePassXC.</small>
+            <div class="setting-label"><strong>${t('einstellungen.browserStart.schritt1')}</strong>
+              <small>${t('einstellungen.browserStart.schritt1Text')}</small>
               <small>${found.length
-                ? `Gefunden: ${found.map(b => `${esc(b)}${done.includes(b) ? ' ✓' : ''}`).join(' · ')}`
-                : 'Kein Browser gefunden — nach der Installation eines Browsers geht das in den Einstellungen.'}</small></div>
+                ? t('einstellungen.browserStart.gefunden', { liste: found.map(b => `${esc(b)}${done.includes(b) ? ' ✓' : ''}`).join(' · ') })
+                : t('einstellungen.browserStart.keinBrowser')}</small></div>
             <div class="setting-control">${found.length && done.length === found.length
-              ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>Erledigt</span>`
-              : `<button type="button" class="button hightlight" id="bs-install" ${found.length ? '' : 'disabled'}>Eintragen</button>`}</div>
+              ? `<span class="setting-state" data-tone="ok"><span class="msr">check_circle</span>${t('einstellungen.browserStart.erledigt')}</span>`
+              : `<button type="button" class="button hightlight" id="bs-install" ${found.length ? '' : 'disabled'}>${t('einstellungen.browserStart.eintragen')}</button>`}</div>
           </div>
           <div class="setting" data-stacked>
-            <div class="setting-label"><strong>2. Erweiterung KeePassXC-Browser installieren</strong>
-              <small>Notwendig: Die Erweiterung stammt von KeePassXC und ist kostenlos. WKeePass spricht dieselbe Sprache,
-                deshalb gibt es keine eigene. Der Knopf öffnet die Seite im Store deines Browsers.</small></div>
+            <div class="setting-label"><strong>${t('einstellungen.browserStart.schritt2')}</strong>
+              <small>${t('einstellungen.browserStart.schritt2Text')}</small></div>
             <div class="setting-control store-buttons">
               ${BROWSER_STORES.map((b, i) => `<button type="button" class="button" data-store="${i}"><span class="msr">open_in_new</span>&nbsp;${esc(b.name)}</button>`).join('')}
             </div>
           </div>
           <div class="setting">
-            <div class="setting-label"><strong>3. Im Browser verbinden</strong>
-              <small>Einmal je Browser: Browser neu starten, auf das Symbol der Erweiterung klicken und „Verbinden“ wählen.
-                WKeePass fragt dann nach einem Namen für diesen Browser — erst danach werden Passwörter ausgefüllt.</small></div>
+            <div class="setting-label"><strong>${t('einstellungen.browserStart.schritt3')}</strong>
+              <small>${t('einstellungen.browserStart.schritt3Text')}</small></div>
           </div>
         </div>
 
         <div class="lock-actions">
-          <button type="button" class="button hightlight" data-shape="full" id="bs-done"><span class="msr">check</span>&nbsp;Weiter</button>
-          <button type="button" class="button" data-shape="full" id="bs-later">Später in den Einstellungen</button>
+          <button type="button" class="button hightlight" data-shape="full" id="bs-done"><span class="msr">check</span>&nbsp;${t('einstellungen.allgemein.weiter')}</button>
+          <button type="button" class="button" data-shape="full" id="bs-later">${t('einstellungen.allgemein.spaeter')}</button>
         </div>`;
 
       card.querySelector('#bs-install')?.addEventListener('click', async () => {
@@ -976,19 +977,20 @@ async function browserSetup(install) {
     const failed = results.filter(r => !r.ok);
 
     if (ok.length) {
-      banner(`${install ? 'Eingerichtet' : 'Entfernt'}: ${ok.join(', ')}. Browser neu starten.`,
+      // i18n: einstellungen.browser.eingerichtetMeldung einstellungen.browser.entferntMeldung
+      banner(t(install ? 'einstellungen.browser.eingerichtetMeldung' : 'einstellungen.browser.entferntMeldung', { liste: ok.join(', ') }),
         'success', 8000);
     } else if (!failed.length) {
-      banner('Kein eingerichteter Browser gefunden.', 'info');
+      banner(t('einstellungen.browser.keinGefunden'), 'info');
     }
 
     for (const r of failed) {
-      banner(`${r.browser}: ${r.note ?? 'fehlgeschlagen'}`, 'warning', 8000);
+      banner(`${r.browser}: ${r.note ?? t('einstellungen.browser.fehlgeschlagen')}`, 'warning', 8000);
     }
 
     renderBrowserSection();
   } catch (err) {
-    banner(`Fehlgeschlagen: ${err.message}`, 'error', 6000);
+    banner(t('einstellungen.browser.einrichtenFehler', { fehler: err.message }), 'error', 6000);
   }
 }
 
@@ -1030,6 +1032,12 @@ function wireSettings(root = $('#settings-body')) {
       updateSettingsPreview();
     }));
 
+  // Sprache: speichern und neu laden, damit alles in der neuen Sprache entsteht.
+  root.querySelector('[name="appearance.language"]')?.addEventListener('change', async ev => {
+    await settings.set('appearance.language', ev.target.value, { silent: true });
+    location.reload();
+  });
+
   root.querySelectorAll('[name="appearance.primary"]').forEach(el => {
     el.addEventListener('input', () => applyPrimary(el.value));
     el.addEventListener('change', async () => {
@@ -1042,7 +1050,7 @@ function wireSettings(root = $('#settings-body')) {
   root.querySelectorAll('[data-set-db]').forEach(el => el.addEventListener('change', async () => {
     const value = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
     await settings.setForDatabase(settings.get('database.current', null), el.dataset.setDb, value);
-    banner('Einstellung gespeichert.', 'success', 1600);
+    banner(t('einstellungen.allgemein.gespeichert'), 'success', 1600);
   }));
 
   root.querySelectorAll('[data-set]').forEach(el => el.addEventListener('change', async () => {
@@ -1055,7 +1063,7 @@ function wireSettings(root = $('#settings-body')) {
     }
     if (el.dataset.set === 'names.fromWebsite' && value) autoRetitle();
 
-    banner('Einstellung gespeichert.', 'success', 1600);
+    banner(t('einstellungen.allgemein.gespeichert'), 'success', 1600);
   }));
 
   root.querySelectorAll('[name="checks.automatic"]').forEach(el =>
@@ -1066,19 +1074,19 @@ function wireSettings(root = $('#settings-body')) {
 
   root.querySelector('#btn-refresh-icons')?.addEventListener('click', async () => {
     await vault.fetchIcons(null, true);
-    banner('Icons werden neu abgerufen — sie erscheinen, sobald sie da sind.', 'success');
+    banner(t('einstellungen.eintraege.iconsAbruf'), 'success');
   });
 
   root.querySelector('#btn-adopt-titles')?.addEventListener('click', async () => {
     const withUrl = state.entries.filter(e => hostFromUrl(e.url));
-    if (!withUrl.length) { banner('Kein Eintrag hat eine URL.', 'info'); return; }
+    if (!withUrl.length) { banner(t('einstellungen.eintraege.keineUrl'), 'info'); return; }
 
     const res = await dialog({
-      title: 'Namen übernehmen',
-      content: `Bei <strong>${withUrl.length}</strong> Einträgen wird der Name durch den Namen des Dienstes ersetzt.
-                ${isTauri ? '' : '<br><br>Im Browser blockiert die Sicherheitsrichtlinie fremder Seiten den Abruf — dort wird ersatzweise der Hostname verwendet.'}`,
-      confirmText: 'Übernehmen',
-      cancelText: 'Abbrechen'
+      title: t('einstellungen.eintraege.uebernehmenTitel'),
+      content: `${t('einstellungen.eintraege.uebernehmenText', { n: `<strong>${withUrl.length}</strong>` })}
+                ${isTauri ? '' : `<br><br>${t('einstellungen.eintraege.uebernehmenBrowser')}`}`,
+      confirmText: t('einstellungen.allgemein.uebernehmen'),
+      cancelText: t('allgemein.knoepfe.abbrechen')
     });
     if (!(res?.submit ?? res)) return;
     await adoptTitles(withUrl);
@@ -1088,7 +1096,7 @@ function wireSettings(root = $('#settings-body')) {
 
   root.querySelector('#btn-export')?.addEventListener('click', () => {
     settings.downloadSettings();
-    banner('settings.json exportiert.', 'success');
+    banner(t('einstellungen.export.exportiert'), 'success');
   });
 
   root.querySelector('#btn-import')?.addEventListener('click', () => {
@@ -1102,9 +1110,9 @@ function wireSettings(root = $('#settings-body')) {
         await settings.importSettings(await file.text());
         applyAppearance(settings.get('appearance', {}));
         renderSettings();
-        banner('Einstellungen importiert.', 'success');
+        banner(t('einstellungen.export.importiert'), 'success');
       } catch (err) {
-        banner(`Datei konnte nicht gelesen werden: ${err.message}`, 'error');
+        banner(t('einstellungen.export.nichtGelesen', { fehler: err.message }), 'error');
       }
     });
     input.click();
@@ -1124,13 +1132,11 @@ function wireSettings(root = $('#settings-body')) {
     let confirmed = false;
     try {
       const res = await dialog({
-        title: 'Einstellungen zurücksetzen',
-        content: `<p>Darstellung, Entsperren, Prüfungen, Browser und Android gehen auf die
-          Standardwerte zurück.</p>
-          <p>Es bleiben: die Datenbank selbst, die Liste deiner Datenbanken samt ihren eigenen
-          Einstellungen, die App-PIN und die Verknüpfungen mit dem Browser.</p>`,
-        confirmText: 'Zurücksetzen',
-        cancelText: 'Abbrechen'
+        title: t('einstellungen.export.zuruecksetzenTitel'),
+        content: `<p>${t('einstellungen.export.zuruecksetzenText1')}</p>
+          <p>${t('einstellungen.export.zuruecksetzenText2')}</p>`,
+        confirmText: t('einstellungen.export.zuruecksetzenKnopf'),
+        cancelText: t('allgemein.knoepfe.abbrechen')
       });
       confirmed = res?.submit ?? res === true;
     } catch {
@@ -1138,11 +1144,14 @@ function wireSettings(root = $('#settings-body')) {
     }
     if (!confirmed) return;
 
+    const spracheVorher = settings.get('appearance.language', 'auto');
     await settings.resetSettings();
     applyAppearance(settings.get('appearance', {}));
     state.expanded = new Set();
     renderSettings();
-    banner('Auf Standard zurückgesetzt.', 'success');
+    banner(t('einstellungen.export.zurueckgesetzt'), 'success');
+    // Die Sprache geht mit zurück — dann alles neu zeichnen.
+    if (settings.get('appearance.language', 'auto') !== spracheVorher) location.reload();
   });
 }
 

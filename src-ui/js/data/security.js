@@ -10,6 +10,8 @@
  * aktiviert sind. Der Aufrufer prüft das (siehe app.js).
  */
 
+import { t } from '../core/i18n.js';
+
 /* =========================================================
    1. Passwortstärke
    ========================================================= */
@@ -27,7 +29,7 @@ const SEQUENCES = ['abcdefghijklmnopqrstuvwxyz', '01234567890', 'qwertzuiopasdfg
  */
 export function passwordStrength(pw) {
   const hints = [];
-  if (!pw) return { score: 0, entropy: 0, label: 'leer', hints: ['Kein Passwort gesetzt.'] };
+  if (!pw) return { score: 0, entropy: 0, label: t('daten.sicherheit.staerke.leer'), hints: [t('daten.sicherheit.hinweise.keinPasswort')] };
 
   let pool = 0;
   if (/[a-z]/.test(pw)) pool += 26;
@@ -40,38 +42,38 @@ export function passwordStrength(pw) {
   // Abzüge für Muster
   const lower = pw.toLowerCase();
 
-  if (COMMON.has(lower)) { entropy -= 40; hints.push('Steht auf Listen häufiger Passwörter.'); }
+  if (COMMON.has(lower)) { entropy -= 40; hints.push(t('daten.sicherheit.hinweise.haeufig')); }
   for (const w of COMMON) {
     if (w.length >= 5 && lower.includes(w)) {
       // Je mehr des Passworts aus dem bekannten Wort besteht, desto stärker der Abzug.
       const share = w.length / pw.length;
       entropy -= 14 + Math.round(share * 34);
-      hints.push(`Enthält das gängige Wort „${w}“.`);
+      hints.push(t('daten.sicherheit.hinweise.wort', { wort: w }));
       break;
     }
   }
 
-  if (/^(.)\1+$/.test(pw)) { entropy -= 25; hints.push('Besteht nur aus einem wiederholten Zeichen.'); }
-  if (/(.)\1{2,}/.test(pw)) { entropy -= 8; hints.push('Enthält mehrfach wiederholte Zeichen.'); }
+  if (/^(.)\1+$/.test(pw)) { entropy -= 25; hints.push(t('daten.sicherheit.hinweise.einZeichen')); }
+  if (/(.)\1{2,}/.test(pw)) { entropy -= 8; hints.push(t('daten.sicherheit.hinweise.wiederholt')); }
 
   for (const seq of SEQUENCES) {
     for (let i = 0; i + 4 <= seq.length; i++) {
       const part = seq.slice(i, i + 4);
       if (lower.includes(part) || lower.includes([...part].reverse().join(''))) {
         entropy -= 12;
-        hints.push('Enthält eine Tastatur- oder Alphabet-Reihenfolge.');
+        hints.push(t('daten.sicherheit.hinweise.reihenfolge'));
         i = seq.length;
         break;
       }
     }
   }
 
-  if (/^\d+$/.test(pw)) { entropy -= 12; hints.push('Besteht nur aus Ziffern.'); }
-  if (/^(19|20)\d{2}$/.test(pw)) { entropy -= 10; hints.push('Sieht aus wie eine Jahreszahl.'); }
+  if (/^\d+$/.test(pw)) { entropy -= 12; hints.push(t('daten.sicherheit.hinweise.ziffern')); }
+  if (/^(19|20)\d{2}$/.test(pw)) { entropy -= 10; hints.push(t('daten.sicherheit.hinweise.jahr')); }
 
-  if (pw.length < 8) hints.push('Kürzer als 8 Zeichen.');
-  if (!/[A-Z]/.test(pw)) hints.push('Keine Großbuchstaben.');
-  if (!/[^a-zA-Z0-9]/.test(pw)) hints.push('Keine Sonderzeichen.');
+  if (pw.length < 8) hints.push(t('daten.sicherheit.hinweise.kurz'));
+  if (!/[A-Z]/.test(pw)) hints.push(t('daten.sicherheit.hinweise.keineGross'));
+  if (!/[^a-zA-Z0-9]/.test(pw)) hints.push(t('daten.sicherheit.hinweise.keineSonder'));
 
   entropy = Math.max(0, entropy);
 
@@ -82,7 +84,7 @@ export function passwordStrength(pw) {
   else if (entropy < 80) score = 3;
   else score = 4;
 
-  const labels = ['sehr schwach', 'schwach', 'mittel', 'stark', 'sehr stark'];
+  const labels = [t('daten.sicherheit.staerke.schwach0'), t('daten.sicherheit.staerke.schwach1'), t('daten.sicherheit.staerke.mittel'), t('daten.sicherheit.staerke.stark'), t('daten.sicherheit.staerke.sehrStark')];
   return { score, entropy: Math.round(entropy), label: labels[score], hints: [...new Set(hints)] };
 }
 
@@ -181,7 +183,7 @@ export async function checkEmailBreached(email) {
       mailCache.set(email, clean);
       return clean;
     }
-    if (res.status === 429) throw new Error('Dienst überlastet, bitte später erneut prüfen');
+    if (res.status === 429) throw new Error(t('daten.sicherheit.fehler.ueberlastet'));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();

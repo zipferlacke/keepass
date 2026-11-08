@@ -22,6 +22,7 @@ import { zeichne, refreshFromVault, nachStrukturaenderung } from '../core/render
 import { renderEntryTable, runRowAction } from './entries.js';
 import { openEntryDialog } from '../dialogs/entry.js';
 import { invoke } from '../core/platform.js';
+import { t, gebiet } from '../core/i18n.js';
 
 /* =========================================================
    Sicherheitscheck
@@ -41,12 +42,12 @@ export function renderSecurity() {
   const mailCount = state.emailFindings.reduce((a, f) => a + openBreaches(f).length, 0);
 
   const stats = [
-    { key: 'leaked', num: pwCheck ? leaked.length : '–', label: 'geleakte Passwörter', tone: leaked.length ? 'bad' : 'ok' },
-    { key: 'weak', num: weak.length, label: 'schwache Passwörter', tone: weak.length ? 'warn' : 'ok' },
-    { key: 'reused', num: reused.length, label: 'mehrfach genutzt', tone: reused.length ? 'warn' : 'ok' },
-    { key: 'expiring', num: expiring.length, label: 'abgelaufen / bald fällig', tone: expiring.length ? 'warn' : 'ok' },
-    { key: 'mail', num: mailCheck ? mailCount : '–', label: 'E-Mail-Leaks', tone: mailCount ? 'bad' : 'ok' },
-    { key: 'inactive', num: inactive.length, label: 'lange nicht genutzt', tone: inactive.length ? 'warn' : 'ok' }
+    { key: 'leaked', num: pwCheck ? leaked.length : '–', label: t('sicherheit.statistik.leaked'), tone: leaked.length ? 'bad' : 'ok' },
+    { key: 'weak', num: weak.length, label: t('sicherheit.statistik.weak'), tone: weak.length ? 'warn' : 'ok' },
+    { key: 'reused', num: reused.length, label: t('sicherheit.statistik.reused'), tone: reused.length ? 'warn' : 'ok' },
+    { key: 'expiring', num: expiring.length, label: t('sicherheit.statistik.expiring'), tone: expiring.length ? 'warn' : 'ok' },
+    { key: 'mail', num: mailCheck ? mailCount : '–', label: t('sicherheit.statistik.mail'), tone: mailCount ? 'bad' : 'ok' },
+    { key: 'inactive', num: inactive.length, label: t('sicherheit.statistik.inactive'), tone: inactive.length ? 'warn' : 'ok' }
   ];
 
   const last = settings.get('checks.lastRunAt', null);
@@ -55,10 +56,10 @@ export function renderSecurity() {
     secSection(id, title, items.length, `<div class="findings-table" data-list="${id}"></div>`);
 
   const groups = [
-    pwCheck ? { id: 'leaked', title: 'Geleakte Passwörter', items: leaked, empty: 'Keine Treffer' } : null,
-    { id: 'weak', title: 'Schwache Passwörter', items: weak, empty: 'Alle Passwörter ausreichend stark' },
-    { id: 'reused', title: 'Mehrfach genutzte Passwörter', items: reused, empty: 'Keine Mehrfachnutzung' },
-    { id: 'expiring', title: 'Ablaufdaten', items: expiring, empty: 'Kein Passwort fällig' }
+    pwCheck ? { id: 'leaked', title: t('sicherheit.gruppen.leaked'), items: leaked } : null,
+    { id: 'weak', title: t('sicherheit.gruppen.weak'), items: weak },
+    { id: 'reused', title: t('sicherheit.gruppen.reused'), items: reused },
+    { id: 'expiring', title: t('sicherheit.gruppen.expiring'), items: expiring }
   ].filter(Boolean);
 
   $('#security-body').innerHTML = `
@@ -76,9 +77,9 @@ export function renderSecurity() {
             ${state.checkRunning
               ? '<span class="busy-dots" data-inline aria-hidden="true"><i></i><i></i><i></i></span>'
               : '<span class="msr">shield_lock</span>'}
-            ${state.checkRunning ? 'Prüfe …' : 'Jetzt prüfen'}
+            ${state.checkRunning ? t('sicherheit.pruefung.laeuft') : t('sicherheit.pruefung.jetzt')}
           </button>
-          <p class="security-last">${last ? `Zuletzt: ${new Date(last).toLocaleString('de-DE')}` : 'Noch nicht geprüft'}</p>
+          <p class="security-last">${last ? t('sicherheit.pruefung.zuletzt', { zeit: new Date(last).toLocaleString(gebiet()) }) : t('sicherheit.pruefung.nochNicht')}</p>
         </div>
       </aside>
 
@@ -125,7 +126,7 @@ export function renderSecurity() {
       await vault.markAccessed([btn.dataset.stillUsed], true);
       await refreshFromVault();
       renderSecurity();
-      banner('Vermerkt — der Eintrag gilt wieder als genutzt.', 'success', 3000);
+      banner(t('sicherheit.inaktiv.vermerkt'), 'success', 3000);
     } catch (err) {
       btn.disabled = false;
       banner(err.message, 'error', 6000);
@@ -148,7 +149,7 @@ function secSection(id, title, count, body) {
         <span class="sec-title">${title}</span>
         ${count
           ? `<span class="sec-count">${count}</span>`
-          : `<small class="sec-ok"><span class="msr">check_circle</span>Keine Treffer – nichts zu tun</small>`}
+          : `<small class="sec-ok"><span class="msr">check_circle</span>${t('sicherheit.keineTreffer')}</small>`}
       </summary>
       ${count ? `<div class="sec-body">${body}</div>` : ''}
     </details>`;
@@ -172,16 +173,22 @@ function openBreaches(f) {
   return f.breaches.filter(b => !done.includes(b.name));
 }
 
-/** Was die Leck-Datenbank auf Englisch meldet, auf Deutsch. */
+/** Was die Leck-Datenbank auf Englisch meldet → Schlüssel des übersetzten Namens. */
 const LEAK_DATA = {
-  'Email addresses': 'E-Mail-Adresse', 'Passwords': 'Passwort', 'Usernames': 'Benutzername',
-  'Names': 'Name', 'Phone numbers': 'Telefonnummer', 'Physical addresses': 'Postanschrift',
-  'Dates of birth': 'Geburtsdatum', 'IP addresses': 'IP-Adresse', 'Genders': 'Geschlecht',
-  'Geographic locations': 'Wohnort', 'Credit cards': 'Kreditkarte', 'Partial credit card data': 'Teile der Kreditkarte',
-  'Bank account numbers': 'Kontonummer', 'Security questions and answers': 'Sicherheitsfragen',
-  'Auth Tokens': 'Anmelde-Token', 'Social media profiles': 'Social-Media-Profil', 'Private Messages': 'Private Nachrichten',
-  'Browser user agent details': 'Browserdaten', 'Purchases': 'Einkäufe', 'Job titles': 'Beruf', 'Employers': 'Arbeitgeber'
+  'Email addresses': 'email', 'Passwords': 'passwort', 'Usernames': 'benutzername',
+  'Names': 'name', 'Phone numbers': 'telefon', 'Physical addresses': 'postanschrift',
+  'Dates of birth': 'geburtsdatum', 'IP addresses': 'ip', 'Genders': 'geschlecht',
+  'Geographic locations': 'wohnort', 'Credit cards': 'kreditkarte', 'Partial credit card data': 'kreditkarteTeil',
+  'Bank account numbers': 'kontonummer', 'Security questions and answers': 'sicherheitsfragen',
+  'Auth Tokens': 'token', 'Social media profiles': 'socialMedia', 'Private Messages': 'nachrichten',
+  'Browser user agent details': 'browser', 'Purchases': 'einkaeufe', 'Job titles': 'beruf', 'Employers': 'arbeitgeber'
 };
+
+/** Der Name einer abgeflossenen Datenart; Unbekanntes bleibt, wie es gemeldet wurde. */
+function leckDatenName(d) {
+  // i18n: sicherheit.leckDaten.email sicherheit.leckDaten.passwort sicherheit.leckDaten.benutzername sicherheit.leckDaten.name sicherheit.leckDaten.telefon sicherheit.leckDaten.postanschrift sicherheit.leckDaten.geburtsdatum sicherheit.leckDaten.ip sicherheit.leckDaten.geschlecht sicherheit.leckDaten.wohnort sicherheit.leckDaten.kreditkarte sicherheit.leckDaten.kreditkarteTeil sicherheit.leckDaten.kontonummer sicherheit.leckDaten.sicherheitsfragen sicherheit.leckDaten.token sicherheit.leckDaten.socialMedia sicherheit.leckDaten.nachrichten sicherheit.leckDaten.browser sicherheit.leckDaten.einkaeufe sicherheit.leckDaten.beruf sicherheit.leckDaten.arbeitgeber
+  return LEAK_DATA[d] ? t(`sicherheit.leckDaten.${LEAK_DATA[d]}`) : d;
+}
 
 /** Einträge, die zum Dienst eines Lecks gehören — dort ist etwas zu tun. */
 function entriesForBreach(b) {
@@ -207,57 +214,55 @@ function renderMailFindings() {
   const done = state.emailFindings.filter(f => f.breaches.length && !openBreaches(f).length);
 
   const breachRow = b => {
-    const data = (b.data ?? []).map(d => LEAK_DATA[d] ?? d);
+    const data = (b.data ?? []).map(leckDatenName);
     const pw = (b.data ?? []).includes('Passwords');
     const plain = ['plaintext', 'easytocrack'].includes(b.passwordRisk);
     const entries = entriesForBreach(b);
     const todo = [];
     if (pw) todo.push(plain
-      ? '<strong>Passwort sofort ändern</strong> — es war im Klartext oder leicht zu knacken gespeichert.'
-      : 'Passwort ändern — es lag verschlüsselt vor, sicher ist das aber nicht.');
-    if (pw && entries.some(e => state.reused.has(e.id))) todo.push('Dasselbe Passwort nutzt du noch woanders — dort ebenfalls ändern.');
-    if ((b.data ?? []).some(d => /Phone/.test(d))) todo.push('Mit SMS- und Anruf-Betrug im Namen dieses Dienstes rechnen.');
-    if ((b.data ?? []).some(d => /Physical|Dates of birth/.test(d))) todo.push('Anschrift oder Geburtsdatum sind bekannt — bei Rückfragen „zur Bestätigung" skeptisch sein.');
-    if ((b.data ?? []).some(d => /credit|Bank/i.test(d))) todo.push('Kontoauszüge und Kreditkarte auf fremde Buchungen prüfen.');
-    if (!pw && !todo.length) todo.push('Kein Passwort betroffen. Wichtig ist hier vor allem: Mails im Namen dieses Dienstes kritisch lesen.');
+      ? t('sicherheit.mail.rat.passwortSofort')
+      : t('sicherheit.mail.rat.passwort'));
+    if (pw && entries.some(e => state.reused.has(e.id))) todo.push(t('sicherheit.mail.rat.mehrfach'));
+    if ((b.data ?? []).some(d => /Phone/.test(d))) todo.push(t('sicherheit.mail.rat.telefon'));
+    if ((b.data ?? []).some(d => /Physical|Dates of birth/.test(d))) todo.push(t('sicherheit.mail.rat.anschrift'));
+    if ((b.data ?? []).some(d => /credit|Bank/i.test(d))) todo.push(t('sicherheit.mail.rat.konto'));
+    if (!pw && !todo.length) todo.push(t('sicherheit.mail.rat.keinPasswort'));
 
     return `<div class="breach">
       <div class="breach-head"><span>${esc(b.name)}</span><span class="breach-meta">${esc(b.year || '')}</span></div>
-      ${data.length ? `<div class="breach-meta">Abgeflossen: ${esc(data.join(', '))}</div>` : ''}
+      ${data.length ? `<div class="breach-meta">${t('sicherheit.mail.abgeflossen', { daten: esc(data.join(', ')) })}</div>` : ''}
       <ul class="finding-advice">${todo.map(t => `<li>${t}</li>`).join('')}</ul>
       ${entries.length ? `<div class="finding-actions">${entries.map(e =>
-        `<button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;${esc(e.name)} öffnen</button>`).join('')}</div>` : ''}
+        `<button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;${t('sicherheit.mail.oeffnen', { name: esc(e.name) })}</button>`).join('')}</div>` : ''}
     </div>`;
   };
 
   const count = affected.reduce((n, f) => n + openBreaches(f).length, 0);
-  return secSection('mail', 'E-Mail-Datenlecks', count, `
+  return secSection('mail', t('sicherheit.mail.titel'), count, `
       <details class="finding" data-tone="info">
-        <summary class="finding-title"><span class="msr">help</span>Was bedeutet ein Treffer — und was ist zu tun?</summary>
+        <summary class="finding-title"><span class="msr">help</span>${t('sicherheit.mail.hilfe.frage')}</summary>
         <div class="finding-advice">
-          Deine Adresse stand in Daten, die bei einem Dienst gestohlen und veröffentlicht wurden. Das heißt nicht, dass jemand
-          in deinem Postfach war. Die Adresse lässt sich nicht zurückholen — das musst du auch nicht. Entscheidend ist, <em>was</em>
-          zusammen mit ihr abgeflossen ist; danach richtet sich unten der Rat zu jedem einzelnen Leck.
+          ${t('sicherheit.mail.hilfe.einleitung')}
           <ol>
-            <li>Beim betroffenen Dienst das Passwort ändern — und überall dort, wo du dasselbe benutzt.</li>
-            <li>Wo möglich die Zwei-Faktor-Anmeldung einschalten. WKeePass kann die Codes gleich mit verwalten.</li>
-            <li>Mit Phishing rechnen: Angreifer schreiben gezielt an geleakte Adressen, gern im Namen genau dieses Dienstes.</li>
-            <li>Konten, die du nicht mehr brauchst, beim Dienst löschen — ein vergessenes Konto ist ein offenes Konto.</li>
-            <li>Für neue Anmeldungen Alias-Adressen nutzen, wenn dein Mail-Anbieter das kann. Dann trifft ein Leck nur noch eine davon.</li>
+            <li>${t('sicherheit.mail.hilfe.schritt1')}</li>
+            <li>${t('sicherheit.mail.hilfe.schritt2')}</li>
+            <li>${t('sicherheit.mail.hilfe.schritt3')}</li>
+            <li>${t('sicherheit.mail.hilfe.schritt4')}</li>
+            <li>${t('sicherheit.mail.hilfe.schritt5')}</li>
           </ol>
-          Hast du alles erledigt, hake die Adresse ab. Neue Lecks meldet die nächste Prüfung wieder.
+          ${t('sicherheit.mail.hilfe.abschluss')}
         </div>
       </details>
       ${affected.map(f => `
         <div class="finding" data-tone="bad">
           <div class="finding-title"><span class="msr">mail</span>${esc(f.email)}
-            <small>&nbsp;· ${openBreaches(f).length === 1 ? 'ein Leck' : `${openBreaches(f).length} Lecks`}</small></div>
+            <small>&nbsp;· ${t('sicherheit.mail.lecks', { n: openBreaches(f).length })}</small></div>
           <div class="breach-list">${openBreaches(f).map(breachRow).join('')}</div>
           <div class="finding-actions">
-            <button type="button" class="button" data-ack="${esc(f.email)}"><span class="msr">task_alt</span>&nbsp;Erledigt</button>
+            <button type="button" class="button" data-ack="${esc(f.email)}"><span class="msr">task_alt</span>&nbsp;${t('sicherheit.mail.erledigt')}</button>
           </div>
         </div>`).join('')}
-    ${done.length ? `<p class="security-last">Erledigt: ${done.map(f => esc(f.email)).join(', ')}</p>` : ''}`);
+    ${done.length ? `<p class="security-last">${t('sicherheit.mail.erledigtListe', { adressen: done.map(f => esc(f.email)).join(', ') })}</p>` : ''}`);
 }
 
 /* ---------- Inaktive Einträge ---------- */
@@ -273,12 +278,10 @@ function inactiveEntries(live) {
 }
 
 /** Wie mühsam das Löschen laut JustDeleteMe ist. */
-const LOESCH_AUFWAND = {
-  easy: 'geht direkt auf der Seite',
-  medium: 'ein paar Schritte mehr',
-  hard: 'nur über den Support',
-  impossible: 'bietet keine Löschung an'
-};
+function loeschAufwand(difficulty) {
+  // i18n: sicherheit.inaktiv.aufwand.easy sicherheit.inaktiv.aufwand.medium sicherheit.inaktiv.aufwand.hard sicherheit.inaktiv.aufwand.impossible
+  return ['easy', 'medium', 'hard', 'impossible'].includes(difficulty) ? t(`sicherheit.inaktiv.aufwand.${difficulty}`) : '';
+}
 
 /**
  * Zugänge, die seit über zwei Jahren niemand angefasst hat. Entweder
@@ -290,24 +293,23 @@ const LOESCH_AUFWAND = {
  * zurück, fragt die App, ob auch der Eintrag weg soll.
  */
 function renderInactive(items) {
-  const when = e => new Date(lastUsed(e)).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const when = e => new Date(lastUsed(e)).toLocaleDateString(gebiet(), { month: 'long', year: 'numeric' });
   const host = url => { try { return new URL(url.includes('://') ? url : `https://${url}`).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
   // Die Löschliste kommt aus dem Netz; beim ersten Zeichnen ist sie noch
   // nicht da. Dann nachladen und die Seite einmal neu zeichnen.
-  if (items.length && !state.deletionIndex) {
+  const loeschlinks = settings.get('checks.deletionLinks', false);
+  if (loeschlinks && items.length && !state.deletionIndex) {
     accountDeletionIndex().then(index => {
       state.deletionIndex = index;
       if (state.view === 'security') renderSecurity();
     });
   }
 
-  return secSection('inactive', 'Lange nicht genutzt', items.length, `
-      <p class="section-note">Diese Zugänge hast du seit über zwei Jahren nicht benutzt. Brauchst du einen nicht mehr, lösche zuerst
-        das Konto beim Dienst und dann den Eintrag — ein vergessenes Konto mit altem Passwort ist ein beliebtes Ziel.
-        Wird er noch gebraucht, genügt „Noch in Gebrauch".</p>
+  return secSection('inactive', t('sicherheit.inaktiv.titel'), items.length, `
+      <p class="section-note">${t('sicherheit.inaktiv.hinweis')}</p>
       ${items.map(e => {
-        const del = findDeletion(state.deletionIndex, e.url);
+        const del = loeschlinks ? findDeletion(state.deletionIndex, e.url) : null;
         const site = host(e.url || '');
         return `
         <div class="finding inactive-item" data-tone="warn">
@@ -318,14 +320,14 @@ function renderInactive(items) {
               ${site ? `<span><span class="msr">link</span>${esc(site)}</span>` : ''}
             </div>
           </div>
-          <div class="finding-text">Zuletzt genutzt: ${esc(when(e))}${del ? ` · Konto löschen ${esc(LOESCH_AUFWAND[del.difficulty] ?? '')}` : ''}</div>
+          <div class="finding-text">${t('sicherheit.inaktiv.zuletzt', { monat: esc(when(e)) })}${del ? ` · ${t('sicherheit.inaktiv.kontoLoeschen', { dienst: esc(del.name), aufwand: esc(loeschAufwand(del.difficulty)) })}` : ''}</div>
           <div class="finding-actions">
-            <button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;Öffnen</button>
-            <button type="button" class="button" data-still-used="${e.id}"><span class="msr">check</span>&nbsp;Noch in Gebrauch</button>
+            <button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;${t('sicherheit.inaktiv.oeffnen')}</button>
+            <button type="button" class="button" data-still-used="${e.id}"><span class="msr">check</span>&nbsp;${t('sicherheit.inaktiv.nochInGebrauch')}</button>
             ${del && del.difficulty !== 'impossible'
-              ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(del.url)}"><span class="msr">person_remove</span>&nbsp;Konto löschen</button>`
-              : site ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(e.url.includes('://') ? e.url : `https://${e.url}`)}"><span class="msr">open_in_new</span>&nbsp;Zur Seite</button>` : ''}
-            <button type="button" class="button" data-remove="${e.id}"><span class="msr">delete</span>&nbsp;Eintrag löschen</button>
+              ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(del.url)}" title="${esc(t('sicherheit.inaktiv.kontoLoeschenTitel', { dienst: del.name }))}"><span class="msr">open_in_new</span>&nbsp;${t('sicherheit.inaktiv.kontoLoeschenKnopf')}</button>`
+              : site ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(e.url.includes('://') ? e.url : `https://${e.url}`)}" title="${esc(t('sicherheit.inaktiv.zurSeiteTitel', { seite: site }))}"><span class="msr">open_in_new</span>&nbsp;${t('sicherheit.inaktiv.zurSeite')}</button>` : ''}
+            <button type="button" class="button" data-remove="${e.id}"><span class="msr">delete</span>&nbsp;${t('sicherheit.inaktiv.eintragLoeschen')}</button>
           </div>
         </div>`;
       }).join('')}`);
@@ -356,15 +358,15 @@ async function deleteAccountFlow(id, url) {
   });
 
   const res = await dialog({
-    title: 'Konto gelöscht?',
-    content: `<p>Hast du das Konto bei <strong>${esc(entry.name)}</strong> gelöscht? Dann kann auch der Eintrag weg.</p>
-      <p class="dlg-note">Er landet im Papierkorb der Datenbank, falls du ihn doch noch brauchst.</p>`,
-    confirmText: 'Eintrag löschen',
-    cancelText: 'Noch nicht'
+    title: t('sicherheit.kontoFrage.titel'),
+    content: `<p>${t('sicherheit.kontoFrage.text', { name: `<strong>${esc(entry.name)}</strong>` })}</p>
+      <p class="dlg-note">${t('sicherheit.kontoFrage.papierkorb')}</p>`,
+    confirmText: t('sicherheit.kontoFrage.loeschen'),
+    cancelText: t('sicherheit.kontoFrage.nochNicht')
   });
   if (!(res?.submit ?? res)) return;
   await vault.deleteEntry(id);
-  return nachStrukturaenderung('Konto erledigt — Eintrag gelöscht.');
+  return nachStrukturaenderung(t('sicherheit.kontoFrage.erledigt'));
 }
 
 /**
@@ -430,7 +432,7 @@ export async function runSecurityCheck({ silent = false } = {}) {
     // Der Kern liefert nur Hashes; nach außen geht davon bloß das Präfix.
     for (const target of await vault.hashTargets()) {
       const r = await checkPwnedByHash(target);
-      if (r.error) errors.push(`Passwort-Check: ${r.error}`);
+      if (r.error) errors.push(t('sicherheit.fehler.passwort', { fehler: r.error }));
       state.pwned.set(target.id, r);
     }
   } else state.pwned.clear();
@@ -449,7 +451,7 @@ export async function runSecurityCheck({ silent = false } = {}) {
     for (const mail of addresses) {
       const r = await checkEmailBreached(mail);
       if (r.error) {
-        errors.push(`E-Mail-Check: ${r.error}`);
+        errors.push(t('sicherheit.fehler.email', { fehler: r.error }));
         // Dienst gerade nicht erreichbar: den letzten Stand behalten, statt
         // die Adresse plötzlich als sauber zu zeigen.
         if (previous.has(mail)) { state.emailFindings.push(previous.get(mail)); continue; }
@@ -474,9 +476,9 @@ export async function runSecurityCheck({ silent = false } = {}) {
     const pw = fresh.filter(k => k.startsWith('pw:')).length;
     const mail = fresh.length - pw;
     if (fresh.length) {
-      notify('WKeePass: neue Funde im Sicherheitscheck', [
-        pw ? `${pw} ${pw === 1 ? 'Passwort steht' : 'Passwörter stehen'} neu in einem Leak.` : '',
-        mail ? `${mail} ${mail === 1 ? 'neues Datenleck' : 'neue Datenlecks'} bei deinen E-Mail-Adressen.` : ''
+      notify(t('sicherheit.benachrichtigung.titel'), [
+        pw ? t('sicherheit.benachrichtigung.passwoerter', { n: pw }) : '',
+        mail ? t('sicherheit.benachrichtigung.lecks', { n: mail }) : ''
       ].filter(Boolean).join(' '));
     }
   }
@@ -485,10 +487,10 @@ export async function runSecurityCheck({ silent = false } = {}) {
   zeichne('einträge');
 
   if (!silent) {
-    if (errors.length) banner(`Prüfung teilweise fehlgeschlagen: ${[...new Set(errors)][0]}`, 'warning', 6000);
+    if (errors.length) banner(t('sicherheit.ergebnis.teilweise', { fehler: [...new Set(errors)][0] }), 'warning', 6000);
     else {
       const n = countProblems();
-      banner(n ? `${n} Funde in der Prüfung.` : 'Keine Probleme gefunden.', n ? 'warning' : 'success');
+      banner(n ? t('sicherheit.ergebnis.funde', { n }) : t('sicherheit.ergebnis.keine'), n ? 'warning' : 'success');
     }
   }
 }

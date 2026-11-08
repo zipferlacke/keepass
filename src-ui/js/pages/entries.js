@@ -21,7 +21,7 @@ import { dialog, banner, closeHostDialog, tableview, selectPicker } from '../ui/
 import { copyPlain, scheduleClipboardClear } from '../ui/clipboard.js';
 import { avatarMarkup, hostFromUrl } from '../core/icons.js';
 import { isTauri, isMobile, invoke } from '../core/platform.js';
-import { state, $, $$, esc, SECRET_MASK, VIEW_TITLES } from '../core/state.js';
+import { state, $, $$, esc, SECRET_MASK, viewTitle } from '../core/state.js';
 import { liveEntries, visibleEntries, expiryState, byId, hasFiles, isFileEntry,
          markUsed, formatDate } from '../core/entries.js';
 import { seite, zeichne, renderAll, refreshFromVault, nachStrukturaenderung } from '../core/render.js';
@@ -30,6 +30,7 @@ import { openEntryDialog, openAttachmentViewer } from '../dialogs/entry.js';
 import { openFolderDialog } from '../dialogs/folder.js';
 import { tickTotp } from './totp.js';
 import { captureFields } from '../ui/formular.js';
+import { t, gebiet, zahl } from '../core/i18n.js';
 
 /* ---------- Eintrags-Zeile ---------- */
 export function wireEntryRows(root, { select = true } = {}) {
@@ -68,7 +69,7 @@ export function wireEntryRows(root, { select = true } = {}) {
   root.querySelectorAll('[data-copy-user]').forEach(el =>
     el.addEventListener('click', () => {
       markUsed(el.dataset.copyUser);
-      copyPlain(byId(el.dataset.copyUser).username, 'Benutzername kopiert');
+      copyPlain(byId(el.dataset.copyUser).username, t('eintraege.kopiert.benutzername'));
     }));
 
   // Passwort und TOTP wandern direkt aus dem Kern in die Zwischenablage —
@@ -77,7 +78,7 @@ export function wireEntryRows(root, { select = true } = {}) {
     el.addEventListener('click', async () => {
       markUsed(el.dataset.copyPw);
       const ok = await vault.copySecret(byId(el.dataset.copyPw).passwordToken);
-      banner(ok ? 'Passwort kopiert' : 'Kopieren nicht möglich.', ok ? 'success' : 'error', 1800);
+      banner(ok ? t('eintraege.kopiert.passwort') : t('ui.zwischenablage.fehler'), ok ? 'success' : 'error', 1800);
       if (ok) scheduleClipboardClear();
     }));
 
@@ -85,7 +86,7 @@ export function wireEntryRows(root, { select = true } = {}) {
     el.addEventListener('click', async () => {
       const code = state.codes.get(el.dataset.totp)?.code;
       if (code) markUsed(el.dataset.totp);
-      if (code) copyPlain(code, 'TOTP kopiert');
+      if (code) copyPlain(code, t('eintraege.kopiert.totp'));
     }));
 }
 
@@ -118,30 +119,30 @@ export function showContextMenu(x, y, { entryId = null, folderPath = null } = {}
   if (inBin) {
     if (entry) {
       items.push(
-        { action: 'restore', icon: 'restore_from_trash', label: 'Wiederherstellen' },
+        { action: 'restore', icon: 'restore_from_trash', label: t('eintraege.menue.wiederherstellen') },
         { sep: true },
-        { action: 'purge', icon: 'delete_forever', label: 'Endgültig löschen', danger: true }
+        { action: 'purge', icon: 'delete_forever', label: t('eintraege.menue.endgueltigLoeschen'), danger: true }
       );
     } else {
-      items.push({ action: 'empty-bin', icon: 'delete_forever', label: 'Papierkorb leeren', danger: true });
+      items.push({ action: 'empty-bin', icon: 'delete_forever', label: t('eintraege.menue.papierkorbLeeren'), danger: true });
     }
     return renderContextMenu(items, x, y, { entryId, folderPath, folder });
   }
 
   if (folderPath !== null) {
-    items.push({ action: 'folder-edit', icon: 'drive_file_rename_outline', label: 'Ordner bearbeiten' });
+    items.push({ action: 'folder-edit', icon: 'drive_file_rename_outline', label: t('eintraege.menue.ordnerBearbeiten') });
   }
 
   if (entry) {
     items.push(
-      { action: 'edit', icon: 'edit', label: 'Eintrag bearbeiten' },
-      { action: 'copy-user', icon: 'person', label: 'Benutzername kopieren', disabled: !entry.username },
-      { action: 'copy-pw', icon: 'key', label: 'Passwort kopieren', disabled: !entry.hasPassword },
-      { action: 'copy-totp', icon: 'timer', label: 'TOTP kopieren', disabled: !entry.hasTotp },
+      { action: 'edit', icon: 'edit', label: t('eintraege.menue.eintragBearbeiten') },
+      { action: 'copy-user', icon: 'person', label: t('eintraege.menue.benutzernameKopieren'), disabled: !entry.username },
+      { action: 'copy-pw', icon: 'key', label: t('eintraege.menue.passwortKopieren'), disabled: !entry.hasPassword },
+      { action: 'copy-totp', icon: 'timer', label: t('eintraege.menue.totpKopieren'), disabled: !entry.hasTotp },
       { sep: true },
-      { action: 'cut', icon: 'content_cut', label: 'Ausschneiden' },
-      { action: 'refresh-icon', icon: 'image', label: 'Icon neu laden', disabled: !hostFromUrl(entry.url) },
-      { action: 'refresh-title', icon: 'title', label: 'Namen von der Website übernehmen', disabled: !hostFromUrl(entry.url) },
+      { action: 'cut', icon: 'content_cut', label: t('eintraege.menue.ausschneiden') },
+      { action: 'refresh-icon', icon: 'image', label: t('eintraege.menue.iconNeuLaden'), disabled: !hostFromUrl(entry.url) },
+      { action: 'refresh-title', icon: 'title', label: t('eintraege.menue.namenUebernehmen'), disabled: !hostFromUrl(entry.url) },
       { sep: true }
     );
   }
@@ -149,18 +150,18 @@ export function showContextMenu(x, y, { entryId = null, folderPath = null } = {}
   // Liegt etwas ausgeschnitten bereit, lässt es sich hier ablegen.
   if (state.cut.length && folder) {
     items.push({ action: 'paste', icon: 'content_paste',
-      label: state.cut.length === 1 ? 'Einfügen' : `Einfügen (${state.cut.length})` });
+      label: state.cut.length === 1 ? t('eintraege.menue.einfuegen') : t('eintraege.menue.einfuegenAnzahl', { n: state.cut.length }) });
     if (!entry) items.push({ sep: true });
   }
 
   // Immer verfügbar
   items.push(
-    { action: 'new-entry', icon: 'edit_note', label: 'Neuer Eintrag' },
-    { action: 'new-folder', icon: 'create_new_folder', label: folderPath !== null ? 'Neuer Unterordner' : 'Neuer Ordner' }
+    { action: 'new-entry', icon: 'edit_note', label: t('eintraege.menue.neuerEintrag') },
+    { action: 'new-folder', icon: 'create_new_folder', label: folderPath !== null ? t('eintraege.menue.neuerUnterordner') : t('eintraege.menue.neuerOrdner') }
   );
 
-  if (entry) items.push({ sep: true }, { action: 'delete', icon: 'delete', label: 'Eintrag löschen', danger: true });
-  else if (folderPath) items.push({ sep: true }, { action: 'folder-delete', icon: 'folder_delete', label: 'Ordner löschen', danger: true });
+  if (entry) items.push({ sep: true }, { action: 'delete', icon: 'delete', label: t('eintraege.menue.eintragLoeschen'), danger: true });
+  else if (folderPath) items.push({ sep: true }, { action: 'folder-delete', icon: 'folder_delete', label: t('eintraege.menue.ordnerLoeschen'), danger: true });
 
   return renderContextMenu(items, x, y, { entryId, folderPath, folder });
 }
@@ -211,7 +212,7 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
       await vault.commit();
       await refreshFromVault();
       renderAll({ ohne: ['einstellungen'] });
-      banner('Wiederhergestellt.', 'success');
+      banner(t('eintraege.menue.wiederhergestellt'), 'success');
       return;
     }
 
@@ -221,7 +222,7 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
       await vault.commit();
       await refreshFromVault();
       renderAll({ ohne: ['einstellungen'] });
-      banner('Endgültig gelöscht.', 'success');
+      banner(t('eintraege.menue.endgueltigGeloescht'), 'success');
       return;
     }
 
@@ -240,15 +241,15 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
 
     case 'folder-delete': {
       const res = await dialog({
-        title: 'Ordner löschen',
-        content: `„${esc(folderPath)}" wird entfernt. Ordner mit Einträgen lassen sich nicht löschen.`,
-        confirmText: 'Löschen',
-        cancelText: 'Abbrechen'
+        title: t('eintraege.ordnerLoeschen.titel'),
+        content: t('eintraege.ordnerLoeschen.text', { name: esc(folderPath) }),
+        confirmText: t('eintraege.loeschen'),
+        cancelText: t('allgemein.knoepfe.abbrechen')
       });
       if (!(res?.submit ?? res)) return;
       const ok = await vault.removeFolder(folderPath);
-      if (!ok) return banner('Der Ordner ist nicht leer.', 'warning');
-      return nachStrukturaenderung('Ordner gelöscht.');
+      if (!ok) return banner(t('eintraege.ordnerLoeschen.nichtLeer'), 'warning');
+      return nachStrukturaenderung(t('eintraege.ordnerLoeschen.geloescht'));
     }
 
     default:
@@ -266,37 +267,37 @@ export async function runRowAction(action, id) {
       return openEntryDialog(id);
 
     case 'copy-user':
-      return copyPlain(entry.username, 'Benutzername kopiert');
+      return copyPlain(entry.username, t('eintraege.kopiert.benutzername'));
 
     case 'copy-pw': {
       const ok = await vault.copySecret(entry.passwordToken);
-      if (ok) { banner('Passwort kopiert', 'success', 1800); scheduleClipboardClear(); }
+      if (ok) { banner(t('eintraege.kopiert.passwort'), 'success', 1800); scheduleClipboardClear(); }
       return;
     }
 
     case 'copy-totp': {
       const code = state.codes.get(id)?.code ?? (await vault.totpFor(entry))?.code;
-      if (code) copyPlain(code, 'TOTP kopiert');
+      if (code) copyPlain(code, t('eintraege.kopiert.totp'));
       return;
     }
 
     case 'refresh-icon':
       await vault.fetchIcons([entry.id], true);
-      return banner('Icon wird neu geladen.', 'info', 2000);
+      return banner(t('eintraege.iconNeuLaden'), 'info', 2000);
 
     case 'refresh-title':
       return adoptTitles([entry]);
 
     case 'delete': {
       const res = await dialog({
-        title: 'Eintrag löschen',
-        content: `„${esc(entry.name)}" wird aus der Datenbank entfernt. Das lässt sich nicht rückgängig machen.`,
-        confirmText: 'Löschen',
-        cancelText: 'Abbrechen'
+        title: t('eintraege.eintragLoeschen.titel'),
+        content: t('eintraege.eintragLoeschen.text', { name: esc(entry.name) }),
+        confirmText: t('eintraege.loeschen'),
+        cancelText: t('allgemein.knoepfe.abbrechen')
       });
       if (!(res?.submit ?? res)) return;
       await vault.deleteEntry(id);
-      return nachStrukturaenderung('Eintrag gelöscht.');
+      return nachStrukturaenderung(t('eintraege.eintragLoeschen.geloescht'));
     }
   }
 }
@@ -317,8 +318,8 @@ export function cutEntries(ids) {
   pick.clearSelection();
   renderPasswords();
   banner(state.cut.length === 1
-    ? `„${byId(state.cut[0]).name}“ ausgeschnitten — im Zielordner einfügen (Strg+V).`
-    : `${state.cut.length} Einträge ausgeschnitten — im Zielordner einfügen (Strg+V).`, 'info', 4000);
+    ? t('eintraege.ausschneiden.eins', { name: byId(state.cut[0]).name })
+    : t('eintraege.ausschneiden.mehrere', { n: state.cut.length }), 'info', 4000);
 }
 
 /** Verwirft das Ausgeschnittene, ohne etwas zu bewegen. */
@@ -331,17 +332,17 @@ export function clearCut() {
 
 /** Legt das Ausgeschnittene in diesen Ordner. */
 export async function pasteInto(folder) {
-  if (!state.cut.length) return banner('Nichts ausgeschnitten.', 'info', 2500);
-  if (!folder || isRecycledFolder(folder)) return banner('Hier lässt sich nichts einfügen.', 'warning');
+  if (!state.cut.length) return banner(t('eintraege.einfuegen.nichts'), 'info', 2500);
+  if (!folder || isRecycledFolder(folder)) return banner(t('eintraege.einfuegen.nichtHier'), 'warning');
 
   const moving = state.cut.filter(id => byId(id) && byId(id).folder !== folder);
   state.cut = [];
-  if (!moving.length) { renderPasswords(); return banner('Liegt schon in diesem Ordner.', 'info', 2500); }
+  if (!moving.length) { renderPasswords(); return banner(t('eintraege.einfuegen.schonDa'), 'info', 2500); }
 
   for (const id of moving) await vault.moveEntry(id, folder);
   return nachStrukturaenderung(moving.length === 1
-    ? `Nach „${folder}“ verschoben.`
-    : `${moving.length} Einträge nach „${folder}“ verschoben.`);
+    ? t('eintraege.einfuegen.verschobenEins', { ordner: folder })
+    : t('eintraege.einfuegen.verschobenMehrere', { n: moving.length, ordner: folder }));
 }
 
 /* =========================================================
@@ -433,12 +434,12 @@ export async function adoptTitles(entries) {
     changed++;
   }
 
-  if (!changed) { banner('Keine Namen geändert.', 'info'); return; }
+  if (!changed) { banner(t('eintraege.titel.keineGeaendert'), 'info'); return; }
 
   await vault.commit();
   await refreshFromVault();
   renderAll({ ohne: ['einstellungen'] });
-  banner(`${changed} Name${changed === 1 ? '' : 'n'} übernommen.`, 'success');
+  banner(t('eintraege.titel.uebernommen', { n: changed }), 'success');
 }
 
 /* ---------- Einträge ---------- */
@@ -459,20 +460,20 @@ const COLUMNS = {
   bin:      ['avatar', 'name', 'user', 'url', 'left', 'actions']
 };
 
-const HEADERS = {
+const headers = () => ({
   avatar:   { label: '', sort: null },
-  name:     { label: 'Name', sort: 't-sort' },
-  user:     { label: 'Benutzer', sort: 't-sort' },
-  url:      { label: 'URL', sort: 't-sort' },
-  folder:   { label: 'Ordner', sort: 't-sort' },
-  safety:   { label: '<span class="msr">lock</span>', sort: 't-sort t-type="num"', icon: true, title: 'Zustand des Passworts' },
-  totp:     { label: '<span class="msr">timer</span>', sort: 't-sort t-type="num"', icon: true, title: 'TOTP hinterlegt' },
-  att:      { label: '<span class="msr">attach_file</span>', sort: 't-sort t-type="num"', icon: true, title: 'Anhang vorhanden' },
-  code:     { label: 'Code', sort: null },
-  modified: { label: 'Geändert', sort: 't-sort="desc" t-type="date"' },
-  left:     { label: 'Endgültig weg', sort: 't-sort="asc" t-type="num"' },
+  name:     { label: t('eintraege.spalten.name'), sort: 't-sort' },
+  user:     { label: t('eintraege.spalten.benutzer'), sort: 't-sort' },
+  url:      { label: t('eintraege.spalten.url'), sort: 't-sort' },
+  folder:   { label: t('eintraege.spalten.ordner'), sort: 't-sort' },
+  safety:   { label: '<span class="msr">lock</span>', sort: 't-sort t-type="num"', icon: true, title: t('eintraege.spalten.zustandPasswort') },
+  totp:     { label: '<span class="msr">timer</span>', sort: 't-sort t-type="num"', icon: true, title: t('eintraege.spalten.totpHinterlegt') },
+  att:      { label: '<span class="msr">attach_file</span>', sort: 't-sort t-type="num"', icon: true, title: t('eintraege.spalten.anhangVorhanden') },
+  code:     { label: t('eintraege.spalten.code'), sort: null },
+  modified: { label: t('eintraege.spalten.geaendert'), sort: 't-sort="desc" t-type="date"' },
+  left:     { label: t('eintraege.spalten.endgueltigWeg'), sort: 't-sort="asc" t-type="num"' },
   actions:  { label: '', sort: null }
-};
+});
 
 /**
  * Bewertet einen Eintrag zu einer Ampel.
@@ -482,51 +483,51 @@ const HEADERS = {
  *   3 grau   kein Passwort hinterlegt
  */
 function safetyOf(entry) {
-  if (!entry.hasPassword) return { level: 'none', sort: 3, title: 'Kein Passwort hinterlegt' };
+  if (!entry.hasPassword) return { level: 'none', sort: 3, title: t('eintraege.ampel.keins') };
 
   const strength = state.strength.get(entry.id);
   const pwned = state.pwned.get(entry.id);
   const exp = expiryState(entry);
 
-  if (pwned?.found) return { level: 'bad', sort: 0, title: `Passwort in ${pwned.count.toLocaleString('de-DE')} Leaks gefunden` };
-  if (strength && strength.score < 2) return { level: 'bad', sort: 0, title: `Passwort ${strength.label}` };
-  if (exp?.kind === 'expired') return { level: 'bad', sort: 0, title: 'Passwort abgelaufen' };
+  if (pwned?.found) return { level: 'bad', sort: 0, title: t('eintraege.ampel.geleakt', { n: zahl(pwned.count) }) };
+  if (strength && strength.score < 2) return { level: 'bad', sort: 0, title: t('eintraege.ampel.staerke', { staerke: strength.label }) };
+  if (exp?.kind === 'expired') return { level: 'bad', sort: 0, title: t('eintraege.ampel.abgelaufen') };
 
-  if (state.reused.has(entry.id)) return { level: 'warn', sort: 1, title: 'Passwort mehrfach genutzt' };
-  if (strength && strength.score === 2) return { level: 'warn', sort: 1, title: `Passwort ${strength.label}` };
-  if (exp?.kind === 'expiring') return { level: 'warn', sort: 1, title: `Passwort läuft in ${exp.days} Tagen ab` };
+  if (state.reused.has(entry.id)) return { level: 'warn', sort: 1, title: t('eintraege.ampel.mehrfach') };
+  if (strength && strength.score === 2) return { level: 'warn', sort: 1, title: t('eintraege.ampel.staerke', { staerke: strength.label }) };
+  if (exp?.kind === 'expiring') return { level: 'warn', sort: 1, title: t('eintraege.ampel.laeuftAb', { n: exp.days }) };
 
-  return { level: 'good', sort: 2, title: strength ? `Passwort ${strength.label}` : 'Unauffällig' };
+  return { level: 'good', sort: 2, title: strength ? t('eintraege.ampel.staerke', { staerke: strength.label }) : t('eintraege.ampel.unauffaellig') };
 }
 
-const KIND_FILTERS = {
-  passkey: { icon: 'passkey', label: 'Nur Passkeys' },
-  files: { icon: 'folder_zip', label: 'Dateien' }
-};
+const kindFilters = () => ({
+  passkey: { icon: 'passkey', label: t('eintraege.artFilter.passkeys') },
+  files: { icon: 'folder_zip', label: t('eintraege.artFilter.dateien') }
+});
 
 function renderLegend() {
-  const filter = KIND_FILTERS[state.kindFilter];
+  const filter = kindFilters()[state.kindFilter];
   // Die Dateiansicht hat keine Passwort-Ampel — nur der Filter zum Aufheben.
   const files = state.kindFilter === 'files';
 
   $('#legend').innerHTML = files ? `
-    <button type="button" class="tag kind-filter" id="kind-filter-clear" aria-pressed="true" title="Zurück zu allen Einträgen">
+    <button type="button" class="tag kind-filter" id="kind-filter-clear" aria-pressed="true" title="${t('eintraege.artFilter.zurueck')}">
       <span class="msr">${filter.icon}</span>${filter.label}<span class="msr">close</span></button>` : `
-    ${filter ? `<button type="button" class="tag kind-filter" id="kind-filter-clear" aria-pressed="true" title="Filter aufheben">
+    ${filter ? `<button type="button" class="tag kind-filter" id="kind-filter-clear" aria-pressed="true" title="${t('eintraege.artFilter.aufheben')}">
       <span class="msr">${filter.icon}</span>${filter.label}<span class="msr">close</span></button>
       <span class="legend-sep"></span>` : ''}
-    Passwort:
-    <span class="msr safety" data-level="good">lock</span>Gut
-    <span class="msr safety" data-level="warn">lock</span>Achtung
-    <span class="msr safety" data-level="bad">lock</span>Problem
-    <span class="msr safety" data-level="none">lock</span>keins
+    ${t('eintraege.legende.passwort')}
+    <span class="msr safety" data-level="good">lock</span>${t('eintraege.legende.gut')}
+    <span class="msr safety" data-level="warn">lock</span>${t('eintraege.legende.achtung')}
+    <span class="msr safety" data-level="bad">lock</span>${t('eintraege.legende.problem')}
+    <span class="msr safety" data-level="none">lock</span>${t('eintraege.legende.keins')}
     <span class="legend-sep"></span>
-    <span class="msr">timer</span>TOTP
-    <span class="msr">attach_file</span>Anhang`;
+    <span class="msr">timer</span>${t('eintraege.legende.totp')}
+    <span class="msr">attach_file</span>${t('eintraege.legende.anhang')}`;
 
   $('#kind-filter-clear')?.addEventListener('click', () => {
     state.kindFilter = null;
-    $('#app-title').textContent = VIEW_TITLES.passwords;
+    $('#app-title').textContent = viewTitle('passwords');
     renderPasswords();
   });
 }
@@ -541,7 +542,7 @@ function cellHtml(col, e, { iconsOn }) {
 
     case 'name':
       return `<td data-col="name"><span class="cell-name">${esc(e.name)}</span>${
-        e.passkey ? '<span class="badge" data-kind="passkey">Passkey</span>' : ''}</td>`;
+        e.passkey ? `<span class="badge" data-kind="passkey">${t('eintraege.zeile.passkey')}</span>` : ''}</td>`;
 
     case 'user':
       return `<td data-col="user">${esc(e.username || '—')}</td>`;
@@ -561,11 +562,11 @@ function cellHtml(col, e, { iconsOn }) {
 
     case 'totp':
       return `<td data-col="totp" data-sort-value="${e.hasTotp ? 1 : 0}">${
-        e.hasTotp ? `<span class="msr marker" title="TOTP hinterlegt">timer</span>` : ''}</td>`;
+        e.hasTotp ? `<span class="msr marker" title="${t('eintraege.spalten.totpHinterlegt')}">timer</span>` : ''}</td>`;
 
     case 'att':
       return `<td data-col="att" data-sort-value="${hasFiles ? 1 : 0}">${
-        hasFiles ? `<span class="msr marker" title="${(e.attachments ?? []).length} Anhang/Anhänge">attach_file</span>` : ''}</td>`;
+        hasFiles ? `<span class="msr marker" title="${t('eintraege.zeile.anhaenge', { n: (e.attachments ?? []).length })}">attach_file</span>` : ''}</td>`;
 
     case 'code':
       return `<td data-col="code">${
@@ -577,17 +578,17 @@ function cellHtml(col, e, { iconsOn }) {
     case 'left': {
       const days = daysLeft(e);
       return `<td data-col="left" data-sort-value="${days}">${
-        days <= 0 ? 'beim nächsten Öffnen' : days === 1 ? 'in 1 Tag' : `in ${days} Tagen`}</td>`;
+        days <= 0 ? t('eintraege.zeile.beimOeffnen') : t('eintraege.zeile.inTagen', { n: days })}</td>`;
     }
 
     case 'actions':
       return `<td data-col="actions">
         <div class="row-actions">
           <button class="button" data-shape="square" data-copy-user="${e.id}"
-                  title="Benutzername kopieren" ${e.username ? '' : 'disabled'}><span class="msr">person</span></button>
+                  title="${t('eintraege.menue.benutzernameKopieren')}" ${e.username ? '' : 'disabled'}><span class="msr">person</span></button>
           <button class="button" data-shape="square" data-copy-pw="${e.id}"
-                  title="Passwort kopieren" ${e.hasPassword ? '' : 'disabled'}><span class="msr">key</span></button>
-          <button class="button" data-shape="square" data-menu="${e.id}" title="Mehr"><span class="msr">more_vert</span></button>
+                  title="${t('eintraege.menue.passwortKopieren')}" ${e.hasPassword ? '' : 'disabled'}><span class="msr">key</span></button>
+          <button class="button" data-shape="square" data-menu="${e.id}" title="${t('eintraege.zeile.mehr')}"><span class="msr">more_vert</span></button>
         </div></td>`;
 
     default:
@@ -603,7 +604,7 @@ function entryRowHtml(e, cols, opts) {
 
   // Gelöschte bleiben sichtbar, werden aber als das kenntlich gemacht,
   // was sie sind — und bei den Auswertungen ausgelassen.
-  const recycled = (e.recycled ? ' data-recycled title="Liegt im Papierkorb"' : '')
+  const recycled = (e.recycled ? ' data-recycled title="' + t('eintraege.zeile.imPapierkorb') + '"' : '')
     + (state.cut.includes(e.id) ? ' data-cut' : '');
   // Ziehen nur in der Passwortliste — in Befunden und Übersicht hat
   // Umsortieren keinen Sinn.
@@ -614,7 +615,7 @@ function entryRowHtml(e, cols, opts) {
 function headerHtml(cols, sortable, pickable) {
   const box = pickable && pick.selectionActive() ? '<th class="pick-cell"></th>' : '';
   return box + cols.map(col => {
-    const h = HEADERS[col] ?? { label: '' };
+    const h = headers()[col] ?? { label: '' };
     const attrs = sortable && h.sort ? h.sort : '';
     return `<th data-col="${col}" ${attrs} ${h.icon ? 'data-icon-head' : ''} ${h.title ? `title="${h.title}"` : ''}>${h.label}</th>`;
   }).join('');
@@ -639,7 +640,7 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false, f
     ? Math.max(1, ...list.map(e => folderParts(e).length), ...leer.map(f => f.split('/').length))
     : 0;
   const levelHeads = Array.from({ length: levels }, (_, i) =>
-    `<th t-group="active:${i}">${i ? 'Unterordner' : 'Ordner'}</th>`).join('');
+    `<th t-group="active:${i}">${i ? t('eintraege.spalten.unterordner') : t('eintraege.spalten.ordner')}</th>`).join('');
   const levelCells = e => {
     const parts = folderParts(e);
     return Array.from({ length: levels }, (_, i) => `<td>${esc(parts[i] ?? '')}</td>`).join('');
@@ -659,7 +660,7 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false, f
 
 export function renderEntryTable(host, list, options = {}) {
   if (!list.length) {
-    host.innerHTML = `<p class="empty-state">Keine Einträge.</p>`;
+    host.innerHTML = `<p class="empty-state">${t('eintraege.leer')}</p>`;
     return;
   }
   host.innerHTML = tableHtml(list, options);
@@ -784,7 +785,7 @@ export function renderPasswords() {
   if (state.kindFilter === 'files') { renderFiles(host, list); return; }
 
   if (!list.length) {
-    host.innerHTML = `<p class="empty-state">Keine Einträge gefunden.</p>`;
+    host.innerHTML = `<p class="empty-state">${t('eintraege.keineGefunden')}</p>`;
     return;
   }
 
@@ -804,7 +805,7 @@ export function renderPasswords() {
   const zeigen = live.length || (!state.kindFilter && leereOrdner(live).length);
   host.innerHTML = (zeigen
     ? tableHtml(live, { sortable: true, folders: true })
-    : `<p class="empty-state">Keine Einträge gefunden.</p>`) + binHtml(bin);
+    : `<p class="empty-state">${t('eintraege.keineGefunden')}</p>`) + binHtml(bin);
   wireBin(host);
   if (!zeigen) { wireEntryRows(host); ensureTableview(); return; }
 
@@ -840,9 +841,9 @@ function binHtml(bin) {
     <details class="recycle-bin" ${state.binOpen ? 'open' : ''}>
       <summary>
         <span class="msr">delete</span>
-        <span class="recycle-bin-title"><strong>Papierkorb</strong>
-          <small>${bin.length === 1 ? '1 Eintrag' : `${bin.length} Einträge`} · nach ${BIN_DAYS} Tagen endgültig gelöscht</small></span>
-        <button type="button" class="button" data-empty-bin><span class="msr">delete_forever</span>Leeren</button>
+        <span class="recycle-bin-title"><strong>${t('eintraege.papierkorb.titel')}</strong>
+          <small>${t('eintraege.papierkorb.zusammenfassung', { n: bin.length, tage: BIN_DAYS })}</small></span>
+        <button type="button" class="button" data-empty-bin><span class="msr">delete_forever</span>${t('eintraege.papierkorb.leeren')}</button>
         <span class="msr recycle-bin-chevron">expand_more</span>
       </summary>
       ${tableHtml(bin, { variant: 'bin', sortable: true })}
@@ -852,16 +853,15 @@ function binHtml(bin) {
 /** Leert den Papierkorb nach Rückfrage. */
 export async function emptyBin() {
   const inBin = state.entries.filter(e => e.recycled).length;
-  if (!inBin) { banner('Der Papierkorb ist leer.', 'info'); return; }
+  if (!inBin) { banner(t('eintraege.papierkorb.istLeer'), 'info'); return; }
 
   let confirmed = false;
   try {
     const res = await dialog({
-      title: 'Papierkorb leeren',
-      content: `${inBin} ${inBin === 1 ? 'Eintrag wird' : 'Einträge werden'} endgültig
-        entfernt. Das lässt sich nicht rückgängig machen.`,
-      confirmText: 'Endgültig löschen',
-      cancelText: 'Abbrechen'
+      title: t('eintraege.menue.papierkorbLeeren'),
+      content: t('eintraege.papierkorb.leerenText', { n: inBin }),
+      confirmText: t('eintraege.menue.endgueltigLoeschen'),
+      cancelText: t('allgemein.knoepfe.abbrechen')
     });
     confirmed = res?.submit ?? res === true;
   } catch { confirmed = false; }
@@ -871,7 +871,7 @@ export async function emptyBin() {
   await vault.commit();
   await refreshFromVault();
   renderAll({ ohne: ['einstellungen'] });
-  banner(`${removed} ${removed === 1 ? 'Eintrag' : 'Einträge'} endgültig gelöscht.`, 'success');
+  banner(t('eintraege.papierkorb.geleert', { n: removed }), 'success');
 }
 
 function wireBin(host) {
@@ -900,12 +900,12 @@ const FILE_COLS = 3;
 let fileGroups = new Map();
 
 const infoButton = id => `<button type="button" class="button" data-shape="square" data-file-info="${id}"
-  title="Eintrag öffnen — Name, Passwort, Notizen" aria-label="Eintrag öffnen"><span class="msr">info</span></button>`;
+  title="${t('eintraege.dateien.eintragOeffnenLang')}" aria-label="${t('eintraege.dateien.eintragOeffnen')}"><span class="msr">info</span></button>`;
 
 export function renderFiles(host, list) {
   const entries = list.filter(hasFiles);
   if (!entries.length) {
-    host.innerHTML = `<p class="empty-state">Keine Dateien gefunden.</p>`;
+    host.innerHTML = `<p class="empty-state">${t('eintraege.dateien.keine')}</p>`;
     return;
   }
 
@@ -926,13 +926,13 @@ export function renderFiles(host, list) {
     const levelCells = Array.from({ length: levels }, (_, i) => `<td>${esc(parts[i] ?? '')}</td>`).join('');
 
     return e.attachments.map(att => `
-      <tr data-file-entry="${e.id}" data-file-name="${esc(att.name)}" title="${esc(att.name)} — zum Anzeigen klicken">
+      <tr data-file-entry="${e.id}" data-file-name="${esc(att.name)}" title="${esc(t('eintraege.dateien.zumAnzeigen', { name: att.name }))}">
         <td data-col="avatar"><span class="msr file-icon">${preview.iconFor({ name: att.name, type: preview.typeFromName(att.name) })}</span></td>
         <td data-col="name"><span class="cell-name">${esc(att.name)}</span>${
           single ? `<small class="file-entry">${esc(e.name)}</small>` : ''}</td>
         <td data-col="actions"><div class="row-actions">
           ${single ? infoButton(e.id) : ''}
-          <button type="button" class="button" data-shape="square" data-file-save title="Herunterladen" aria-label="Herunterladen"><span class="msr">download</span></button>
+          <button type="button" class="button" data-shape="square" data-file-save title="${t('eintraege.dateien.herunterladen')}" aria-label="${t('eintraege.dateien.herunterladen')}"><span class="msr">download</span></button>
         </div></td>
         ${levelCells}
         <td>${esc(group)}</td>
@@ -943,9 +943,9 @@ export function renderFiles(host, list) {
     <div class="table-scroll">
       <table class="entry-table file-table" data-files data-folders data-entry-col="${entryCol}" t-group-empty="inline">
         <thead><tr>
-          <th data-col="avatar"></th><th data-col="name" t-sort="asc">Datei</th><th data-col="actions"></th>
-          ${Array.from({ length: levels }, (_, i) => `<th t-group="active:${i}">${i ? 'Unterordner' : 'Ordner'}</th>`).join('')}
-          <th t-group="active:${levels}">Eintrag</th>
+          <th data-col="avatar"></th><th data-col="name" t-sort="asc">${t('eintraege.dateien.datei')}</th><th data-col="actions"></th>
+          ${Array.from({ length: levels }, (_, i) => `<th t-group="active:${i}">${i ? t('eintraege.spalten.unterordner') : t('eintraege.spalten.ordner')}</th>`).join('')}
+          <th t-group="active:${levels}">${t('eintraege.dateien.eintrag')}</th>
         </tr></thead>
         <tbody>${rows.join('')}</tbody>
       </table>
@@ -1013,7 +1013,7 @@ export async function storedFiles(entryId) {
 async function saveStoredFile(entryId, name) {
   const att = (await storedFiles(entryId)).find(a => a.name === name);
   if (att) downloadWithWarning(att);
-  else banner('Die Datei ließ sich nicht lesen.', 'error');
+  else banner(t('eintraege.dateien.nichtLesbar'), 'error');
 }
 
 /**
@@ -1024,7 +1024,7 @@ async function saveStoredFile(entryId, name) {
 export async function openStoredFile(entryId, name) {
   const files = await storedFiles(entryId);
   const att = files.find(a => a.name === name);
-  if (!att) { banner('Die Datei ließ sich nicht lesen.', 'error'); return; }
+  if (!att) { banner(t('eintraege.dateien.nichtLesbar'), 'error'); return; }
 
   const before = files.map(a => `${a.name}\n${a.ref}`).join('\n');
   state.dialogEntryId = entryId;
@@ -1098,16 +1098,16 @@ async function moveInto(dragId, targetPath) {
     pick.clearSelection();
 
     return nachStrukturaenderung(moving.length === 1
-      ? `Nach „${targetPath}“ verschoben.`
-      : `${moving.length} Einträge nach „${targetPath}“ verschoben.`);
+      ? t('eintraege.einfuegen.verschobenEins', { ordner: targetPath })
+      : t('eintraege.einfuegen.verschobenMehrere', { n: moving.length, ordner: targetPath }));
   }
 
   const from = dragId.slice(7);
   if (from === targetPath) return;
 
   const ok = await vault.moveFolder(from, targetPath);
-  if (!ok) return banner('Dieser Ordner lässt sich dorthin nicht verschieben.', 'warning');
-  return nachStrukturaenderung('Ordner verschoben.');
+  if (!ok) return banner(t('eintraege.verschieben.ordnerNicht'), 'warning');
+  return nachStrukturaenderung(t('eintraege.verschieben.ordnerVerschoben'));
 }
 
 async function placeNextTo(dragId, refId, position) {
@@ -1116,13 +1116,13 @@ async function placeNextTo(dragId, refId, position) {
   if (dragId.startsWith('entry:') && refId.startsWith('entry:')) {
     const ok = await vault.reorderEntry(dragId.slice(6), refId.slice(6), position);
     if (!ok) return;
-    return nachStrukturaenderung('Reihenfolge geändert.');
+    return nachStrukturaenderung(t('eintraege.verschieben.reihenfolge'));
   }
 
   if (dragId.startsWith('folder:') && refId.startsWith('folder:')) {
     const ok = await vault.reorderFolder(dragId.slice(7), refId.slice(7), position);
-    if (!ok) return banner('Dieser Ordner lässt sich dorthin nicht verschieben.', 'warning');
-    return nachStrukturaenderung('Reihenfolge geändert.');
+    if (!ok) return banner(t('eintraege.verschieben.ordnerNicht'), 'warning');
+    return nachStrukturaenderung(t('eintraege.verschieben.reihenfolge'));
   }
 
   // Eintrag neben einem Ordner: in dessen Elternordner einordnen
@@ -1157,10 +1157,10 @@ export function renderSelectionBar() {
   }
 
   bar.innerHTML = `
-    <span class="selection-count">${count} ausgewählt</span>
-    <button type="button" class="button" id="sel-move"><span class="msr">drive_file_move</span>&nbsp;Verschieben …</button>
-    <button type="button" class="button" id="sel-delete" data-danger><span class="msr">delete</span>&nbsp;Löschen</button>
-    <button type="button" class="button" data-shape="square no-background" id="sel-clear" title="Auswahl aufheben"><span class="msr">close</span></button>`;
+    <span class="selection-count">${t('eintraege.auswahl.anzahl', { n: count })}</span>
+    <button type="button" class="button" id="sel-move"><span class="msr">drive_file_move</span>&nbsp;${t('eintraege.auswahl.verschieben')}</button>
+    <button type="button" class="button" id="sel-delete" data-danger><span class="msr">delete</span>&nbsp;${t('eintraege.loeschen')}</button>
+    <button type="button" class="button" data-shape="square no-background" id="sel-clear" title="${t('eintraege.auswahl.aufheben')}"><span class="msr">close</span></button>`;
 
   $('#sel-clear').onclick = () => pick.clearSelection();
   $('#sel-move').onclick = moveSelection;
@@ -1175,12 +1175,12 @@ async function moveSelection() {
   const fields = captureFields('folder');
 
   const res = await dialog({
-    title: `${ids.length} ${ids.length === 1 ? 'Eintrag' : 'Einträge'} verschieben`,
-    content: `<label class="field-label">Zielordner</label>
-      <input list="move-folders" name="folder" placeholder="Ordner" autocomplete="off" required>
+    title: t('eintraege.auswahl.verschiebenTitel', { n: ids.length }),
+    content: `<label class="field-label">${t('eintraege.auswahl.zielordner')}</label>
+      <input list="move-folders" name="folder" placeholder="${t('eintraege.spalten.ordner')}" autocomplete="off" required>
       <datalist id="move-folders">${vault.folders().map(f => `<option value="${esc(f)}">`).join('')}</datalist>`,
-    confirmText: 'Verschieben',
-    cancelText: 'Abbrechen',
+    confirmText: t('eintraege.auswahl.verschiebenKnopf'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: fields.onInsert
   });
 
@@ -1193,7 +1193,7 @@ async function moveSelection() {
   pick.clearSelection();
   await refreshFromVault();
   renderAll({ ohne: ['einstellungen'] });
-  banner(`${ids.length} verschoben.`, 'success');
+  banner(t('eintraege.auswahl.verschoben', { n: ids.length }), 'success');
 }
 
 /** Löscht alles Ausgewählte — in den Papierkorb, oder endgültig, wenn es schon drin liegt. */
@@ -1206,12 +1206,12 @@ async function deleteSelection() {
 
   try {
     const res = await dialog({
-      title: `${ids.length} ${ids.length === 1 ? 'Eintrag' : 'Einträge'} löschen`,
+      title: t('eintraege.auswahl.loeschenTitel', { n: ids.length }),
       content: inBin
-        ? 'Diese Einträge liegen bereits im Papierkorb und werden endgültig entfernt. Das lässt sich nicht rückgängig machen.'
-        : 'Die Einträge wandern in den Papierkorb und lassen sich von dort wiederherstellen.',
-      confirmText: inBin ? 'Endgültig löschen' : 'In den Papierkorb',
-      cancelText: 'Abbrechen'
+        ? t('eintraege.auswahl.loeschenImPapierkorb')
+        : t('eintraege.auswahl.loeschenText'),
+      confirmText: inBin ? t('eintraege.menue.endgueltigLoeschen') : t('eintraege.auswahl.inPapierkorb'),
+      cancelText: t('allgemein.knoepfe.abbrechen')
     });
     confirmed = res?.submit ?? res === true;
   } catch { confirmed = false; }
@@ -1223,7 +1223,7 @@ async function deleteSelection() {
   pick.clearSelection();
   await refreshFromVault();
   renderAll({ ohne: ['einstellungen'] });
-  banner(`${ids.length} ${ids.length === 1 ? 'Eintrag' : 'Einträge'} gelöscht.`, 'success');
+  banner(t('eintraege.auswahl.geloescht', { n: ids.length }), 'success');
 }
 
 

@@ -1,0 +1,9 @@
+[
+ { "code": "da_DK", "name": "Dansk" },
+ { "code": "de_DE", "name": "Deutsch" },
+ { "code": "en_GB", "name": "English" },
+ { "code": "fr_FR", "name": "Français" },
+ { "code": "nb_NO", "name": "Norsk bokmål" },
+ { "code": "pl_PL", "name": "Polski" },
+ { "code": "sv_SE", "name": "Svenska" }
+]

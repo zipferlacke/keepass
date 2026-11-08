@@ -1,6 +1,7 @@
 import * as vault from './data/vault.js';
 import * as settings from './data/settings.js';
 import { applyAppearance } from './core/theme.js';
+import { initI18n, t, uebersetzeSeite } from './core/i18n.js';
 import * as pick from './ui/multiselect.js';
 import { isTauri, isMobile, invoke, unlockMethods, listen } from './core/platform.js';
 import { banner, selectPicker } from './ui/libs.js';
@@ -16,7 +17,7 @@ import { bindFileDrops } from './dialogs/entry.js';
 import { markUsed } from './core/entries.js';
 import { handleScan, startCreation } from './dialogs/create.js';
 import { openKonflikte } from './dialogs/konflikte.js';
-import { BRAND_MARK, dbName, enterUnlocked, gesperrtAufraeumen, lockDatabase, openUnlockDialog, rememberDatabase, renderLockscreen, showLockscreen, showWelcome, unlock, unlockBusy } from './pages/lock.js';
+import { BRAND_MARK, dbName, enterUnlocked, gesperrtAufraeumen, lockDatabase, openUnlockDialog, rememberDatabase, renderLockscreen, showLockscreen, showOnlineQuestion, showWelcome, unlock, unlockBusy } from './pages/lock.js';
 import { closeSettingsPage, renderSettings, showAndroidSetup, showBrowserSetupPage, updateSettingsPreview } from './pages/settings.js';
 
 /* =========================================================
@@ -37,6 +38,8 @@ nachLaden(() => autoRetitle());
    ========================================================= */
 async function boot() {
   await settings.initSettings();
+  await initI18n(settings.get('appearance.language', 'auto'));
+  uebersetzeSeite();
   applyAppearance(settings.get('appearance', {}));
 
   // Wurde die Anwendung durch einen Doppelklick auf eine .kdbx-Datei
@@ -54,7 +57,7 @@ async function boot() {
   await listen('vault-locked', async ev => {
     if (state.locked) return;
     document.querySelectorAll('dialog[open]').forEach(d => d.close());
-    await gesperrtAufraeumen(String(ev?.payload ?? 'Wegen Untätigkeit gesperrt.'));
+    await gesperrtAufraeumen(String(ev?.payload ?? t('start.meldungen.untaetig')));
   });
 
   // Lesen, Scrollen und Tippen rufen keinen Befehl im Kern auf — ohne diese
@@ -108,10 +111,10 @@ async function boot() {
 
   await listen('autofill-saved', ev => {
     const n = Number(ev?.payload ?? 0);
-    banner(n === 1 ? 'Ein Zugang aus dem Autofill wurde gespeichert.' : `${n} Zugänge aus dem Autofill wurden gespeichert.`, 'success', 5000);
+    banner(t('start.meldungen.autofillGespeichert', { n }), 'success', 5000);
   });
   await listen('save-failed', ev => {
-    banner(`Änderung nicht gespeichert: ${ev?.payload ?? ''}`, 'error', 10000);
+    banner(t('start.meldungen.nichtGespeichert', { grund: ev?.payload ?? '' }), 'error', 10000);
   });
 
   // Doppelklick auf eine .kdbx, während die App läuft (single-instance,
@@ -169,6 +172,7 @@ async function boot() {
 
   // Beim allerersten Start einmal durch die Einrichtung führen.
   if (!settings.get('ui.welcomeSeen', false)) await showWelcome();
+  if (!settings.get('ui.onlineAsked', false)) await showOnlineQuestion();
   if (isMobile && !settings.get('android.setupSeen', false)) await showAndroidSetup();
   if (isTauri && !isMobile && !settings.get('browser.setupSeen', false)) await showBrowserSetupPage();
   renderLockscreen();
@@ -197,7 +201,7 @@ async function bindOtpLinks() {
     if (!uri) return;
     if (state.locked) {
       state.pendingOtp = uri;
-      banner('Entsperren — danach wird der Code übernommen.', 'info', 6000);
+      banner(t('start.meldungen.codeNachEntsperren'), 'info', 6000);
     } else {
       handleScan(uri);
     }
@@ -241,7 +245,7 @@ async function bindBrowserRequests() {
 
   await listen('browser-needs-unlock', () => {
     if (!state.locked) return;
-    banner('Ein Browser wartet auf die Datenbank.', 'info', 8000);
+    banner(t('start.browser.wartet'), 'info', 8000);
   });
 
   // Entsperrt wurde anderswo — im kleinen Fenster. Ohne das bliebe hier der
@@ -258,7 +262,7 @@ async function bindBrowserRequests() {
     await vault.adopt();
 
     await enterUnlocked();
-    banner('Aus dem Browser entsperrt.', 'success', 4000);
+    banner(t('start.browser.entsperrt'), 'success', 4000);
   });
 
   // Die Erweiterung darf schreiben — verknüpfen, Einträge anlegen, Passkeys.
@@ -275,11 +279,11 @@ async function bindBrowserRequests() {
   // Gespeichert ist in der App schon; nur die Datei am Ort war nicht
   // erreichbar. Der Kern holt das beim nächsten Abgleich nach.
   await listen('vault-sync-failed', ev => {
-    banner(`In der App gespeichert, die Datei aber noch nicht: ${ev?.payload ?? ''} – wird nachgeholt.`, 'warning', 8000);
+    banner(t('start.meldungen.dateiNachgeholt', { grund: ev?.payload ?? '' }), 'warning', 8000);
   });
 
   await listen('browser-save-failed', ev => {
-    banner(`Änderung aus dem Browser nicht gespeichert: ${ev?.payload ?? ''}`, 'error', 10000);
+    banner(t('start.browser.nichtGespeichert', { grund: ev?.payload ?? '' }), 'error', 10000);
   });
 }
 
@@ -335,16 +339,22 @@ function bindStaticEvents() {
  * statt stumm eine leere Hauptseite zu zeigen, die nach offener Datenbank
  * aussieht.
  */
+/** Scheitert schon das Laden der Sprache, gilt der deutsche Text. */
+function tSicher(schluessel, ersatz) {
+  const text = t(schluessel);
+  return text === schluessel ? ersatz : text;
+}
+
 boot().catch(err => {
   console.error('Start fehlgeschlagen', err);
   $('#lockscreen').hidden = false;
   $('#lock-card').innerHTML = `
     ${BRAND_MARK}
-    <h2>WKeePass konnte nicht starten</h2>
+    <h2>${tSicher('start.fehler.titel', 'WKeePass konnte nicht starten')}</h2>
     <p class="lock-sub">${esc(err?.message ?? err)}</p>
     <div class="lock-actions">
       <button type="button" class="button hightlight" data-shape="full" id="boot-retry">
-        <span class="msr">refresh</span>&nbsp;Neu laden</button>
+        <span class="msr">refresh</span>&nbsp;${tSicher('start.fehler.neuLaden', 'Neu laden')}</button>
     </div>`;
   $('#boot-retry').addEventListener('click', () => location.reload());
 });

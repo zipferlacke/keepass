@@ -10,6 +10,8 @@
  * mehrere suchen, und Text so entschärfen, dass er gefahrlos in HTML darf.
  */
 
+import { t } from './i18n.js';
+
 /* =========================================================
    Zustand
    ========================================================= */
@@ -47,7 +49,8 @@ export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;'
 /** Anzeige für ein gesetztes, noch nicht geladenes Geheimnis. */
 export const SECRET_MASK = '•••••';
 
-export const VIEW_TITLES = {
-  home: 'Übersicht', passwords: 'Einträge', totp: 'TOTP-Codes',
-  security: 'Sicherheitscheck', settings: 'Einstellungen'
-};
+/** Titel oben über der Ansicht — in der gewählten Sprache. */
+export function viewTitle(view) {
+  // i18n: navigation.titel.home navigation.titel.passwords navigation.titel.totp navigation.titel.security navigation.titel.settings
+  return ['home', 'passwords', 'totp', 'security', 'settings'].includes(view) ? t(`navigation.titel.${view}`) : 'WKeePass';
+}

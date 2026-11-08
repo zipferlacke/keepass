@@ -1,0 +1,29 @@
+WKeePass er en moderne passordbehandler basert på det velprøvde KeePass-formatet. Påloggingsinformasjonen din ligger kryptert i en fil som tilhører deg – ikke i en leverandørs sky. Ingen konto, intet abonnement, ingen reklame.
+
+Alt i én app
+• Passord i mapper, med etiketter, søk, passordgenerator og styrkeindikator
+• 2FA-koder (TOTP) rett ved siden av passordet – skann QR-koden med kameraet, også eksporter fra Google Authenticator
+• Passkeys for passordløs pålogging – WKeePass kan brukes som systemets passkey-leverandør
+• Autofyll: sett inn brukernavn og passord direkte i apper og i nettleseren
+• Filarkiv: lagre og vis ID-dokumenter, avtaler eller gjenopprettingskoder kryptert
+• Nettstedsikoner og oppføringer som automatisk får samme navn som tjenesten
+• Papirkurv: slettede oppføringer kan hentes tilbake i 30 dager, deretter er de borte for godt
+
+KeePass-kompatibel
+WKeePass leser og skriver KDBX 4.1. Den samme filen kan du også åpne med KeePassXC, KeePassDX eller Strongbox – du er ikke bundet til noen leverandør.
+
+På alle enheter
+Legg databasen i en skymappe du uansett bruker – for eksempel Nextcloud, Dropbox, Google Drive eller OneDrive. Endrer du noe på to enheter samtidig, slår WKeePass de to versjonene sammen oppføring for oppføring: Den nyeste versjonen vinner, den eldre blir liggende i historikken. De siste 30 til 100 versjonene av filen (kan stilles inn) beholdes på enheten – hver av dem viser hva den endret, og kan hentes tilbake enkeltvis eller helt. Er mappen ikke tilgjengelig, kan du jobbe videre med en offline-kopi. WKeePass finnes også for Linux, Windows og macOS.
+
+Sikkerhet
+• Kryptering etter KeePass-standarden med Argon2
+• Passord behandles i appens kjerne, brukergrensesnittet ser aldri klarteksten
+• Lås opp med fingeravtrykk, ansiktsgjenkjenning eller PIN – hovedpassordet forblir beskyttet
+• Automatisk låsing etter en stund uten bruk, utklippstavlen tømmes automatisk
+• Sikkerhetssjekk: svake, dupliserte og utløpte passord; sammenligning med kjente datalekkasjer (Have I Been Pwned) uten at passordet ditt forlater enheten
+
+Enkel flytting
+Import fra Bitwarden, 1Password, LastPass, Proton Pass, Chrome, Firefox, KeePass-XML, 2FAS, Aegis, andOTP og Proton Authenticator. Ved CSV-filer kobler du kolonnene selv.
+
+Åpen kildekode
+WKeePass er åpen kildekode under Apache-lisensen 2.0: https://github.com/zipferlacke/keepass

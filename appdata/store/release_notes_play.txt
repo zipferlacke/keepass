@@ -1,8 +1,48 @@
 <de-DE>
-• Öffnet und speichert sofort – die Datei in der Cloud wird im Hintergrund abgeglichen
-• Ausfüllen wartet nicht mehr, wenn Nextcloud langsam antwortet
-• Konflikte: Eintrag hier und anderswo verschieden geändert? Du wählst, welche Fassung gilt
-• Versionen: 30 bis 100 Stände, mit Herkunft je Änderung
-• Passkeys: nach dem Entsperren keine zweite Abfrage
-• Neue Ordner sofort sichtbar
+• Neu in 7 Sprachen: Deutsch, Englisch, Französisch, Dänisch, Norwegisch, Polnisch, Schwedisch
+• Was darf ins Netz? Beim Start wählst du, welche Online-Funktionen laufen
+• E-Mail-Prüfung und Löschanleitungen ab Werk aus
+• Sicherheitscheck: „Löschseite öffnen“ statt „Konto löschen“ – klarer, was passiert
 </de-DE>
+<en-GB>
+• Now in 7 languages: English, German, French, Danish, Norwegian, Polish, Swedish
+• What may go online? On first start you choose which online features run
+• E-mail check and deletion guides for old accounts are off by default
+• Security check: “Open deletion page” instead of “Delete account” – clearer what happens
+</en-GB>
+<en-US>
+• Now in 7 languages: English, German, French, Danish, Norwegian, Polish, Swedish
+• What may go online? On first start you choose which online features run
+• E-mail check and deletion guides for old accounts are off by default
+• Security check: “Open deletion page” instead of “Delete account” – clearer what happens
+</en-US>
+<fr-FR>
+• Désormais en 7 langues : français, allemand, anglais, danois, norvégien, polonais, suédois
+• Qu’est-ce qui peut aller sur le réseau ? Au démarrage, vous choisissez les fonctions en ligne
+• Vérification des e-mails et guides de suppression désactivés par défaut
+• Contrôle de sécurité : « Ouvrir la page de suppression » au lieu de « Supprimer le compte »
+</fr-FR>
+<da-DK>
+• Nu på 7 sprog: dansk, tysk, engelsk, fransk, norsk, polsk, svensk
+• Hvad må gå på nettet? Ved start vælger du, hvilke onlinefunktioner der kører
+• Tjek af e-mails og sletningsvejledninger er slået fra som standard
+• Sikkerhedstjek: »Åbn sletningssiden« i stedet for »Slet konto« – tydeligere, hvad der sker
+</da-DK>
+<no-NO>
+• Nå på 7 språk: norsk, tysk, engelsk, fransk, dansk, polsk, svensk
+• Hva får gå ut på nettet? Ved oppstart velger du hvilke nettfunksjoner som kjører
+• Sjekk av e-post og slettveiledninger er slått av som standard
+• Sikkerhetssjekk: «Åpne slettesiden» i stedet for «Slett konto» – tydeligere hva som skjer
+</no-NO>
+<pl-PL>
+• Teraz w 7 językach: polski, niemiecki, angielski, francuski, duński, norweski, szwedzki
+• Co może łączyć się z siecią? Przy starcie wybierasz, które funkcje online działają
+• Sprawdzanie e-maili i instrukcje usuwania domyślnie wyłączone
+• Kontrola bezpieczeństwa: „Otwórz stronę usuwania” zamiast „Usuń konto”
+</pl-PL>
+<sv-SE>
+• Nu på 7 språk: svenska, tyska, engelska, franska, danska, norska, polska
+• Vad får gå ut på nätet? Vid start väljer du vilka onlinefunktioner som körs
+• Kontroll av e-post och anvisningar för att ta bort gamla konton är avstängda som standard
+• Säkerhetskontroll: ”Öppna borttagningssidan” i stället för ”Radera konto” – tydligare vad som händer
+</sv-SE>

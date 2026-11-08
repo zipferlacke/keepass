@@ -8,6 +8,7 @@
 import * as vault from '../data/vault.js';
 import { dialog, banner, closeHostDialog, zurueckZu } from '../ui/libs.js';
 import { $, esc } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { renderAll, refreshFromVault } from '../core/render.js';
 import { zeitLabel } from '../core/entries.js';
 
@@ -38,30 +39,36 @@ function schritt(id) {
 }
 
 /** Woher eine Änderung in einem zusammengeführten Stand kam. */
-const HERKUNFT = { extern: 'aus der Datei', hier: 'hier', beide: 'hier und in der Datei' };
+function herkunft(origin) {
+  // i18n: dialoge.versionen.herkunft.extern dialoge.versionen.herkunft.hier dialoge.versionen.herkunft.beide
+  return ['extern', 'hier', 'beide'].includes(origin) ? t(`dialoge.versionen.herkunft.${origin}`) : origin;
+}
 
-const ART = {
-  neu: ['Dazugekommen', 'add_circle', 'neu'],
-  geloescht: ['Gelöscht', 'remove_circle', 'gelöscht'],
-  geaendert: ['Geändert', 'edit', 'geändert']
-};
+/** [Überschrift, Symbol, Kurzform] je Art der Änderung. */
+function art(kind) {
+  switch (kind) {
+    case 'neu': return [t('dialoge.versionen.art.neu.label'), 'add_circle', t('dialoge.versionen.art.neu.kurz')];
+    case 'geloescht': return [t('dialoge.versionen.art.geloescht.label'), 'remove_circle', t('dialoge.versionen.art.geloescht.kurz')];
+    default: return [t('dialoge.versionen.art.geaendert.label'), 'edit', t('dialoge.versionen.art.geaendert.kurz')];
+  }
+}
 
 /** „geändert", „neu", „gelöscht" — oder genauer, wenn nur der Ordner wechselte. */
 function wasPassiert(c) {
   if (c.kind === 'geaendert' && c.fields.length === 1 && c.fields[0].name === 'Ordner') {
     const nach = c.fields[0].after ?? '';
-    if (nach === 'Papierkorb' || nach.startsWith('Papierkorb/')) return 'in den Papierkorb';
-    if ((c.fields[0].before ?? '').startsWith('Papierkorb')) return 'wiederhergestellt';
-    return 'verschoben';
+    if (nach === 'Papierkorb' || nach.startsWith('Papierkorb/')) return t('dialoge.versionen.passiert.papierkorb');
+    if ((c.fields[0].before ?? '').startsWith('Papierkorb')) return t('dialoge.versionen.passiert.wiederhergestellt');
+    return t('dialoge.versionen.passiert.verschoben');
   }
-  return (ART[c.kind] ?? ART.geaendert)[2];
+  return art(c.kind)[2];
 }
 
 /** Eine Zeile für die Liste: „Intranet geändert · Webmail neu · +2". */
 function schrittKurz(step) {
-  if (!step.previous) return 'Ältester aufgehobener Stand';
-  if (!step.changes.length) return 'Keine Einträge geändert';
-  const teile = step.changes.slice(0, 2).map(c => `${c.name || '(ohne Titel)'} ${wasPassiert(c)}`);
+  if (!step.previous) return t('dialoge.versionen.kurz.aeltester');
+  if (!step.changes.length) return t('dialoge.versionen.kurz.keine');
+  const teile = step.changes.slice(0, 2).map(c => `${c.name || t('dialoge.versionen.ohneTitel')} ${wasPassiert(c)}`);
   const rest = step.changes.length - teile.length;
   return teile.join(' · ') + (rest > 0 ? ` · +${rest}` : '');
 }
@@ -71,25 +78,24 @@ export async function openVersionsDialog() {
   try {
     staende = await vault.versions();
   } catch (err) {
-    banner(`Versionen nicht lesbar: ${err.message}`, 'error', 6000);
+    banner(t('dialoge.versionen.liste.fehler', { fehler: err.message }), 'error', 6000);
     return;
   }
 
   if (!staende.length) {
-    banner('Noch keine Stände — der erste entsteht beim nächsten Öffnen oder Speichern.', 'info', 5000);
+    banner(t('dialoge.versionen.liste.leer'), 'info', 5000);
     return;
   }
 
   await dialog({
-    title: 'Versionen',
+    title: t('dialoge.versionen.liste.titel'),
     content: `
-      <p class="dlg-note">Die letzten Stände der Datei, der jüngste oben. Unter jedem steht,
-      was er geändert hat — antippen zeigt es genau und erlaubt das Zurücknehmen.</p>
+      <p class="dlg-note">${t('dialoge.versionen.liste.hinweis')}</p>
       <div class="version-list">
         ${staende.map(v => `
           <button type="button" class="version-row" data-version="${esc(v.id)}">
             <span class="version-time">${esc(zeitLabel(v.at))}</span>
-            <span class="version-reason">${esc(v.reason)}${v.current ? ' · <strong>aktueller Stand</strong>' : ''}</span>
+            <span class="version-reason">${esc(v.reason)}${v.current ? ` · <strong>${t('dialoge.versionen.liste.aktuell')}</strong>` : ''}</span>
             <span class="version-summary">…</span>
             <span class="msr">chevron_right</span>
           </button>`).join('')}
@@ -97,9 +103,9 @@ export async function openVersionsDialog() {
     // Ohne Bestätigungsknopf fällt die Fußzeile weg — eine Liste braucht
     // keine.
     confirmText: null,
-    cancelText: 'Schließen',
+    cancelText: t('allgemein.knoepfe.schliessen'),
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), action: 'cancel' },
     // `onInsert` bekommt die Kennung, nicht das Element — der Dialog steht
     // zu diesem Zeitpunkt schon im Dokument.
     onInsert: id => {
@@ -125,7 +131,7 @@ async function fuelleZusammenfassungen(host) {
     try {
       ziel.textContent = schrittKurz(await schritt(row.dataset.version));
     } catch {
-      ziel.textContent = 'Nicht lesbar';
+      ziel.textContent = t('dialoge.versionen.liste.nichtLesbar');
     }
     if (!host.isConnected) return;
   }
@@ -138,56 +144,54 @@ async function openVersionChangesDialog(stand) {
   try {
     step = await schritt(stand.id);
   } catch (err) {
-    banner(`Der Stand ließ sich nicht vergleichen: ${err.message}`, 'error', 6000);
+    banner(t('dialoge.versionen.stand.vergleichFehler', { fehler: err.message }), 'error', 6000);
     return;
   }
 
   const liste = step.changes.map(c => {
-    const [label, icon] = ART[c.kind] ?? ART.geaendert;
+    const [label, icon] = art(c.kind);
     const felder = c.fields.map(f => f.before == null && f.after == null
-      ? `<li>${esc(f.name)} geändert</li>`
+      ? `<li>${t('dialoge.versionen.stand.feldGeaendert', { name: esc(f.name) })}</li>`
       : `<li>${esc(f.name)}: <del>${esc(f.before || '—')}</del> <span class="msr">arrow_forward</span> ${esc(f.after || '—')}</li>`).join('');
     return `<div class="version-change" data-kind="${c.kind}">
       <div class="version-change-head">
         <span class="msr">${icon}</span>
-        <strong>${esc(c.name || '(ohne Titel)')}</strong>
-        <small>${esc(label)}${c.folder ? ` · ${esc(c.folder)}` : ''}${c.origin ? ` · ${esc(HERKUNFT[c.origin] ?? c.origin)}` : ''}</small>
+        <strong>${esc(c.name || t('dialoge.versionen.ohneTitel'))}</strong>
+        <small>${esc(label)}${c.folder ? ` · ${esc(c.folder)}` : ''}${c.origin ? ` · ${esc(herkunft(c.origin))}` : ''}</small>
         <button type="button" class="button" data-undo="${esc(c.id)}"
-                title="Den Eintrag so zurückholen, wie er vor diesem Stand war">Zurücknehmen</button>
+                title="${t('dialoge.versionen.stand.zuruecknehmenTitel')}">${t('dialoge.versionen.stand.zuruecknehmen')}</button>
       </div>
       ${felder ? `<ul class="version-fields">${felder}</ul>` : ''}
     </div>`;
   }).join('');
 
   const inhalt = !step.previous
-    ? `<p class="dlg-note">Das ist der älteste aufgehobene Stand — was er gegenüber dem davor
-       geändert hat, lässt sich nicht mehr sagen.</p>`
+    ? `<p class="dlg-note">${t('dialoge.versionen.stand.aeltesterHinweis')}</p>`
     : step.changes.length
       ? `<div class="version-changes">${liste}</div>`
-      : '<p class="dlg-note">An den Einträgen hat dieser Stand nichts geändert.</p>';
+      : `<p class="dlg-note">${t('dialoge.versionen.stand.nichtsGeaendert')}</p>`;
 
   await dialog({
-    title: `Stand ${zeitLabel(stand.at)}`,
+    title: t('dialoge.versionen.stand.titel', { zeit: zeitLabel(stand.at) }),
     // Oben links „Zurück": von einem Stand wieder in die Liste, ohne über
     // die Einstellungen zu laufen.
     onBack: zurueckZu(openVersionsDialog),
     content: `
       <p class="dlg-note"><strong>${esc(stand.reason)}.</strong> ${step.previous && step.changes.length
-        ? 'Das hat dieser Stand gegenüber dem davor geändert.' : ''}
-      ${stand.current ? 'So liegt die Datei gerade da.' : `„Ganz auf diesen Stand zurück" setzt alle
-      Einträge so, wie sie hier waren — was danach kam, bleibt in den Versionen erhalten.`}</p>
+        ? t('dialoge.versionen.stand.gegenueber') : ''}
+      ${stand.current ? t('dialoge.versionen.stand.liegtDa') : t('dialoge.versionen.stand.ganzZurueckHinweis')}</p>
       ${inhalt}`,
     // Auf den aktuellen Stand zurück gibt es nicht — dann keine Fußzeile,
     // und oben das Kreuz.
-    confirmText: stand.current ? null : 'Ganz auf diesen Stand zurück',
-    cancelText: 'Schließen',
-    barRight: stand.current ? { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' } : null,
+    confirmText: stand.current ? null : t('dialoge.versionen.stand.ganzZurueck'),
+    cancelText: t('allgemein.knoepfe.schliessen'),
+    barRight: stand.current ? { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), action: 'cancel' } : null,
     onInsert: id => {
       const host = document.getElementById(String(id));
       host?.querySelectorAll('[data-undo]').forEach(btn => btn.addEventListener('click', async () => {
         btn.disabled = true;
         await zurueckholen(step.previous, [btn.dataset.undo]);
-        btn.textContent = 'Zurückgenommen';
+        btn.textContent = t('dialoge.versionen.stand.zurueckgenommen');
       }));
     }
   }).then(res => {
@@ -203,9 +207,9 @@ async function zurueckholen(id, entries) {
     await refreshFromVault();
     renderAll({ ohne: ['einstellungen'] });
     banner(entries
-      ? 'Eintrag zurückgeholt und gespeichert.'
-      : `${zahl} Eintr${zahl === 1 ? 'ag' : 'äge'} zurückgeholt und gespeichert.`, 'success');
+      ? t('dialoge.versionen.zurueckholen.eintrag')
+      : t('dialoge.versionen.zurueckholen.eintraege', { n: zahl }), 'success');
   } catch (err) {
-    banner(`Zurückholen fehlgeschlagen: ${err.message}`, 'error', 6000);
+    banner(t('dialoge.versionen.zurueckholen.fehler', { fehler: err.message }), 'error', 6000);
   }
 }

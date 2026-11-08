@@ -9,10 +9,11 @@
 import * as vault from '../data/vault.js';
 import { parseOtpauth } from '../data/totp.js';
 import * as qr from '../data/qr.js';
-import { parseImport, itemsFromCsv, CSV_FIELDS } from '../data/import.js';
+import { parseImport, itemsFromCsv, csvFelder } from '../data/import.js';
 import * as pick from '../ui/multiselect.js';
 import { dialog, banner, closeHostDialog, zurueckZu } from '../ui/libs.js';
 import { state, $, esc } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { renderAll, refreshFromVault } from '../core/render.js';
 import { openFolderDialog } from './folder.js';
 import { openEntryDialog, scanWithCamera } from './entry.js';
@@ -21,46 +22,46 @@ export async function startCreation() {
   const scannable = qr.scannerAvailable();
 
   await dialog({
-    title: 'Neu anlegen',
+    title: t('dialoge.anlegen.wahl.titel'),
     content: `
       <div class="choice-grid">
         <button type="button" class="choice" data-choice="manual">
           <span class="msr">edit_note</span>
-          <strong>Eintrag anlegen</strong>
-          <small>Name, Benutzername, Passwort selbst eingeben</small>
+          <strong>${t('dialoge.anlegen.wahl.eintrag.titel')}</strong>
+          <small>${t('dialoge.anlegen.wahl.eintrag.text')}</small>
         </button>
         <button type="button" class="choice" data-choice="files">
           <span class="msr">folder_zip</span>
-          <strong>Dateien ablegen</strong>
-          <small>Dokumente verschlüsselt in der Datenbank aufbewahren</small>
+          <strong>${t('dialoge.anlegen.wahl.dateien.titel')}</strong>
+          <small>${t('dialoge.anlegen.wahl.dateien.text')}</small>
         </button>
         <button type="button" class="choice" data-choice="folder">
           <span class="msr">create_new_folder</span>
-          <strong>Ordner anlegen</strong>
-          <small>Zum Sortieren der Einträge</small>
+          <strong>${t('dialoge.anlegen.wahl.ordner.titel')}</strong>
+          <small>${t('dialoge.anlegen.wahl.ordner.text')}</small>
         </button>
         <button type="button" class="choice" data-choice="import">
           <span class="msr">download</span>
-          <strong>Importieren</strong>
-          <small>Passwörter und 2FA-Codes aus anderen Apps übernehmen</small>
+          <strong>${t('dialoge.anlegen.wahl.import.titel')}</strong>
+          <small>${t('dialoge.anlegen.wahl.import.text')}</small>
         </button>
         <button type="button" class="choice" data-choice="camera" ${scannable ? '' : 'disabled'}>
           <span class="msr">qr_code_scanner</span>
-          <strong>QR-Code scannen</strong>
-          <small>${scannable ? 'TOTP einrichten oder einen Sammelexport einlesen' : 'In diesem Browser nicht verfügbar'}</small>
+          <strong>${t('dialoge.anlegen.wahl.kamera.titel')}</strong>
+          <small>${scannable ? t('dialoge.anlegen.wahl.kamera.text') : t('dialoge.anlegen.wahl.nichtVerfuegbar')}</small>
         </button>
         <button type="button" class="choice" data-choice="file" ${scannable ? '' : 'disabled'}>
           <span class="msr">image_search</span>
-          <strong>QR-Code aus Bild</strong>
-          <small>${scannable ? 'Screenshot oder Foto auswählen' : 'In diesem Browser nicht verfügbar'}</small>
+          <strong>${t('dialoge.anlegen.wahl.bild.titel')}</strong>
+          <small>${scannable ? t('dialoge.anlegen.wahl.bild.text') : t('dialoge.anlegen.wahl.nichtVerfuegbar')}</small>
         </button>
       </div>`,
     // Nur eine Auswahl: Jede Kachel ist schon die Entscheidung, also keine
     // Fußzeile.
     confirmText: null,
-    cancelText: 'Abbrechen',
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: '<span class="msr">close</span>', title: 'Abbrechen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.abbrechen'), action: 'cancel' },
     onInsert: () => queueMicrotask(() => {
       document.querySelectorAll('.choice[data-choice]').forEach(btn =>
         btn.addEventListener('click', () => {
@@ -85,7 +86,7 @@ export async function startCreation() {
     const value = choice === 'camera' ? await scanWithCamera({ zurueck: startCreation }) : await scanFromFile();
     if (value) await handleScan(value);
   } catch (err) {
-    if (err.message !== 'abgebrochen') banner(`Scan fehlgeschlagen: ${err.message}`, 'error', 5000);
+    if (err.message !== 'abgebrochen') banner(t('dialoge.anlegen.scan.fehler', { fehler: err.message }), 'error', 5000);
   }
 }
 
@@ -107,7 +108,7 @@ async function scanFromFile() {
 export async function handleScan(value) {
   let parsed;
   try { parsed = qr.interpret(value); }
-  catch (err) { banner(`Code nicht lesbar: ${err.message}`, 'error', 5000); return; }
+  catch (err) { banner(t('dialoge.anlegen.scan.nichtLesbar', { fehler: err.message }), 'error', 5000); return; }
 
   switch (parsed.kind) {
     case 'migration':
@@ -126,7 +127,7 @@ export async function handleScan(value) {
       return openEntryDialog(null, { name: parsed.name, url: parsed.url });
 
     case 'fido':
-      banner('Das ist ein Anmelde-Code für Passkeys, keine übertragbaren Zugangsdaten. Passkeys legt der Systemdialog der Website an.', 'info', 8000);
+      banner(t('dialoge.anlegen.scan.fido'), 'info', 8000);
       return;
 
     default:
@@ -136,7 +137,7 @@ export async function handleScan(value) {
 
 /** Ein einzelnes TOTP: neuer Eintrag oder an einen bestehenden anhängen. */
 async function placeTotp(parsed) {
-  if (!parsed?.secret) { banner('Im Code steckt kein TOTP-Secret.', 'warning'); return; }
+  if (!parsed?.secret) { banner(t('dialoge.anlegen.totp.keinSecret'), 'warning'); return; }
 
   const candidates = state.entries.filter(e => !e.hasTotp);
   const suggestion = state.entries.find(e =>
@@ -157,29 +158,29 @@ async function placeTotp(parsed) {
   }
 
   const res = await dialog({
-    title: 'TOTP hinzufügen',
+    title: t('dialoge.anlegen.totp.titel'),
     content: `
-      <p class="dlg-note">Gefunden: <strong>${esc(parsed.issuer || parsed.name || 'Konto')}</strong></p>
+      <p class="dlg-note">${t('dialoge.anlegen.totp.gefunden', { name: `<strong>${esc(parsed.issuer || parsed.name || t('dialoge.anlegen.totp.konto'))}</strong>` })}</p>
       <div class="choice-grid">
         <button type="button" class="choice" data-target="new">
-          <span class="msr">add_circle</span><strong>Neuer Eintrag</strong>
-          <small>Legt einen eigenen Eintrag dafür an</small>
+          <span class="msr">add_circle</span><strong>${t('dialoge.anlegen.totp.neu.titel')}</strong>
+          <small>${t('dialoge.anlegen.totp.neu.text')}</small>
         </button>
         <button type="button" class="choice" data-target="existing" ${candidates.length ? '' : 'disabled'}>
-          <span class="msr">link</span><strong>Zu bestehendem Eintrag</strong>
-          <small>${candidates.length ? 'An einen vorhandenen Eintrag anhängen' : 'Alle Einträge haben schon ein TOTP'}</small>
+          <span class="msr">link</span><strong>${t('dialoge.anlegen.totp.bestehend.titel')}</strong>
+          <small>${candidates.length ? t('dialoge.anlegen.totp.bestehend.text') : t('dialoge.anlegen.totp.bestehend.alleBelegt')}</small>
         </button>
       </div>
       <div class="dlg-field" id="pick-existing" hidden>
-        <label for="totp-target">Eintrag auswählen</label>
+        <label for="totp-target">${t('dialoge.anlegen.totp.auswaehlen')}</label>
         <div class="dlg-input-row">
           <select id="totp-target" data-sp-picker>
             ${candidates.map(e => `<option value="${e.id}" ${suggestion?.id === e.id ? 'selected' : ''}>${esc(e.name)}${e.username ? ` — ${esc(e.username)}` : ''}</option>`).join('')}
           </select>
         </div>
       </div>`,
-    confirmText: 'Übernehmen',
-    cancelText: 'Abbrechen',
+    confirmText: t('dialoge.anlegen.totp.uebernehmen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: () => queueMicrotask(() => {
       document.querySelectorAll('.choice[data-target]').forEach(btn =>
         btn.addEventListener('click', () => {
@@ -202,14 +203,14 @@ async function placeTotp(parsed) {
   if (target === 'existing') {
     const id = res.data?.['totp-target'] ?? document.getElementById('totp-target')?.value;
     const entry = vault.getEntry(id);
-    if (!entry) { banner('Eintrag nicht gefunden.', 'error'); return; }
+    if (!entry) { banner(t('dialoge.anlegen.totp.nichtGefunden'), 'error'); return; }
 
     const token = await vault.setSecret(null, parsed.secret);
     await vault.saveEntry({ ...entry, hasTotp: true, totpToken: token, totpConfig: config });
     await vault.commit();
     await refreshFromVault();
     renderAll({ ohne: ['einstellungen'] });
-    banner(`TOTP zu „${entry.name}“ hinzugefügt.`, 'success');
+    banner(t('dialoge.anlegen.totp.hinzugefuegt', { name: entry.name }), 'success');
     // Gleich zeigen, wo er gelandet ist.
     openEntryDialog(entry.id);
     return;
@@ -226,14 +227,14 @@ async function placeTotp(parsed) {
 /** Sammelexport: jedes Konto wird ein eigener Eintrag. */
 async function importMigration(accounts) {
   const res = await dialog({
-    title: 'Sammelexport gefunden',
+    title: t('dialoge.anlegen.sammel.titel'),
     content: `
-      <p class="dlg-note">Der Code enthält <strong>${accounts.length}</strong> Konten. Jedes wird als eigener Eintrag angelegt.</p>
+      <p class="dlg-note">${t('dialoge.anlegen.sammel.text', { n: accounts.length })}</p>
       <ul class="import-list">
         ${accounts.map(a => `<li><strong>${esc(a.issuer || a.name)}</strong><span>${esc(a.name)}</span></li>`).join('')}
       </ul>`,
-    confirmText: `${accounts.length} Einträge anlegen`,
-    cancelText: 'Abbrechen'
+    confirmText: t('dialoge.anlegen.sammel.anlegen', { n: accounts.length }),
+    cancelText: t('allgemein.knoepfe.abbrechen')
   });
 
   if (!(res?.submit ?? res)) return;
@@ -263,13 +264,16 @@ async function importMigration(accounts) {
   renderAll({ ohne: ['einstellungen'] });
 
   const skipped = accounts.length - created;
-  banner(`${created} Einträge angelegt${skipped ? `, ${skipped} übersprungen (kein TOTP)` : ''}.`, 'success', 5000);
+  banner(skipped
+    ? t('dialoge.anlegen.sammel.angelegtUebersprungen', { n: created, uebersprungen: skipped })
+    : t('dialoge.anlegen.sammel.angelegt', { n: created }), 'success', 5000);
 }
 
 /* =========================================================
    Import aus anderen Programmen (Formate: siehe import.js)
    ========================================================= */
 
+/** Name einer CSV-Spalten-Zuordnung (die Werte stehen in import.js). */
 function pickFile(accept) {
   return new Promise(resolve => {
     const input = document.createElement('input');
@@ -281,14 +285,14 @@ function pickFile(accept) {
 }
 
 export async function importFromOtherApps({ zurueck = null } = {}) {
-  if (state.locked) { banner('Erst die Datenbank entsperren.', 'info'); return; }
+  if (state.locked) { banner(t('dialoge.anlegen.import.erstEntsperren'), 'info'); return; }
 
   const file = await pickFile('.csv,.json,.txt,.2fas,.xml,.zip,text/csv,application/json,text/plain,text/xml,application/zip');
   if (!file) return;
 
   let result;
   try { result = await parseImport(file); }
-  catch (err) { banner(`Import nicht möglich: ${err.message}`, 'error', 8000); return; }
+  catch (err) { banner(t('dialoge.anlegen.import.nichtMoeglich', { fehler: err.message }), 'error', 8000); return; }
 
   // Was es schon gibt (gleicher Name, Benutzer und Adresse), wird ausgelassen —
   // so schadet es nicht, denselben Export zweimal einzulesen.
@@ -312,23 +316,24 @@ export async function importFromOtherApps({ zurueck = null } = {}) {
   const needsMapping = csv && !mapping.some(f => f === 'password' || f === 'totp');
 
   if (!csv && !fresh.length) {
-    banner(`Alle ${items.length} Einträge aus ${result.source} sind schon vorhanden.`, 'info', 6000);
+    banner(t('dialoge.anlegen.import.alleVorhanden', { n: items.length, quelle: result.source }), 'info', 6000);
     return;
   }
 
   const summary = () => {
     if (!items.length) {
-      return `<p class="dlg-note">Noch keine Einträge — ordne unten mindestens Passwort, Benutzername, Adresse oder 2FA-Schlüssel einer Spalte zu.</p>`;
+      return `<p class="dlg-note">${t('dialoge.anlegen.import.leer')}</p>`;
     }
     const withPw = fresh.filter(i => i.password).length;
     const withTotp = fresh.filter(i => i.totp).length;
     return `
-      <p class="dlg-note"><strong>${fresh.length}</strong> Einträge — ${withPw} mit Passwort, ${withTotp} mit 2FA-Code${
-        dupes ? `, ${dupes} schon vorhanden und ausgelassen` : ''}. Sie landen im Ordner <strong>${esc(folder)}</strong>.</p>
+      <p class="dlg-note">${dupes
+        ? t('dialoge.anlegen.import.zusammenfassungDoppelt', { n: fresh.length, pw: withPw, totp: withTotp, doppelt: dupes, ordner: `<strong>${esc(folder)}</strong>` })
+        : t('dialoge.anlegen.import.zusammenfassung', { n: fresh.length, pw: withPw, totp: withTotp, ordner: `<strong>${esc(folder)}</strong>` })}</p>
       <ul class="import-list">
         ${fresh.slice(0, 200).map(i => `<li><strong>${esc(i.name)}</strong><span>${esc(i.username)}${
-          i.totp ? ' · <span class="msr" title="2FA-Code">timer</span>' : ''}</span></li>`).join('')}
-        ${fresh.length > 200 ? `<li><span>… und ${fresh.length - 200} weitere</span></li>` : ''}
+          i.totp ? ` · <span class="msr" title="${t('dialoge.anlegen.import.zweiFA')}">timer</span>` : ''}</span></li>`).join('')}
+        ${fresh.length > 200 ? `<li><span>${t('dialoge.anlegen.import.weitere', { n: fresh.length - 200 })}</span></li>` : ''}
       </ul>`;
   };
 
@@ -341,28 +346,28 @@ export async function importFromOtherApps({ zurueck = null } = {}) {
   };
   const columns = csv ? `
       <details class="import-mapping" ${needsMapping ? 'open' : ''}>
-        <summary>Spalten zuordnen</summary>
+        <summary>${t('dialoge.anlegen.import.spaltenZuordnen')}</summary>
         <div class="import-columns">
           ${csv.header.map((h, i) => `
             <div class="import-column">
-              <span><strong>${esc(h || `Spalte ${i + 1}`)}</strong><small data-sample="${i}">${esc(sample(i))}</small></span>
-              <select data-col="${i}" data-sp-picker data-sp-search="false" aria-label="${esc(h || `Spalte ${i + 1}`)}">
-                ${CSV_FIELDS.map(([v, label]) => `<option value="${v}" ${mapping[i] === v ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+              <span><strong>${esc(h || t('dialoge.anlegen.import.spalte', { n: i + 1 }))}</strong><small data-sample="${i}">${esc(sample(i))}</small></span>
+              <select data-col="${i}" data-sp-picker data-sp-search="false" aria-label="${esc(h || t('dialoge.anlegen.import.spalte', { n: i + 1 }))}">
+                ${csvFelder().map(([v, name]) => `<option value="${v}" ${mapping[i] === v ? 'selected' : ''}>${esc(name)}</option>`).join('')}
               </select>
             </div>`).join('')}
         </div>
       </details>` : '';
 
-  const confirmLabel = () => (fresh.length ? `${fresh.length} Einträge importieren` : 'Importieren');
+  const confirmLabel = () => (fresh.length ? t('dialoge.anlegen.import.importieren', { n: fresh.length }) : t('dialoge.anlegen.import.importierenKurz'));
 
   const res = await dialog({
-    title: `Import aus ${esc(result.source)}`,
+    title: t('dialoge.anlegen.import.titel', { quelle: esc(result.source) }),
     content: `
       <div id="import-summary">${summary()}</div>
       ${columns}
-      <p class="dlg-note"><small>Die Exportdatei enthält alles im Klartext — danach am besten löschen.</small></p>`,
+      <p class="dlg-note"><small>${t('dialoge.anlegen.import.klartext')}</small></p>`,
     confirmText: confirmLabel(),
-    cancelText: 'Abbrechen',
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onBack: zurueckZu(zurueck),
     onInsert: id => {
       const host = document.getElementById(String(id));
@@ -415,8 +420,10 @@ export async function importFromOtherApps({ zurueck = null } = {}) {
 
   if (failed.length) {
     console.warn('Import: nicht übernommen', failed);
-    banner(`${created} importiert, ${failed.length} nicht übernommen (${esc(failed[0])}${failed.length > 1 ? ' …' : ''}).`, 'warning', 10000);
+    banner(failed.length > 1
+      ? t('dialoge.anlegen.import.teilweiseMehr', { n: created, fehlt: failed.length, fehler: esc(failed[0]) })
+      : t('dialoge.anlegen.import.teilweise', { n: created, fehlt: failed.length, fehler: esc(failed[0]) }), 'warning', 10000);
   } else {
-    banner(`${created} Einträge aus ${result.source} importiert. Die Exportdatei jetzt am besten löschen.`, 'success', 8000);
+    banner(t('dialoge.anlegen.import.fertig', { n: created, quelle: result.source }), 'success', 8000);
   }
 }

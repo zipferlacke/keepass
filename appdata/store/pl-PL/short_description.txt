@@ -1,0 +1,1 @@
+Hasła, kody 2FA i passkeys – lokalnie w formacie KeePass, bez konta
