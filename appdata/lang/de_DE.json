@@ -780,12 +780,14 @@
       "titel": "Lange nicht genutzt",
       "hinweis": "Diese Zugänge hast du seit über zwei Jahren nicht benutzt. Brauchst du einen nicht mehr, lösche zuerst das Konto beim Dienst und dann den Eintrag — ein vergessenes Konto mit altem Passwort ist ein beliebtes Ziel. Wird er noch gebraucht, genügt „Noch in Gebrauch\".",
       "zuletzt": "Zuletzt genutzt: {monat}",
-      "kontoLoeschen": "Konto löschen {aufwand}",
+      "kontoLoeschen": "Konto bei {dienst} löschen: {aufwand}",
       "oeffnen": "Öffnen",
       "nochInGebrauch": "Noch in Gebrauch",
-      "kontoLoeschenKnopf": "Konto löschen",
-      "zurSeite": "Zur Seite",
-      "eintragLoeschen": "Eintrag löschen"
+      "kontoLoeschenKnopf": "Löschseite öffnen",
+      "zurSeite": "Seite öffnen",
+      "eintragLoeschen": "Eintrag löschen",
+      "kontoLoeschenTitel": "Öffnet die Seite von {dienst} im Browser, auf der du das Konto selbst löschst (Link aus der Liste von JustDeleteMe). Hier wird nichts gelöscht.",
+      "zurSeiteTitel": "Öffnet {seite} im Browser. Hier wird nichts gelöscht."
     },
     "kontoFrage": {
       "titel": "Konto gelöscht?",
@@ -877,8 +879,8 @@
       "trennen": "Trennen",
       "keinerVerknuepft": "Noch kein Browser verknüpft.",
       "keinerEingetragen": "Bei keinem Browser eingetragen",
-      "stufeHinweis": "Was passiert, wenn ein verknüpfter Browser Zugangsdaten anfragt: nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Fingerabdruck.",
-      "fristHinweis": "Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen — eine Anmeldung mit mehreren Feldern fragt sonst mehrmals. Danach wird wieder gefragt. Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.",
+      "stufeHinweis": "Was passiert, wenn ein verknüpfter Browser Zugangsdaten anfragt: nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Fingerabdruck. Passkeys verlangen immer einen Nachweis.",
+      "fristHinweis": "Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen — eine Anmeldung mit mehreren Feldern fragt sonst mehrmals. Danach wird wieder gefragt. Gilt nicht bei „Nichts“; für Passkeys zählt nur ein Nachweis, kein Knopfdruck; Sperren beendet die Frist sofort.",
       "beimStart": "Beim Start des Browsers entsperren",
       "beimStartHinweis": "Ist die Datenbank zu, wenn sich der Browser meldet, geht gleich das kleine Fenster auf — PIN, Fingerabdruck oder Master-Passwort, und die Erweiterung hat ihre Daten. Ohne das entsperrst du über das Menü der Erweiterung, wenn du etwas brauchst.",
       "erweiterung": "Erweiterung",
@@ -929,7 +931,7 @@
       "leaks": "Passwörter auf Leaks prüfen",
       "leaksHinweis": "Have I Been Pwned — es wird nur ein Hash-Präfix gesendet, nie das Passwort",
       "email": "E-Mail-Adressen prüfen",
-      "emailHinweis": "Über XposedOrNot",
+      "emailHinweis": "Über XposedOrNot – dabei gehen die E-Mail-Adressen aus deinen Einträgen an diesen Dienst",
       "benachrichtigen": "Bei neuen Funden benachrichtigen",
       "benachrichtigenHinweis": "Wenn eine Prüfung ein neues Leck findet — auch bei der automatischen",
       "automatisch": "Automatisch prüfen",
@@ -937,7 +939,9 @@
       "zuletzt": " — zuletzt am {datum}",
       "taeglich": "Täglich",
       "woechentlich": "Wöchentlich",
-      "aus": "Aus"
+      "aus": "Aus",
+      "loeschlinks": "Löschanleitungen für alte Konten",
+      "loeschlinksHinweis": "Lädt die öffentliche Liste von JustDeleteMe (justdeleteme.xyz) mit Links zur Löschseite vieler Dienste. Welche Dienste du nutzt, erfährt dabei niemand; gelöscht wird nie etwas von selbst."
     },
     "appEntsperren": {
       "einleitung": "Was dieses Gerät zum Entsperren anbietet. Welche davon eine Datenbank nutzen darf, legst du je Datenbank fest: Datenbank → Entsperren dieser Datenbank.",
@@ -982,7 +986,7 @@
       "passkeysAktion": "Aktivieren",
       "passkeysFehlt": "Erst ab Android 14",
       "kamera": "Kamera",
-      "kameraText": "Nur für den QR-Scanner: Zwei-Faktor-Codes einrichten, ohne das Geheimnis abzutippen.",
+      "kameraText": "Nur für den QR-Scanner: Zwei-Faktor-Codes einrichten, ohne den Einrichtungscode abzutippen.",
       "kameraAktion": "Erlauben",
       "stufeHinweis": "Was passiert, wenn du einen Zugang aus der Liste antippst: nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Biometrie.",
       "fristHinweis": "Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen — ein Formular mit Name und Passwort fragt sonst zweimal. Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.",
@@ -1255,6 +1259,22 @@
     "sperren": {
       "gesperrt": "Gesperrt — die Werte wurden aus dem Speicher entfernt.",
       "banner": "Datenbank gesperrt."
+    },
+    "online": {
+      "titel": "Was darf ins Netz?",
+      "text": "WKeePass braucht kein Konto und keinen eigenen Server. Einige Komfortfunktionen fragen aber fremde Dienste an – wähle, was du davon möchtest.",
+      "symbole": "Website-Symbole laden",
+      "symboleHinweis": "Holt das Symbol einer Seite direkt von ihr (etwa github.com). Die Seite sieht dabei deine IP-Adresse.",
+      "namen": "Namen von Websites holen",
+      "namenHinweis": "Steht als Name nur eine Adresse, wird der Titel der Seite abgerufen – direkt von der Seite.",
+      "leaks": "Passwörter auf Leaks prüfen",
+      "leaksHinweis": "Have I Been Pwned: Es gehen nur die ersten 5 Zeichen eines Hashes hinaus, nie das Passwort.",
+      "email": "E-Mail-Adressen auf Leaks prüfen",
+      "emailHinweis": "XposedOrNot: Die E-Mail-Adressen aus deinen Einträgen werden an diesen Dienst geschickt.",
+      "loeschlinks": "Löschanleitungen für alte Konten",
+      "loeschlinksHinweis": "Lädt die öffentliche Liste von JustDeleteMe, damit der Sicherheitscheck bei lange ungenutzten Konten auf die Löschseite des Dienstes verlinken kann. Abgerufen wird die ganze Liste – welche Dienste du nutzt, erfährt niemand.",
+      "spaeter": "Alles lässt sich später in den Einstellungen ändern.",
+      "uebernehmen": "Übernehmen"
     }
   },
   "anfrage": {

@@ -780,12 +780,14 @@
       "titel": "Not used for a long time",
       "hinweis": "You haven’t used these logins for over two years. If you no longer need one, first delete the account with the service and then the entry — a forgotten account with an old password is a popular target. If it’s still needed, “Still in use” is enough.",
       "zuletzt": "Last used: {monat}",
-      "kontoLoeschen": "Delete account {aufwand}",
+      "kontoLoeschen": "Delete account at {dienst}: {aufwand}",
       "oeffnen": "Open",
       "nochInGebrauch": "Still in use",
-      "kontoLoeschenKnopf": "Delete account",
-      "zurSeite": "Go to site",
-      "eintragLoeschen": "Delete entry"
+      "kontoLoeschenKnopf": "Open deletion page",
+      "zurSeite": "Open site",
+      "eintragLoeschen": "Delete entry",
+      "kontoLoeschenTitel": "Opens the {dienst} page in your browser where you delete the account yourself (link from the JustDeleteMe list). Nothing is deleted here.",
+      "zurSeiteTitel": "Opens {seite} in your browser. Nothing is deleted here."
     },
     "kontoFrage": {
       "titel": "Account deleted?",
@@ -877,8 +879,8 @@
       "trennen": "Unlink",
       "keinerVerknuepft": "No browser linked yet.",
       "keinerEingetragen": "Not registered with any browser",
-      "stufeHinweis": "What happens when a linked browser requests credentials: nothing, a button press, or proof with PIN, master password or fingerprint.",
-      "fristHinweis": "Anyone who has just confirmed or unlocked is left alone for this long — a sign-in with several fields would otherwise ask repeatedly. After that you’re asked again. Doesn’t apply to “Nothing”; locking ends the grace period immediately.",
+      "stufeHinweis": "What happens when a linked browser requests credentials: nothing, a button press, or proof with PIN, master password or fingerprint. Passkeys always require proof.",
+      "fristHinweis": "Anyone who has just confirmed or unlocked is left alone for this long — a sign-in with several fields would otherwise ask repeatedly. After that you’re asked again. Doesn’t apply to “Nothing”; for passkeys only proof counts, not a button press; locking ends the grace period immediately.",
       "beimStart": "Unlock when the browser starts",
       "beimStartHinweis": "If the database is closed when the browser makes contact, the small window opens straight away — PIN, fingerprint or master password, and the extension has its data. Without this, you unlock via the extension’s menu when you need something.",
       "erweiterung": "Extension",
@@ -929,7 +931,7 @@
       "leaks": "Check passwords for leaks",
       "leaksHinweis": "Have I Been Pwned — only a hash prefix is sent, never the password",
       "email": "Check email addresses",
-      "emailHinweis": "Via XposedOrNot",
+      "emailHinweis": "Via XposedOrNot — the email addresses from your entries are sent to this service",
       "benachrichtigen": "Notify about new findings",
       "benachrichtigenHinweis": "When a check finds a new breach — including the automatic one",
       "automatisch": "Check automatically",
@@ -937,7 +939,9 @@
       "zuletzt": " — last on {datum}",
       "taeglich": "Daily",
       "woechentlich": "Weekly",
-      "aus": "Off"
+      "aus": "Off",
+      "loeschlinks": "Deletion guides for old accounts",
+      "loeschlinksHinweis": "Downloads the public JustDeleteMe list (justdeleteme.xyz) with links to the deletion pages of many services. Nobody learns which services you use; nothing is ever deleted automatically."
     },
     "appEntsperren": {
       "einleitung": "What this device offers for unlocking. Which of them a database may use is set per database: Database → Unlocking this database.",
@@ -982,7 +986,7 @@
       "passkeysAktion": "Enable",
       "passkeysFehlt": "Android 14 or later only",
       "kamera": "Camera",
-      "kameraText": "Only for the QR scanner: set up two-factor codes without typing the secret.",
+      "kameraText": "Only for the QR scanner: set up two-factor codes without typing the setup secret.",
       "kameraAktion": "Allow",
       "stufeHinweis": "What happens when you tap a login in the list: nothing, a button press, or proof with PIN, master password or biometrics.",
       "fristHinweis": "Anyone who has just confirmed or unlocked is left alone for this long — a form with a username and password would otherwise ask twice. Doesn’t apply to “Nothing”; locking ends the grace period immediately.",
@@ -1255,6 +1259,22 @@
     "sperren": {
       "gesperrt": "Locked — the values were removed from memory.",
       "banner": "Database locked."
+    },
+    "online": {
+      "titel": "What may go online?",
+      "text": "WKeePass needs no account and no server of its own. Some convenience features do query third-party services, though — choose which of them you want.",
+      "symbole": "Load website icons",
+      "symboleHinweis": "Fetches a site’s icon directly from it (e.g. github.com). The site sees your IP address.",
+      "namen": "Fetch website names",
+      "namenHinweis": "If only an address is given as the name, the page title is retrieved — directly from the site.",
+      "leaks": "Check passwords for leaks",
+      "leaksHinweis": "Have I Been Pwned: only the first 5 characters of a hash are sent, never the password.",
+      "email": "Check email addresses for leaks",
+      "emailHinweis": "XposedOrNot: the email addresses from your entries are sent to this service.",
+      "loeschlinks": "Deletion guides for old accounts",
+      "loeschlinksHinweis": "Downloads the public JustDeleteMe list so that the security check can link to the service’s deletion page for accounts unused for a long time. The whole list is fetched — nobody learns which services you use.",
+      "spaeter": "You can change everything later in the settings.",
+      "uebernehmen": "Apply"
     }
   },
   "anfrage": {

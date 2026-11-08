@@ -780,12 +780,14 @@
       "titel": "Længe ikke brugt",
       "hinweis": "Disse adgange har du ikke brugt i over to år. Hvis du ikke længere har brug for en, så slet først kontoen hos tjenesten og derefter posten — en glemt konto med gammel adgangskode er et yndet mål. Hvis den stadig bruges, er »Stadig i brug« nok.",
       "zuletzt": "Senest brugt: {monat}",
-      "kontoLoeschen": "Slet konto {aufwand}",
+      "kontoLoeschen": "Slet konto hos {dienst}: {aufwand}",
       "oeffnen": "Åbn",
       "nochInGebrauch": "Stadig i brug",
-      "kontoLoeschenKnopf": "Slet konto",
-      "zurSeite": "Til siden",
-      "eintragLoeschen": "Slet post"
+      "kontoLoeschenKnopf": "Åbn sletningssiden",
+      "zurSeite": "Åbn siden",
+      "eintragLoeschen": "Slet post",
+      "kontoLoeschenTitel": "Åbner {dienst}s side i browseren, hvor du selv sletter kontoen (link fra listen fra JustDeleteMe). Her slettes intet.",
+      "zurSeiteTitel": "Åbner {seite} i browseren. Her slettes intet."
     },
     "kontoFrage": {
       "titel": "Konto slettet?",
@@ -877,8 +879,8 @@
       "trennen": "Afbryd",
       "keinerVerknuepft": "Ingen browser er forbundet endnu.",
       "keinerEingetragen": "Ikke registreret i nogen browser",
-      "stufeHinweis": "Hvad der sker, når en forbundet browser beder om loginoplysninger: ingenting, et tryk på en knap eller bekræftelse med PIN, hovedadgangskode eller fingeraftryk.",
-      "fristHinweis": "Den, der lige har bekræftet eller låst op, får fred så længe — et login med flere felter ville ellers spørge flere gange. Derefter spørges der igen. Gælder ikke ved »Ingenting«; låsning afslutter perioden med det samme.",
+      "stufeHinweis": "Hvad der sker, når en forbundet browser beder om loginoplysninger: ingenting, et tryk på en knap eller bekræftelse med PIN, hovedadgangskode eller fingeraftryk. Passkeys kræver altid en bekræftelse.",
+      "fristHinweis": "Den, der lige har bekræftet eller låst op, får fred så længe — et login med flere felter ville ellers spørge flere gange. Derefter spørges der igen. Gælder ikke ved »Ingenting«; for passkeys tæller kun en bekræftelse, ikke et tryk på en knap; låsning afslutter perioden med det samme.",
       "beimStart": "Lås op, når browseren starter",
       "beimStartHinweis": "Er databasen låst, når browseren henvender sig, åbner det lille vindue straks — PIN, fingeraftryk eller hovedadgangskode, og udvidelsen får sine data. Uden dette låser du op via udvidelsens menu, når du har brug for noget.",
       "erweiterung": "Udvidelse",
@@ -929,7 +931,7 @@
       "leaks": "Tjek adgangskoder for lækager",
       "leaksHinweis": "Have I Been Pwned — der sendes kun et hash-præfiks, aldrig adgangskoden",
       "email": "Tjek e-mail-adresser",
-      "emailHinweis": "Via XposedOrNot",
+      "emailHinweis": "Via XposedOrNot – e-mailadresserne fra dine poster sendes til denne tjeneste",
       "benachrichtigen": "Giv besked ved nye fund",
       "benachrichtigenHinweis": "Når et tjek finder en ny lækage — også ved det automatiske",
       "automatisch": "Tjek automatisk",
@@ -937,7 +939,9 @@
       "zuletzt": " — senest den {datum}",
       "taeglich": "Dagligt",
       "woechentlich": "Ugentligt",
-      "aus": "Fra"
+      "aus": "Fra",
+      "loeschlinks": "Sletningsvejledninger til gamle konti",
+      "loeschlinksHinweis": "Henter den offentlige liste fra JustDeleteMe (justdeleteme.xyz) med links til sletningssiden hos mange tjenester. Ingen får at vide, hvilke tjenester du bruger; der slettes aldrig noget af sig selv."
     },
     "appEntsperren": {
       "einleitung": "Hvad denne enhed tilbyder til oplåsning. Hvilke af dem en database må bruge, bestemmer du pr. database: Database → Oplåsning af denne database.",
@@ -982,7 +986,7 @@
       "passkeysAktion": "Aktivér",
       "passkeysFehlt": "Først fra Android 14",
       "kamera": "Kamera",
-      "kameraText": "Kun til QR-scanneren: Opsæt totrinskoder uden at taste hemmeligheden ind.",
+      "kameraText": "Kun til QR-scanneren: Opsæt totrinskoder uden at taste opsætningskoden ind.",
       "kameraAktion": "Tillad",
       "stufeHinweis": "Hvad der sker, når du trykker på en adgang på listen: ingenting, et tryk på en knap eller bekræftelse med PIN, hovedadgangskode eller biometri.",
       "fristHinweis": "Den, der lige har bekræftet eller låst op, får fred så længe — en formular med navn og adgangskode ville ellers spørge to gange. Gælder ikke ved »Ingenting«; låsning afslutter perioden med det samme.",
@@ -1255,6 +1259,22 @@
     "sperren": {
       "gesperrt": "Låst — værdierne er fjernet fra hukommelsen.",
       "banner": "Database låst."
+    },
+    "online": {
+      "titel": "Hvad må gå på nettet?",
+      "text": "WKeePass behøver ingen konto og ingen egen server. Nogle bekvemmelighedsfunktioner spørger dog eksterne tjenester – vælg, hvad du vil have.",
+      "symbole": "Hent webstedsikoner",
+      "symboleHinweis": "Henter en sides ikon direkte fra siden (f.eks. github.com). Siden ser din IP-adresse.",
+      "namen": "Hent navne på websteder",
+      "namenHinweis": "Står der kun en adresse som navn, hentes sidens titel – direkte fra siden.",
+      "leaks": "Tjek adgangskoder for lækager",
+      "leaksHinweis": "Have I Been Pwned: Kun de første 5 tegn af et hash sendes ud, aldrig adgangskoden.",
+      "email": "Tjek e-mailadresser for lækager",
+      "emailHinweis": "XposedOrNot: E-mailadresserne fra dine poster sendes til denne tjeneste.",
+      "loeschlinks": "Sletningsvejledninger til gamle konti",
+      "loeschlinksHinweis": "Henter den offentlige liste fra JustDeleteMe, så sikkerhedstjekket kan linke til tjenestens sletningsside ved konti, der ikke har været brugt i lang tid. Hele listen hentes – ingen får at vide, hvilke tjenester du bruger.",
+      "spaeter": "Alt kan ændres senere i indstillingerne.",
+      "uebernehmen": "Anvend"
     }
   },
   "anfrage": {

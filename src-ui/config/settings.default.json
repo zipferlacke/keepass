@@ -25,13 +25,15 @@
     "reuseDetection": true,
     "expiryWarnDays": 14,
     "passwordBreach": true,
-    "emailBreach": true,
+    "emailBreach": false,
+    "deletionLinks": false,
     "automatic": "weekly",
     "lastRunAt": null,
     "notify": true
   },
   "ui": {
     "welcomeSeen": false,
+    "onlineAsked": false,
     "startView": "home",
     "expandedFolders": [],
     "showTotpInList": true

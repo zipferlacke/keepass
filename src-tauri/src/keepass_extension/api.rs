@@ -280,6 +280,9 @@ pub fn announce(locked: bool) {
     if let Ok(mut at) = last_identified().lock() {
         *at = if locked { None } else { Some(std::time::Instant::now()) };
     }
+    if let Ok(mut at) = last_confirmed().lock() {
+        *at = None;
+    }
     // Beim Sperren bleibt der Stand stehen — siehe [`stand_fuer_erweiterung`].
     if !locked {
         // Gleich nach dem Entsperren fragt die Erweiterung nach — und dann
@@ -956,7 +959,7 @@ impl Connection {
                 match action {
                     "get-logins" => Self::get_logins(shared, app, inner),
                     "set-login" => set_login(app, inner),
-                    "get-totp" => get_totp(app, inner),
+                    "get-totp" => get_totp(app, inner, client_id(shared)),
                     "lock-database" => lock_database(app),
                     "get-database-groups" => database_groups(app),
                     "create-new-group" => create_group(app, inner),
@@ -1083,7 +1086,7 @@ impl Connection {
             .unwrap_or_default()
             .to_string();
 
-        let answer = ask_user(
+        let answer = ask_user_mindestens(
             app,
             json!({
                 "kind": "passkey-register",
@@ -1091,6 +1094,7 @@ impl Connection {
                 "host": rp_id,
                 "login": name,
             }),
+            Guard::Identify,
         )?;
         if !answer.allow {
             return Err(Failure(code::PASSKEYS_REQUEST_CANCELED, "Anlegen abgelehnt.".into()));
@@ -1139,13 +1143,14 @@ impl Connection {
             .ok_or_else(|| Failure(code::PASSKEYS_UNKNOWN_ERROR, "Kein Ziel angegeben.".into()))?
             .to_string();
 
-        let answer = ask_user(
+        let answer = ask_user_mindestens(
             app,
             json!({
                 "kind": "passkey-get",
                 "client": client_id(shared),
                 "host": rp_id,
             }),
+            Guard::Identify,
         )?;
         if !answer.allow {
             return Err(Failure(code::PASSKEYS_REQUEST_CANCELED, "Anmeldung abgelehnt.".into()));
@@ -1547,7 +1552,7 @@ fn stand_zuletzt() -> Option<Stand> {
 ///
 /// Darin stehen nur die Kennung der Datenbank und die Schlüssel, mit denen
 /// sich Browser wiedererkennen lassen — öffentliche Schlüssel der
-/// Erweiterung, kein Geheimnis aus der Datenbank.
+/// Erweiterung, kein Passwort aus der Datenbank.
 fn stand_datei() -> Option<std::path::PathBuf> {
     let app = crate::app_handle()?;
     Some(app.path().app_config_dir().ok()?.join("browser-stand.json"))
@@ -1660,14 +1665,25 @@ pub fn browser_identified() -> Result<bool, String> {
     Ok(true)
 }
 
-/// Ist die letzte Legitimation noch frisch genug?
-fn within_grace(app: &tauri::AppHandle) -> bool {
+/// Wann zuletzt nur per Knopfdruck bestätigt wurde (Stufe „Bestätigen“).
+///
+/// Getrennt vom Nachweis: Ein Klick zeigt, dass jemand am Rechner sitzt,
+/// aber nicht, wer. Für Abfragen der Stufe „Bestätigen“ genügt das in der
+/// Schonfrist; ein Passkey verlangt einen echten Nachweis.
+fn last_confirmed() -> &'static Mutex<Option<std::time::Instant>> {
+    static LAST: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+    &LAST
+}
+
+fn frisch(zeit: &Mutex<Option<std::time::Instant>>, frist: std::time::Duration) -> bool {
+    zeit.lock().ok().and_then(|at| *at).is_some_and(|at| at.elapsed() < frist)
+}
+
+/// Ist die letzte Legitimation noch frisch genug? Bei `Identify` zählt nur
+/// ein Nachweis, sonst auch ein Knopfdruck.
+fn within_grace(app: &tauri::AppHandle, mode: Guard) -> bool {
     let frist = identify_grace(app);
-    last_identified()
-        .lock()
-        .ok()
-        .and_then(|at| *at)
-        .is_some_and(|at| at.elapsed() < frist)
+    frisch(last_identified(), frist) || (mode != Guard::Identify && frisch(last_confirmed(), frist))
 }
 
 /// Wie lange auf das Entsperren gewartet wird.
@@ -1691,9 +1707,21 @@ fn pending() -> &'static Mutex<Pending> {
     PENDING.get_or_init(|| Mutex::new(Pending::new()))
 }
 
-/// Parkt die Anfrage und wartet auf die Antwort aus dem Fenster.
-fn ask_user(app: &tauri::AppHandle, mut details: Value) -> Result<Decision, Failure> {
-    let mode = guard(app);
+/// Parkt die Anfrage und wartet auf die Antwort aus dem Fenster — so streng,
+/// wie unter `browser.guard` eingestellt.
+fn ask_user(app: &tauri::AppHandle, details: Value) -> Result<Decision, Failure> {
+    ask_user_mindestens(app, details, Guard::Never)
+}
+
+/// Wie [`ask_user`], aber mindestens mit der Stufe `mindestens` — egal, was
+/// eingestellt ist.
+///
+/// Passkeys verlangen immer einen Nachweis: Sie melden der Seite „Nutzer
+/// geprüft“ (UV), und das wäre bei „Nichts“ oder einem bloßen Knopfdruck
+/// gelogen. Die Schonfrist gilt trotzdem — wer sich eben ausgewiesen hat,
+/// ist geprüft.
+fn ask_user_mindestens(app: &tauri::AppHandle, mut details: Value, mindestens: Guard) -> Result<Decision, Failure> {
+    let mode = guard(app).max(mindestens);
 
     // „Nichts" heißt nichts — kein Fenster, keine Frist, keine Verzögerung.
     if mode == Guard::Never {
@@ -1708,7 +1736,7 @@ fn ask_user(app: &tauri::AppHandle, mut details: Value) -> Result<Decision, Fail
     // Muss **vor** dem Eintragen stehen: Ein Eintrag, der nie beantwortet
     // wird, bliebe sonst in der Liste liegen und hielte das Rückfragefenster
     // offen.
-    if within_grace(app) {
+    if within_grace(app, mode) {
         return Ok(Decision { allow: true });
     }
 
@@ -1785,7 +1813,9 @@ pub fn browser_answer(id: String, allow: bool) -> Result<bool, String> {
     drop(map);
 
     if allow && parked.details.get("guard").and_then(Value::as_str) == Some("confirm") {
-        browser_identified()?;
+        if let Ok(mut at) = last_confirmed().lock() {
+            *at = Some(std::time::Instant::now());
+        }
     }
     Ok(true)
 }
@@ -2279,16 +2309,52 @@ fn set_login(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
 }
 
 /// Der gerade gültige TOTP-Code eines Eintrags.
-fn get_totp(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
+///
+/// Nur nach Rückfrage, wie beim Abruf der Zugangsdaten. Der Code ist der
+/// zweite Faktor — ihn ohne Nachfrage herauszugeben, hieße, jeder
+/// verknüpfte Browser bekäme ihn auch einzeln, ohne dass jemand zustimmt.
+/// Kam er schon mit `get-logins` (dort gefragt), fällt diese Frage in die
+/// Schonfrist.
+fn get_totp(app: &tauri::AppHandle, inner: &Value, client: String) -> Result<Value, Failure> {
     let uuid = inner
         .get("uuid")
         .and_then(Value::as_str)
         .ok_or_else(|| Failure(code::NO_VALID_UUID_PROVIDED, "Kein Eintrag angegeben.".into()))?;
 
+    // Erst nachsehen, ob es den Eintrag und einen Code gibt — sonst fragte
+    // das Fenster nach etwas, das gar nicht da ist. Den Tresor nicht über
+    // die Rückfrage hinweg halten.
+    let (titel, hat_code) = {
+        let state = app.state::<Vault>();
+        let vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
+        let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
+        let id = crate::database::entry_id_of(db, uuid)
+            .ok_or_else(|| Failure(code::NO_VALID_UUID_PROVIDED, "Eintrag nicht gefunden.".into()))?;
+        match db.entry(id) {
+            Some(e) => (e.get_title().map(str::to_string).unwrap_or_default(), e.get_raw_otp_value().is_some()),
+            None => (String::new(), false),
+        }
+    };
+    if !hat_code {
+        return Err(Failure(code::NO_VALID_UUID_PROVIDED, "Für diesen Eintrag gibt es keinen Code.".into()));
+    }
+
+    let answer = ask_user(
+        app,
+        json!({
+            "kind": "totp",
+            "client": client,
+            "host": titel,
+            "entries": [{ "uuid": uuid, "name": titel }],
+        }),
+    )?;
+    if !answer.allow {
+        return Err(Failure(code::ACTION_CANCELLED_OR_DENIED, "Zugriff abgelehnt.".into()));
+    }
+
     let state = app.state::<Vault>();
     let vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
     let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
-
     let id = crate::database::entry_id_of(db, uuid)
         .ok_or_else(|| Failure(code::NO_VALID_UUID_PROVIDED, "Eintrag nicht gefunden.".into()))?;
 
@@ -2778,6 +2844,28 @@ mod tests {
         stand_vergessen();
     }
 
+    /// Passkeys verlangen mindestens einen Nachweis — auch wenn „Nichts“
+    /// oder „Bestätigen“ eingestellt ist; strenger wird es nie lockerer.
+    #[test]
+    fn untergrenze_der_rueckfrage() {
+        assert_eq!(Guard::Never.max(Guard::Identify), Guard::Identify);
+        assert_eq!(Guard::Confirm.max(Guard::Identify), Guard::Identify);
+        assert_eq!(Guard::Identify.max(Guard::Never), Guard::Identify);
+        assert_eq!(Guard::Confirm.max(Guard::Never), Guard::Confirm);
+    }
+
+    /// Ein Knopfdruck ist kein Nachweis: Er hält die Schonfrist für
+    /// „Bestätigen“ offen, nicht für einen Passkey.
+    #[test]
+    fn knopfdruck_ist_kein_nachweis() {
+        let frist = std::time::Duration::from_secs(60);
+        *last_identified().lock().unwrap() = None;
+        *last_confirmed().lock().unwrap() = Some(std::time::Instant::now());
+        assert!(frisch(last_confirmed(), frist));
+        assert!(!frisch(last_identified(), frist));
+        *last_confirmed().lock().unwrap() = None;
+    }
+
     /// „Immer erlauben“ steht als „true“ am Eintrag — auch das liest die
     /// Bibliothek als Base64.
     #[test]
@@ -2826,8 +2914,9 @@ mod tests {
    Wie streng wird gefragt?
    ========================================================= */
 
-/// Was vor der Herausgabe von Zugangsdaten verlangt wird.
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+/// Was vor der Herausgabe von Zugangsdaten verlangt wird — der Reihe nach
+/// strenger, damit sich eine Untergrenze mit `max` setzen lässt.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub enum Guard {
     /// Gar nichts. Der verknüpfte Browser bekommt, was er anfragt.
     ///

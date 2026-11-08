@@ -780,12 +780,14 @@
       "titel": "Inutilisés depuis longtemps",
       "hinweis": "Vous n’avez pas utilisé ces accès depuis plus de deux ans. Si vous n’en avez plus besoin, supprimez d’abord le compte auprès du service, puis l’entrée — un compte oublié avec un ancien mot de passe est une cible prisée. S’il est encore utilisé, « Encore utilisé » suffit.",
       "zuletzt": "Dernière utilisation : {monat}",
-      "kontoLoeschen": "Supprimer le compte {aufwand}",
+      "kontoLoeschen": "Supprimer le compte chez {dienst} : {aufwand}",
       "oeffnen": "Ouvrir",
       "nochInGebrauch": "Encore utilisé",
-      "kontoLoeschenKnopf": "Supprimer le compte",
-      "zurSeite": "Vers le site",
-      "eintragLoeschen": "Supprimer l’entrée"
+      "kontoLoeschenKnopf": "Ouvrir la page de suppression",
+      "zurSeite": "Ouvrir la page",
+      "eintragLoeschen": "Supprimer l’entrée",
+      "kontoLoeschenTitel": "Ouvre dans le navigateur la page de {dienst} où vous supprimez vous-même le compte (lien tiré de la liste de JustDeleteMe). Rien n’est supprimé ici.",
+      "zurSeiteTitel": "Ouvre {seite} dans le navigateur. Rien n’est supprimé ici."
     },
     "kontoFrage": {
       "titel": "Compte supprimé ?",
@@ -877,8 +879,8 @@
       "trennen": "Dissocier",
       "keinerVerknuepft": "Aucun navigateur associé pour l’instant.",
       "keinerEingetragen": "Enregistré dans aucun navigateur",
-      "stufeHinweis": "Ce qui se passe quand un navigateur associé demande des identifiants : rien, un simple clic ou une preuve par PIN, mot de passe principal ou empreinte digitale.",
-      "fristHinweis": "Une personne qui vient de confirmer ou de déverrouiller n’est plus sollicitée pendant ce délai — une connexion avec plusieurs champs demanderait sinon plusieurs fois. Ensuite, la demande revient. Ne s’applique pas à « Rien » ; le verrouillage met fin au délai immédiatement.",
+      "stufeHinweis": "Ce qui se passe quand un navigateur associé demande des identifiants : rien, un simple clic ou une preuve par PIN, mot de passe principal ou empreinte digitale. Les passkeys exigent toujours une preuve.",
+      "fristHinweis": "Une personne qui vient de confirmer ou de déverrouiller n’est plus sollicitée pendant ce délai — une connexion avec plusieurs champs demanderait sinon plusieurs fois. Ensuite, la demande revient. Ne s’applique pas à « Rien » ; pour les passkeys, seule une preuve compte, pas un simple clic ; le verrouillage met fin au délai immédiatement.",
       "beimStart": "Déverrouiller au démarrage du navigateur",
       "beimStartHinweis": "Si la base de données est verrouillée quand le navigateur se manifeste, la petite fenêtre s’ouvre aussitôt — PIN, empreinte digitale ou mot de passe principal, et l’extension a ses données. Sans cette option, vous déverrouillez via le menu de l’extension quand vous en avez besoin.",
       "erweiterung": "Extension",
@@ -929,7 +931,7 @@
       "leaks": "Vérifier les fuites de mots de passe",
       "leaksHinweis": "Have I Been Pwned — seul un préfixe de hachage est envoyé, jamais le mot de passe",
       "email": "Vérifier les adresses e-mail",
-      "emailHinweis": "Via XposedOrNot",
+      "emailHinweis": "Via XposedOrNot — les adresses e-mail de vos entrées sont alors transmises à ce service",
       "benachrichtigen": "Notifier en cas de nouveaux résultats",
       "benachrichtigenHinweis": "Quand une vérification trouve une nouvelle fuite — y compris lors de la vérification automatique",
       "automatisch": "Vérifier automatiquement",
@@ -937,7 +939,9 @@
       "zuletzt": " — dernière le {datum}",
       "taeglich": "Tous les jours",
       "woechentlich": "Toutes les semaines",
-      "aus": "Désactivé"
+      "aus": "Désactivé",
+      "loeschlinks": "Guides de suppression pour les anciens comptes",
+      "loeschlinksHinweis": "Télécharge la liste publique de JustDeleteMe (justdeleteme.xyz) avec les liens vers la page de suppression de nombreux services. Personne ne sait quels services vous utilisez ; rien n’est jamais supprimé automatiquement."
     },
     "appEntsperren": {
       "einleitung": "Ce que cet appareil propose pour le déverrouillage. Vous choisissez pour chaque base de données lesquelles elle peut utiliser : Base de données → Déverrouillage de cette base de données.",
@@ -982,7 +986,7 @@
       "passkeysAktion": "Activer",
       "passkeysFehlt": "À partir d’Android 14 seulement",
       "kamera": "Caméra",
-      "kameraText": "Uniquement pour le scanner de code QR : configurer des codes à deux facteurs sans saisir le secret.",
+      "kameraText": "Uniquement pour le scanner de code QR : configurer des codes à deux facteurs sans saisir le code de configuration à la main.",
       "kameraAktion": "Autoriser",
       "stufeHinweis": "Ce qui se passe quand vous touchez un accès dans la liste : rien, un simple appui ou une preuve par PIN, mot de passe principal ou biométrie.",
       "fristHinweis": "Une personne qui vient de confirmer ou de déverrouiller n’est plus sollicitée pendant ce délai — un formulaire avec nom et mot de passe demanderait sinon deux fois. Ne s’applique pas à « Rien » ; le verrouillage met fin au délai immédiatement.",
@@ -1255,6 +1259,22 @@
     "sperren": {
       "gesperrt": "Verrouillée — les valeurs ont été effacées de la mémoire.",
       "banner": "Base de données verrouillée."
+    },
+    "online": {
+      "titel": "Qu’est-ce qui peut aller sur le réseau ?",
+      "text": "WKeePass n’a besoin ni de compte ni de serveur propre. Quelques fonctions de confort interrogent toutefois des services tiers — choisissez celles que vous souhaitez.",
+      "symbole": "Charger les icônes des sites web",
+      "symboleHinweis": "Récupère l’icône d’un site directement auprès de lui (par exemple github.com). Le site voit alors votre adresse IP.",
+      "namen": "Récupérer les noms des sites web",
+      "namenHinweis": "Si le nom n’est qu’une adresse, le titre de la page est récupéré — directement auprès du site.",
+      "leaks": "Vérifier les fuites de mots de passe",
+      "leaksHinweis": "Have I Been Pwned : seuls les 5 premiers caractères d’un hachage sont envoyés, jamais le mot de passe.",
+      "email": "Vérifier les fuites d’adresses e-mail",
+      "emailHinweis": "XposedOrNot : les adresses e-mail de vos entrées sont envoyées à ce service.",
+      "loeschlinks": "Guides de suppression pour les anciens comptes",
+      "loeschlinksHinweis": "Télécharge la liste publique de JustDeleteMe afin que le contrôle de sécurité puisse renvoyer, pour les comptes inutilisés depuis longtemps, vers la page de suppression du service. Toute la liste est récupérée — personne ne sait quels services vous utilisez.",
+      "spaeter": "Tout peut être modifié plus tard dans les paramètres.",
+      "uebernehmen": "Appliquer"
     }
   },
   "anfrage": {

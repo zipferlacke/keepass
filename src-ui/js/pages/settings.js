@@ -183,6 +183,10 @@ function settingsMarkup() {
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.emailBreach" name="checks.emailBreach" ${s.checks?.emailBreach ? 'checked' : ''}></div>
         </div>
         <div class="setting">
+          <div class="setting-label"><strong>${t('einstellungen.pruefungen.loeschlinks')}</strong><small>${t('einstellungen.pruefungen.loeschlinksHinweis')}</small></div>
+          <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.deletionLinks" name="checks.deletionLinks" ${s.checks?.deletionLinks ? 'checked' : ''}></div>
+        </div>
+        <div class="setting">
           <div class="setting-label"><strong>${t('einstellungen.pruefungen.benachrichtigen')}</strong><small>${t('einstellungen.pruefungen.benachrichtigenHinweis')}</small></div>
           <div class="setting-control"><input type="checkbox" data-shape="toggle" data-set="checks.notify" name="checks.notify" ${s.checks?.notify !== false ? 'checked' : ''}></div>
         </div>

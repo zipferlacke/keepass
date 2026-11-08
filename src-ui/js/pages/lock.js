@@ -379,6 +379,54 @@ function biometrieFehlt() {
   return t('entsperren.biometrieFehlt.ohneSchluesselbund');
 }
 
+/**
+ * Einmal fragen, was die App aus dem Netz holen darf — bei neuen und bei
+ * bestehenden Installationen (`ui.onlineAsked`). Jeder Punkt sagt, wohin
+ * etwas geht und was; vorbelegt ist der bisherige Stand der Einstellungen.
+ * Alles bleibt später unter Einstellungen → Prüfungen bzw. Einträge umstellbar.
+ */
+const ONLINE = [
+  ['icons.download', 'symbole'],
+  ['names.fromWebsite', 'namen'],
+  ['checks.passwordBreach', 'leaks'],
+  ['checks.emailBreach', 'email'],
+  ['checks.deletionLinks', 'loeschlinks']
+];
+
+export async function showOnlineQuestion() {
+  return new Promise(resolve => {
+    $('#welcome').hidden = false;
+    // i18n: entsperren.online.symbole entsperren.online.symboleHinweis entsperren.online.namen entsperren.online.namenHinweis entsperren.online.leaks entsperren.online.leaksHinweis entsperren.online.email entsperren.online.emailHinweis entsperren.online.loeschlinks entsperren.online.loeschlinksHinweis
+    $('#welcome-card').innerHTML = `
+      ${BRAND_MARK}
+      <h2>${t('entsperren.online.titel')}</h2>
+      <p class="lock-sub">${t('entsperren.online.text')}</p>
+      ${ONLINE.map(([pfad, name]) => `
+        <div class="setting">
+          <div class="setting-label">
+            <strong>${t(`entsperren.online.${name}`)}</strong>
+            <small>${t(`entsperren.online.${name}Hinweis`)}</small>
+          </div>
+          <div class="setting-control">
+            <input type="checkbox" data-shape="toggle" data-online="${pfad}" ${settings.get(pfad, false) ? 'checked' : ''}>
+          </div>
+        </div>`).join('')}
+      <p class="lock-sub">${t('entsperren.online.spaeter')}</p>
+      <div class="lock-actions">
+        <button type="button" class="button hightlight" data-shape="full" id="online-ok"><span class="msr">check</span>&nbsp;${t('entsperren.online.uebernehmen')}</button>
+      </div>`;
+
+    $('#online-ok').onclick = async () => {
+      for (const el of document.querySelectorAll('#welcome-card [data-online]')) {
+        await settings.set(el.dataset.online, el.checked, { silent: true });
+      }
+      await settings.set('ui.onlineAsked', true, { silent: true });
+      $('#welcome').hidden = true;
+      resolve();
+    };
+  });
+}
+
 export async function showWelcome() {
   return new Promise(resolve => {
     $('#welcome').hidden = false;

@@ -298,7 +298,8 @@ function renderInactive(items) {
 
   // Die Löschliste kommt aus dem Netz; beim ersten Zeichnen ist sie noch
   // nicht da. Dann nachladen und die Seite einmal neu zeichnen.
-  if (items.length && !state.deletionIndex) {
+  const loeschlinks = settings.get('checks.deletionLinks', false);
+  if (loeschlinks && items.length && !state.deletionIndex) {
     accountDeletionIndex().then(index => {
       state.deletionIndex = index;
       if (state.view === 'security') renderSecurity();
@@ -308,7 +309,7 @@ function renderInactive(items) {
   return secSection('inactive', t('sicherheit.inaktiv.titel'), items.length, `
       <p class="section-note">${t('sicherheit.inaktiv.hinweis')}</p>
       ${items.map(e => {
-        const del = findDeletion(state.deletionIndex, e.url);
+        const del = loeschlinks ? findDeletion(state.deletionIndex, e.url) : null;
         const site = host(e.url || '');
         return `
         <div class="finding inactive-item" data-tone="warn">
@@ -319,13 +320,13 @@ function renderInactive(items) {
               ${site ? `<span><span class="msr">link</span>${esc(site)}</span>` : ''}
             </div>
           </div>
-          <div class="finding-text">${t('sicherheit.inaktiv.zuletzt', { monat: esc(when(e)) })}${del ? ` · ${t('sicherheit.inaktiv.kontoLoeschen', { aufwand: esc(loeschAufwand(del.difficulty)) })}` : ''}</div>
+          <div class="finding-text">${t('sicherheit.inaktiv.zuletzt', { monat: esc(when(e)) })}${del ? ` · ${t('sicherheit.inaktiv.kontoLoeschen', { dienst: esc(del.name), aufwand: esc(loeschAufwand(del.difficulty)) })}` : ''}</div>
           <div class="finding-actions">
             <button type="button" class="button" data-edit="${e.id}"><span class="msr">edit</span>&nbsp;${t('sicherheit.inaktiv.oeffnen')}</button>
             <button type="button" class="button" data-still-used="${e.id}"><span class="msr">check</span>&nbsp;${t('sicherheit.inaktiv.nochInGebrauch')}</button>
             ${del && del.difficulty !== 'impossible'
-              ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(del.url)}"><span class="msr">person_remove</span>&nbsp;${t('sicherheit.inaktiv.kontoLoeschenKnopf')}</button>`
-              : site ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(e.url.includes('://') ? e.url : `https://${e.url}`)}"><span class="msr">open_in_new</span>&nbsp;${t('sicherheit.inaktiv.zurSeite')}</button>` : ''}
+              ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(del.url)}" title="${esc(t('sicherheit.inaktiv.kontoLoeschenTitel', { dienst: del.name }))}"><span class="msr">open_in_new</span>&nbsp;${t('sicherheit.inaktiv.kontoLoeschenKnopf')}</button>`
+              : site ? `<button type="button" class="button" data-account-delete="${e.id}" data-url="${esc(e.url.includes('://') ? e.url : `https://${e.url}`)}" title="${esc(t('sicherheit.inaktiv.zurSeiteTitel', { seite: site }))}"><span class="msr">open_in_new</span>&nbsp;${t('sicherheit.inaktiv.zurSeite')}</button>` : ''}
             <button type="button" class="button" data-remove="${e.id}"><span class="msr">delete</span>&nbsp;${t('sicherheit.inaktiv.eintragLoeschen')}</button>
           </div>
         </div>`;

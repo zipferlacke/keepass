@@ -780,12 +780,14 @@
       "titel": "Inte använda på länge",
       "hinweis": "De här inloggningarna har du inte använt på över två år. Om du inte behöver en längre: ta först bort kontot hos tjänsten och sedan posten — ett bortglömt konto med gammalt lösenord är ett populärt mål. Behövs den fortfarande räcker det med ”Används fortfarande”.",
       "zuletzt": "Senast använd: {monat}",
-      "kontoLoeschen": "Ta bort konto {aufwand}",
+      "kontoLoeschen": "Ta bort kontot hos {dienst}: {aufwand}",
       "oeffnen": "Öppna",
       "nochInGebrauch": "Används fortfarande",
-      "kontoLoeschenKnopf": "Ta bort konto",
-      "zurSeite": "Till webbplatsen",
-      "eintragLoeschen": "Ta bort post"
+      "kontoLoeschenKnopf": "Öppna borttagningssidan",
+      "zurSeite": "Öppna sidan",
+      "eintragLoeschen": "Ta bort post",
+      "kontoLoeschenTitel": "Öppnar {dienst}s sida i webbläsaren, där du själv tar bort kontot (länk från JustDeleteMes lista). Här tas inget bort.",
+      "zurSeiteTitel": "Öppnar {seite} i webbläsaren. Här tas inget bort."
     },
     "kontoFrage": {
       "titel": "Kontot borttaget?",
@@ -877,8 +879,8 @@
       "trennen": "Koppla bort",
       "keinerVerknuepft": "Ingen webbläsare är länkad än.",
       "keinerEingetragen": "Inte registrerad i någon webbläsare",
-      "stufeHinweis": "Vad som händer när en länkad webbläsare begär inloggningsuppgifter: ingenting, ett knapptryck eller ett bevis med PIN-kod, huvudlösenord eller fingeravtryck.",
-      "fristHinweis": "Den som nyss har bekräftat eller låst upp får vara i fred en stund — en inloggning med flera fält skulle annars fråga flera gånger. Därefter frågas det igen. Gäller inte för ”Ingenting”; låsning avslutar tiden direkt.",
+      "stufeHinweis": "Vad som händer när en länkad webbläsare begär inloggningsuppgifter: ingenting, ett knapptryck eller ett bevis med PIN-kod, huvudlösenord eller fingeravtryck. Passkeys kräver alltid ett bevis.",
+      "fristHinweis": "Den som nyss har bekräftat eller låst upp får vara i fred en stund — en inloggning med flera fält skulle annars fråga flera gånger. Därefter frågas det igen. Gäller inte för ”Ingenting”; för passkeys räknas bara ett bevis, inte ett knapptryck; låsning avslutar tiden direkt.",
       "beimStart": "Lås upp när webbläsaren startar",
       "beimStartHinweis": "Om databasen är låst när webbläsaren hör av sig öppnas det lilla fönstret direkt — PIN-kod, fingeravtryck eller huvudlösenord, och tillägget får sina data. Utan det låser du upp via tilläggets meny när du behöver något.",
       "erweiterung": "Tillägg",
@@ -929,7 +931,7 @@
       "leaks": "Kontrollera lösenord mot läckor",
       "leaksHinweis": "Have I Been Pwned — bara ett hash-prefix skickas, aldrig lösenordet",
       "email": "Kontrollera e-postadresser",
-      "emailHinweis": "Via XposedOrNot",
+      "emailHinweis": "Via XposedOrNot – e-postadresserna från dina poster skickas då till den tjänsten",
       "benachrichtigen": "Meddela vid nya fynd",
       "benachrichtigenHinweis": "När en kontroll hittar en ny läcka — även vid den automatiska",
       "automatisch": "Kontrollera automatiskt",
@@ -937,7 +939,9 @@
       "zuletzt": " — senast den {datum}",
       "taeglich": "Dagligen",
       "woechentlich": "Varje vecka",
-      "aus": "Av"
+      "aus": "Av",
+      "loeschlinks": "Anvisningar för att ta bort gamla konton",
+      "loeschlinksHinweis": "Hämtar den offentliga listan från JustDeleteMe (justdeleteme.xyz) med länkar till borttagningssidan hos många tjänster. Ingen får veta vilka tjänster du använder; inget tas någonsin bort av sig självt."
     },
     "appEntsperren": {
       "einleitung": "Vad den här enheten erbjuder för upplåsning. Vilka av dem en databas får använda bestämmer du per databas: Databas → Upplåsning av den här databasen.",
@@ -982,7 +986,7 @@
       "passkeysAktion": "Aktivera",
       "passkeysFehlt": "Först från Android 14",
       "kamera": "Kamera",
-      "kameraText": "Bara för QR-skannern: ställ in tvåfaktorskoder utan att skriva av hemligheten.",
+      "kameraText": "Bara för QR-skannern: ställ in tvåfaktorskoder utan att skriva av installationskoden.",
       "kameraAktion": "Tillåt",
       "stufeHinweis": "Vad som händer när du trycker på en inloggning i listan: ingenting, ett knapptryck eller ett bevis med PIN-kod, huvudlösenord eller biometri.",
       "fristHinweis": "Den som nyss har bekräftat eller låst upp får vara i fred en stund — ett formulär med namn och lösenord skulle annars fråga två gånger. Gäller inte för ”Ingenting”; låsning avslutar tiden direkt.",
@@ -1255,6 +1259,22 @@
     "sperren": {
       "gesperrt": "Låst — värdena har tagits bort från minnet.",
       "banner": "Databasen är låst."
+    },
+    "online": {
+      "titel": "Vad får gå ut på nätet?",
+      "text": "WKeePass behöver inget konto och ingen egen server. Några bekvämlighetsfunktioner frågar dock externa tjänster – välj vilka du vill ha.",
+      "symbole": "Hämta webbplatsikoner",
+      "symboleHinweis": "Hämtar en sidas ikon direkt från den (t.ex. github.com). Sidan ser då din IP-adress.",
+      "namen": "Hämta namn på webbplatser",
+      "namenHinweis": "Om bara en adress står som namn hämtas sidans titel – direkt från sidan.",
+      "leaks": "Kontrollera lösenord mot läckor",
+      "leaksHinweis": "Have I Been Pwned: Bara de första 5 tecknen i en hash skickas, aldrig lösenordet.",
+      "email": "Kontrollera e-postadresser mot läckor",
+      "emailHinweis": "XposedOrNot: E-postadresserna från dina poster skickas till den tjänsten.",
+      "loeschlinks": "Anvisningar för att ta bort gamla konton",
+      "loeschlinksHinweis": "Hämtar den offentliga listan från JustDeleteMe så att säkerhetskontrollen kan länka till tjänstens borttagningssida för länge oanvända konton. Hela listan hämtas – ingen får veta vilka tjänster du använder.",
+      "spaeter": "Allt kan ändras senare i inställningarna.",
+      "uebernehmen": "Använd"
     }
   },
   "anfrage": {

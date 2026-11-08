@@ -17,7 +17,7 @@ import { bindFileDrops } from './dialogs/entry.js';
 import { markUsed } from './core/entries.js';
 import { handleScan, startCreation } from './dialogs/create.js';
 import { openKonflikte } from './dialogs/konflikte.js';
-import { BRAND_MARK, dbName, enterUnlocked, gesperrtAufraeumen, lockDatabase, openUnlockDialog, rememberDatabase, renderLockscreen, showLockscreen, showWelcome, unlock, unlockBusy } from './pages/lock.js';
+import { BRAND_MARK, dbName, enterUnlocked, gesperrtAufraeumen, lockDatabase, openUnlockDialog, rememberDatabase, renderLockscreen, showLockscreen, showOnlineQuestion, showWelcome, unlock, unlockBusy } from './pages/lock.js';
 import { closeSettingsPage, renderSettings, showAndroidSetup, showBrowserSetupPage, updateSettingsPreview } from './pages/settings.js';
 
 /* =========================================================
@@ -172,6 +172,7 @@ async function boot() {
 
   // Beim allerersten Start einmal durch die Einrichtung führen.
   if (!settings.get('ui.welcomeSeen', false)) await showWelcome();
+  if (!settings.get('ui.onlineAsked', false)) await showOnlineQuestion();
   if (isMobile && !settings.get('android.setupSeen', false)) await showAndroidSetup();
   if (isTauri && !isMobile && !settings.get('browser.setupSeen', false)) await showBrowserSetupPage();
   renderLockscreen();

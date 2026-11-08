@@ -7,7 +7,7 @@ macOS und Android. Öffnet und schreibt dieselben Dateien wie KeePassXC und
 KeePassDX, gleicht Änderungen anderer Geräte über die Cloud ab, kann
 2FA-Codes, Passkeys, Autofill und den Browser.
 
-Gebaut mit Tauri 2: Der Kern in Rust verwahrt alle Geheimnisse, die
+Gebaut mit Tauri 2: Der Kern in Rust verwahrt alle Passwörter, die
 Oberfläche (HTML, CSS, JavaScript ohne Bundler) sieht nur Namen und
 Platzhalter. Warum das so ist und wie die Teile zusammenspielen, steht in
 [CONTEXT.md](CONTEXT.md).
@@ -105,7 +105,7 @@ tools/              Hilfsskripte: Android-Bau, Symbole, Web-Demo, Entwicklungsse
 | `versions.rs`                                                 | die letzten Stände, Vergleich, Zurückholen                                       |
 | `storage.rs`                                                  | lesen und schreiben, auch `content://` auf Android                               |
 | `offline.rs`                                                  | Offline-Kopie jeder geöffneten Datei                                             |
-| `secrets.rs`                                                  | Geheimnisse verwahren, TOTP, Passwortstärke                                      |
+| `secrets.rs`                                                  | Passwörter verwahren, TOTP, Passwortstärke                                       |
 | `seal.rs`, `keystore.rs`, `biometric.rs`                      | App-PIN, Schlüssel im Schlüsselbund, Nachweis des Besitzers                      |
 | `passkey.rs`                                                  | Passkeys (WebAuthn)                                                              |
 | `keepass_extension/`                                          | Anbindung an keepassxc-browser: Protokoll, Verschlüsselung, Verteiler            |
