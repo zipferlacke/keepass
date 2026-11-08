@@ -280,9 +280,8 @@ pub fn announce(locked: bool) {
     if let Ok(mut at) = last_identified().lock() {
         *at = if locked { None } else { Some(std::time::Instant::now()) };
     }
-    if locked {
-        stand_vergessen();
-    } else {
+    // Beim Sperren bleibt der Stand stehen — siehe [`stand_fuer_erweiterung`].
+    if !locked {
         // Gleich nach dem Entsperren fragt die Erweiterung nach — und dann
         // wird oft schon gespeichert. Den Stand jetzt lesen, solange es geht.
         std::thread::spawn(|| {
@@ -701,7 +700,7 @@ impl Connection {
     /// Fragt einmal je Verbindung von selbst nach dem Entsperren.
     ///
     /// Die Erweiterung fragt beim Start des Browsers nach der Datenbank
-    /// (`get-databasehash`). Ist sie zu, merkt sie sich das und fragt nicht
+    /// (`get-databasehash`). War sie hier noch nie offen, merkt sie sich „zu“ und fragt nicht
     /// weiter — Felder bleiben leer, im Menü steht „keine Daten“, bis man
     /// dort „Verbinden“ drückt (das schickt `triggerUnlock`). Wer den Browser
     /// öffnet, will meist gleich an seine Zugänge: Also geht das kleine
@@ -757,6 +756,7 @@ impl Connection {
         // einem eigenen Faden auf, und diese Nachricht wird sofort
         // beantwortet.
         if message.get("triggerUnlock").and_then(Value::as_str) == Some("true") && !offen_schnell(app) {
+            entsperren_erbeten_merken();
             let app = app.clone();
             std::thread::spawn(move || {
                 let _ = await_unlocked(&app);
@@ -927,9 +927,25 @@ impl Connection {
                 "entries": [{ "login": "", "password": generate_password() }],
             })),
 
-            // Wiedererkennung
-            "associate" => Self::associate(shared, app, inner),
+            // Wiedererkennung. Verknüpfen schreibt in die Datenbank — die
+            // Erweiterung schickt es auch bei gesperrter, seit wir ihr dann
+            // den gemerkten Stand nennen.
+            "associate" => {
+                await_unlocked(app)?;
+                Self::associate(shared, app, inner)
+            }
             "test-associate" => Self::test_associate(shared, app, inner),
+
+            // Gesperrt ist schon gesperrt — dafür kein Entsperrfenster.
+            "lock-database" if !offen_schnell(app) => Ok(json!({})),
+
+            // Beim Laden einer Seite mit Anmeldeformular fragt die
+            // Erweiterung von selbst. Ist die Datenbank zu, kein Fenster
+            // dafür, nur wenn sie ums Entsperren gebeten hat — siehe
+            // [`stand_fuer_erweiterung`].
+            "get-logins" if !offen_schnell(app) && !entsperren_erbeten() => {
+                Err(Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))
+            }
 
             // Alles Weitere setzt eine offene Datenbank voraus. Ist sie zu,
             // wird gewartet statt abgewiesen — sonst gibt die Erweiterung auf
@@ -1262,14 +1278,7 @@ impl Connection {
         };
 
         // Nicht auf einen beschäftigten Tresor warten — siehe [`stand`].
-        let stand = match tresor_kurz(app) {
-            Some(vault) => {
-                let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
-                stand_merken(db)
-            }
-            None => stand_zuletzt()
-                .ok_or_else(|| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist gerade beschäftigt.".into()))?,
-        };
+        let stand = stand_fuer_erweiterung(app)?;
 
         if stand.schluessel.get(id).map(String::as_str) != Some(key) {
             // Fürs Protokoll nur Namen, keine Schlüssel.
@@ -1431,15 +1440,37 @@ fn short(key: &str) -> String {
 /// letzten Mal. Der Wert muss nur stabil sein und sich zwischen Datenbanken
 /// unterscheiden — geprüft wird er nirgends gegen.
 fn database_hash(app: &tauri::AppHandle) -> Result<String, Failure> {
-    match tresor_kurz(app) {
-        Some(vault) => {
-            let db = vault.database().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
-            Ok(stand_merken(db).hash)
+    stand_fuer_erweiterung(app).map(|stand| stand.hash)
+}
+
+/// Was die Erweiterung zur Wiedererkennung bekommt — offen, beschäftigt
+/// oder gesperrt.
+///
+/// **Gesperrt** antworten wir aus dem zuletzt gesehenen Stand, als wäre die
+/// Datenbank offen. Der Grund steht in der Erweiterung: Vor einem Passkey
+/// fragt sie `get-databasehash` **ohne** `triggerUnlock`
+/// (`testAssociation(tab, [ false ])` in `passkeysGet`/`passkeysRegister`).
+/// Hieß die Antwort „zu“, gab sie auf, und die Seite meldete „Anfrage nicht
+/// möglich“ — `passkeys-get` kam nie bei uns an, das Warten aufs Entsperren
+/// in [`Connection::dispatch`] griff nie. Jetzt kommt die Anfrage an, das
+/// kleine Fenster bittet ums Entsperren, und danach geht es mit dem Passkey
+/// weiter.
+///
+/// Damit nicht jede Seite mit Anmeldeformular das Fenster aufreißt, gibt
+/// `get-logins` bei gesperrter Datenbank sofort „zu“ zurück — außer, die
+/// Erweiterung hat ums Entsperren gebeten (Klick aufs Symbol im Feld,
+/// Tastenkürzel), siehe [`entsperren_erbeten`].
+///
+/// Herausgegeben wird dabei nichts, was nicht ohnehin über die Leitung
+/// ginge: die Kennung der Datenbank und ein Ja/Nein zum Schlüssel, den der
+/// Browser selbst mitbringt.
+fn stand_fuer_erweiterung(app: &tauri::AppHandle) -> Result<Stand, Failure> {
+    if let Some(vault) = tresor_kurz(app) {
+        if let Ok(db) = vault.database() {
+            return Ok(stand_merken(db));
         }
-        None => stand_zuletzt()
-            .map(|stand| stand.hash)
-            .ok_or_else(|| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist gerade beschäftigt.".into())),
     }
+    stand_zuletzt().ok_or_else(|| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))
 }
 
 /* ---------------------------------------------------------
@@ -1459,11 +1490,11 @@ fn database_hash(app: &tauri::AppHandle) -> Result<String, Failure> {
    Deshalb: höchstens kurz auf den Tresor warten, sonst aus dem zuletzt
    gesehenen Stand antworten. Der Stand ist nur, was ohnehin über die
    Leitung ginge — Kennung der Datenbank und die Schlüssel der verknüpften
-   Browser —, und er gilt nur, solange die Datenbank offen ist.
+   Browser —, und er gilt auch gesperrt (siehe `stand_fuer_erweiterung`).
    --------------------------------------------------------- */
 
 /// Was die Erweiterung zur Wiedererkennung braucht.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 struct Stand {
     hash: String,
     /// Name der Verknüpfung → Schlüssel.
@@ -1487,18 +1518,58 @@ fn stand_merken(db: &keepass::Database) -> Stand {
         })
         .collect();
     let neu = Stand { hash: database_hash_locked(db), schluessel };
-    if let Ok(mut s) = stand().lock() {
-        *s = Some(neu.clone());
+    let geaendert = match stand().lock() {
+        Ok(mut s) => {
+            let geaendert = s.as_ref() != Some(&neu);
+            *s = Some(neu.clone());
+            geaendert
+        }
+        Err(_) => false,
+    };
+    if geaendert {
+        stand_sichern(&neu);
     }
     neu
 }
 
+/// Der zuletzt gesehene Stand — auch nach dem Sperren und, aus der Datei,
+/// nach einem Neustart, bei dem noch nicht entsperrt wurde. Siehe
+/// [`stand_fuer_erweiterung`].
 fn stand_zuletzt() -> Option<Stand> {
-    stand().lock().ok().and_then(|s| s.clone())
+    let mut s = stand().lock().ok()?;
+    if s.is_none() {
+        *s = stand_laden();
+    }
+    s.clone()
 }
 
-/// Beim Sperren: Was nicht offen ist, wird auch nicht aus dem Gedächtnis
-/// beantwortet.
+/// Wo der Stand zwischen zwei Starts liegt: neben `settings.json`.
+///
+/// Darin stehen nur die Kennung der Datenbank und die Schlüssel, mit denen
+/// sich Browser wiedererkennen lassen — öffentliche Schlüssel der
+/// Erweiterung, kein Geheimnis aus der Datenbank.
+fn stand_datei() -> Option<std::path::PathBuf> {
+    let app = crate::app_handle()?;
+    Some(app.path().app_config_dir().ok()?.join("browser-stand.json"))
+}
+
+fn stand_sichern(stand: &Stand) {
+    let Some(datei) = stand_datei() else { return };
+    let Ok(text) = serde_json::to_vec(stand) else { return };
+    if let Some(ordner) = datei.parent() {
+        let _ = std::fs::create_dir_all(ordner);
+    }
+    if let Err(err) = crate::util::write_atomic(&datei, &text) {
+        protokolliere(&format!("Stand nicht gesichert: {err}"));
+    }
+}
+
+fn stand_laden() -> Option<Stand> {
+    serde_json::from_slice(&std::fs::read(stand_datei()?).ok()?).ok()
+}
+
+/// Vergisst den Stand — nur für die Tests.
+#[cfg(test)]
 fn stand_vergessen() {
     if let Ok(mut s) = stand().lock() {
         *s = None;
@@ -1748,6 +1819,36 @@ pub fn browser_pending() -> Result<Option<Value>, String> {
 /// Wer hier entsperrt, hat sich damit ausgewiesen: Die Oberfläche meldet das
 /// als Legitimation, und die Rückfrage, die gleich darauf folgt, fällt in
 /// die Schonfrist. Ein Vorgang, ein Dialog — nicht zweimal dasselbe.
+/// Wann die Erweiterung zuletzt ums Entsperren gebeten hat (`triggerUnlock`).
+fn entsperren_erbeten_um() -> &'static Mutex<Option<std::time::Instant>> {
+    static UM: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+    &UM
+}
+
+fn entsperren_erbeten_merken() {
+    if let Ok(mut um) = entsperren_erbeten_um().lock() {
+        *um = Some(std::time::Instant::now());
+    }
+}
+
+/// Darf eine Anfrage, die von selbst kommt, aufs Entsperren warten?
+///
+/// Ja, wenn schon ums Entsperren gefragt wird, oder die Erweiterung eben
+/// darum gebeten hat. Das Fenster öffnet ein eigener Faden; die Anfrage
+/// danach kann schneller sein als er — daher die kurze Frist statt nur des
+/// Blicks auf die offene Rückfrage.
+fn entsperren_erbeten() -> bool {
+    let eben = entsperren_erbeten_um()
+        .lock()
+        .ok()
+        .and_then(|um| *um)
+        .is_some_and(|um| um.elapsed() < std::time::Duration::from_secs(10));
+    eben || pending()
+        .lock()
+        .map(|m| m.values().any(|p| p.details.get("kind").and_then(Value::as_str) == Some("unlock")))
+        .unwrap_or(false)
+}
+
 fn await_unlocked(app: &tauri::AppHandle) -> Result<(), Failure> {
     if is_open(app) {
         return Ok(());
@@ -2713,8 +2814,10 @@ mod tests {
         assert_eq!(stand.schluessel.len(), 1, "nur Verknüpfungen, keine anderen Daten");
         assert!(stand_zuletzt().is_some());
 
+        // Gesperrt bleibt der Stand: Sonst gibt die Erweiterung vor einem
+        // Passkey auf, bevor wir ums Entsperren bitten können.
+        assert!(stand_zuletzt().is_some_and(|s| s.hash == stand.hash));
         stand_vergessen();
-        assert!(stand_zuletzt().is_none(), "gesperrt: nichts aus dem Gedächtnis");
     }
 
 }
