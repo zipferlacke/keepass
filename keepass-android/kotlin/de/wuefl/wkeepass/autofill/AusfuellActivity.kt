@@ -36,32 +36,30 @@ import de.wuefl.wkeepass.system.Kaltstart
 import org.json.JSONObject
 
 /**
- * Hier entsteht das, was tatsächlich in die fremde App geht.
+ * Setzt die Werte in die anfragende App ein.
  *
- * Der Dienst hat vorher nur Zeilen geliefert — mit Kontonamen, aber ohne
- * Passwort; die anfragende App hat nichts gesehen. Tippt der Nutzer eine an,
- * startet Android **diese** Activity, durchsichtig über der fremden App:
+ * Der Dienst liefert nur Zeilen mit Kontonamen, ohne Passwort. Tippt der
+ * Nutzer eine an, startet Android diese Activity durchsichtig über der
+ * fremden App:
  *
  *   * Zeile mit Konto → einsetzen, je nach Einstellung nach einem Nachweis.
- *   * „Anderen Eintrag wählen …" → die Auswahlliste mit Suche. Ein Eintrag,
- *     der noch nicht zur Seite passte, merkt sich dabei die App bzw. Seite.
- *   * Datenbank zu → hier entsperren, mit Biometrie, PIN oder
- *     Master-Passwort. Läuft die App gar nicht, startet [Kaltstart] sie
- *     kurz im Hintergrund, und es geht hier weiter.
+ *   * „Anderen Eintrag wählen …" → Auswahlliste mit Suche. Ein Eintrag, der
+ *     noch nicht zur Seite passte, merkt sich dabei die App bzw. Seite.
+ *   * Datenbank zu → Entsperren mit Biometrie, PIN oder Master-Passwort.
+ *     Läuft die App nicht, startet [Kaltstart] sie kurz im Hintergrund.
  *
- * Was vor dem Einsetzen zu tun ist, entscheidet der Kern (Einstellung
- * „Vor dem Ausfüllen"): Kommt statt des Passworts `status: "nachweis"`,
- * fragt [Nachweisblatt] nach, und danach geht dieselbe Frage noch einmal
- * hinaus. Die Auswahlliste steht davor — gewählt wird immer zuerst.
+ * Ob vor dem Einsetzen ein Nachweis nötig ist, entscheidet der Kern
+ * (Einstellung „Vor dem Ausfüllen"): Antwortet er mit `status: "nachweis"`,
+ * fragt [Nachweisblatt] nach, danach wird die Anfrage wiederholt. Die
+ * Auswahlliste steht vor dem Nachweis.
  *
- * Kein Aufruf in den Kern läuft auf dem Hauptfaden. Er kann warten müssen
- * (Argon2 beim Speichern und Entsperren), und dann hinge sonst die Anzeige.
+ * Aufrufe in den Kern laufen nicht auf dem Hauptfaden, da sie warten können
+ * (Argon2 beim Speichern und Entsperren).
  *
- * Hat der Eintrag einen TOTP-Schlüssel, geht der Code ins Code-Feld, falls
- * das Formular eins hat — sonst in die Zwischenablage, für die nächste Seite.
+ * Hat der Eintrag einen TOTP-Schlüssel, geht der Code ins Code-Feld des
+ * Formulars, sonst in die Zwischenablage.
  *
- * `RESULT_CANCELED` heißt: nichts einsetzen. Das ist auch die richtige
- * Antwort bei Abbruch — ein Fehler ist es nicht.
+ * `RESULT_CANCELED` bedeutet: nichts einsetzen (auch bei Abbruch).
  */
 class AusfuellActivity : Activity() {
 
@@ -80,8 +78,7 @@ class AusfuellActivity : Activity() {
         passwortId = feldId(WKeePassAutofillService.EXTRA_PASSWORT_ID)
         codeId = feldId(WKeePassAutofillService.EXTRA_CODE_ID)
 
-        // Der Fingerabdruck-Dialog gehört zu diesem Blatt, nicht zu einem
-        // Hauptfenster, das hier gar nicht steht.
+        // Der Fingerabdruck-Dialog gehört zu diesem Blatt.
         Kern.vordergrund(this)
 
         bereit()
@@ -91,8 +88,8 @@ class AusfuellActivity : Activity() {
     private fun bereit() {
         Kern.imHintergrund({ Kern.status() }) { status ->
             when {
-                // Ohne laufenden Kern gibt es weder Einstellungen noch
-                // Schlüsselbund — die App kurz starten, dann hier weiter.
+                // Ohne laufenden Kern gibt es weder Einstellungen noch Schlüsselbund;
+                // die App wird kurz gestartet und es geht hier weiter.
                 Kern.aus(status) -> Kaltstart.starten(this) { laeuft ->
                     Kern.vordergrund(this)
                     if (laeuft) bereit() else abbrechen()
@@ -125,10 +122,9 @@ class AusfuellActivity : Activity() {
                 return@imHintergrund fehler("In der Datenbank gibt es keine Einträge mit Passwort.")
             }
 
-            // Kam man über „entsperren", hat man noch kein Konto gesehen —
-            // bei offener Datenbank hätte Android es direkt angeboten. Passt
-            // genau eines, also gleich das; sonst die Liste, passende oben.
-            // Nur ein Code-Feld? Dann zählen, wie im Dienst, nur Einträge mit TOTP.
+            // Nach „entsperren" wurde noch kein Konto gezeigt. Passt genau eines,
+            // wird es gleich eingesetzt, sonst folgt die Liste mit den passenden
+            // oben. Bei nur einem Code-Feld zählen nur Einträge mit TOTP.
             val passende = eintraege.filter {
                 it.optBoolean("passend") && (passwortId != null || it.optBoolean("totp"))
             }
@@ -152,7 +148,7 @@ class AusfuellActivity : Activity() {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.BOTTOM)
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            // Die Tastatur erst auf Wunsch — meist genügt ein Tipp in die Liste.
+            // Die Tastatur erscheint erst auf Wunsch.
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
 
@@ -220,8 +216,8 @@ class AusfuellActivity : Activity() {
     private fun einsetzen(id: String, merken: Boolean) {
         Kern.imHintergrund({ Kern.zugang(id, paket, merken) }) { zugang ->
             when {
-                // Der Kern hat nichts herausgegeben, sondern fragt zurück.
-                // Nach bestandener Prüfung dieselbe Frage noch einmal.
+                // Der Kern fragt zurück; nach bestandener Prüfung wird dieselbe
+                // Anfrage wiederholt.
                 zugang.optString("status") == "nachweis" ->
                     Nachweisblatt.nachweis(this, zugang.optString("stufe"), ziel()) { ok ->
                         if (ok) einsetzen(id, merken) else abbrechen()
@@ -273,8 +269,8 @@ class AusfuellActivity : Activity() {
         setze(passwortId, passwort)
         setze(codeId, code)
 
-        // Kein Code-Feld hier, aber ein Code am Eintrag: Er wird auf der
-        // nächsten Seite gebraucht — also in die Zwischenablage.
+        // Kein Code-Feld, aber ein Code am Eintrag: Er wird auf der nächsten
+        // Seite gebraucht und kommt in die Zwischenablage.
         if (codeId == null && code.isNotEmpty()) codeKopieren(code)
 
         if (!gesetzt) return fehler("Der Eintrag hat nichts, was in diese Felder passt.")

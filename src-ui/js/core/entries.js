@@ -18,9 +18,8 @@ import { zeichne } from './render.js';
 /**
  * Einträge ohne den Papierkorb.
  *
- * Was gelöscht ist, bleibt sichtbar — aber ein schwaches Passwort im
- * Papierkorb ist kein Befund, sondern Altlast. Alle Auswertungen laufen
- * deshalb hierüber.
+ * Gelöschte Einträge bleiben in der Liste sichtbar, zählen aber nicht für
+ * Auswertungen; diese laufen deshalb über diese Funktion.
  */
 export function liveEntries() {
   return state.entries.filter(e => !e.recycled);
@@ -78,7 +77,7 @@ export function usageMap(now = Date.now()) {
   const stored = settings.forDatabase(settings.get('database.current', null));
   const map = {};
 
-  // Ältere Fassung: nur eine Liste mit dem letzten Zeitpunkt.
+  // Altes Format: nur eine Liste mit dem letzten Zeitpunkt.
   for (const u of stored.usedEntries ?? []) map[u.id] = { at: u.at, week: [u.at] };
   for (const [id, u] of Object.entries(stored.usage ?? {})) map[id] = { at: u.at ?? 0, week: [...(u.week ?? [])] };
 
@@ -100,10 +99,10 @@ export function markUsed(ids) {
   const list = [ids].flat().filter(Boolean);
   if (!list.length || !path) return;
 
-  // Auch in der Datei (LastAccessTime) — daraus entsteht „Inaktive
-  // Einträge", und KeePassXC sieht denselben Zeitpunkt.
+  // Zusätzlich als LastAccessTime in der Datei; daraus ergeben sich
+  // „Inaktive Einträge", und KeePassXC sieht denselben Zeitpunkt.
   vault.markAccessed(list).catch(() => {});
-  // Wer einen Eintrag benutzt, ist meist gerade im passenden Netz.
+  // Icons nachladen (die Verbindung passt meist zum Eintrag).
   vault.fetchIcons(list).catch(() => {});
 
   const now = Date.now();
@@ -114,7 +113,7 @@ export function markUsed(ids) {
     u.week.push(now);
   }
 
-  // Still speichern: Die Liste soll kein Neuzeichnen aller Ansichten auslösen.
+  // Still speichern, ohne alle Ansichten neu zu zeichnen.
   settings.setForDatabase(path, 'usage', map, { silent: true });
   if (!state.locked) zeichne('übersicht');
 }

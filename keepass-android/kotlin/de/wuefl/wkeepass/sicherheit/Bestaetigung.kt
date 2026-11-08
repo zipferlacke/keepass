@@ -9,21 +9,19 @@ import android.os.SystemClock
 import de.wuefl.wkeepass.kern.Kern
 
 /**
- * „Bist du es?" — vor dem Herausgeben eines Passkeys.
+ * Nutzerprüfung vor dem Herausgeben eines Passkeys.
  *
- * Ein Passkey meldet der Gegenstelle ausdrücklich, dass der Nutzer geprüft
- * wurde (Flag UV in der authenticatorData). Das darf nicht gelogen sein,
- * also fragen wir wirklich: Finger, Gesicht oder die Displaysperre.
- *
- * Anders als [Geraeteschluessel] ohne Schlüssel — hier geht es um den
- * Nachweis, die Datenbank ist ja schon offen.
+ * Ein Passkey meldet der Gegenstelle, dass der Nutzer geprüft wurde (Flag UV
+ * in der authenticatorData). Geprüft wird per Fingerabdruck, Gesicht oder
+ * Displaysperre. Anders als [Geraeteschluessel] liefert die Prüfung keinen
+ * Schlüssel, sondern nur ein Ergebnis; die Datenbank ist bereits offen.
  */
 object Bestaetigung {
 
     /**
-     * Wie lange ein Nachweis gilt — wie `browser.graceSeconds` am Rechner.
-     * Wer gerade entsperrt hat, um einen Passkey zu nutzen, wurde sonst
-     * gleich darauf ein zweites Mal nach dem Finger gefragt.
+     * Gültigkeitsdauer eines Nachweises, entsprechend `browser.graceSeconds`
+     * am Rechner. Innerhalb dieser Zeit wird nach dem Entsperren nicht erneut
+     * geprüft.
      */
     private const val FRIST_MS = 60_000L
 

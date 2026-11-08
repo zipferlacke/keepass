@@ -1,39 +1,38 @@
 //! Der Nachweis, dass der Gerätebesitzer davorsitzt.
 //!
-//! # Was das ist und was nicht
+//! # Abgrenzung
 //!
-//! Das hier ist **Authentifizierung**, nicht Schlüsselschutz. Ein
-//! Fingerabdruck ist nie Schlüsselmaterial — zwei Scans desselben Fingers
-//! ergeben nie dieselben Bits, der Abgleich ist statistisch. Was überall
-//! passiert, ist stattdessen:
+//! Das Modul liefert eine **Authentifizierung**, keinen Schlüsselschutz.
+//! Ein Fingerabdruck ist kein Schlüsselmaterial, da der Abgleich statistisch
+//! ist. Der Ablauf ist überall:
 //!
 //! ```text
 //! Finger → Vergleich → „ja" → ein gespeicherter Schlüssel wird freigegeben
 //! ```
 //!
-//! Entscheidend ist, **wer** diese Entscheidung durchsetzt:
+//! Wer die Entscheidung durchsetzt, hängt von der Plattform ab:
 //!
 //! ```text
 //! macOS      Secure Enclave — der Chip rückt ohne Finger nichts heraus
 //! Windows    TPM über Windows Hello — dasselbe Prinzip
 //! Android    Keystore mit setUserAuthenticationRequired
-//! Linux      fprintd sagt über D-Bus nur wahr oder falsch. Die Entscheidung
-//!            fällt in diesem Prozess — sie hilft gegen die Person am offenen
-//!            Rechner, nicht gegen jemanden mit der Datei.
+//! Linux      fprintd liefert über D-Bus nur wahr oder falsch. Die
+//!            Entscheidung fällt im eigenen Prozess; sie schützt gegen
+//!            Personen am offenen Rechner, nicht gegen Zugriff auf die Datei.
 //! ```
 //!
-//! Deshalb ist der Finger-Weg unter Linux bewusst schwächer eingestuft als
-//! die PIN, und `seal.rs` schaltet ihn nur frei, wenn ein Schlüsselbund den
-//! eigentlichen Schutz übernimmt.
+//! Der Finger-Weg gilt unter Linux daher als schwächer als die PIN; `seal.rs`
+//! schaltet ihn nur frei, wenn ein Schlüsselbund den eigentlichen Schutz
+//! übernimmt.
 
 use zeroize::Zeroizing;
 
-/// Kann diese Plattform eine biometrische Prüfung durchführen?
+/// Gibt an, ob diese Plattform eine biometrische Prüfung durchführen kann.
 pub fn available() -> bool {
     imp::available()
 }
 
-/// Verlangt den Nachweis. `Ok(())` heißt: bestätigt.
+/// Verlangt den Nachweis. `Ok(())` bedeutet: bestätigt.
 pub fn verify(reason: &str) -> Result<(), String> {
     imp::verify(reason)
 }
@@ -52,12 +51,12 @@ pub fn verify(reason: &str) -> Result<(), String> {
    gibt es nichts dergleichen — fprintd sagt nur wahr oder falsch.
    ========================================================= */
 
-/// Kann diese Plattform einen an die Biometrie gebundenen Schlüssel liefern?
+/// Gibt an, ob diese Plattform einen an die Biometrie gebundenen Schlüssel liefern kann.
 pub fn device_key_available() -> bool {
     imp::device_key_available()
 }
 
-/// Wie der Weg auf dieser Plattform heißt — für die Beschriftung der Knöpfe.
+/// Bezeichnung des Wegs auf dieser Plattform, für die Beschriftung der Knöpfe.
 pub fn device_key_label() -> Option<&'static str> {
     imp::DEVICE_KEY_LABEL
 }
@@ -65,8 +64,7 @@ pub fn device_key_label() -> Option<&'static str> {
 /// Verlangt die Prüfung und leitet daraus 32 Byte Schlüssel ab.
 ///
 /// Dieselbe `challenge` ergibt auf demselben Gerät immer denselben
-/// Schlüssel. Ohne Prüfung gibt es keinen — das erzwingt die Hardware,
-/// nicht dieses Programm.
+/// Schlüssel. Ohne Prüfung gibt die Hardware keinen Schlüssel heraus.
 pub fn device_key(challenge: &[u8]) -> Result<Zeroizing<[u8; 32]>, String> {
     imp::device_key(challenge)
 }
@@ -114,10 +112,9 @@ mod imp {
         fn verify_status(&self, result: String, done: bool) -> zbus::Result<()>;
     }
 
-    /// Gerät suchen und prüfen, ob überhaupt ein Finger eingelernt ist.
-    ///
-    /// Ohne eingelernten Abdruck wäre ein Knopf „mit Fingerabdruck
-    /// entsperren" eine Sackgasse — deshalb zählt hier beides.
+    /// Sucht das Gerät und prüft, ob ein Finger eingelernt ist. Ohne
+    /// eingelernten Abdruck wäre ein Entsperren per Fingerabdruck nicht
+    /// möglich.
     fn device() -> Result<DeviceProxyBlocking<'static>, String> {
         let connection =
             Connection::system().map_err(|e| format!("Kein Systembus erreichbar: {e}"))?;
@@ -156,7 +153,7 @@ mod imp {
 
         let result = verify_once(&device);
 
-        // Freigeben, auch wenn es schiefging — sonst bleibt der Leser besetzt.
+        // Auch im Fehlerfall freigeben, damit der Leser nicht belegt bleibt.
         let _ = device.verify_stop();
         let _ = device.release();
 
@@ -164,7 +161,7 @@ mod imp {
     }
 
     fn verify_once(device: &DeviceProxyBlocking<'_>) -> Result<(), String> {
-        // Erst zuhören, dann starten — sonst geht das Signal verloren.
+        // Signal-Abonnement vor dem Start, damit kein Signal verloren geht.
         let mut stream = device
             .receive_verify_status()
             .map_err(|e| format!("Keine Rückmeldung vom Leser: {e}"))?;
@@ -173,8 +170,8 @@ mod imp {
             .verify_start("any")
             .map_err(|e| format!("Prüfung nicht gestartet: {e}"))?;
 
-        // fprintd meldet mehrfach; erst `done` zählt. Der Deckel verhindert,
-        // dass die Oberfläche ewig wartet, falls gar nichts kommt.
+        // fprintd meldet mehrfach; erst `done` zählt. Ein Zeitlimit beendet
+        // das Warten, falls keine Meldung eintrifft.
         let deadline = std::time::Instant::now() + Duration::from_secs(30);
 
         for signal in stream.by_ref() {
@@ -221,9 +218,9 @@ mod imp {
     use objc2_foundation::NSString;
     use objc2_local_authentication::{LAContext, LAPolicy};
 
-    /// `LAPolicyDeviceOwnerAuthenticationWithBiometrics` — nur Touch ID,
-    /// ohne Rückfall auf das Anmeldepasswort. Der Rückfall ist bei uns die
-    /// PIN bzw. das Master-Passwort, und das entscheidet die Oberfläche.
+    /// `LAPolicyDeviceOwnerAuthenticationWithBiometrics`: nur Touch ID, ohne
+    /// Rückfall auf das Anmeldepasswort. Der Rückfall (PIN bzw.
+    /// Master-Passwort) liegt bei der Oberfläche.
     const POLICY: LAPolicy = LAPolicy(1);
 
     fn context() -> Retained<LAContext> {
@@ -240,9 +237,9 @@ mod imp {
         unsafe { ctx.canEvaluatePolicy_error(POLICY) }
             .map_err(|e| format!("Touch ID nicht verfügbar: {e}"))?;
 
-        // `evaluatePolicy` meldet sich über einen Block zurück. Wir warten
-        // hier ab — der Aufrufer läuft ohnehin schon außerhalb des
-        // Hauptfadens (siehe database.rs).
+        // `evaluatePolicy` meldet das Ergebnis über einen Block; hier wird
+        // darauf gewartet. Der Aufrufer läuft außerhalb des Hauptfadens
+        // (siehe database.rs).
         let (tx, rx) = mpsc::channel::<bool>();
 
         let handler = block2::RcBlock::new(move |granted: objc2::runtime::Bool, _err: *mut objc2_foundation::NSError| {
@@ -279,15 +276,15 @@ mod imp {
 mod imp {
     //! Fingerabdruck und Gesicht über `tauri-plugin-biometric`.
     //!
-    //! Das Plugin beantwortet genau eine Frage: „Bist du es?" Das genügt
-    //! für den Nachweis vor dem Schlüsselbund (`verify`), nicht aber für
-    //! einen Schlüssel.
+    //! Das Plugin beantwortet nur die Frage, ob der Nutzer anwesend ist. Das
+    //! genügt als Nachweis vor dem Schlüsselbund (`verify`), nicht als
+    //! Schlüssel.
     //!
-    //! Den liefert unter Android der Keystore, und zwar über eigenen
-    //! Kotlin-Code — siehe `keystore` weiter unten und
-    //! `keepass-android/kotlin/…/sicherheit/Geraeteschluessel.kt`. Wo der
-    //! greift, ist die Biometrie kein Nachweis mehr, sondern der Schutz
-    //! selbst, und `seal.rs` bietet den gerätegebundenen Weg an.
+    //! Den Schlüssel liefert unter Android der Keystore über eigenen
+    //! Kotlin-Code (siehe `keystore` und
+    //! `keepass-android/kotlin/…/sicherheit/Geraeteschluessel.kt`). Dort ist
+    //! die Biometrie selbst der Schutz, und `seal.rs` bietet den
+    //! gerätegebundenen Weg an.
     use tauri_plugin_biometric::{AuthOptions, BiometricExt};
 
     pub fn available() -> bool {
@@ -314,7 +311,7 @@ mod imp {
                 reason.to_string(),
                 AuthOptions {
                     // Ohne eingerichteten Finger bleibt der Weg über die
-                    // Gerätesperre — sonst käme man gar nicht mehr hinein.
+                    // Gerätesperre.
                     allow_device_credential: true,
                     cancel_title: Some("Abbrechen".into()),
                     title: Some("WKeePass".into()),
@@ -355,15 +352,13 @@ mod imp {
     /// Die Brücke zu `Geraeteschluessel.kt`.
     ///
     /// Die Klasse liegt unter `keepass-android/kotlin/` und wird beim Bauen
-    /// ins Android-Projekt kopiert (`tools/android.sh`, und derselbe Schritt
-    /// in der GitHub-Aktion). Fehlt sie, meldet der erste Aufruf einen
-    /// Fehler und die App bleibt beim Weg über PIN und Schlüsselbund —
-    /// kaputt geht dabei nichts.
+    /// ins Android-Projekt kopiert (`tools/android.sh` und GitHub-Aktion).
+    /// Fehlt sie, meldet der erste Aufruf einen Fehler und die App nutzt den
+    /// Weg über PIN und Schlüsselbund.
     ///
-    /// Warum überhaupt Kotlin: `BiometricPrompt` verlangt eine Unterklasse
-    /// von `AuthenticationCallback`, und eine abstrakte Java-Klasse lässt
-    /// sich über JNI nicht ableiten. Die Begründung steht ausführlich in der
-    /// Kotlin-Datei.
+    /// Die Klasse ist in Kotlin geschrieben, da `BiometricPrompt` eine
+    /// Unterklasse von `AuthenticationCallback` verlangt, die sich über JNI
+    /// nicht ableiten lässt.
     #[cfg(target_os = "android")]
     mod keystore {
         use jni::objects::{JByteArray, JString, JValue};
@@ -395,11 +390,11 @@ mod imp {
         }
 
         /// Zeigt den Systemdialog und gibt zurück, was der Chip daraus
-        /// gerechnet hat. Das dauert — so lange, wie der Finger braucht.
+        /// gerechnet hat.
         ///
-        /// Der Aufruf blockiert, deshalb darf er nur aus einem Arbeitsfaden
-        /// kommen (`spawn_blocking` in `database.rs`): Der Dialog selbst
-        /// läuft auf dem Hauptfaden, und würden wir den anhalten, käme er nie.
+        /// Der Aufruf blockiert und muss aus einem Arbeitsfaden kommen
+        /// (`spawn_blocking` in `database.rs`), da der Dialog auf dem
+        /// Hauptfaden läuft.
         pub fn device_key(challenge: &[u8]) -> Result<Zeroizing<[u8; 32]>, String> {
             let bytes = mit_java(|env, activity| {
                 let klasse = crate::java::klasse(env, activity, CLASS)?;
@@ -418,7 +413,7 @@ mod imp {
                     return Ok(Ok(bytes));
                 }
 
-                // Leer heißt Fehlschlag; den Grund hält die Klasse bereit.
+                // Leer bedeutet Fehlschlag; den Grund hält die Klasse bereit.
                 let grund = env
                     .call_static_method(&klasse, "letzterFehler", "()Ljava/lang/String;", &[])?
                     .l()?;
@@ -483,8 +478,8 @@ mod imp {
     }
 
     pub fn verify(reason: &str) -> Result<(), String> {
-        // Über die Interop-Schnittstelle mit Fensterbezug: Ohne ihn geht die
-        // Abfrage einer Desktop-Anwendung gern hinter dem Fenster auf.
+        // Über die Interop-Schnittstelle mit Fensterbezug, damit die Abfrage
+        // vor dem Fenster der Anwendung erscheint.
         let interop = factory::<UserConsentVerifier, IUserConsentVerifierInterop>()
             .map_err(|e| format!("Windows Hello nicht erreichbar: {e}"))?;
 
@@ -540,8 +535,8 @@ mod imp {
 
     /// Holt den Schlüssel aus dem TPM oder legt ihn beim ersten Mal an.
     ///
-    /// Das Anlegen verlangt selbst eine Prüfung — beim Einrichten fragt
-    /// Windows deshalb zweimal nach.
+    /// Das Anlegen verlangt selbst eine Prüfung, daher fragt Windows beim
+    /// Einrichten zweimal.
     fn open_or_create() -> Result<KeyCredential, String> {
         let name = HSTRING::from(CREDENTIAL);
 
@@ -589,9 +584,9 @@ mod imp {
     /// Holt das Hello-Fenster nach vorn.
     ///
     /// `KeyCredentialManager` kennt anders als `UserConsentVerifier` keinen
-    /// Fensterbezug, und die Abfrage geht bei Desktop-Anwendungen oft hinter
-    /// dem eigenen Fenster auf. Ein kurzer Wächter sucht sie und stellt sie
-    /// nach vorn — derselbe Umweg, den KeePassXC nimmt.
+    /// Fensterbezug; die Abfrage erscheint sonst oft hinter dem eigenen
+    /// Fenster. Ein kurzer Wächter sucht sie und stellt sie nach vorn, wie es
+    /// auch KeePassXC macht.
     fn bring_prompt_to_front() {
         std::thread::spawn(|| {
             for _ in 0..50 {

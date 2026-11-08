@@ -1,18 +1,12 @@
 //! Der eine Weg von Rust zur Java-Seite von Android.
 //!
-//! # Warum alles hier durchläuft
+//! # Ausnahmen
 //!
-//! Wirft Java während eines JNI-Aufrufs eine Ausnahme, liefert `jni` einen
-//! Fehler zurück — die Ausnahme selbst bleibt aber **hängen**. Der nächste
-//! JNI-Aufruf auf diesem Faden, oder die Rückkehr nach Java, bricht dann den
-//! ganzen Prozess ab. Kein Absturz mit Meldung, die App ist einfach weg.
-//!
-//! Genau das ist beim Öffnen vorhandener Datenbanken passiert:
-//! `takePersistableUriPermission` wirft bei manchen Dateien eine
-//! `SecurityException`, das `?` sprang heraus, bevor jemand aufräumte.
-//!
-//! Deshalb räumt [`mit_java`] nach **jedem** Aufruf auf, egal wie er
-//! ausging. Wer JNI braucht, nimmt diese Funktion und vergisst das Thema.
+//! Wirft Java während eines JNI-Aufrufs eine Ausnahme, liefert `jni` einen Fehler,
+//! die Ausnahme selbst bleibt aber am Faden hängen. Der nächste JNI-Aufruf oder die
+//! Rückkehr nach Java bricht dann den Prozess ab. [`mit_java`] räumt deshalb nach
+//! jedem Aufruf auf, unabhängig vom Ausgang; JNI-Zugriffe laufen über diese
+//! Funktion.
 
 use std::sync::Mutex;
 
@@ -22,10 +16,9 @@ use tao::platform::android::prelude::main_android_context;
 
 /// Die Activity, die gerade vorn steht — sofern es nicht die des Fensters ist.
 ///
-/// Autofill und Passkeys laufen in eigenen Activities über einer **fremden**
-/// App; das Hauptfenster ist dabei oft gar nicht da. Ein Systemdialog
-/// (`BiometricPrompt`) gehört aber zu einer Activity, die auch wirklich
-/// sichtbar ist. Die Dienste melden sich deshalb hier an und wieder ab.
+/// Autofill und Passkeys laufen in eigenen Activities über einer **fremden** App;
+/// ein Systemdialog (`BiometricPrompt`) braucht eine sichtbare Activity. Die Dienste
+/// melden sich deshalb hier an und ab.
 fn vordergrund() -> &'static Mutex<Option<GlobalRef>> {
     static AKTUELL: std::sync::OnceLock<Mutex<Option<GlobalRef>>> = std::sync::OnceLock::new();
     AKTUELL.get_or_init(|| Mutex::new(None))
@@ -39,7 +32,7 @@ pub fn setze_vordergrund(activity: Option<GlobalRef>) {
 }
 
 /// Hängt den Faden an die Java-Umgebung, reicht die Activity herein und
-/// räumt hinterher eine offene Ausnahme ab — ins Protokoll, nicht ins Nichts.
+/// räumt danach eine offene Ausnahme ab und schreibt sie ins Protokoll.
 pub fn mit_java<T>(
     f: impl FnOnce(&mut JNIEnv, &JObject) -> Result<T, jni::errors::Error>,
 ) -> Result<T, String> {
@@ -67,9 +60,8 @@ pub fn mit_java<T>(
 
 /// Holt eine hängende Ausnahme ab und gibt ihren Text zurück.
 ///
-/// Auch für JNI-Einstiegspunkte, die Java selbst aufruft (`autofill.rs`,
-/// `passkey_android.rs`): Dort gibt es keine Activity aus tao, aufräumen
-/// muss man trotzdem.
+/// Gilt auch für JNI-Einstiegspunkte, die Java selbst aufruft (`autofill.rs`,
+/// `passkey_android.rs`); dort gibt es keine Activity aus tao.
 pub fn abraeumen(env: &mut JNIEnv) -> Option<String> {
     if !env.exception_check().unwrap_or(false) {
         return None;
@@ -94,12 +86,11 @@ pub fn abraeumen(env: &mut JNIEnv) -> Option<String> {
     Some(text)
 }
 
-/// Lädt eine **unserer** Klassen.
+/// Lädt eine **eigene** Klasse.
 ///
-/// `FindClass` — und damit jedes `call_static_method("de/wuefl/…")` — sucht
-/// auf einem Faden, den Rust angehängt hat, nur in den Systemklassen. Die
-/// App-Klassen kennt dort nur der ClassLoader der Activity; also über ihn.
-/// `name` in Java-Schreibweise mit Punkten.
+/// `FindClass` sucht auf einem von Rust angehängten Faden nur in den Systemklassen;
+/// App-Klassen kennt dort nur der ClassLoader der Activity, über den dieser Aufruf
+/// geht. `name` in Java-Schreibweise mit Punkten.
 pub fn klasse<'a>(
     env: &mut JNIEnv<'a>,
     activity: &JObject,

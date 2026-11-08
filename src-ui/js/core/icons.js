@@ -1,14 +1,9 @@
 /**
  * icons.js — Website-Icons für Einträge.
  *
- * Die Oberfläche lädt selbst nichts aus dem Netz. Das Icon holt der Kern
- * einmal von der Seite (favicon.rs) und legt es als Custom Icon in die
- * Datenbank — verschlüsselt, offline verfügbar und auf jedem Gerät, das die
- * Datei öffnet. Hier kommt es als `entry.icon` (`data:`-Adresse) an.
- *
- * Früher lud jede Anzeige das Icon direkt von der Seite. Das ging bei allem
- * schief, was nur in einem bestimmten Netz erreichbar ist, und jede
- * Anzeige verriet der Seite die eigene Adresse.
+ * Die Oberfläche lädt nichts aus dem Netz. Der Kern holt das Icon einmal
+ * von der Seite (favicon.rs) und speichert es als Custom Icon verschlüsselt
+ * in der Datenbank. Hier kommt es als `entry.icon` (`data:`-Adresse) an.
  */
 
 export function hostFromUrl(url) {

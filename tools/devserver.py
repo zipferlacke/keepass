@@ -1,26 +1,14 @@
 #!/usr/bin/env python3
 """Der Server, der die Oberfläche beim Entwickeln ausliefert.
 
-Er tut dasselbe wie ``python3 -m http.server`` und **eines** mehr: Er
-verbietet dem Webview, irgendetwas zwischenzuspeichern.
+Er verhält sich wie ``python3 -m http.server``, verbietet dem Webview aber
+jedes Zwischenspeichern: Jede Antwort trägt ``Cache-Control: no-store``.
 
-Warum das nötig ist
--------------------
-
-``http.server`` schickt zu jeder Datei ein ``Last-Modified`` und sonst
-nichts. Fehlt ``Cache-Control``, darf ein Client nach RFC 9111 selbst
-schätzen, wie lange die Antwort frisch bleibt; die übliche Faustregel ist
-ein Zehntel der Zeit seit der letzten Änderung. Eine Datei, die vor zehn
-Tagen zuletzt angefasst wurde, gilt damit einen Tag lang als frisch und
-wird nicht einmal nachgefragt.
-
-Beim Entwickeln ist das genau verkehrt herum: Ausgerechnet die Dateien, an
-denen man länger nicht gearbeitet hat, hängen am hartnäckigsten fest. Man
-ändert etwas, lädt neu, und sieht den alten Stand.
-
-``no-store`` schneidet das ab — der Webview darf die Antwort gar nicht erst
-ablegen. Das kostet beim Neuladen ein paar Millisekunden über den lokalen
-Netzanschluss und ist damit bezahlt.
+``http.server`` sendet nur ``Last-Modified``. Ohne ``Cache-Control`` darf ein
+Client nach RFC 9111 die Frischedauer selbst schätzen, üblicherweise ein
+Zehntel der Zeit seit der letzten Änderung. Selten geänderte Dateien gelten
+dadurch lange als frisch und werden nicht neu angefragt; ``no-store`` verhindert
+das.
 
 Nur zum Entwickeln. In der gebauten Fassung steckt die Oberfläche über
 ``frontendDist`` im Programm selbst; dann läuft hier gar nichts.
@@ -36,16 +24,15 @@ import http.server
 import os
 import sys
 
-# Auf dem Handy läuft die Oberfläche nicht auf demselben Gerät: Beim Aufruf
-# von `cargo tauri android dev --host` setzt Tauri `TAURI_DEV_HOST` auf die
-# Adresse dieses Rechners im WLAN, und dann muss der Server auch dort
-# lauschen — auf 127.0.0.1 käme das Handy nie an.
+# Bei `cargo tauri android dev --host` läuft die Oberfläche auf einem anderen
+# Gerät. Tauri setzt dann `TAURI_DEV_HOST` auf die WLAN-Adresse dieses Rechners,
+# auf der der Server lauschen muss.
 HOST = os.environ.get("TAURI_DEV_HOST", "127.0.0.1")
 PORT = 1420
 ROOT = "src-ui"
 
-# Bilder liegen in appdata/ — ausgeliefert unter ihrem Namen in der Wurzel.
-# Die gebaute Fassung bekommt sie über build.rs nach src-ui/ kopiert.
+# Bilder liegen in appdata/ und werden unter ihrem Namen in der Wurzel
+# ausgeliefert. Die gebaute Fassung erhält sie über build.rs in src-ui/.
 APPDATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "appdata")
 BILDER = {"/logo.svg", "/logo.png"}
 
@@ -54,9 +41,8 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     """Wie der eingebaute Handler, nur ohne Zwischenspeicher."""
 
     def end_headers(self):
-        # no-store ist der schärfste der drei: nicht ablegen, Punkt.
-        # Die beiden anderen sind für alte Zwischenspeicher, die noch nach
-        # HTTP/1.0 denken.
+        # no-store verbietet das Ablegen; Pragma und Expires gelten für
+        # Zwischenspeicher, die nur HTTP/1.0 kennen.
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
@@ -69,8 +55,7 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         return super().translate_path(path)
 
     def log_message(self, fmt, *args):
-        # Jede einzelne Datei zu protokollieren macht die Ausgabe von
-        # `cargo tauri dev` unlesbar. Fehler bleiben sichtbar.
+        # Einzelne Dateizugriffe werden nicht protokolliert, Fehler schon.
         code = args[1] if len(args) > 1 else ""
         if str(code).startswith(("4", "5")):
             super().log_message(fmt, *args)
@@ -79,10 +64,9 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
 def already_serving(port):
     """Läuft auf dem Port schon *unsere* Oberfläche?
 
-    Ein übriggebliebener Server aus einem früheren Lauf ist kein Grund, den
-    ganzen Start abzubrechen — er tut ja genau das Richtige. Ein *fremder*
-    Dienst dagegen schon: Der lieferte etwas anderes aus, und die App zeigte
-    wortlos die falsche Seite. Deshalb wird nachgesehen, was dort antwortet.
+    Ein Server aus einem früheren Lauf wird weiterverwendet; ein fremder
+    Dienst auf dem Port führt zum Abbruch. Geprüft wird die Antwort der
+    Startseite.
     """
     import urllib.request
 

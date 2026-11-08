@@ -205,9 +205,8 @@ function entriesForBreach(b) {
  * Je Adresse: welche Lecks, was dabei abgeflossen ist, was zu tun ist —
  * und der Knopf zum passenden Eintrag.
  *
- * Die Adresse selbst kann man nicht „ändern" wie ein Passwort, und das muss
- * man auch nicht. Gefährlich ist, was **mit** ihr abgeflossen ist. Darum
- * richtet sich der Rat nach den Daten jedes einzelnen Lecks.
+ * Der Rat richtet sich nach den Daten, die mit der Adresse abgeflossen
+ * sind, nicht nach der Adresse selbst.
  */
 function renderMailFindings() {
   const affected = state.emailFindings.filter(f => openBreaches(f).length);
@@ -335,8 +334,9 @@ function renderInactive(items) {
 
 /**
  * Auf die Löschseite des Dienstes springen. Kommt der Nutzer zurück, die
- * Frage, ob das Konto weg ist — dann gleich auch den Eintrag entfernen.
- * Das Passwort braucht man dort meist noch einmal; deshalb erst danach.
+ * Frage, ob das Konto gelöscht ist, und entfernt dann den Eintrag. Der
+ * Eintrag bleibt bis dahin erhalten, weil das Passwort dort meist noch
+ * gebraucht wird.
  */
 async function deleteAccountFlow(id, url) {
   const entry = vault.getEntry(id);
@@ -350,7 +350,7 @@ async function deleteAccountFlow(id, url) {
       window.removeEventListener('focus', back);
       resolve();
     };
-    // Kurz warten: Direkt nach dem Öffnen meldet der Webview noch „sichtbar".
+    // Kurze Wartezeit: Direkt nach dem Öffnen meldet der Webview noch „sichtbar".
     setTimeout(() => {
       document.addEventListener('visibilitychange', back);
       window.addEventListener('focus', back);
@@ -375,8 +375,6 @@ async function deleteAccountFlow(id, url) {
  * Gespeichert wird nur, was sich nicht aus der Datei selbst ergibt: welche
  * Einträge in Leaks stehen, die E-Mail-Funde und der Zeitpunkt. Schwache
  * und mehrfach genutzte Passwörter rechnet der Kern beim Öffnen neu aus.
- * Ohne das stand nach jedem Neustart „noch nicht geprüft", und die Zahlen
- * der Lecks waren weg.
  */
 export function restoreCheck() {
   const path = settings.get('database.current', null);
@@ -452,8 +450,7 @@ export async function runSecurityCheck({ silent = false } = {}) {
       const r = await checkEmailBreached(mail);
       if (r.error) {
         errors.push(t('sicherheit.fehler.email', { fehler: r.error }));
-        // Dienst gerade nicht erreichbar: den letzten Stand behalten, statt
-        // die Adresse plötzlich als sauber zu zeigen.
+        // Dienst nicht erreichbar: der letzte Stand bleibt erhalten.
         if (previous.has(mail)) { state.emailFindings.push(previous.get(mail)); continue; }
       }
       if (r.breaches.length) {
@@ -469,8 +466,8 @@ export async function runSecurityCheck({ silent = false } = {}) {
   await storeCheck();
   state.checkRunning = false;
 
-  // Neues seit der letzten Prüfung? Dann Bescheid geben — gerade bei der
-  // automatischen, die ohne Zutun im Hintergrund läuft.
+  // Bei neuen Funden seit der letzten Prüfung benachrichtigen (auch bei
+  // der automatischen Prüfung im Hintergrund).
   if (before && settings.get('checks.notify', true)) {
     const fresh = [...findingKeys()].filter(k => !before.has(k));
     const pw = fresh.filter(k => k.startsWith('pw:')).length;

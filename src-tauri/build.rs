@@ -1,11 +1,10 @@
-//! Alle Bilder liegen in appdata/. Die Oberfläche (frontendDist = src-ui)
-//! braucht das Logo aber neben sich — also vor dem Einbetten hinüberkopieren.
-//! Die Kopien stehen nicht im Repository (.gitignore).
+//! Alle Bilder liegen in appdata/. Die Oberfläche (frontendDist = src-ui) braucht
+//! das Logo daneben und bekommt es vor dem Einbetten hierher kopiert. Die Kopien
+//! stehen nicht im Repository (.gitignore).
 //!
-//! Beobachtet wird auch die Kopie: Fehlt sie (etwa nach einem Aufräumen der
-//! ignorierten Dateien), läuft das Skript neu, statt die Oberfläche ohne
-//! Logo einzubetten. Die Kopie bekommt die Zeit der Quelle, sonst hielte
-//! Cargo sie bei jedem Lauf für frisch geändert und baute alles neu.
+//! Auch die Kopie wird beobachtet, damit das Skript bei fehlender Kopie neu läuft.
+//! Sie erhält die Zeit der Quelle, damit Cargo sie nicht bei jedem Lauf für
+//! geändert hält.
 
 use std::path::Path;
 

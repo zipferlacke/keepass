@@ -21,8 +21,8 @@ python3 - "$klicks" <<'PY'
 import json, pathlib, sys
 schritte = json.dumps([s for s in sys.argv[1].split(',') if s.strip()])
 
-# Der Fänger muss als Erstes laufen: Scheitert schon ein Modul beim Laden,
-# ist ein später eingebundenes Modul noch nicht da, um das zu melden.
+# Der Fänger läuft als gewöhnliches Skript vor allen Modulen und meldet auch
+# Fehler, die schon beim Laden eines Moduls auftreten.
 # Deshalb steht er als gewöhnliches Skript ganz oben im Kopf.
 faenger = """<script>
 (() => {

@@ -5,9 +5,8 @@ use tauri_plugin_dialog::DialogExt;
 /// Öffnet den Dateidialog des Betriebssystems und gibt den Pfad zurück.
 #[tauri::command]
 pub async fn pick_database_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    // Android: eigene Auswahl über ACTION_OPEN_DOCUMENT. Der Tauri-Dialog
-    // nimmt ACTION_GET_CONTENT, und dessen Erlaubnis endet mit der App —
-    // eine Datei aus Nextcloud war nach dem Neustart nicht mehr lesbar.
+    // Android: eigene Auswahl über ACTION_OPEN_DOCUMENT; die Erlaubnis aus dem
+    // Tauri-Dialog (ACTION_GET_CONTENT) endet mit der App.
     #[cfg(target_os = "android")]
     {
         let _ = &app;
@@ -30,8 +29,7 @@ pub async fn pick_database_file(app: tauri::AppHandle) -> Result<Option<String>,
 
         let picked = rx.recv().map_err(|e| format!("Dateiauswahl fehlgeschlagen: {e}"))?;
 
-        // Ohne das wäre die Datei nach dem nächsten Start der App nicht mehr
-        // erreichbar — siehe storage::remember_access.
+        // Hält die Berechtigung über Neustarts hinaus, siehe storage::remember_access.
         if let Some(path) = &picked {
             crate::storage::remember_access(path);
         }
@@ -58,9 +56,8 @@ fn dateiwahl() -> Result<Option<String>, String> {
 
 /// Fragt, wohin eine **neue** Datenbank geschrieben werden soll.
 ///
-/// Der Dateiauswahldialog kann nur Vorhandenes zeigen; zum Anlegen braucht
-/// es den Speichern-Dialog. Die Endung hängt der Aufrufer nicht selbst an —
-/// das erledigt der Filter zusammen mit dem Vorschlag.
+/// Der Dateiauswahldialog zeigt nur Vorhandenes; zum Anlegen dient der
+/// Speichern-Dialog. Die Endung hängt der Filter zusammen mit dem Vorschlag an.
 #[tauri::command]
 pub async fn pick_save_path(
     app: tauri::AppHandle,
@@ -78,11 +75,9 @@ pub async fn pick_save_path(
 
     let picked = rx.recv().map_err(|e| format!("Speicherort-Auswahl fehlgeschlagen: {e}"))?;
 
-    // Manche Dialoge geben den Namen ohne Endung zurück — aber nur bei
-    // echten Pfaden. Auf Android kommt eine Adresse
-    // (`…/document/1500`), und die ist eine Kennung, kein Name: Hängt man
-    // dort etwas an, zeigt sie auf nichts mehr, und Android verweigert das
-    // Schreiben mit „Permission Denial".
+    // Manche Dialoge liefern den Namen ohne Endung, aber nur bei echten Pfaden. Auf
+    // Android ist das Ergebnis eine Adresse (`…/document/1500`), also eine Kennung;
+    // ein Anhängsel würde sie ungültig machen.
     if let Some(path) = &picked {
         crate::storage::remember_access(path);
     }
@@ -107,21 +102,17 @@ pub fn path_label(path: String) -> String {
 
 /// Die Datenbank, mit der die Anwendung aufgerufen wurde.
 ///
-/// Beim Doppelklick auf eine `.kdbx`-Datei startet das System die Anwendung
-/// mit dem Pfad als Argument — das ist die andere Hälfte der Dateizuordnung
-/// aus `tauri.conf.json`. Ohne diese Stelle ginge nur ein leeres Fenster auf.
+/// Beim Doppelklick auf eine `.kdbx`-Datei startet das System die Anwendung mit
+/// dem Pfad als Argument (Dateizuordnung aus `tauri.conf.json`). Zurück kommt nur
+/// ein vorhandener Pfad, der auf `.kdbx` endet.
 ///
-/// Zurück kommt nur, was auch wirklich existiert und auf `.kdbx` endet.
-/// Argumente sind nichts, worauf man blind vertrauen sollte, und ein Pfad,
-/// der ins Leere zeigt, würde die Oberfläche bloß mit einem Fehler begrüßen.
-///
-/// Läuft bereits ein Fenster, startet das System eine zweite Ausgabe. Die
-/// reicht ihre Argumente über das Einzelinstanz-Plugin an die laufende
-/// weiter und beendet sich (`datei_uebergeben`).
+/// Läuft bereits ein Fenster, reicht die zweite Ausgabe ihre Argumente über das
+/// Einzelinstanz-Plugin an die laufende weiter und beendet sich
+/// (`datei_uebergeben`).
 #[tauri::command]
 pub fn startup_database() -> Option<String> {
-    // macOS meldet die Datei als Ereignis, womöglich bevor die Oberfläche
-    // steht — dann liegt sie hier bereit.
+    // macOS meldet die Datei als Ereignis, möglicherweise vor dem Start der
+    // Oberfläche; sie liegt dann hier bereit.
     if let Some(path) = UEBERGEBEN.lock().ok().and_then(|mut p| p.take()) {
         return Some(path);
     }
@@ -136,9 +127,8 @@ fn kdbx_aus(args: impl IntoIterator<Item = String>) -> Option<String> {
             path.extension().is_some_and(|e| e.eq_ignore_ascii_case("kdbx")) && path.is_file()
         })
         .and_then(|arg| {
-            // Aufgelöst, damit auch ein relativer Aufruf aus der Kommandozeile
-            // denselben Pfad ergibt wie der Doppelklick — sonst gälte dieselbe
-            // Datenbank als zwei verschiedene.
+            // Aufgelöst, damit ein relativer Aufruf denselben Pfad ergibt wie der
+            // Doppelklick.
             std::fs::canonicalize(&arg)
                 .map(|p| p.to_string_lossy().to_string())
                 .ok()
@@ -177,8 +167,8 @@ pub async fn database_modified(path: String) -> Result<Option<i64>, String> {
 
 /// Holt den Namen des Dienstes hinter einer Adresse (siehe `web::dienstname`).
 ///
-/// Aus dem Webview heraus geht das nicht — fremde Seiten verbieten den
-/// Zugriff per CORS. Rust hat diese Einschränkung nicht.
+/// Der Abruf läuft in Rust, da fremde Seiten den Zugriff aus dem Webview per CORS
+/// verbieten.
 #[tauri::command]
 pub async fn fetch_page_title(url: String) -> Result<Option<String>, String> {
     let target = if url.starts_with("http") { url } else { format!("https://{url}") };
@@ -260,9 +250,10 @@ fn einrichtung(methode: &str, was: Option<&str>) -> Result<String, String> {
 /// Wurde die App nur gestartet, damit etwas anderes sie nutzt?
 ///
 /// Am Rechner der Browser (`--hintergrund`, siehe `route.rs`), auf Android
-/// das Ausfüllen (`Kaltstart.kt`). Beide fragen selbst nach PIN oder
-/// Biometrie; die Oberfläche soll dann beim Start nicht auch noch fragen.
-/// Auf Android gilt die Auskunft einmal — danach ist es ein gewöhnlicher Start.
+/// Am Rechner der Browser (`--hintergrund`, siehe `route.rs`), auf Android das
+/// Ausfüllen (`Kaltstart.kt`). Beide fragen selbst nach PIN oder Biometrie, daher
+/// fragt die Oberfläche beim Start nicht zusätzlich. Auf Android gilt die Auskunft
+/// einmal; danach ist es ein gewöhnlicher Start.
 #[tauri::command]
 pub fn started_for_others() -> bool {
     #[cfg(desktop)]
@@ -285,9 +276,8 @@ pub fn started_for_others() -> bool {
 
 /// Öffnet eine Webadresse im Browser des Systems.
 ///
-/// Bewusst nur `http` und `https`: Eine Adresse kommt hier aus Einträgen und
-/// aus einer Liste aus dem Netz. `file:`, `intent:` oder ein eigenes Schema
-/// könnten sonst Programme starten statt Seiten zeigen.
+/// Nur `http` und `https`: Adressen stammen aus Einträgen und einer Liste aus dem
+/// Netz; `file:`, `intent:` oder eigene Schemata könnten Programme starten.
 #[tauri::command]
 pub fn open_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;

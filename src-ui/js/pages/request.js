@@ -1,31 +1,23 @@
 /**
  * request.js — das kleine Fenster für Anfragen aus dem Browser.
  *
- * Es lebt für sich: eigene Seite, eigenes Fenster, kein Zustand aus der
- * Anwendung. Das ist Absicht — es geht auf, während man im Browser in einem
- * Anmeldeformular steht, und soll sofort da sein.
+ * Eigene Seite und eigenes Fenster, unabhängig vom Zustand der Anwendung.
+ * Es beantwortet zwei Arten von Anfragen:
  *
- * Es beantwortet zwei verschiedene Fragen:
+ *   **Entsperren** (`kind: "unlock"`) — die Datenbank ist geschlossen und ein
+ *   Browser wartet. Geöffnet wird mit PIN, Master-Passwort oder Fingerabdruck.
+ *   Das Master-Passwort wird bewusst hier und nicht im Browser eingegeben.
  *
- *   **Entsperren** (`kind: "unlock"`) — die Datenbank ist zu, ein Browser
- *   wartet. Hier wird sie geöffnet, mit PIN, Master-Passwort oder Finger.
- *   Auch das gehört in dieses Fenster und nicht in den Browser: Das
- *   Master-Passwort darf nicht durch Code wandern, den eine Website
- *   beeinflusst. Und die Anwendung muss dafür nicht offen stehen.
- *
- *   **Herausgabe** — die Datenbank ist offen, es geht um die Erlaubnis. Wie
- *   schwer die wiegt, gibt der Kern vor:
+ *   **Herausgabe** — die Datenbank ist offen, gefragt wird nach der Erlaubnis.
+ *   Die Stufe gibt der Kern vor:
  *
  *     `confirm`    Ein Knopfdruck: Abbrechen oder Übernehmen.
- *     `identify`   Nachweis, dass **du** am Gerät bist. Die Voreinstellung.
+ *     `identify`   Nachweis der Anwesenheit am Gerät (Voreinstellung).
  *
- * Die Stufe „Nichts" kommt hier nie an: Dann fragt der Kern gar nicht erst.
- * Einstellen lässt sie sich trotzdem von hier aus.
- *
- * Beides hintereinander wird nicht verlangt. Wer gerade entsperrt oder
- * bestätigt hat, wird eine Weile in Ruhe gelassen (`browser.graceSeconds`,
- * Voreinstellung eine Minute) — das Entsperren ist schon der Nachweis.
- * Diese Frist führt der Kern.
+ * Die Stufe „Nichts" erreicht dieses Fenster nie; sie lässt sich hier aber
+ * einstellen. Nach einem Entsperren oder Bestätigen entfällt die Rückfrage
+ * für eine Schonfrist (`browser.graceSeconds`, Voreinstellung eine Minute),
+ * die der Kern führt.
  */
 
 import { invoke, listen } from '../core/platform.js';
@@ -41,19 +33,13 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g,
 let current = null;
 
 /**
- * Welche Nachweise dieses Gerät hergibt.
+ * Ermittelt, welche Nachweise dieses Gerät anbietet; nur vorhandene Wege werden gezeigt.
  *
- * Angeboten wird nur, was es wirklich gibt — ein Knopf, der nie funktioniert,
- * ist schlimmer als keiner.
- *
- * Die PIN wird dabei zweimal verschieden gemessen, und das ist kein
- * Versehen:
- *
- *   Zum **Entsperren** ist sie ein Schlüssel. Sie zählt nur, wenn diese
- *   Datenbank ausdrücklich dafür freigeschaltet ist (`pin`).
- *
- *   Zum **Bestätigen** ist sie ein Nachweis. Da genügt, dass überhaupt eine
- *   festgelegt ist (`pinSet`) — geöffnet wird damit nichts.
+ * Die PIN zählt je nach Anfrage unterschiedlich:
+ *   Zum **Entsperren** ist sie ein Schlüssel und gilt nur, wenn die Datenbank
+ *   dafür freigeschaltet ist (`pin`).
+ *   Zum **Bestätigen** ist sie ein Nachweis; es genügt, dass eine PIN
+ *   festgelegt ist (`pinSet`).
  */
 const METHODEN = {
   pin: { label: () => t('anfrage.nachweis.pin') },
@@ -70,8 +56,7 @@ let gewaehlt = 'master';
 
 const TEXTE = {
   unlock: () => t('anfrage.text.unlock'),
-  // Nicht der Name der Verknüpfung („WKeePass kt249N“) — der sagt niemandem
-  // etwas. Welche Seite fragt, steht darüber.
+  // Statt des Verknüpfungsnamens steht die anfragende Seite im Kopf.
   logins: () => t('anfrage.text.logins'),
   totp: () => t('anfrage.text.totp'),
   create: () => t('anfrage.text.create'),
@@ -100,14 +85,11 @@ function render(req) {
 
   $('#req-icon').textContent = ICONS[req.kind] ?? 'shield_person';
   $('#req-title').textContent = entsperren ? t('anfrage.titel.entsperren') : t('anfrage.titel.anfrage');
-  // Beim Entsperren steht hier, **welche** Datei geöffnet wird; sonst, wer
-  // fragt. Beides beantwortet dieselbe Frage: worum geht es gerade?
+  // Beim Entsperren: Name der Datei; sonst: anfragender Host.
   $('#req-host').textContent = (entsperren ? datenbank().name : req.host) ?? '';
   $('#req-text').innerHTML = (TEXTE[req.kind] ?? (() => t('anfrage.text.sonst')))(req);
 
-  // Weicht das Ziel des Formulars vom besuchten Rechner ab, ist das das
-  // klassische Merkmal einer untergeschobenen Anmeldemaske. Das gehört
-  // sichtbar hierher, nicht ins Kleingedruckte.
+  // Weicht das Formularziel vom besuchten Host ab, erscheint eine Warnung.
   const warnung = $('#req-warning');
   warnung.hidden = !req.mismatch;
   if (req.mismatch) {
@@ -120,8 +102,7 @@ function render(req) {
   liste.innerHTML = eintraege.map(e =>
     `<li>${esc(e.name || t('anfrage.eintrag.ohneName'))}${e.login ? ` — ${esc(e.login)}` : ''}</li>`).join('');
 
-  // Entsperren verlangt immer einen Schlüssel — da gibt es kein „nur
-  // bestätigen". Sonst entscheidet die eingestellte Stufe.
+  // Entsperren verlangt immer einen Schlüssel; sonst gilt die eingestellte Stufe.
   const nachweis = entsperren || req.guard === 'identify';
   $('#req-identify').hidden = !nachweis;
   $('#req-allow').textContent = entsperren ? t('anfrage.knoepfe.entsperren') : t('anfrage.knoepfe.uebernehmen');
@@ -153,15 +134,12 @@ function zeige(sel) {
    Nachweise
    ========================================================= */
 
-/**
- * Fragt einmal beim Start ab, was für die aktuelle Datenbank freigeschaltet
- * ist. Kostet nichts — hier rechnet noch kein Argon2.
- */
+/** Liest einmal beim Start, was für die aktuelle Datenbank freigeschaltet ist. */
 async function ermittleMethoden() {
   try {
     wege = await invoke('unlock_methods', { path: datenbank().path }) ?? {};
   } catch {
-    // Dann bleibt das Master-Passwort. Das geht immer.
+    // Rückfall: Master-Passwort.
     wege = {};
   }
 }
@@ -187,11 +165,9 @@ function zeigeMethoden(kind) {
 
   waehleMethode(gewaehlt);
 
-  // Fingerabdruck nur, wenn er für diese Datenbank freigeschaltet **und**
-  // ein Leser da ist. Beides prüft der Kern.
-  //
-  // Mit Geräteschlüssel (Windows Hello) genügt zum Entsperren die Freigabe
-  // dieser Datenbank, zum Bestätigen schon ein eingerichtetes Hello.
+  // Fingerabdruck: Freigabe für die Datenbank und ein vorhandener Leser (Prüfung im Kern).
+  // Gerätenachweis (Windows Hello): zum Entsperren muss die Datenbank freigeschaltet sein,
+  // zum Bestätigen genügt ein eingerichtetes Hello.
   const geraet = kind === 'unlock' ? wege.device : wege.deviceAvailable;
   $('#req-bio').hidden = !(wege.biometric || geraet);
   $('#req-bio').dataset.method = kind === 'unlock' && wege.device ? 'device' : 'biometric';
@@ -205,8 +181,7 @@ function waehleMethode(name) {
 
   const feld = $('#req-secret');
   feld.value = '';
-  // Steht nur ein Weg zur Wahl, fehlt der Umschalter — dann muss der
-  // Platzhalter sagen, was gemeint ist.
+  // Bei nur einem Weg fehlt der Umschalter; der Platzhalter benennt ihn.
   feld.placeholder = METHODEN[name].label();
   feld.inputMode = name === 'pin' ? 'numeric' : 'text';
   feld.focus();
@@ -216,8 +191,7 @@ function waehleMethode(name) {
 async function pruefe(method, secret) {
   try {
     await invoke('confirm_presence', { reason: t('anfrage.nachweis.grund'), method, secret });
-    // Der Kern merkt sich das für die eingestellte Frist — wer gerade bestätigt hat,
-    // soll nicht drei Formulare später wieder gefragt werden.
+    // Der Kern merkt sich den Nachweis für die eingestellte Schonfrist.
     await invoke('browser_identified');
     return true;
   } catch (err) {
@@ -229,14 +203,9 @@ async function pruefe(method, secret) {
 /**
  * Öffnet die Datenbank.
  *
- * `method` heißt hier `password` statt `master` — das ist die Schreibweise
- * von `vault_unlock`, und sie unterscheidet sich von der bei
- * `confirm_presence`. Beim Umbenennen einer der beiden Stellen gäbe es eine
- * stille Fehlfunktion, deshalb steht die Übersetzung hier ausdrücklich.
- *
- * Wer entsperrt hat, gilt damit als ausgewiesen: `browser_identified` setzt
- * die Schonfrist, und die Rückfrage, die gleich darauf folgt, entfällt. Ein
- * Vorgang, ein Dialog.
+ * `method` heißt hier `password` (Schreibweise von `vault_unlock`), bei
+ * `confirm_presence` dagegen `master`. Nach dem Entsperren setzt
+ * `browser_identified` die Schonfrist, eine weitere Rückfrage entfällt.
  */
 async function entsperre(method, secret) {
   const { path } = datenbank();
@@ -245,8 +214,7 @@ async function entsperre(method, secret) {
     return false;
   }
 
-  // Argon2 rechnet je nach Datenbank mehrere Sekunden. Ohne Rückmeldung
-  // sieht das aus, als sei nichts passiert — und man drückt noch einmal.
+  // Argon2 braucht je nach Datenbank mehrere Sekunden; solange läuft die Rückmeldung.
   const fertig = arbeitet(true);
 
   try {
@@ -306,9 +274,7 @@ async function answer(allow) {
 
   $('#request').hidden = true;
 
-  // Wartet noch eine Anfrage, kommt sie gleich dran. Vorher blieb das
-  // Fenster in dem Fall leer stehen — der Kern versteckt es erst, wenn
-  // nichts mehr wartet, und die nächste Anfrage wurde nie gezeigt.
+  // Wartet eine weitere Anfrage, wird sie sofort angezeigt.
   try {
     const naechste = await invoke('browser_pending');
     if (naechste && !current) render(naechste);
@@ -349,9 +315,7 @@ function zeigeEinstellungen() {
    ========================================================= */
 
 async function boot() {
-  // Einstellungen und Aussehen sind Beiwerk. Scheitern sie — etwa weil das
-  // Fenster keine Berechtigung hat —, darf das nicht die ganze Seite
-  // verhindern: Übrig bliebe ein schwarzes Fenster ohne jeden Hinweis.
+  // Einstellungen und Aussehen sind optional; ein Fehler blockiert die Seite nicht.
   try {
     await settings.initSettings();
     applyAppearance(settings.get('appearance', {}));
@@ -359,8 +323,7 @@ async function boot() {
     console.error('Einstellungen nicht lesbar:', err);
   }
 
-  // Die Sprache gehört zum Aussehen: vor dem ersten Zeichnen laden. Auch
-  // ohne lesbare Einstellungen (dann gilt „auto").
+  // Sprache vor dem ersten Zeichnen laden (ohne lesbare Einstellungen: „auto").
   try {
     await initI18n(settings.get('appearance.language', 'auto'));
   } catch (err) {
@@ -371,19 +334,12 @@ async function boot() {
 
   await ermittleMethoden();
 
-  // Zwei Wege zur Anfrage, und beide werden gebraucht.
-  //
-  // Das Ereignis ist der schnelle: Steht das Fenster schon und kommt eine
-  // zweite Anfrage, ist sie sofort da. Beim allerersten Öffnen greift es
-  // aber nicht — der Kern sendet, während diese Datei noch geladen wird.
-  // Deshalb wird zusätzlich einmal aktiv nachgefragt.
-  // Das Fenster wird nach einer Anfrage nur versteckt, nicht geschlossen —
-  // es lebt also lange. Einstellungen und freigeschaltete Wege können sich
-  // inzwischen im Hauptfenster geändert haben: vor jeder Anfrage neu lesen.
+  // Anfragen kommen auf zwei Wegen: als Ereignis (bei bereits offenem Fenster) und
+  // durch einmaliges aktives Nachfragen (beim ersten Öffnen sendet der Kern, bevor
+  // dieses Skript geladen ist). Das Fenster wird nach einer Anfrage nur versteckt;
+  // Einstellungen und Wege werden deshalb vor jeder Anfrage neu gelesen.
   await listen('browser-request', async ev => {
-    // Ist schon eine Anfrage zu sehen, wartet die neue, bis diese
-    // beantwortet ist (siehe answer). Sie zu ersetzen hieße, die erste
-    // unsichtbar weiterwarten zu lassen — und das Fenster ginge nie zu.
+    // Bei bereits angezeigter Anfrage wartet die neue bis zur Antwort (siehe answer).
     if (current) return;
     try { await settings.reloadSettings(); } catch { /* alter Stand */ }
     try {
@@ -429,16 +385,13 @@ async function boot() {
 
   $('#req-deny').addEventListener('click', () => answer(false));
 
-  // Wird das Fenster aktiv, gehört die Tastatur ins Feld: Beim Öffnen kommt
-  // `focus()` sonst manchmal zu früh, bevor das Fenster vorn ist — und wer
-  // gleich seine PIN tippt, tippt ins Leere.
+  // Beim Aktivieren des Fensters erhält das Eingabefeld den Fokus.
   window.addEventListener('focus', () => {
     const feld = aufdeckbar($('#req-secret')).aktiv;
     if (current && !$('#req-identify').hidden && document.activeElement !== feld) feld.focus();
   });
 
-  // Escape lehnt ab. Ein Fenster, das man nur wegklicken kann, ohne dass
-  // klar ist was passiert, wäre die falsche Voreinstellung.
+  // Escape lehnt ab.
   document.addEventListener('keydown', ev => {
     if (ev.key !== 'Escape') return;
     if ($('#req-settings').hidden) answer(false);

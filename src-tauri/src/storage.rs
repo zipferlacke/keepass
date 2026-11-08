@@ -1,45 +1,34 @@
-//! Dateien lesen und schreiben — auch dort, wo es keine Pfade gibt.
+//! Dateien lesen und schreiben, auch für Android-`content://`-Adressen.
 //!
-//! # Warum das nötig ist
-//!
-//! Auf dem Schreibtisch ist eine Datei ein Pfad: `/home/du/passwoerter.kdbx`.
-//! Auf Android nicht. Dort wählt der Nutzer die Datei in einer fremden
-//! Anwendung aus (Dateien, Google Drive, Nextcloud), und heraus kommt eine
-//! Adresse wie
+//! Auf dem Schreibtisch ist eine Datei ein Pfad. Auf Android liefert die
+//! Dateiauswahl eine Adresse wie
 //!
 //! ```text
 //! content://com.android.externalstorage.documents/document/primary%3ADocuments%2Fpasswoerter.kdbx
 //! ```
 //!
-//! Dahinter steckt kein Ort im Dateisystem, sondern die Erlaubnis, genau
-//! diese eine Datei über einen fremden Anbieter zu öffnen. `std::fs` kann
-//! damit nichts anfangen; das Betriebssystem muss die Datei aufmachen und
-//! uns die offene Datei reichen. Genau das macht das fs-Plugin von Tauri.
+//! Sie bezeichnet keine Stelle im Dateisystem, sondern die Erlaubnis, genau
+//! diese Datei über einen Anbieter (Dateien, Google Drive, Nextcloud) zu
+//! öffnen. Das übernimmt das fs-Plugin von Tauri über das Betriebssystem.
+//! Alle Lese- und Schreibzugriffe auf Datenbanken und Anhänge laufen über
+//! dieses Modul; der übrige Kern arbeitet mit Zeichenketten.
 //!
-//! Alles, was an Datenbanken und Anhängen gelesen oder geschrieben wird,
-//! geht deshalb hier durch. Der übrige Kern kennt weiter nur Zeichenketten.
+//! # Einschränkungen unter Android
 //!
-//! # Was auf Android trotzdem anders bleibt
-//!
-//! * **Keine Sicherungskopie daneben.** Auf dem Schreibtisch schreibt
-//!   `write_atomic` erst eine Nebendatei und benennt um. Über eine
-//!   `content://`-Adresse geht das nicht: Wir dürfen die eine Datei
-//!   anfassen, nicht das Verzeichnis. Die Offline-Kopie in `offline.rs`
-//!   federt das ab.
-//! * **Die Erlaubnis kann ablaufen.** Sie gilt für die Sitzung; nach einem
-//!   Neustart der App kann dieselbe Adresse ins Leere zeigen. Dann bleibt
-//!   die Offline-Kopie zum Lesen, und zum Speichern muss die Datei erneut
-//!   ausgewählt werden.
+//! * Keine Sicherungskopie neben der Datei: `write_atomic` schreibt auf dem
+//!   Schreibtisch erst eine Nebendatei und benennt um. Über eine
+//!   `content://`-Adresse ist nur die eine Datei zugänglich, nicht das
+//!   Verzeichnis. Die Offline-Kopie (`offline.rs`) gleicht das aus.
+//! * Die Erlaubnis gilt zunächst nur für die Sitzung. Nach einem Neustart
+//!   kann dieselbe Adresse ins Leere zeigen; die Offline-Kopie bleibt dann
+//!   lesbar, zum Speichern muss die Datei erneut ausgewählt werden.
 
-/// Merkt sich die Erlaubnis für diese Datei dauerhaft.
+/// Macht die Erlaubnis für diese Datei dauerhaft.
 ///
-/// Android gibt beim Auswählen nur eine Erlaubnis für den Augenblick. Nach
-/// dem nächsten Start der App zeigt dieselbe Adresse ins Leere — dann bliebe
-/// nur die Offline-Kopie. `takePersistableUriPermission` hebt das auf: Die
-/// Erlaubnis überlebt Neustarts, bis der Nutzer sie entzieht.
-///
-/// Fehlschläge sind kein Grund abzubrechen: Öffnen geht auch ohne, nur eben
-/// nur dieses eine Mal.
+/// Android erteilt bei der Auswahl zunächst nur eine kurzzeitige Erlaubnis.
+/// `takePersistableUriPermission` erhält sie über Neustarts, bis der Nutzer
+/// sie entzieht. Schlägt das fehl, wird trotzdem geöffnet; die Erlaubnis gilt
+/// dann nur für diese Sitzung.
 pub fn remember_access(path: &str) {
     if is_uri(path) {
         uri::remember(path);
@@ -61,11 +50,9 @@ pub fn read(path: &str) -> Result<Vec<u8>, String> {
 
 /// Gibt es die Datei?
 ///
-/// Bei einem Pfad weiß das das Dateisystem. Bei einer `content://`-Adresse
-/// gibt es nur „der Anbieter rückt sie gerade heraus" oder „nicht" — und
-/// „nicht" heißt dort fast nie „gelöscht", sondern „gerade nicht
-/// erreichbar". Deshalb gilt eine Adresse immer als vorhanden: Wer das
-/// fragt, will wissen, ob er etwas überschreiben könnte.
+/// Eine `content://`-Adresse gilt immer als vorhanden: Ein Anbieter, der sie
+/// nicht herausgibt, ist meist nur nicht erreichbar, die Datei nicht
+/// gelöscht. Die Prüfung dient dazu, ein Überschreiben zu erkennen.
 pub fn exists(path: &str) -> bool {
     is_uri(path) || std::path::Path::new(path).exists()
 }
@@ -84,9 +71,8 @@ pub fn modified_ms(path: &str) -> Option<i64> {
 
 /// Schreibt eine Datei.
 ///
-/// Über einen Pfad so, dass ein Abbruch die alte Fassung nicht zerstört
-/// (siehe `util::write_atomic`). Über eine Adresse direkt — etwas anderes
-/// lässt Android nicht zu.
+/// Über einen Pfad atomar (siehe `util::write_atomic`), über eine Adresse
+/// direkt, da Android nichts anderes zulässt.
 pub fn write(path: &str, bytes: &[u8]) -> Result<(), String> {
     if is_uri(path) {
         return uri::write(path, bytes);
@@ -94,14 +80,12 @@ pub fn write(path: &str, bytes: &[u8]) -> Result<(), String> {
     crate::util::write_atomic(std::path::Path::new(path), bytes)
 }
 
-/// Der Name ohne Verzeichnis — für die Anzeige.
+/// Der Dateiname ohne Verzeichnis, für die Anzeige.
 ///
-/// Bei einer Adresse steht der Name nur manchmal drin: Der Dateispeicher
-/// von Android schreibt ihn hinein (`primary%3ADownload%2Ftest.kdbx`),
-/// Nextcloud und der Download-Anbieter nur eine Kennung. Dann ist die
-/// Herkunft die beste Auskunft, die sich ohne Rückfrage beim Anbieter
-/// herausholen lässt — den Rest liefert nach dem Öffnen der Name aus der
-/// Datenbank selbst.
+/// In einer Adresse steht der Name nur teilweise: Der Dateispeicher von
+/// Android enthält ihn (`primary%3ADownload%2Ftest.kdbx`), Nextcloud und der
+/// Download-Anbieter nur eine Kennung. Dann wird die Herkunft angezeigt; der
+/// Name aus der Datenbank selbst steht nach dem Öffnen zur Verfügung.
 pub fn file_name(path: &str) -> String {
     if is_uri(path) {
         let last = path.rsplit(['/', ':']).next().unwrap_or(path);
@@ -123,17 +107,15 @@ pub fn file_name(path: &str) -> String {
         .unwrap_or_else(|| path.to_string())
 }
 
-/// Wie die Datei heißt und wo sie liegt — für die Anzeige, etwa
-/// „Downloads — passwoerter.kdbx".
-///
-/// Auf dem Schreibtisch ist das schlicht der Pfad.
+/// Dateiname und Ablageort für die Anzeige, etwa „Downloads — passwoerter.kdbx".
+/// Bei einem Pfad ist das der Pfad selbst.
 pub fn label(path: &str) -> String {
     if !is_uri(path) {
         return path.to_string();
     }
 
-    // Beim Gerätespeicher steht der Ordner in der Adresse:
-    // `…/document/primary%3ADownload%2Ftest.kdbx`.
+    // Beim Gerätespeicher steht der Ordner in der Adresse,
+    // z. B. `…/document/primary%3ADownload%2Ftest.kdbx`.
     let aus_adresse = path
         .rsplit('/')
         .next()
@@ -141,9 +123,9 @@ pub fn label(path: &str) -> String {
             last.replace("%3A", ":").replace("%2F", "/").replace("%20", " ")
         })
         .and_then(|id| id.split_once(':').map(|(_, rest)| rest.to_string()))
-        // Der Download-Anbieter nennt `raw:` und den ganzen Pfad
-        // (`raw:/storage/emulated/0/Download/x.kdbx`). „Downloads" steht
-        // schon davor — vom Pfad bleibt, was hinter dem Download-Ordner kommt.
+        // Der Download-Anbieter liefert `raw:` mit dem ganzen Pfad
+        // (`raw:/storage/emulated/0/Download/x.kdbx`); angezeigt wird der
+        // Teil hinter dem Download-Ordner.
         .map(|rest| match rest.strip_prefix('/') {
             Some(voll) => voll
                 .split_once("/Download/")
@@ -174,7 +156,7 @@ pub fn herkunft(path: &str) -> String {
         "media" | "com.android.providers.media.documents" => "Medien".into(),
         "org.nextcloud.documents" => "Nextcloud".into(),
         "com.google.android.apps.docs.storage" => "Google Drive".into(),
-        // `de.foo.bar.documents` → `bar`: besser als die ganze Kennung.
+        // `de.foo.bar.documents` → `bar`
         other => other
             .trim_end_matches(".documents")
             .rsplit('.')
@@ -192,23 +174,20 @@ pub fn herkunft(path: &str) -> String {
 mod uri {
     use std::io::{Read, Write};
 
-    /// `contentResolver.openFileDescriptor(uri, modus)` — und der
-    /// Dateideskriptor wandert als gewöhnliche `File` nach Rust.
+    /// `contentResolver.openFileDescriptor(uri, modus)`; der Dateideskriptor
+    /// wird als gewöhnliche `File` an Rust übergeben.
     ///
-    /// Bewusst nicht über `tauri-plugin-fs`: Das öffnet auf dem Hauptfaden,
-    /// und Nextcloud muss die Datei dabei erst aus dem Netz holen. Android
-    /// verbietet Netzwerk auf dem Hauptfaden
-    /// (`NetworkOnMainThreadException`) — die Datenbank ging nie auf, und es
-    /// blieb nur die Offline-Kopie. Hier läuft der Aufruf auf dem
-    /// Arbeitsfaden, auf dem der Kern ohnehin gerade liest oder schreibt.
+    /// Nicht über `tauri-plugin-fs`, das auf dem Hauptfaden öffnet: Anbieter
+    /// wie Nextcloud holen die Datei dabei aus dem Netz, was Android auf dem
+    /// Hauptfaden verbietet (`NetworkOnMainThreadException`). Der Aufruf läuft
+    /// auf dem Arbeitsfaden.
     ///
     /// `modus` wie bei Android: `r`, `w`, `wt`, `rw`, `rwt`.
     fn oeffnen(path: &str, modus: &str) -> Result<std::fs::File, String> {
         use std::os::fd::FromRawFd;
 
-        // Immer ein eigener Faden: Synchrone Tauri-Befehle — etwa das
-        // Speichern — laufen auf dem Hauptfaden, und von dort käme der
-        // Aufruf sonst wieder genau dort an, wo er verboten ist.
+        // Immer in einem eigenen Faden, da synchrone Tauri-Befehle (etwa
+        // Speichern) auf dem Hauptfaden laufen.
         let (path_owned, modus_owned) = (path.to_string(), modus.to_string());
         let fd = std::thread::spawn(move || oeffnen_im_faden(&path_owned, &modus_owned))
             .join()
@@ -240,13 +219,12 @@ mod uri {
             if pfd.is_null() {
                 return Ok(-1);
             }
-            // `detachFd`: Ab jetzt gehört der Deskriptor uns, und `File`
-            // schließt ihn — beim Schließen lädt Nextcloud auch hoch.
+            // `detachFd`: Der Deskriptor gehört nun uns, `File` schließt ihn.
+            // Beim Schließen lädt Nextcloud die Datei hoch.
             env.call_method(&pfd, "detachFd", "()I", &[])?.i()
         })
         .map_err(|e| {
-            // Ins Protokoll, weil die Meldung auf dem Bildschirm abgeschnitten
-            // wird und genau hier die Ursache steht (`adb logcat`).
+            // Ins Protokoll (`adb logcat`), da die Bildschirmmeldung gekürzt wird.
             eprintln!("[storage] {path} nicht zu öffnen ({modus}): {e}");
             format!("Datei nicht erreichbar: {e}")
         })
@@ -254,12 +232,10 @@ mod uri {
 
     /// `contentResolver.takePersistableUriPermission(uri, lesen | schreiben)`
     ///
-    /// Über JNI, weil es dafür keine Rust-Schnittstelle gibt. Klappt nur bei
-    /// Dateien, die über `ACTION_OPEN_DOCUMENT` oder `ACTION_CREATE_DOCUMENT`
-    /// kamen — bei allen anderen wirft Android eine `SecurityException`.
-    /// Die ist hier kein Fehler, sondern nur ein „geht bei dieser Datei
-    /// nicht": ins Protokoll, weiter. Abgeräumt wird sie von `mit_java`;
-    /// ohne das riss sie früher die ganze App mit.
+    /// Über JNI, da es dafür keine Rust-Schnittstelle gibt. Funktioniert nur
+    /// bei Dateien aus `ACTION_OPEN_DOCUMENT` oder `ACTION_CREATE_DOCUMENT`;
+    /// bei anderen wirft Android eine `SecurityException`. Diese gilt nicht
+    /// als Fehler, sondern wird protokolliert und von `mit_java` abgefangen.
     pub fn remember(path: &str) {
         use jni::objects::JValue;
 
@@ -288,9 +264,8 @@ mod uri {
     /// Fragt den Anbieter nach dem Anzeigenamen der Datei
     /// (`OpenableColumns.DISPLAY_NAME`).
     ///
-    /// In der Adresse steht er meist nicht drin — Nextcloud und der
-    /// Download-Speicher setzen dort eine Kennung. Wissen tut ihn nur der
-    /// Anbieter selbst, und den fragt man über den ContentResolver.
+    /// In der Adresse steht der Name meist nicht; Nextcloud und der
+    /// Download-Speicher setzen dort eine Kennung.
     pub fn display_name(path: &str) -> Option<String> {
         use jni::objects::{JObject, JObjectArray, JString, JValue};
 
@@ -417,10 +392,9 @@ mod uri {
     }
 
     pub fn write(path: &str, bytes: &[u8]) -> Result<(), String> {
-        // Welche Betriebsart ein Anbieter annimmt, ist von Anbieter zu
-        // Anbieter verschieden: Der Download-Speicher lehnt „wt" ab, andere
-        // brauchen genau das, damit vom längeren alten Inhalt nichts
-        // stehenbleibt. Deshalb der Reihe nach probieren.
+        // Welche Betriebsart ein Anbieter annimmt, hängt vom Anbieter ab: Der
+        // Download-Speicher lehnt „wt" ab, andere brauchen es, damit vom alten
+        // Inhalt nichts stehenbleibt. Daher werden die Modi der Reihe nach probiert.
         let modi = ["wt", "rwt", "w", "rw"];
 
         let mut letzter = String::from("Datei nicht beschreibbar.");
@@ -431,11 +405,9 @@ mod uri {
                     file.write_all(bytes)
                         .map_err(|e| format!("Schreiben fehlgeschlagen: {e}"))?;
 
-                    // Nicht jeder Anbieter nimmt „wt" — mit „w" bleibt vom
-                    // alten, längeren Inhalt alles stehen, was hinter dem
-                    // neuen Ende liegt. Eine kdbx-Datei mit Schwanz ist für
-                    // das nächste Gerät kaputt, und genau so sah es aus:
-                    // „die Synchronisation geht nicht". Also abschneiden.
+                    // Bei „w" statt „wt" bliebe alter, längerer Inhalt hinter
+                    // dem neuen Ende stehen und die Datei wäre ungültig. Daher
+                    // wird auf die neue Länge gekürzt.
                     if let Err(e) = file.set_len(bytes.len() as u64) {
                         eprintln!("[storage] {path} ließ sich nicht kürzen ({modus}): {e}");
                     }
@@ -450,8 +422,8 @@ mod uri {
     }
 }
 
-/// Außerhalb von Android gibt es keine `content://`-Adressen — die Zweige
-/// oben laufen nie hier hinein.
+/// Außerhalb von Android gibt es keine `content://`-Adressen; die Zweige
+/// oben werden dort nie erreicht.
 #[cfg(not(target_os = "android"))]
 mod uri {
     pub fn remember(_path: &str) {}
@@ -477,8 +449,8 @@ mod uri {
 mod tests {
     use super::*;
 
-    /// Der Download-Anbieter nennt den ganzen Pfad hinter `raw:` — in der
-    /// Anzeige steht davon nur, was im Download-Ordner liegt.
+    /// Der Download-Anbieter nennt den ganzen Pfad hinter `raw:`; angezeigt
+    /// wird nur der Teil im Download-Ordner.
     #[test]
     fn download_adresse_zeigt_nur_den_namen() {
         let raw = "content://com.android.providers.downloads.documents/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Fbeispiel.kdbx";
@@ -488,13 +460,12 @@ mod tests {
         let tiefer = "content://com.android.providers.downloads.documents/document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2FTresor%2Fa.kdbx";
         assert_eq!(label(tiefer), "Downloads/Tresor/a.kdbx");
 
-        // Der Gerätespeicher bleibt, wie er war.
+        // Der Gerätespeicher bleibt unverändert.
         let primary = "content://com.android.externalstorage.documents/document/primary%3ADownload%2Ftest.kdbx";
         assert_eq!(label(primary), "Gerätespeicher/Download/test.kdbx");
     }
 
-    /// Eine Adresse gilt immer als vorhanden — dort heißt „nicht lesbar"
-    /// fast nie „gelöscht". Ein Pfad wird wirklich nachgesehen.
+    /// Eine Adresse gilt immer als vorhanden, ein Pfad wird geprüft.
     #[test]
     fn adresse_gilt_als_vorhanden_pfad_wird_nachgesehen() {
         assert!(exists("content://org.nextcloud.documents/document/abc"));

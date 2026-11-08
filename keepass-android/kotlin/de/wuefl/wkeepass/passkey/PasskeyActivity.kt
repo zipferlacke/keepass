@@ -42,19 +42,16 @@ import java.security.MessageDigest
  * ## Woher die Herkunft kommt
  *
  * WebAuthn bindet jede Signatur an die Herkunft der Anfrage. Bei Apps ist
- * das `android:apk-key-hash:<SHA-256 des Signaturzertifikats>` — die
- * Gegenstelle prüft ihn gegen ihre Digital Asset Links. Browser dagegen
- * bauen das clientDataJSON selbst und schicken nur dessen Hash. Den nehmen
- * wir **nur** von Aufrufern, deren Herkunft Android selbst bestätigt hat —
- * sonst könnte jede App einen Hash für `https://bank.de` vorlegen und sich
- * eine gültige Anmeldung erschleichen.
+ * das `android:apk-key-hash:<SHA-256 des Signaturzertifikats>`, den die
+ * Gegenstelle gegen ihre Digital Asset Links prüft. Browser bauen das
+ * clientDataJSON selbst und schicken nur dessen Hash; er wird nur von
+ * Aufrufern übernommen, deren Herkunft Android bestätigt hat.
  */
 class PasskeyActivity : Activity() {
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
-        // Systemdialoge gehören zu dieser Activity — ein Hauptfenster gibt
-        // es hier nicht.
+        // Systemdialoge gehören zu dieser Activity.
         Kern.vordergrund(this)
         when (intent.getStringExtra(EXTRA_MODUS)) {
             MODUS_ANMELDEN -> anmelden()
@@ -82,8 +79,8 @@ class PasskeyActivity : Activity() {
                     if (laeuft) bereit(sonst, dann) else sonst()
                 }
                 Kern.gesperrt(status) -> Nachweisblatt.entsperren(this) { offen ->
-                    // Entsperrt heißt: gerade nachgewiesen. Die Rückfrage vor
-                    // dem Anmelden entfällt dann (siehe Bestaetigung).
+                    // Entsperren gilt als Nachweis; die Rückfrage vor dem Anmelden entfällt
+                    // (siehe Bestaetigung).
                     if (offen) Bestaetigung.bestaetigt()
                     if (offen) dann() else sonst()
                 }

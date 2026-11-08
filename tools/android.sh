@@ -27,10 +27,9 @@ export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export NDK_HOME="${NDK_HOME:-$(ls -d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V | tail -1)}"
 export JAVA_HOME="${JAVA_HOME:-$HOME/.local/share/android-studio/jbr}"
 
-# Hängt dasselbe Handy über mehrere Wege am Rechner (Kabel, adb tcpip,
-# Wireless-Debugging), bricht adb mit „more than one device" ab. Deshalb
-# einmal eines auswählen und für alle Aufrufe festhalten. Nur fürs
-# Installieren und fürs Protokoll — bauen geht auch ohne Handy.
+# Wählt ein Gerät aus, wenn dasselbe Handy über mehrere Wege verbunden ist
+# (Kabel, adb tcpip, Wireless-Debugging); adb meldet sonst „more than one
+# device". Gilt für Installieren und Protokoll, nicht fürs Bauen.
 geraet_waehlen() {
   [[ -n "${ANDROID_SERIAL:-}" ]] && return 0
 
@@ -54,9 +53,8 @@ bauen() {
   # Kotlin-Klassen, Manifest-Block, Abhängigkeiten — siehe dort.
   python3 "$PROJEKT/tools/android-einbinden.py"
   echo "==> Bauen"
-  # Ohne das wiegt allein die Rust-Bibliothek über 250 MB — reine
-  # Fehlersuchsymbole, die auf dem Handy niemand liest. Über WLAN bricht die
-  # Übertragung daran ab. Gilt nur hier, der Desktop-Build bleibt, wie er ist.
+  # Entfernt Debuginfos aus der Rust-Bibliothek (sonst über 250 MB). Gilt nur
+  # für den Android-Build.
   CARGO_PROFILE_DEV_STRIP=debuginfo \
     cargo tauri android build --apk --debug --target aarch64
 }
@@ -65,7 +63,8 @@ installieren() {
   geraet_waehlen
   [[ -f "$APK" ]] || { echo "Keine APK da — erst bauen." >&2; exit 1; }
   echo "==> Installieren"
-  # Schlägt es an der Signatur fehl, liegt eine Fassung von GitHub drauf.
+  # Schlägt die Installation an der Signatur fehl, ist eine andere signierte
+  # Fassung (etwa von GitHub) installiert.
   if ! adb install -r "$APK"; then
     echo "==> Vorherige Fassung entfernen und erneut versuchen"
     adb uninstall "$PAKET" || true
@@ -83,9 +82,8 @@ protokoll() {
 
 case "${1:-alles}" in
   bauen) bauen ;;
-  # Gradle packt die APK Schritt für Schritt neu und lässt dabei alte
-  # Stände im Archiv liegen — nach einer stark geschrumpften Bibliothek war
-  # die Datei fünfmal so groß wie ihr Inhalt. Dagegen hilft nur aufräumen.
+  # Gradle packt die APK inkrementell und kann alte Stände im Archiv
+  # behalten; das Build-Verzeichnis wird daher vorher gelöscht.
   sauber) rm -rf "$PROJEKT/src-tauri/gen/android/app/build"; bauen ;;
   install) installieren ;;
   log) protokoll ;;

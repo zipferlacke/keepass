@@ -1,27 +1,20 @@
-//! Die letzten Stände jeder Datenbank — das Netz unter dem Abgleich.
+//! Aufbewahrte Stände jeder Datenbank als Grundlage für den Abgleich.
 //!
-//! # Wozu
+//! Die Datei liegt in einem Ordner, den mehrere Geräte beschreiben. Beim
+//! Zusammenführen können Einträge verloren gehen oder durch ältere Fassungen
+//! überschrieben werden. Deshalb hebt der Kern die letzten Stände auf
+//! (einstellbar: 30 bis 100): bei jedem Öffnen, nach jedem Speichern und
+//! immer dann, wenn ein anderes Gerät die Datei geändert hat. Jeder Stand ist
+//! die vollständige Datei, **verschlüsselt wie das Original**; Klartext liegt
+//! hier nie.
 //!
-//! Die Datei liegt in einem Ordner, den zwei Geräte beschreiben. Beim
-//! Zusammenführen kann etwas schiefgehen: ein Eintrag, der plötzlich fehlt,
-//! ein Passwort, das die ältere Fassung überschrieben hat. Ohne Netz wäre
-//! das endgültig — die Datei ist ja nur eine.
+//! [`vergleich`] liefert, was sich seit einem Stand geändert hat: welche
+//! Einträge dazugekommen, verschwunden oder anders sind. Zurückgeholt werden
+//! kann alles ([`alles_zurueck`]) oder ein einzelner Eintrag
+//! ([`eintrag_zurueck`]); der übrige Inhalt bleibt unverändert.
 //!
-//! Deshalb hebt der Kern die letzten Stände auf (eingestellt: 30 bis 100): bei jedem Öffnen, nach
-//! jedem Speichern und immer dann, wenn ein anderes Gerät die Datei
-//! geändert hat. Jeder Stand ist die vollständige Datei, **verschlüsselt
-//! wie das Original** — Klartext liegt hier nie.
-//!
-//! # Was man damit tut
-//!
-//! [`vergleich`] sagt, was sich seit einem Stand geändert hat: welche
-//! Einträge dazugekommen, verschwunden oder anders sind. Zurückholen kann
-//! man alles ([`alles_zurueck`]) oder einzelne Einträge
-//! ([`eintrag_zurueck`]) — der Rest bleibt, wie er ist.
-//!
-//! Passwörter stehen dabei **nie** im Vergleich: Dass sich eins geändert
-//! hat, genügt der Oberfläche. Sonst läge der Klartext zweier Fassungen im
-//! Webview, nur um einen Unterschied anzuzeigen.
+//! Passwörter stehen nie im Vergleich, nur die Tatsache, dass sie sich
+//! geändert haben. So gelangt kein Klartext in den Webview.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -31,13 +24,13 @@ use tauri::Manager;
 
 use crate::dto;
 
-/// So viele Stände je Datenbank, wenn nichts eingestellt ist. Einstellbar
+/// Anzahl der Stände je Datenbank, wenn nichts eingestellt ist. Einstellbar
 /// unter `versions.keep` zwischen [`MINDESTENS`] und [`HOECHSTENS`].
 pub const WIE_VIELE: usize = 30;
 pub const MINDESTENS: usize = 30;
 pub const HOECHSTENS: usize = 100;
 
-/// Wie viele Stände aufgehoben werden — aus den Einstellungen.
+/// Wie viele Stände aufgehoben werden, laut Einstellungen.
 pub fn anzahl(app: &tauri::AppHandle) -> usize {
     crate::settings::value(app, "versions.keep")
         .and_then(|v| v.as_u64())
@@ -47,7 +40,7 @@ pub fn anzahl(app: &tauri::AppHandle) -> usize {
 /// Warum ein Stand abgelegt wurde. Steht im Dateinamen und in der Liste.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Grund {
-    /// Beim Entsperren — so lag die Datei da.
+    /// Beim Entsperren, so wie die Datei vorlag.
     Geoeffnet,
     /// Nach dem Zurückschreiben.
     Gespeichert,
@@ -84,9 +77,8 @@ impl Grund {
 
 /// `<Datenverzeichnis>/versionen/<SHA-256 des Pfads>/`
 ///
-/// Gehasht wie bei der Offline-Kopie: Der Pfad selbst taugt nicht als
-/// Dateiname, und zwei gleichnamige Dateien aus verschiedenen Ordnern
-/// dürfen sich nicht in die Quere kommen.
+/// Der Pfad wird gehasht, damit gleichnamige Dateien aus verschiedenen
+/// Ordnern getrennt bleiben und der Name gültig ist.
 fn ordner(app: &tauri::AppHandle, pfad: &str) -> Option<PathBuf> {
     use sha2::{Digest, Sha256};
 
@@ -95,22 +87,20 @@ fn ordner(app: &tauri::AppHandle, pfad: &str) -> Option<PathBuf> {
     Some(app.path().app_local_data_dir().ok()?.join("versionen").join(name))
 }
 
-/// Ein Abdruck dessen, was in der Datenbank steht — ohne alles, was sich
-/// beim bloßen Speichern ändert.
+/// Ein Abdruck dessen, was in der Datenbank steht, ohne die Teile, die sich
+/// beim bloßen Speichern ändern.
 ///
-/// Zwei Dateien mit demselben Inhalt sind Byte für Byte verschieden: Jedes
-/// Speichern würfelt Salz und Startwert neu. Wer wissen will, ob sich
-/// **etwas** geändert hat, muss deshalb den Inhalt vergleichen. Hinein
-/// gehen je Eintrag Kennung, Ordner, alle Felder, Schlagworte und die
-/// Anhänge; heraus bleiben Zeitstempel und Verlauf.
+/// Zwei Dateien mit demselben Inhalt unterscheiden sich byteweise, weil jedes
+/// Speichern Salz und Startwert neu erzeugt. Verglichen wird daher der Inhalt:
+/// je Eintrag Kennung, Ordner, alle Felder, Schlagworte und Anhänge; nicht
+/// Zeitstempel und Verlauf.
 ///
-/// Der Abdruck bleibt im Arbeitsspeicher und verlässt den Kern nie.
+/// Der Abdruck bleibt im Arbeitsspeicher und verlässt den Kern nicht.
 pub fn abdruck(db: &Database) -> [u8; 32] {
     use sha2::{Digest, Sha256};
 
-    // Je Eintrag ein eigener Abdruck, dann sortiert zusammen — die
-    // Reihenfolge, in der die Bibliothek die Einträge liefert, soll nichts
-    // ausmachen.
+    // Je Eintrag ein eigener Abdruck, danach sortiert, damit die Reihenfolge
+    // der Bibliothek keine Rolle spielt.
     let mut einzeln: Vec<[u8; 32]> = db
         .iter_all_entries()
         .map(|e| eintrag_abdruck_von(db, &e))
@@ -124,7 +114,7 @@ pub fn abdruck(db: &Database) -> [u8; 32] {
     gesamt.finalize().into()
 }
 
-/// Der Abdruck eines einzelnen Eintrags — wie in [`abdruck`].
+/// Der Abdruck eines einzelnen Eintrags, wie in [`abdruck`].
 fn eintrag_abdruck_von(db: &Database, e: &EntryRef<'_>) -> [u8; 32] {
     use sha2::{Digest, Sha256};
 
@@ -160,7 +150,7 @@ fn eintrag_abdruck_von(db: &Database, e: &EntryRef<'_>) -> [u8; 32] {
     h.finalize().into()
 }
 
-/// Der Abdruck des Eintrags `uuid` — `None`, wenn es ihn nicht gibt.
+/// Der Abdruck des Eintrags `uuid`, `None` wenn es ihn nicht gibt.
 pub fn eintrag_abdruck(db: &Database, uuid: &str) -> Option<[u8; 32]> {
     db.iter_all_entries()
         .find(|e| e.id().uuid().to_string() == uuid)
@@ -174,27 +164,26 @@ fn letzter_abdruck() -> &'static std::sync::Mutex<HashMap<String, [u8; 32]>> {
     LETZTER.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
 }
 
-/// Lohnt ein neuer Stand? Nur, wenn sich am Inhalt etwas getan hat.
+/// Lohnt ein neuer Stand? Nur bei geändertem Inhalt.
 fn lohnt(letzter: Option<&[u8; 32]>, neu: &[u8; 32]) -> bool {
     letzter != Some(neu)
 }
 
-/// Legt einen Stand ab — aber nur, wenn er sich vom letzten unterscheidet.
+/// Legt einen Stand ab, sofern er sich vom letzten unterscheidet.
 ///
-/// Ein Stand ohne Unterschied ist kein Stand: Er verdrängt einen echten aus
-/// den [`WIE_VIELE`], und in der Liste steht dann „nichts geändert". Das
-/// passiert leicht — Speichern ohne Änderung, Öffnen direkt nach dem
-/// Speichern, eine andere Verschlüsselungsstärke.
+/// Stände ohne Unterschied würden echte aus den [`WIE_VIELE`] verdrängen.
+/// Das betrifft etwa Speichern ohne Änderung oder Öffnen direkt nach dem
+/// Speichern.
 ///
 /// `abdruck` ist der Abdruck des Inhalts (siehe [`abdruck`]). Fehler werden
-/// nur gemeldet: Ohne Netz geht alles weiter wie bisher, nur eben ohne Netz.
+/// nur gemeldet; der Betrieb läuft ohne Stand weiter.
 pub fn sichern(app: &tauri::AppHandle, pfad: &str, bytes: &[u8], grund: Grund, abdruck: [u8; 32]) {
     let Some(dir) = ordner(app, pfad) else { return };
     let Ok(mut letzter) = letzter_abdruck().lock() else { return };
 
-    // Byte für Byte dieselbe Datei wie der jüngste Stand — etwa Öffnen
-    // direkt nach dem Speichern. Das fängt auch den Fall nach einem
-    // Neustart, in dem noch kein Abdruck im Speicher steht.
+    // Byte für Byte dieselbe Datei wie der jüngste Stand, etwa beim Öffnen
+    // direkt nach dem Speichern. Das gilt auch nach einem Neustart, wenn noch
+    // kein Abdruck im Speicher steht.
     let gleiche_datei = liste_roh(&dir)
         .last()
         .is_some_and(|l| std::fs::read(&l.datei).is_ok_and(|alt| alt == bytes));
@@ -220,8 +209,7 @@ fn schreiben(dir: &std::path::Path, bytes: &[u8], grund: Grund) -> Result<(), St
     let ms = chrono::Local::now().timestamp_millis();
     let ziel = dir.join(format!("{ms}-{}.kdbx", grund.kennung()));
 
-    // Erst daneben, dann umbenennen: ein halber Stand wäre schlimmer als
-    // keiner.
+    // Erst daneben schreiben, dann umbenennen.
     let tmp = ziel.with_extension("kdbx.tmp");
     {
         let mut datei = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
@@ -275,11 +263,11 @@ fn liste_roh(dir: &std::path::Path) -> Vec<Eintrag> {
     out
 }
 
-/// Die Stände für die Oberfläche — der jüngste zuerst.
+/// Die Stände für die Oberfläche, der jüngste zuerst.
 ///
-/// Der Stand, der gerade offen ist, trägt `current`: `ist_aktuell` erkennt
-/// ihn an den Bytes der Datei. Auch er sagt, was er geändert hat — nur
-/// zurück auf ihn gibt es nichts.
+/// Der gerade offene Stand trägt `current`; `ist_aktuell` erkennt ihn an den
+/// Bytes der Datei. Für ihn wird die Änderung angezeigt, ein Zurückholen gibt
+/// es nicht.
 pub fn liste(app: &tauri::AppHandle, pfad: &str, ist_aktuell: impl Fn(&[u8]) -> bool) -> Vec<dto::Version> {
     let Some(dir) = ordner(app, pfad) else { return Vec::new() };
 
@@ -299,7 +287,7 @@ pub fn liste(app: &tauri::AppHandle, pfad: &str, ist_aktuell: impl Fn(&[u8]) -> 
     out
 }
 
-/// Der Stand unmittelbar vor `id` — `None`, wenn `id` der älteste ist.
+/// Der Stand unmittelbar vor `id`, `None` wenn `id` der älteste ist.
 pub fn vorgaenger(app: &tauri::AppHandle, pfad: &str, id: &str) -> Option<String> {
     let dir = ordner(app, pfad)?;
     let staende = liste_roh(&dir);
@@ -307,14 +295,14 @@ pub fn vorgaenger(app: &tauri::AppHandle, pfad: &str, id: &str) -> Option<String
     i.checked_sub(1).map(|j| staende[j].id.clone())
 }
 
-/// Weshalb ein Stand abgelegt wurde — die Kennung aus seinem Namen
+/// Der Grund, warum ein Stand abgelegt wurde: die Kennung aus seinem Namen
 /// (`gespeichert`, `fremd`, `zusammengefuehrt` …).
 pub fn grund_von(id: &str) -> &str {
     id.split_once('-').map_or("", |(_, g)| g)
 }
 
-/// Der jüngste Stand — der letzte Stand der Datei, den dieses Gerät
-/// gesehen hat. Beim Zusammenführen die gemeinsame Basis beider Seiten.
+/// Der jüngste Stand: der letzte Stand der Datei, den dieses Gerät gesehen
+/// hat. Beim Zusammenführen die gemeinsame Basis beider Seiten.
 pub fn juengster(app: &tauri::AppHandle, pfad: &str) -> Option<Vec<u8>> {
     let dir = ordner(app, pfad)?;
     std::fs::read(&liste_roh(&dir).last()?.datei).ok()
@@ -322,8 +310,8 @@ pub fn juengster(app: &tauri::AppHandle, pfad: &str) -> Option<Vec<u8>> {
 
 /// Die Bytes eines Stands.
 pub fn lesen(app: &tauri::AppHandle, pfad: &str, id: &str) -> Result<Vec<u8>, String> {
-    // Keine Schrägstriche, keine Punkte: `id` kommt aus der Oberfläche, und
-    // ein Name wie `../../woanders` hätte hier nichts zu suchen.
+    // Keine Schrägstriche und Punkte: `id` kommt aus der Oberfläche und darf
+    // das Verzeichnis nicht verlassen.
     if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err("Unbekannter Stand.".into());
     }
@@ -336,8 +324,8 @@ pub fn lesen(app: &tauri::AppHandle, pfad: &str, id: &str) -> Result<Vec<u8>, St
    Vergleich
    ========================================================= */
 
-/// Welche Felder verglichen werden — Name für die Oberfläche, Schlüssel im
-/// Eintrag. Das Passwort steht bewusst nicht dabei (siehe oben).
+/// Verglichene Felder: Name für die Oberfläche, Schlüssel im Eintrag. Das
+/// Passwort gehört nicht dazu.
 const FELDER: [(&str, &str); 4] = [
     ("Titel", "Title"),
     ("Benutzername", "UserName"),
@@ -353,7 +341,7 @@ fn ordnerpfad(db: &Database, entry: &EntryRef<'_>) -> String {
     crate::state::folder_path(db, entry.parent().id())
 }
 
-/// Was sich seit `alt` geändert hat — aus Sicht des jetzigen Stands.
+/// Was sich seit `alt` geändert hat, aus Sicht des jetzigen Stands.
 pub fn vergleich(alt: &Database, jetzt: &Database) -> Vec<dto::VersionChange> {
     let mut frueher: HashMap<String, EntryRef<'_>> = HashMap::new();
     for e in alt.iter_all_entries() {
@@ -392,7 +380,7 @@ pub fn vergleich(alt: &Database, jetzt: &Database) -> Vec<dto::VersionChange> {
             })
             .collect();
 
-        // Geheimnisse ohne Werte: dass sie anders sind, reicht.
+        // Geheimnisse ohne Werte: nur die Tatsache der Änderung.
         for (name, vorher, nachher) in [
             ("Passwort", damals.get_password(), heute.get_password()),
             ("Einmalcode", damals.get_raw_otp_value(), heute.get_raw_otp_value()),
@@ -459,15 +447,14 @@ pub fn vergleich(alt: &Database, jetzt: &Database) -> Vec<dto::VersionChange> {
 
 /// Holt einen einzelnen Eintrag in den Stand von damals zurück.
 ///
-/// Gab es ihn damals nicht, ist das Zurücknehmen seine Entfernung — er ist
-/// ja erst nach diesem Stand entstanden.
+/// Gab es ihn damals nicht, wird er entfernt.
 pub fn eintrag_zurueck(jetzt: &mut Database, alt: &Database, uuid: &str) -> Result<(), String> {
     let damals = alt.iter_all_entries().find(|e| e.id().uuid().to_string() == uuid);
     let heute = jetzt.iter_all_entries().find(|e| e.id().uuid().to_string() == uuid).map(|e| e.id());
 
     let Some(damals) = damals else {
-        // Nach diesem Stand entstanden: zurücknehmen heißt entfernen — mit
-        // Löschvermerk, sonst brächte ihn der Abgleich zurück.
+        // Nach diesem Stand entstanden: Zurücknehmen heißt entfernen, mit
+        // Löschvermerk, damit der Abgleich ihn nicht zurückbringt.
         let id = heute.ok_or("Der Eintrag ist nicht mehr da.")?;
         jetzt.entry_mut(id).ok_or("Der Eintrag ist nicht mehr da.")?.track_changes().remove();
         return Ok(());
@@ -476,13 +463,13 @@ pub fn eintrag_zurueck(jetzt: &mut Database, alt: &Database, uuid: &str) -> Resu
     let ordner = ordnerpfad(alt, &damals);
     let ziel = crate::state::ensure_group(jetzt, &ordner);
 
-    // War er endgültig gelöscht, steht noch ein Löschvermerk in der Datei.
-    // Der muss weg — sonst nähme ihn ein anderes Gerät beim Abgleich als
-    // Auftrag, den Eintrag wieder zu entfernen.
+    // Ein endgültig gelöschter Eintrag hat noch einen Löschvermerk in der
+    // Datei. Er wird entfernt, damit kein anderes Gerät den Eintrag beim
+    // Abgleich erneut löscht.
     jetzt.deleted_objects.remove(&damals.id().uuid());
 
-    // Vorhandenen Eintrag überschreiben, verschwundenen neu anlegen — mit
-    // derselben Kennung, damit der Abgleich ihn weiterhin wiedererkennt.
+    // Vorhandenen Eintrag überschreiben, verschwundenen neu anlegen, mit
+    // derselben Kennung, damit der Abgleich ihn wiedererkennt.
     let id = match heute {
         Some(id) => id,
         None => jetzt
@@ -496,8 +483,8 @@ pub fn eintrag_zurueck(jetzt: &mut Database, alt: &Database, uuid: &str) -> Resu
     let felder = damals.fields.clone();
     let tags = damals.tags.clone();
 
-    // Den heutigen Ordner ablesen, solange die Datenbank noch unveränderlich
-    // ausgeliehen ist — `EntryMut` gibt ihn nicht her.
+    // Den heutigen Ordner ablesen, solange die Datenbank unveränderlich
+    // ausgeliehen ist; `EntryMut` liefert ihn nicht.
     let heutiger_ordner = jetzt.entry(id).map(|e| e.parent().id());
 
     let mut eintrag = jetzt.entry_mut(id).ok_or("Der Eintrag ist nicht mehr da.")?;
@@ -513,8 +500,7 @@ pub fn eintrag_zurueck(jetzt: &mut Database, alt: &Database, uuid: &str) -> Resu
     Ok(())
 }
 
-/// Nimmt alles zurück: Jeder Eintrag, der sich geändert hat, bekommt wieder
-/// den Stand von damals.
+/// Setzt jeden geänderten Eintrag auf den Stand von damals zurück.
 pub fn alles_zurueck(jetzt: &mut Database, alt: &Database) -> Result<usize, String> {
     let betroffen: Vec<String> = vergleich(alt, jetzt).into_iter().map(|c| c.id).collect();
     for uuid in &betroffen {
@@ -584,7 +570,7 @@ mod tests {
         assert_eq!(art(&neu).as_deref(), Some("neu"));
         assert_eq!(art(&weg).as_deref(), Some("geloescht"));
 
-        // Der Benutzername steht mit beiden Werten da …
+        // Der Benutzername steht mit beiden Werten da.
         #[allow(clippy::expect_used)]
         let geaendert = changes.iter().find(|c| c.id == bank).expect("Eintrag dabei");
         #[allow(clippy::expect_used)]
@@ -592,7 +578,7 @@ mod tests {
         assert_eq!(feld.after.as_deref(), Some("max"));
     }
 
-    /// Geheimnisse gehören nicht in den Vergleich — nur die Tatsache.
+    /// Geheimnisse stehen nicht im Vergleich, nur die Tatsache der Änderung.
     #[test]
     fn passwort_steht_ohne_werte_da() {
         let mut alt = Database::new();
@@ -621,7 +607,7 @@ mod tests {
         eintrag_zurueck(&mut jetzt, &alt, &bank).expect("zurückholen klappt");
 
         assert_eq!(titel(&jetzt, &bank).as_deref(), Some("Bank"));
-        // Der andere bleibt, wie er ist — zurück kommt nur das Gewählte.
+        // Der andere Eintrag bleibt unverändert.
         assert_eq!(titel(&jetzt, &mail).as_deref(), Some("Mail (neu)"));
     }
 
@@ -635,7 +621,7 @@ mod tests {
         #[allow(clippy::expect_used)]
         eintrag_zurueck(&mut jetzt, &alt, &neu).expect("zurückholen klappt");
         assert_eq!(titel(&jetzt, &neu), None);
-        // Mit Löschvermerk, sonst brächte ihn der Abgleich zurück.
+        // Mit Löschvermerk, damit der Abgleich ihn nicht zurückbringt.
         assert_eq!(jetzt.deleted_objects.len(), 1);
     }
 
@@ -659,8 +645,7 @@ mod tests {
         eintrag_zurueck(&mut jetzt, &alt, &bank).expect("zurückholen klappt");
 
         assert_eq!(titel(&jetzt, &bank).as_deref(), Some("Bank"));
-        // Der Löschvermerk ist weg — ein anderes Gerät soll ihn nicht
-        // wieder entfernen.
+        // Der Löschvermerk ist entfernt.
         assert!(jetzt.deleted_objects.is_empty());
         // Im selben Ordner wie damals.
         #[allow(clippy::expect_used)]

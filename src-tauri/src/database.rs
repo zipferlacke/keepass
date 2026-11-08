@@ -27,8 +27,8 @@ const PASSKEY_FIELD: &str = "KPEX_PASSKEY_USERNAME";
 
 /// Welche Wege zum Entsperren gibt es auf diesem Gerät?
 ///
-/// Asynchron, weil die Auskunft selbst warten kann: fprintd über D-Bus,
-/// Windows Hello über WinRT. Auf dem Hauptfaden stünde so lange das Fenster.
+/// Asynchron, da die Abfrage warten kann (fprintd über D-Bus, Windows Hello
+/// über WinRT) und sonst das Fenster blockierte.
 #[tauri::command]
 pub async fn unlock_methods(app: tauri::AppHandle, path: Option<String>) -> Result<dto::UnlockMethods, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -58,15 +58,11 @@ pub async fn unlock_methods(app: tauri::AppHandle, path: Option<String>) -> Resu
 /// den beiden anderen wird `secret` nicht gebraucht.
 ///
 /// `remember` schaltet diese Datenbank gleich für PIN und/oder
-/// Fingerabdruck frei — dafür muss die App-PIN bereits festgelegt sein.
+/// Fingerabdruck frei; dafür muss die App-PIN bereits festgelegt sein.
 ///
-/// # Warum das asynchron ist
-///
-/// Argon2 rechnet hier bewusst sekundenlang, und zwar bei richtigem wie bei
-/// falschem Passwort gleichermaßen. Als synchrones Kommando liefe das auf
-/// dem Hauptfaden und würde das Fenster so lange einfrieren — genau der
-/// Effekt, den man dann für einen Absturz hält. Die teure Arbeit gehört
-/// deshalb in einen eigenen Faden.
+/// Asynchron, da die Schlüsselableitung (Argon2) sekundenlang rechnet; auf
+/// dem Hauptfaden fröre das Fenster ein. Die Arbeit läuft in einem eigenen
+/// Faden.
 #[tauri::command]
 pub async fn vault_unlock(
     app: tauri::AppHandle,
@@ -88,15 +84,12 @@ pub async fn vault_unlock(
             .await
             .map_err(|e| format!("Entsperren abgebrochen: {e}"))??;
 
-    // Wenn gewünscht, gleich eine PIN hinterlegen. Fehlschläge hier dürfen
-    // das Öffnen nicht verhindern — die Datenbank ist ja auf.
+    // Wenn gewünscht, eine PIN hinterlegen. Ein Fehlschlag verhindert das
+    // Öffnen nicht.
     //
-    // Das muss auf einen Arbeitsfaden, genau wie das Öffnen selbst: `remember`
-    // prüft die PIN, und das heißt Argon2id — dieselbe absichtlich teure
-    // Rechnung, mehrere Sekunden lang. Dazu kommt der Schlüsselbund über
-    // D-Bus, der auf eine Antwort des Systems wartet. Beides direkt hier
-    // auszuführen legt den Ausführer der Laufzeit lahm, über den auch die
-    // Antwort an die Oberfläche zurückgeht — sie wartet dann ewig.
+    // Läuft auf einem Arbeitsfaden: `remember` prüft die PIN (Argon2id) und
+    // greift auf den Schlüsselbund über D-Bus zu, was beides blockiert und
+    // den Ausführer der Laufzeit lahmlegte.
     let pin_note = match remember {
         // Der Geräteschlüssel braucht keine PIN, nur das Master-Passwort
         // und die Prüfung durch das Gerät.
@@ -133,9 +126,9 @@ pub async fn vault_unlock(
         _ => None,
     };
 
-    // Auf Android ist der „Pfad" eine Adresse, in der oft nur eine Kennung
-    // steht (Nextcloud: `…/document/5092c86d…`). Dann ist der Name aus der
-    // Datenbank selbst die bessere Auskunft.
+    // Auf Android enthält die Adresse oft nur eine Kennung (Nextcloud:
+    // `…/document/5092c86d…`); dann ist der Name aus der Datenbank die
+    // bessere Anzeige.
     let meta_name = db.meta.database_name.clone().filter(|n| !n.trim().is_empty());
     let name = match meta_name {
         Some(n) if crate::storage::is_uri(&path) => n,
@@ -145,8 +138,8 @@ pub async fn vault_unlock(
     // Für die Versionen: was in der Datei steht, bevor `db` weiterwandert.
     let abdruck = crate::versions::abdruck(&db);
 
-    // Was länger als die Frist im Papierkorb liegt, ist jetzt weg. Erst nach
-    // dem Abdruck: Die Version „geöffnet" soll zeigen, was in der Datei stand.
+    // Papierkorb-Einträge jenseits der Frist werden entfernt, nach dem
+    // Abdruck, damit „geöffnet" den Stand der Datei zeigt.
     let mut db = db;
     let aufgeraeumt = if read_only || offline.is_some() || vorab {
         0
@@ -172,13 +165,9 @@ pub async fn vault_unlock(
 
     drop(vault);
 
-    // Entsperrt wird nicht mehr nur im Hauptfenster: Fragt ein Browser an,
-    // während die Datei zu ist, geht die Anmeldemaske im kleinen Fenster auf.
-    // Ohne diese Nachricht bliebe ein danebenstehendes Hauptfenster auf dem
-    // Sperrbildschirm hängen, obwohl die Datenbank längst offen ist.
-    // Netz unter dem Abgleich: So lag die Datei beim Öffnen da.
-    // Im Hintergrund, aus demselben Grund wie die Offline-Kopie. Nach dem
-    // Öffnen aus der Kopie nicht: Das wäre kein Stand der Datei.
+    // Netz unter dem Abgleich: So lag die Datei beim Öffnen da. Läuft im
+    // Hintergrund wie die Offline-Kopie; nicht nach dem Öffnen aus der Kopie,
+    // da das kein Stand der Datei wäre.
     if !vorab {
         let (app, path) = (app.clone(), path.clone());
         std::thread::spawn(move || {
@@ -188,6 +177,9 @@ pub async fn vault_unlock(
         });
     }
 
+    // Entsperrt wird auch im kleinen Anmeldefenster, wenn ein Browser anfragt,
+    // während die Datei zu ist. Die Nachricht hebt dort wie im Hauptfenster
+    // den Sperrbildschirm auf.
     use tauri::Emitter;
     let _ = app.emit("vault-unlocked", &name);
     browser_announce(false);
@@ -226,9 +218,8 @@ pub async fn vault_unlock(
     Ok(dto::DatabaseInfo { name, path, read_only, format, cached_at, offline_reason })
 }
 
-/// Zeitmessung beim Entsperren — eine Zeile je Schritt im Protokoll
-/// (Android: logcat, Tag `RustStdoutStderr`). Am Handy dauerte das Öffnen
-/// aus dem Ausfüll-Blatt einmal über 30 Sekunden; so sieht man, wo.
+/// Zeitmessung beim Entsperren: eine Zeile je Schritt im Protokoll
+/// (Android: logcat, Tag `RustStdoutStderr`).
 struct Uhr(std::time::Instant);
 
 impl Uhr {
@@ -260,7 +251,7 @@ struct Opened {
 }
 
 /// Master-Passwort beschaffen, Datei lesen, Container aufschließen.
-/// Alles hier drin darf dauern.
+/// Darf lange dauern.
 fn open_blocking(
     app: &tauri::AppHandle,
     path: &str,
@@ -275,8 +266,8 @@ fn open_blocking(
         // Kein vorgeschaltetes `verify`: Das Gerät prüft beim Signieren selbst.
         "device" => seal::unseal_with_device(app, path)?,
         "biometric" => {
-            // Erst der Nachweis, dass du es bist — dann erst kommt K ins
-            // Spiel. Die Prüfung selbst macht die Plattform.
+            // Zuerst der Nachweis durch die Plattform, danach wird K
+            // verwendet.
             crate::biometric::verify("Datenbank entsperren")?;
             seal::unseal_with_biometric(app, path)?
         }
@@ -298,15 +289,14 @@ fn open_blocking(
     };
     let key = key_of(&master, keyfile.as_deref().map(|k| k.as_slice()))?;
 
-    // Einmal komplett lesen: Daraus entsteht sowohl die Datenbank als auch
-    // der Fingerabdruck, gegen den beim Speichern geprüft wird. Ist der Ort
-    // nicht erreichbar, springt die Offline-Kopie ein.
-    // Zuerst die eigene Kopie — der letzte Stand der App. Den Stand vom Ort
-    // holt `nachladen` gleich danach und mischt ihn ein. Am Handy fragt
-    // Nextcloud beim Öffnen erst seinen Server und lässt bis zu 30 Sekunden
-    // warten, wenn der nicht antwortet; so lange stand vorher das
-    // Ausfüll-Blatt. Gibt es keine Kopie oder passt sie nicht zum Schlüssel
-    // (Passwort anderswo geändert), geht es den gewohnten Weg.
+    // Die Datei wird einmal komplett gelesen; daraus entstehen die Datenbank
+    // und der Fingerabdruck, gegen den beim Speichern geprüft wird. Ist der
+    // Ort nicht erreichbar, wird die Offline-Kopie verwendet.
+    // Zuerst die eigene Kopie, der letzte Stand der App; `nachladen` holt
+    // danach den Stand vom Ort und mischt ihn ein. Das vermeidet Wartezeit,
+    // wenn der Anbieter (Nextcloud) beim Öffnen seinen Server fragt und bis
+    // zu 30 Sekunden braucht. Fehlt die Kopie oder passt sie nicht zum
+    // Schlüssel, wird die Datei vom Ort gelesen.
     {
         if let Some(kopie) = crate::offline::kopie(app, path) {
             if let Ok(db) = Database::parse(&kopie, key.clone()) {
@@ -338,11 +328,9 @@ fn open_blocking(
         Some(&db),
     );
 
-    // Erst nach dem Entschlüsseln kopieren: So landet nur eine Datei im
-    // Zwischenspeicher, die sich mit diesem Schlüssel auch öffnen lässt.
-    //
-    // Im Hintergrund: Die Kopie ist ein Netz für später, und auf sie zu
-    // warten hält am Handy das Ausfüll-Blatt auf.
+    // Die Kopie entsteht erst nach dem Entschlüsseln, damit nur Dateien im
+    // Zwischenspeicher liegen, die sich mit diesem Schlüssel öffnen lassen.
+    // Sie wird im Hintergrund angelegt, da sie nur als Reserve dient.
     let offline = match source {
         crate::offline::Source::Original => {
             let (app, path, raw) = (app.clone(), path.to_string(), raw.clone());
@@ -355,10 +343,10 @@ fn open_blocking(
     Ok(Opened { db, raw, master, keyfile, format, read_only, offline, vorab: false })
 }
 
-/// Legt eine neue, leere Datenbank an und öffnet sie gleich.
+/// Legt eine neue, leere Datenbank an und öffnet sie.
 ///
-/// Genauso asynchron wie das Entsperren, und aus demselben Grund: Das
-/// Verschlüsseln kostet dieselbe Rechenzeit.
+/// Asynchron wie das Entsperren, da das Verschlüsseln gleich viel Rechenzeit
+/// braucht.
 #[tauri::command]
 pub async fn vault_create(
     app: tauri::AppHandle,
@@ -388,13 +376,12 @@ pub async fn vault_create(
         // zurückschreiben lässt.
         let mut db = Database::new();
 
-        // Ohne Stufe bliebe die Voreinstellung der Bibliothek: Argon2d mit
-        // 1 MiB — viel zu wenig.
+        // Ohne Stufe gälte die Voreinstellung der Bibliothek (Argon2d,
+        // 1 MiB).
         stufe_setzen(&mut db, level.as_deref().unwrap_or("standard"))?;
 
-        // Der Name steht in der Datei selbst. Das ist unter Android die
-        // einzige verlässliche Bezeichnung: Aus der Adresse des Systems
-        // lässt sich keine herausholen.
+        // Der Name steht in der Datei selbst; unter Android ist das die
+        // einzige verlässliche Bezeichnung, da die Adresse keine liefert.
         if !title.trim().is_empty() {
             db.meta.database_name = Some(title.trim().to_string());
             db.meta.database_name_changed = Some(chrono::Local::now().naive_local());
@@ -544,15 +531,15 @@ pub fn vault_forget(app: tauri::AppHandle, path: String) -> Result<bool, String>
     Ok(true)
 }
 
-/// „Ich bin es" bestätigen, ohne die Datenbank anzufassen — für das
-/// Anzeigen eines Passworts oder eine Anfrage aus dem Browser.
+/// Bestätigt die Identität des Nutzers, ohne die Datenbank anzufassen, etwa
+/// vor dem Anzeigen eines Passworts oder bei einer Browser-Anfrage.
 ///
-/// Drei Wege, und welche davon zur Auswahl stehen, sagt `unlock_methods`:
+/// Welche Wege zur Auswahl stehen, liefert `unlock_methods`:
 ///
-///   `pin`        die App-PIN. Sie gilt hier **immer**, wenn eine festgelegt
-///                ist — auch wenn diese Datenbank nicht per PIN geöffnet
-///                werden darf. Zum Entsperren ist sie ein Schlüssel, hier
-///                nur ein Nachweis, und das sind zwei verschiedene Fragen.
+///   `pin`        die App-PIN. Sie gilt hier immer, wenn eine festgelegt
+///                ist, auch wenn die Datenbank nicht per PIN geöffnet
+///                werden darf (zum Entsperren ist sie ein Schlüssel, hier
+///                nur ein Nachweis).
 ///   `master`     das Master-Passwort der offenen Datenbank.
 ///   `biometric`  Fingerabdruck oder Gesicht.
 #[tauri::command]
@@ -572,8 +559,8 @@ pub async fn confirm_presence(
             let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
             let master = vault.master.as_ref().ok_or("Keine Datenbank geöffnet.")?;
 
-            // Zeichenweiser Vergleich in fester Zeit wäre hier übertrieben:
-            // Wer den Kern messen kann, hat ihn ohnehin.
+            // Kein Vergleich in konstanter Zeit: Wer den Kern messen kann,
+            // hat ihn ohnehin in der Hand.
             if given.as_str() == master.as_str() {
                 Ok(true)
             } else {
@@ -582,18 +569,17 @@ pub async fn confirm_presence(
         }
 
         Some("biometric") => {
-            // Auf einen Arbeitsfaden: Die Prüfung wartet auf den Finger des
-            // Nutzers — unter Linux über D-Bus bei fprintd, anderswo beim
-            // System. Auf dem Ausführer der Laufzeit stünde währenddessen
-            // die ganze Oberfläche.
+            // Auf einem Arbeitsfaden, da die Prüfung auf den Finger des
+            // Nutzers wartet (Linux: fprintd über D-Bus) und sonst die
+            // Oberfläche blockierte.
             tauri::async_runtime::spawn_blocking(move || crate::biometric::verify(&reason))
                 .await
                 .map_err(|e| format!("Abgebrochen: {e}"))?
                 .map(|()| true)
         }
 
-        // Voreinstellung ist die PIN — auch ohne ausdrückliche Angabe, damit
-        // ältere Aufrufe weiter gelten.
+        // Voreinstellung ist die PIN, damit ältere Aufrufe ohne Angabe
+        // weiter funktionieren.
         _ => {
             let pin = secret.ok_or("Keine PIN angegeben.")?;
             tauri::async_runtime::spawn_blocking(move || seal::confirm_pin(&app, &pin))
@@ -653,9 +639,8 @@ pub async fn vault_version_changes(
 
 /// Was mit diesem Stand dazukam: der Vergleich mit dem Stand davor.
 ///
-/// So liest sich die Liste wie ein Verlauf — jeder Stand sagt, was er
-/// geändert hat, nicht alles, was seitdem geschah. `vorher` ist der Stand,
-/// aus dem „Zurücknehmen" holt; fehlt er, ist dies der älteste.
+/// So zeigt die Liste je Stand, was er geändert hat. `vorher` ist der Stand,
+/// zu dem „Zurücknehmen" zurückkehrt; fehlt er, ist dies der älteste.
 #[tauri::command]
 pub async fn vault_version_step(
     app: tauri::AppHandle,
@@ -680,8 +665,8 @@ pub async fn vault_version_step(
         };
 
         // Ein zusammengeführter Stand: Davor liegt der Stand der Datei
-        // („Vom anderen Gerät“), davor der letzte eigene. Gezeigt wird alles
-        // seit dem eigenen — je Änderung mit Herkunft: aus der Datei
+        // („Vom anderen Gerät"), davor der letzte eigene. Gezeigt werden alle
+        // Änderungen seit dem eigenen Stand, je mit Herkunft: aus der Datei
         // (`extern`), aus der App (`hier`) oder beides.
         if crate::versions::grund_von(&id) == "zusammengefuehrt" && crate::versions::grund_von(&vorher) == "fremd" {
             if let Some(basis_id) = crate::versions::vorgaenger(&worker, &pfad, &vorher) {
@@ -717,11 +702,10 @@ pub async fn vault_version_step(
     .map_err(|e| format!("Abgebrochen: {e}"))?
 }
 
-/// Holt einen Stand zurück — alles oder einzelne Einträge.
+/// Holt einen Stand zurück, ganz oder einzelne Einträge.
 ///
-/// Geschrieben wird dabei noch nichts: Der Aufrufer speichert danach wie
-/// nach jeder anderen Änderung. So sieht man das Ergebnis erst und kann es
-/// im Zweifel liegen lassen.
+/// Geschrieben wird dabei nicht; der Aufrufer speichert danach wie nach jeder
+/// anderen Änderung.
 #[tauri::command]
 pub async fn vault_version_restore(
     app: tauri::AppHandle,
@@ -775,7 +759,7 @@ pub fn vault_list_entries(state: tauri::State<'_, Vault>) -> Result<Vec<dto::Ent
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
 
     // Erst lesen (leiht die Datenbank aus), dann Token vergeben (leiht den
-    // Zustand veränderlich aus). Beides zugleich ginge nicht.
+    // Zustand veränderlich aus); beides gleichzeitig ist nicht möglich.
     let mut raws: Vec<RawEntry> = {
         let db = vault.database()?;
         db.iter_all_entries().map(|e| read_entry(db, &e)).collect()
@@ -897,16 +881,14 @@ fn iso(time: Option<NaiveDateTime>) -> String {
    Öffnen. Deshalb fünf Stufen statt einer Zahl.
    ========================================================= */
 
-/// Die Stufen: (Durchgänge, Speicher in MiB, Fäden). Benannt sind in der
-/// Oberfläche nur „Schnell“, „Standard“ und „Stark“.
+/// Die Stufen: (Durchgänge, Speicher in MiB, Fäden). In der Oberfläche
+/// heißen sie „Schnell", „Standard" und „Stark".
 ///
-/// „Standard“ belegt nur 16 MiB: Mehr gibt iOS dem Ausfüllen über die
-/// Tastatur nicht (KeePassium meldet sich dann mit einem Hinweis), und die
-/// Datei soll auf jedem Gerät aufgehen. Die Durchgänge gleichen das aus —
-/// Standard rechnet so lange wie früher 10 × 64 MiB. Darüber geht es mit
-/// dem Speicher hoch (64, 128, 256 MiB); das sind genau die früheren
-/// Stufen Standard, Erhöht und Stark, Dateien mit diesen Werten werden also
-/// weiter erkannt.
+/// „Standard" belegt 16 MiB, das Maximum für das Ausfüllen über die
+/// iOS-Tastatur; die Durchgänge gleichen das aus (Rechenzeit wie 10 × 64
+/// MiB). Die höheren Stufen steigern den Speicher (64, 128, 256 MiB) und
+/// entsprechen den früheren Stufen Standard, Erhöht und Stark, sodass solche
+/// Dateien weiter erkannt werden.
 const STUFEN: [(&str, u64, u64, u32); 6] = [
     ("schnell", 10, 16, 2),
     ("zuegig", 20, 16, 2),
@@ -1025,18 +1007,17 @@ pub fn vault_commit(app: tauri::AppHandle, state: tauri::State<'_, Vault>) -> Re
 
 /// Schreibt die Datenbank zurück.
 ///
-/// Steht als eigene Funktion da, weil nicht nur die Oberfläche schreibt: Die
-/// Browser-Anbindung legt Verknüpfungen und Einträge an, und die wären beim
-/// nächsten Start weg, wenn sie nur im Arbeitsspeicher stünden.
+/// Eigene Funktion, da nicht nur die Oberfläche schreibt: Auch die
+/// Browser-Anbindung legt Verknüpfungen und Einträge an.
 ///
-/// Hat seit dem Öffnen ein anderes Gerät geschrieben — die Datei liegt in
-/// Nextcloud und wird auch von KeePassXC angefasst —, wird dessen Stand erst
-/// eingelesen und mit dem eigenen zusammengeführt (`merge`). Geschrieben
-/// wird dann beides; verloren geht keine Seite.
+/// Hat seit dem Öffnen ein anderes Gerät geschrieben (die Datei liegt etwa in
+/// Nextcloud und wird auch von KeePassXC bearbeitet), wird dessen Stand
+/// eingelesen und mit dem eigenen zusammengeführt (`merge`); geschrieben wird
+/// das Ergebnis.
 pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
-    // Erst in der App: verschlüsselt in die eigene Kopie. Das ist der Stand,
-    // mit dem die App arbeitet — er bleibt, auch wenn die Cloud gerade nicht
-    // antwortet oder die App beendet wird.
+    // Zuerst in die eigene verschlüsselte Kopie. Sie ist der Stand der App
+    // und bleibt erhalten, auch wenn die Cloud nicht antwortet oder die App
+    // beendet wird.
     {
         let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
         vault.touch();
@@ -1053,7 +1034,7 @@ pub fn commit(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
         vault.ausstehend = true;
     }
 
-    // Dann der Ort: Datei holen, zusammenführen, schreiben — im Hintergrund.
+    // Danach der Ort: Datei holen, zusammenführen, schreiben, im Hintergrund.
     im_hintergrund_abgleichen(app);
     Ok(true)
 }
@@ -1099,16 +1080,13 @@ fn im_hintergrund_abgleichen(app: &tauri::AppHandle) {
     });
 }
 
-/// Bringt den Stand der App in die Datei am Ort: Datei frisch holen (es
-/// könnte sich inzwischen etwas getan haben), mit dem Stand in der App
-/// zusammenführen, schreiben — Datei und eigene Kopie.
+/// Bringt den Stand der App in die Datei am Ort: Datei frisch holen,
+/// mit dem Stand der App zusammenführen, schreiben (Datei und eigene Kopie).
 pub fn abgleichen(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String> {
-    // Die Datei erst lesen, dann den Kern festhalten: Am Handy fragt
-    // Nextcloud beim Öffnen seinen Server, und antwortet der nicht, dauert
-    // das bis zu 30 Sekunden. So lange war vorher der ganze Kern blockiert —
-    // auch das nächste Ausfüllen.
-    // Kein `touch`: Das läuft im Hintergrund (auch der regelmäßige Abgleich)
-    // und ist keine Nutzung — sonst sperrte sich die Datenbank nie.
+    // Die Datei wird gelesen, bevor der Kern festgehalten wird, da das
+    // Öffnen beim Anbieter (Nextcloud) bis zu 30 Sekunden dauern kann.
+    // Kein `touch`: Der Abgleich läuft im Hintergrund und gilt nicht als
+    // Nutzung, sonst sperrte sich die Datenbank nie.
     let (ziel, offline) = {
         let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
 
@@ -1123,9 +1101,9 @@ pub fn abgleichen(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String>
         (ziel, vault.offline)
     };
 
-    // Geöffnet ist nur die Offline-Kopie. Zurückschreiben geht erst, wenn
-    // die Datei wieder lesbar ist — sonst entstünde am Ort womöglich eine
-    // neue Datei neben einer, die gerade nur nicht erreichbar ist.
+    // Geöffnet ist nur die Offline-Kopie. Zurückgeschrieben wird erst, wenn
+    // die Datei wieder lesbar ist, damit keine neue Datei neben einer nur
+    // vorübergehend unerreichbaren entsteht.
     let current = crate::storage::read(&ziel);
     if offline && current.is_err() {
         return Err(
@@ -1135,11 +1113,9 @@ pub fn abgleichen(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String>
         );
     }
 
-    // Die Datei ist da, lässt sich aber gerade nicht lesen: Dann wird nicht
-    // geschrieben. Vorher ging es hier ohne Abgleich weiter — und was ein
-    // anderes Gerät inzwischen abgelegt hatte, war damit überschrieben,
-    // ohne dass es je gelesen worden wäre. Nur wenn es die Datei wirklich
-    // nicht mehr gibt, wird sie neu angelegt.
+    // Ist die Datei da, aber nicht lesbar, wird nicht geschrieben, da sonst
+    // Änderungen eines anderen Geräts ungelesen überschrieben würden. Nur
+    // wenn es die Datei nicht mehr gibt, wird sie neu angelegt.
     if let Err(grund) = &current {
         if crate::storage::exists(&ziel) {
             return Err(format!(
@@ -1250,15 +1226,14 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
     use tauri::Manager;
     let state = app.state::<Vault>();
 
-    // Läuft schon ein Abgleich (etwa das Nachladen nach dem Öffnen), nicht
-    // darauf warten: Er meldet Änderungen selbst (`vault-merged`). Sonst
-    // stand die Oberfläche, bis Nextcloud am Handy aufgab — bis zu 30 s.
+    // Läuft bereits ein Abgleich (etwa das Nachladen nach dem Öffnen), wird
+    // nicht gewartet; er meldet Änderungen selbst (`vault-merged`).
     if abgleich_riegel().try_lock().is_err() {
         return Ok(false);
     }
 
-    // Erst nachsehen, ohne den Kern festzuhalten: Lesen und Entschlüsseln
-    // dauern, und so lange soll die Oberfläche weiterarbeiten können.
+    // Zuerst nachsehen, ohne den Kern festzuhalten, da Lesen und
+    // Entschlüsseln dauern.
     let (ziel, before, seen, master, keyfile) = {
         let vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
         let (Some(path), Some(master)) = (&vault.path, &vault.master) else { return Ok(false) };
@@ -1290,10 +1265,10 @@ fn sync_blocking(app: &tauri::AppHandle) -> Result<bool, String> {
 }
 
 /// Holt nach dem Öffnen aus der Offline-Kopie den Stand vom eigentlichen
-/// Ort und mischt ihn ein (siehe `vault_unlock`, „sofort aus der Kopie“).
+/// Ort und mischt ihn ein (siehe `vault_unlock`).
 ///
-/// Läuft auf einem eigenen Faden: Nextcloud fragt beim Öffnen erst seinen
-/// Server, und ist der nicht erreichbar, dauert das bis zu 30 Sekunden.
+/// Läuft auf einem eigenen Faden, da das Öffnen beim Anbieter (Nextcloud)
+/// bis zu 30 Sekunden dauern kann.
 fn nachladen(app: tauri::AppHandle) {
     use tauri::Manager;
     let Ok(_riegel) = abgleich_riegel().lock() else { return };
@@ -1389,16 +1364,11 @@ fn einmischen(
 
 /// Darf der Blick aufs Änderungsdatum das Lesen ersparen?
 ///
-/// Bei einem Pfad ja: Das Datum kommt vom Dateisystem, und der
-/// Cloud-Client schreibt die Datei wirklich neu. Bei einer
-/// `content://`-Adresse nein: Dort nennt der Anbieter das Datum seiner
-/// eigenen Kopie, und die holt er — Nextcloud jedenfalls — erst beim
-/// Öffnen neu vom Server. Wer sich darauf verließ, sah die Änderungen des
-/// anderen Geräts nie: Das Datum blieb stehen, also wurde nie gelesen,
-/// also blieb das Datum stehen.
-///
-/// Über eine Adresse wird deshalb immer gelesen; ob sich etwas getan hat,
-/// sagt danach der Vergleich des Inhalts.
+/// Bei einem Pfad ja: Das Datum kommt vom Dateisystem. Bei einer
+/// `content://`-Adresse nein: Der Anbieter nennt das Datum seiner eigenen
+/// Kopie, die er (Nextcloud) erst beim Öffnen neu vom Server holt. Über eine
+/// Adresse wird daher immer gelesen; ob sich etwas getan hat, zeigt der
+/// Inhaltsvergleich.
 fn unveraendert_laut_datum(ziel: &str, modified: Option<i64>, seen: Option<i64>) -> bool {
     !crate::storage::is_uri(ziel) && modified.is_some() && modified == seen
 }
@@ -1408,13 +1378,12 @@ fn unveraendert_laut_datum(ziel: &str, modified: Option<i64>, seen: Option<i64>)
 /// landet im Verlauf; Löschvermerke werden beachtet. Das ist derselbe
 /// Abgleich, den KeePassXC beim Zusammenführen macht.
 ///
-/// Zurück kommt (hat sich `ours` geändert, fehlt `theirs` etwas von `ours`).
+/// Zurück kommt, ob sich `ours` geändert hat, ob also `theirs` etwas von
+/// `ours` nicht enthält.
 pub(crate) fn merge(ours: &mut Database, theirs: &Database) -> Result<(bool, bool), String> {
     // Erst die Zusatzangaben, dann die Einträge: Die Bibliothek führt
-    // `meta.custom_data` nicht mit, und darin steht unter anderem die
-    // Verknüpfung mit dem Browser. Ohne diesen Schritt warf das nächste
-    // Speichern weg, was das andere Gerät dort eingetragen hatte — in der
-    // Erweiterung musste man dann wieder auf „Verbinden" drücken.
+    // `meta.custom_data` nicht mit, darin steht unter anderem die
+    // Verknüpfung mit dem Browser.
     let custom = zusatzangaben(ours, theirs) | kopfangaben(ours, theirs);
     let log = zusammenfuehren(ours, theirs)?;
 
@@ -1427,10 +1396,9 @@ pub(crate) fn merge(ours: &mut Database, theirs: &Database) -> Result<(bool, boo
     Ok((!log.events.is_empty() || custom, !back.events.is_empty() || custom_back))
 }
 
-/// Führt `meta.custom_data` von `quelle` nach `ziel` — wie beim Rest gilt
-/// der jüngere Eintrag, und was dem Ziel fehlt, kommt dazu. Gelöscht wird
-/// nichts: Für Zusatzangaben gibt es keine Löschvermerke, und ein
-/// verlorener Schlüssel wiegt schwerer als ein übrig gebliebener.
+/// Führt `meta.custom_data` von `quelle` nach `ziel`: Es gilt der jüngere
+/// Eintrag, und was dem Ziel fehlt, kommt dazu. Gelöscht wird nichts, da es
+/// für Zusatzangaben keine Löschvermerke gibt.
 ///
 /// Liefert, ob sich am Ziel etwas geändert hat.
 fn zusatzangaben(ziel: &mut Database, quelle: &Database) -> bool {
@@ -1439,8 +1407,7 @@ fn zusatzangaben(ziel: &mut Database, quelle: &Database) -> bool {
     for (schluessel, fremd) in &quelle.meta.custom_data {
         match ziel.meta.custom_data.get(schluessel) {
             Some(eigen) if gleicher_wert(&eigen.value, &fremd.value) => continue,
-            // Ohne Zeitstempel lässt sich nichts vergleichen; dann bleibt
-            // der eigene Wert stehen, statt ihn blind zu ersetzen.
+            // Ohne Zeitstempel bleibt der eigene Wert stehen.
             Some(eigen) if fremd.last_modification_time <= eigen.last_modification_time => continue,
             _ => {}
         }
@@ -1452,8 +1419,7 @@ fn zusatzangaben(ziel: &mut Database, quelle: &Database) -> bool {
 }
 
 /// Zwei Zusatzwerte als Text verglichen. Die Bibliothek liest Base64 als
-/// `Binary` ein; derselbe Wert, eben erst als Text angelegt, gälte sonst als
-/// anders — und die Datei würde ohne Not neu geschrieben.
+/// `Binary` ein; derselbe Wert als Text angelegt gälte sonst als verschieden.
 fn gleicher_wert(a: &Option<keepass::db::CustomDataValue>, b: &Option<keepass::db::CustomDataValue>) -> bool {
     use base64::Engine as _;
     use keepass::db::CustomDataValue::{Binary, String as Text};
@@ -1466,9 +1432,7 @@ fn gleicher_wert(a: &Option<keepass::db::CustomDataValue>, b: &Option<keepass::d
 }
 
 /// Name und Beschreibung der Datenbank: Der jüngere gilt, wie bei den
-/// Einträgen. Die Bibliothek führt beides nicht zusammen — ein in KeePassXC
-/// oder auf dem Handy geänderter Name kam sonst beim nächsten Speichern
-/// wieder zurück.
+/// Einträgen. Die Bibliothek führt beides nicht zusammen.
 fn kopfangaben(ziel: &mut Database, quelle: &Database) -> bool {
     let mut geaendert = false;
     let (z, q) = (&mut ziel.meta, &quelle.meta);
@@ -1489,16 +1453,11 @@ fn kopfangaben(ziel: &mut Database, quelle: &Database) -> bool {
 
 /// Verschlüsselung, Schlüsselableitung und Kompression der Datei.
 ///
-/// Die stehen nicht in den Einträgen, sondern im Kopf der Datei, und
-/// `merge` fasst sie nicht an. Geschrieben wurde deshalb immer mit dem, was
-/// beim Öffnen galt: Stellte ein anderes Programm (KeePassXC, eine App auf
-/// dem Handy) die Verschlüsselung um, machte das nächste Speichern hier es
-/// wieder rückgängig.
-///
-/// Jetzt gilt: Steht in der Datei etwas anderes als beim letzten Lesen oder
-/// Schreiben (`gesehen`), hat jemand anderes umgestellt — das wird
-/// übernommen. Außer es wurde auch hier umgestellt (Einstellungen →
-/// Sicherheit); dann gilt das eigene, denn das ist die jüngere Absicht.
+/// Sie stehen im Dateikopf, nicht in den Einträgen, und `merge` berührt sie
+/// nicht. Steht in der Datei etwas anderes als beim letzten Lesen oder
+/// Schreiben (`gesehen`), wurde es von einem anderen Programm umgestellt und
+/// wird übernommen. Wurde es auch hier umgestellt (Einstellungen →
+/// Sicherheit), gilt das Eigene als jüngere Absicht.
 fn einstellungen_uebernehmen(ours: &mut Database, theirs: &Database, gesehen: Option<&keepass::config::DatabaseConfig>) -> bool {
     let Some(gesehen) = gesehen else { return false };
     let fremd_umgestellt = theirs.config != *gesehen;
@@ -1510,16 +1469,16 @@ fn einstellungen_uebernehmen(ours: &mut Database, theirs: &Database, gesehen: Op
     false
 }
 
-/// `ours.merge(theirs)` — mit einem Ausweg für denselben Zeitpunkt.
+/// `ours.merge(theirs)`, mit einem Ausweg für denselben Zeitpunkt.
 ///
-/// Die Bibliothek entscheidet nach der Änderungszeit, auf die Sekunde. Haben
-/// beide Seiten denselben Eintrag in derselben Sekunde verschieden geändert,
-/// bricht sie ab — und mit ihr der ganze Abgleich. Dann gilt die Fassung der
-/// App (eine Sekunde jünger gemacht); dass beide Seiten ihn geändert haben,
-/// meldet danach die Konfliktsuche, und der Nutzer entscheidet.
+/// Die Bibliothek entscheidet nach der Änderungszeit auf die Sekunde und
+/// bricht ab, wenn beide Seiten denselben Eintrag in derselben Sekunde
+/// verschieden geändert haben. Dann gilt die Fassung der App (eine Sekunde
+/// jünger gemacht); die Konfliktsuche meldet danach, dass beide Seiten ihn
+/// geändert haben.
 ///
-/// Zusammengeführt wird auf einer Kopie: Was die Bibliothek bis zum Abbruch
-/// schon geändert hat, soll nicht im Stand der App stehen bleiben.
+/// Zusammengeführt wird auf einer Kopie, damit ein Abbruch keine
+/// Teiländerungen im Stand der App hinterlässt.
 fn zusammenfuehren(ours: &mut Database, theirs: &Database) -> Result<keepass::db::merge::MergeLog, String> {
     use keepass::db::merge::MergeError;
     for _ in 0..64 {
@@ -1638,9 +1597,9 @@ pub fn vault_lock(state: tauri::State<'_, Vault>) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Meldet dem Kern, dass die Oberfläche benutzt wird. Ohne das würde die
-/// Selbstsperre auch beim Lesen zuschlagen — Scrollen und Suchen lösen
-/// keinen Kommandoaufruf aus.
+/// Meldet dem Kern, dass die Oberfläche benutzt wird. Lesen, Scrollen und
+/// Suchen lösen keinen Kommandoaufruf aus und würden sonst die Selbstsperre
+/// auslösen.
 #[tauri::command]
 pub fn vault_touch(state: tauri::State<'_, Vault>) -> Result<bool, String> {
     state.lock().map_err(|_| "Kern blockiert.".to_string())?.touch();
@@ -1662,9 +1621,8 @@ pub fn vault_set_auto_lock(
 
 /// Wächter: sperrt die Datenbank, wenn zu lange nichts passiert ist.
 ///
-/// Das gehört in den Kern und nicht in den Webview — ein Timer im Fenster
-/// läuft nicht zuverlässig weiter, wenn das Fenster im Hintergrund liegt
-/// oder der Rechner schläft. Hier zählt die Uhr in jedem Fall.
+/// Läuft im Kern, da ein Timer im Webview im Hintergrund oder im
+/// Ruhezustand nicht zuverlässig weiterläuft.
 pub fn start_auto_lock(app: tauri::AppHandle) {
     use tauri::{Emitter, Manager};
 
@@ -1841,9 +1799,8 @@ mod tests {
         assert!(verlauf.contains(&"von Gerät 1".to_string()), "{verlauf:?}");
     }
 
-    /// Die Verknüpfung mit dem Browser steht in `meta.custom_data`. Geht sie
-    /// beim Speichern verloren, muss man in der Erweiterung jedes Mal wieder
-    /// auf „Verbinden" drücken — genau das war die Klage.
+    /// Die Verknüpfung mit dem Browser steht in `meta.custom_data` und muss
+    /// beim Speichern erhalten bleiben.
     #[test]
     fn verknuepfung_ueberlebt_das_speichern() {
         use keepass::db::{CustomDataItem, CustomDataValue};
@@ -1870,9 +1827,8 @@ mod tests {
         );
     }
 
-    /// Das andere Gerät hat die Verknüpfung in die Datei geschrieben. Beim
-    /// Zusammenführen muss sie herüberkommen — sonst wirft das nächste
-    /// Speichern von hier aus die Verknüpfung des anderen Geräts wieder weg.
+    /// Das andere Gerät hat die Verknüpfung in die Datei geschrieben. Sie muss
+    /// beim Zusammenführen herüberkommen.
     #[test]
     fn verknuepfung_kommt_beim_zusammenfuehren_mit() {
         use keepass::db::{CustomDataItem, CustomDataValue};
@@ -1892,7 +1848,7 @@ mod tests {
         );
         let datei = roundtrip(&fremd);
 
-        // Wir kennen sie noch nicht.
+        // Dem Stand der App noch unbekannt.
         let mut unser = base;
         merge(&mut unser, &datei).unwrap();
 
@@ -1908,11 +1864,11 @@ mod tests {
     }
 
     /// Beide Seiten kennen denselben Schlüssel mit verschiedenem Wert: Der
-    /// jüngere gilt, in beide Richtungen — und ohne Zeitstempel bleibt der
-    /// eigene stehen, statt blind ersetzt zu werden.
+    /// jüngere gilt, in beide Richtungen; ohne Zeitstempel bleibt der eigene
+    /// Wert stehen.
     /// Ein anderes Programm stellt die Schlüsselableitung um: Das nächste
-    /// Speichern hier übernimmt das, statt es zurückzudrehen. Wurde auch hier
-    /// umgestellt, bleibt es beim eigenen.
+    /// Speichern übernimmt das; wurde auch hier umgestellt, bleibt es beim
+    /// eigenen Wert.
     #[test]
     fn fremd_umgestellte_verschluesselung_bleibt() {
         use keepass::config::KdfConfig;
@@ -1933,9 +1889,9 @@ mod tests {
         assert_eq!(eigen.config.kdf_config, stufe(5));
     }
 
-    /// „Standard“ muss am iPhone/iPad beim Ausfüllen über die Tastatur
-    /// aufgehen: höchstens 16 MiB. Und neue Dateien bekommen eine Stufe,
-    /// nicht die Voreinstellung der Bibliothek (Argon2d, 1 MiB).
+    /// „Standard" muss beim Ausfüllen über die iOS-Tastatur aufgehen:
+    /// höchstens 16 MiB. Neue Dateien bekommen eine Stufe, nicht die
+    /// Voreinstellung der Bibliothek (Argon2d, 1 MiB).
     #[test]
     fn standard_passt_aufs_ipad() {
         use keepass::config::KdfConfig;
@@ -2003,8 +1959,7 @@ mod tests {
     }
 
     /// Das Änderungsdatum spart das Lesen nur bei echten Pfaden. Über eine
-    /// Adresse vom Handy wird immer gelesen — sonst kommen die Änderungen
-    /// des anderen Geräts nie an.
+    /// Adresse vom Handy wird immer gelesen.
     #[test]
     fn datum_spart_das_lesen_nur_bei_pfaden() {
         let pfad = "/home/du/passwoerter.kdbx";

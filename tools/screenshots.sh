@@ -56,8 +56,8 @@ for format in "${FORMATS[@]}"; do
   read -r label width height <<<"$format"
   echo "── $label (${width}×${height})"
 
-  # Fenster auf das Zielformat bringen. Der Webview rechnet die
-  # Mediendefinitionen daraufhin neu — deshalb kurz warten.
+  # Fenster auf das Zielformat bringen und kurz warten, bis der Webview die
+  # Media Queries neu ausgewertet hat.
   "$CLI" eval --window "$WINDOW" \
     "window.resizeTo($width, $height)" >/dev/null
   sleep 0.6

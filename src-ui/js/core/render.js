@@ -2,16 +2,16 @@
  * render.js — der Mittelpunkt des Zeichnens.
  *
  * Jede Seite meldet sich hier einmal an (`seite('einträge', renderPasswords)`)
- * und wird danach von `renderAll()` mitgezeichnet. Das spart den Ringschluss:
- * Die Seiten kennen diese Datei, diese Datei kennt keine Seite.
+ * und wird danach von `renderAll()` mitgezeichnet. So kennen die Seiten
+ * diese Datei, aber diese Datei keine Seite.
  *
- * Die Reihenfolge ist die der Anmeldung — also die, in der `app.js` die
- * Seiten einbindet. Wer eine Seite auslassen will, nennt ihren Namen:
+ * Gezeichnet wird in der Reihenfolge der Anmeldung (die Reihenfolge der
+ * Einbindung in `app.js`). Einzelne Seiten lassen sich auslassen:
  * `renderAll({ ohne: ['einstellungen'] })`.
  *
  * `refreshFromVault()` holt die Einträge neu aus dem Kern. Was danach
- * einmal durchlaufen soll — etwa das Nachholen fehlender Titel — meldet
- * sich mit `nachLaden()` an.
+ * einmal durchlaufen soll — etwa das Nachholen fehlender Titel —, wird mit
+ * `nachLaden()` angemeldet.
  */
 
 import * as vault from '../data/vault.js';
@@ -39,8 +39,7 @@ let laeuft = false;
  * Zeichnet alle angemeldeten Seiten.
  *
  * Gesperrt wird nichts gezeichnet — dann steht der Sperrbildschirm davor.
- * Die Sperre gegen Wiedereintritt verhindert, dass ein Zeichnen, das
- * selbst wieder etwas auslöst, sich im Kreis dreht.
+ * Eine Sperre gegen Wiedereintritt verhindert rekursives Zeichnen.
  */
 export function renderAll({ ohne = [] } = {}) {
   if (laeuft || state.locked) return;
@@ -55,8 +54,7 @@ export function renderAll({ ohne = [] } = {}) {
 }
 
 /**
- * Zeichnet eine einzelne Seite nach — für Stellen, die wissen, was sich
- * geändert hat, und nicht alles neu malen wollen.
+ * Zeichnet eine einzelne Seite neu, ohne die übrigen anzufassen.
  */
 export function zeichne(name) {
   if (state.locked) return;
@@ -86,7 +84,7 @@ export async function syncFromFile() {
     if (await vault.sync()) await takeForeign();
     lastSyncError = '';
   } catch (err) {
-    // Jede Minute dieselbe Meldung wäre nur lästig.
+    // Dieselbe Fehlermeldung wird nur einmal angezeigt.
     const message = err?.message ?? String(err);
     if (message !== lastSyncError) banner(message, 'error', 10000);
     lastSyncError = message;
@@ -105,8 +103,8 @@ export async function takeForeign() {
 
 /**
  * Nach einer Änderung an der Ordnung — verschoben, umbenannt, gelöscht:
- * schreiben, neu laden, neu zeichnen, Bescheid sagen. Die Einstellungen
- * bleiben stehen, dort ändert sich dabei nichts.
+ * schreiben, neu laden, neu zeichnen, Meldung anzeigen. Die Einstellungen
+ * werden nicht neu gezeichnet.
  */
 export async function nachStrukturaenderung(meldung) {
   await vault.commit();

@@ -5,9 +5,8 @@
  * App in Tauri, landet der Aufruf in Rust. Läuft sie im reinen Browser,
  * beantwortet ihn `demo.js` aus `config/demo.json`.
  *
- * Deshalb gibt es oberhalb dieser Datei keine Fallunterscheidung mehr und
- * auch kein zweites Backend: Der Aufrufer sieht immer dieselbe
- * Schnittstelle, und der Unterschied steckt allein hier.
+ * Der Aufrufer sieht in beiden Fällen dieselbe Schnittstelle; die
+ * Unterscheidung geschieht nur hier.
  */
 
 import { t } from './i18n.js';
@@ -16,8 +15,8 @@ export const isTauri = typeof window !== 'undefined' &&
   ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 
 /**
- * Läuft die App auf Android oder iOS? Dort gibt es manches nicht, was der
- * Desktop hat — allem voran die Browser-Erweiterung.
+ * Läuft die App auf Android oder iOS? Dort fehlt manches, was der Desktop
+ * hat, vor allem die Browser-Erweiterung.
  */
 export const isMobile = isTauri && /Android|iPhone|iPad/i.test(navigator.userAgent);
 
@@ -69,15 +68,13 @@ const OHNE_ANZEIGE = new Set([
   'settings_read', 'settings_write', 'path_label', 'open_link', 'startup_database',
   'unlock_methods', 'browser_identified', 'fetch_page_title',
   'android_setup_status', 'android_setup_open',
-  // Die Zusammenfassungen der Versionen laden im Hintergrund nach; die
-  // Liste zeigt dafür schon „…". Ein Schleier sperrte sie währenddessen.
+  // Die Zusammenfassungen der Versionen laden im Hintergrund nach.
   'vault_version_step', 'vault_conflicts',
-  // Der Abgleich mit der Datei läuft im Hintergrund (beim Vordergrund und
-  // höchstens alle fünf Minuten). Am Handy wartet Nextcloud bis zu 30 s —
-  // so lange lag sonst der Schleier über der App.
+  // Der Abgleich mit der Datei läuft im Hintergrund (beim Wechsel in den
+  // Vordergrund, höchstens alle fünf Minuten) und kann bis zu 30 s dauern.
   'vault_sync',
   'plugin:app|version', 'database_modified',
-  // Die Auswahlfenster des Systems stehen offen, solange der Nutzer sucht.
+  // Die Auswahlfenster des Systems bleiben offen, bis der Nutzer wählt.
   'pick_database_file', 'pick_save_path', 'pick_attachments', 'save_attachment',
   'decode_qr_gray', 'decode_qr_bytes',
 ]);
@@ -109,16 +106,9 @@ function endet() {
   clearTimeout(zeiger);
   zeiger = null;
 
-  // Kurz vor Schluss aufgetaucht? Dann einen Moment stehen lassen, sonst
-  // blitzt der Schleier nur auf.
-  //
-  // Weggenommen wird immer, wenn nichts mehr läuft — auch wenn dieser
-  // Aufruf selbst nie zu sehen war. Vorher kehrte die Funktion dann früh
-  // zurück, und es gab einen Wettlauf: Ein langsamer Aufruf zeigt den
-  // Schleier, endet, das Wegnehmen wartet die Mindestzeit ab; in der
-  // startet ein schneller, das Wegnehmen sieht „läuft noch" und lässt es,
-  // der schnelle endet ungesehen — und der Schleier stand für immer. So
-  // geschehen beim Schließen der Versionen.
+  // Der Schleier bleibt mindestens MINDESTENS sichtbar. Läuft beim Ablauf
+  // dieser Zeit nichts mehr, wird er entfernt — auch wenn dieser Aufruf
+  // ihn nicht selbst gezeigt hat.
   const rest = seit ? Math.max(0, MINDESTENS - (Date.now() - seit)) : 0;
   seit = 0;
   setTimeout(() => {
@@ -129,11 +119,8 @@ function endet() {
 /**
  * Ruft ein Kommando des Kerns auf.
  *
- * Fehler werden durchgereicht, nicht verschluckt — der Aufrufer soll
- * merken, wenn etwas nicht geht, statt stillschweigend mit `null`
- * weiterzurechnen.
- *
- * Dauert es, kommt die Ladeanzeige — siehe oben.
+ * Fehler werden an den Aufrufer weitergereicht. Dauert der Aufruf länger,
+ * erscheint die Ladeanzeige (siehe oben).
  */
 export async function invoke(command, args = {}, options = undefined) {
   const zeigt = beginnt(command);
@@ -147,10 +134,8 @@ export async function invoke(command, args = {}, options = undefined) {
     const demo = await resolveDemo();
     return await demo.runCommand(command, args);
   } catch (cause) {
-    // Rust gibt Fehler als schlichte Zeichenkette zurück, und `invoke`
-    // weist das Promise damit zurück — nicht mit einem `Error`. Wer dann
-    // `err.message` liest, bekommt `undefined` zu sehen. Deshalb hier
-    // einmal zentral einpacken, statt an dreißig Stellen zu prüfen.
+    // Rust-Fehler kommen als Zeichenkette an; `asError` macht daraus
+    // einen `Error`.
     throw asError(cause, command);
   } finally {
     if (zeigt) endet();
@@ -175,9 +160,8 @@ function asError(cause, command) {
 /**
  * Welche Wege zum Entsperren gibt es auf diesem Gerät?
  *
- * Die Oberfläche entscheidet damit nur, welche Knöpfe sie anbietet. Was
- * hinter einem Weg passiert — Systemdialog, Siegel öffnen, Schlüssel
- * ableiten — bleibt vollständig im Kern.
+ * Die Oberfläche richtet danach nur die angebotenen Knöpfe aus; Systemdialog,
+ * Siegel und Schlüsselableitung liegen im Kern.
  */
 export function unlockMethods(path = null) {
   return invoke('unlock_methods', { path });
@@ -194,10 +178,8 @@ export function pickSavePath(suggested = 'passwoerter.kdbx') {
 }
 
 /**
- * Horcht auf ein Ereignis des Kerns — etwa `vault-locked`, wenn die
- * Selbstsperre zugeschlagen hat.
- *
- * Ohne Tauri gibt es keine Ereignisse; dann passiert schlicht nichts.
+ * Registriert einen Handler für ein Ereignis des Kerns, etwa `vault-locked`
+ * bei der Selbstsperre. Ohne Tauri gibt es keine Ereignisse.
  */
 export async function listen(event, handler) {
   if (!isTauri) return () => {};

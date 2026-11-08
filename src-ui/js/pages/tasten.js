@@ -74,8 +74,8 @@ function bewege(schritt) {
 /** Enter: Eintrag oder Datei öffnen, Ordner umklappen (mit Umschalt samt Unterbau). */
 function oeffne(tr, samtUnterbau) {
   if (istOrdner(tr)) {
-    // tableview klappt beim Klick auf die Gruppenzeile um — mit
-    // Umschalttaste den ganzen Zweig. Genau das wird hier ausgelöst.
+    // Löst den Klick auf die Gruppenzeile aus; tableview klappt sie um,
+    // mit Umschalttaste den ganzen Zweig.
     tr.querySelector('.tv-group-content')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: samtUnterbau }));
   } else if (tr.dataset.id) {
@@ -126,8 +126,7 @@ function taste(ev) {
     case 'ArrowDown':
     case 'ArrowUp':
       ev.preventDefault();
-      // Raus aus dem Suchfeld: Danach meinen Entf und Strg+X die Zeile,
-      // nicht mehr den Text.
+      // Fokus verlässt das Suchfeld; Entf und Strg+X gelten danach der Zeile.
       if (inSuche) $('#entry-table').focus({ preventScroll: true });
       bewege(ev.key === 'ArrowDown' ? 1 : -1);
       return;
@@ -168,15 +167,15 @@ function taste(ev) {
     return;
   }
 
-  // Einfach lostippen: Das Zeichen landet im Suchfeld, weil der Fokus
-  // dorthin wandert, bevor der Browser es einsetzt.
+  // Tippen ohne Fokus: Der Fokus wechselt ins Suchfeld, bevor der Browser
+  // das Zeichen einsetzt.
   if (!inSuche && !strg && !ev.altKey && ev.key.length === 1 && ev.key !== ' ') suche.focus();
 }
 
 export function bindTasten() {
   const host = $('#entry-table');
-  // Damit die Liste den Fokus halten kann, wenn man mit den Pfeilen aus
-  // dem Suchfeld kommt.
+  // Die Liste kann den Fokus übernehmen, wenn man mit den Pfeilen aus dem
+  // Suchfeld kommt.
   host.tabIndex = -1;
 
   document.addEventListener('keydown', taste);

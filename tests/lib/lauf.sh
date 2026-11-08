@@ -5,9 +5,8 @@
 #
 #   tests/lib/lauf.sh <pfad-ab-projektwurzel> <wartesekunden> [bild.png] [breite] [hoehe]
 #
-# Firefox braucht ein Ziel zum Knipsen, sonst beendet es sich nie — das
-# Bild entsteht also immer, es landet nur im Papierkorb, wenn keines
-# gewünscht ist.
+# Firefox beendet sich nur nach einem Screenshot; das Bild entsteht deshalb
+# immer und wird verworfen, wenn keines gewünscht ist.
 set -euo pipefail
 wurzel="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$wurzel"
@@ -23,7 +22,7 @@ profil="$(mktemp -d)"
 protokoll="$(mktemp)"
 knipsziel="${bild:-$(mktemp -u --suffix=.png)}"
 
-# Ein Server aus einem abgebrochenen Lauf hält den Port sonst fest.
+# Beendet einen Server aus einem abgebrochenen Lauf, der den Port belegt.
 pkill -f "server[.]py $port" 2>/dev/null || true
 
 python3 tests/lib/server.py "$port" "$warten" >"$protokoll" 2>&1 &

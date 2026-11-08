@@ -103,10 +103,9 @@ object Einrichtung {
         }
     }
 
-    /* Ob die Kamera schon einmal angefragt wurde. Android verrät das nicht,
-       und ohne das wäre „nie gefragt" nicht von „für immer abgelehnt" zu
-       unterscheiden — beides meldet `shouldShowRequestPermissionRationale`
-       mit `false`. */
+    /* Ob die Kamera schon einmal angefragt wurde. Android liefert das nicht;
+       „nie gefragt" und „für immer abgelehnt" melden beide
+       `shouldShowRequestPermissionRationale` mit `false`. */
 
     private fun gefragt(activity: Activity) =
         activity.getSharedPreferences("wkeepass-einrichtung", 0).getBoolean("kamera-gefragt", false)

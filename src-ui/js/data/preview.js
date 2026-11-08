@@ -4,10 +4,10 @@
  * Unterstützt Bilder, reinen Text, Markdown und PDF. Alles wird lokal aus
  * dem gespeicherten Data-URL erzeugt; es geht nichts ins Netz.
  *
- * Markdown darf Bilder zeigen — aus demselben Eintrag, über den Dateinamen:
- * `![Grundriss](Grundriss.svg)`. Eingebettete `data:image/…` gehen auch.
- * Eine Adresse aus dem Netz wird nicht geladen (das verriete, wann und wo
- * man die Notiz öffnet); dort steht der Bildtext.
+ * Markdown kann Bilder aus demselben Eintrag über den Dateinamen zeigen
+ * (`![Grundriss](Grundriss.svg)`) sowie eingebettete `data:image/…`.
+ * Adressen aus dem Netz werden nicht geladen; stattdessen erscheint der
+ * Bildtext.
  */
 
 import { t } from '../core/i18n.js';
@@ -26,7 +26,7 @@ export function kindOf(att) {
   return 'binary';
 }
 
-/** Der MIME-Typ zur Endung — dieselbe Zuordnung wie im Kern (secrets.rs). */
+/** MIME-Typ zur Endung; gleiche Zuordnung wie im Kern (secrets.rs). */
 const TYPES = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
   svg: 'image/svg+xml', pdf: 'application/pdf', json: 'application/json',
@@ -59,7 +59,7 @@ export async function asText(att) {
 export async function asBlobUrl(att) {
   const res = await fetch(att.data);
   const blob = await res.blob();
-  // Der MIME-Typ muss stimmen, sonst zeigt der Viewer das PDF nicht an
+  // Der PDF-Viewer erwartet den passenden MIME-Typ.
   const typed = blob.type ? blob : new Blob([blob], { type: att.type || 'application/octet-stream' });
   return URL.createObjectURL(typed);
 }
@@ -73,7 +73,7 @@ const escapeHtml = s => String(s).replace(/[&<>"']/g,
 
 const slugify = text => String(text)
   .toLowerCase()
-  // 1. Deutsche Umlaute gezielt übersetzen, da "ae" im Deutschen besser ist als nur "a"
+  // 1. Umlaute als ae/oe/ue/ss umschreiben
   .replace(/ä/g, 'ae')
   .replace(/ö/g, 'oe')
   .replace(/ü/g, 'ue')
@@ -115,11 +115,10 @@ export function renderMarkdown(src) {
     
     const summaryMatch = innerContent.match(/<summary>([\s\S]*?)<\/summary>/i);
     if (summaryMatch) {
-      // NEU: Den Summary-Text rekursiv als Markdown rendern!
+      // Summary-Text rekursiv als Markdown rendern
       let parsedSummary = renderMarkdown(summaryMatch[1].trim());
       
-      // Wenn das Ergebnis ein einzelnes <p>-Tag ist (z.B. bei normalem Text),
-      // entfernen wir es, da <p> in <summary> den nativen Aufklapp-Pfeil verschiebt.
+      // Ein einzelnes <p> wird entfernt, da es in <summary> den Aufklapp-Pfeil verschiebt.
       if (parsedSummary.startsWith('<p>') && parsedSummary.endsWith('</p>') && parsedSummary.indexOf('<p>', 3) === -1) {
         parsedSummary = parsedSummary.substring(3, parsedSummary.length - 4);
       }

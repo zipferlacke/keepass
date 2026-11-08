@@ -1,17 +1,11 @@
 /**
  * demo.js — Ersatzkern für die Entwicklung ohne Rust.
  *
- * Läuft die Oberfläche nicht in Tauri, gibt es kein Backend. Dann springt
- * dieses Modul ein und beantwortet dieselben Kommandos, die sonst Rust
- * beantwortet — mit Daten aus `config/demo.json`.
+ * Läuft die Oberfläche nicht in Tauri, beantwortet dieses Modul anstelle
+ * von Rust dieselben Kommandos, mit Daten aus `config/demo.json`.
  *
- * Wichtig: Es gibt genau eine Stelle, die zwischen echt und Demo
- * unterscheidet, und das ist `platform.js`. Alles darüber ruft
- * ausnahmslos `invoke()` auf und merkt vom Unterschied nichts.
- *
- * Für die App-Version ist dieses Modul bedeutungslos — dort wird es nie
- * geladen. Es darf deshalb ersatzlos verschwinden, sobald der Rust-Kern
- * vollständig ist.
+ * Zwischen Kern und Demo unterscheidet allein `platform.js`; der übrige
+ * Code ruft stets `invoke()` auf. In der App wird das Modul nie geladen.
  */
 
 import { passwordStrength } from './security.js';
@@ -24,7 +18,7 @@ const DEMO_URL = './config/demo.json';
    ========================================================= */
 
 let data = null;          // { database, folders, secrets, entries }
-let loading = null;       // damit parallele Aufrufe nur einmal laden
+let loading = null;       // gemeinsames Laden bei parallelen Aufrufen
 let nextToken = 0;
 let nextRef = 0;
 const binaries = new Map();
@@ -46,7 +40,7 @@ function ensureLoaded() {
     // Beispielanhänge liegen in der Demo direkt in der JSON-Datei.
     for (const [ref, att] of Object.entries(data.attachments ?? {})) binaries.set(ref, att);
 
-    // Höchsten vergebenen Token merken, damit neue nicht kollidieren
+    // Höchsten vergebenen Token merken, damit neue eindeutig bleiben
     for (const key of Object.keys(data.secrets)) {
       const n = Number(key.replace(/^s/, ''));
       if (Number.isFinite(n) && n > nextToken) nextToken = n;
@@ -197,7 +191,7 @@ const commands = {
     return { ...clone(data.database), readOnly: false, format: 'KDBX 4.1' };
   },
 
-  /** Im Browser gibt es keine Dateien — die Demo tut nur so. */
+  /** Im Browser gibt es keine Dateien; die Demo simuliert sie. */
   async vault_fetch_icons() {
     return null;
   },
@@ -249,7 +243,7 @@ const commands = {
     return true;
   },
 
-  /** Nur gegen die alte PIN — eine Wiederherstellung gibt es nicht. */
+  /** Prüft nur gegen die alte PIN; eine Wiederherstellung gibt es nicht. */
   async app_pin_change({ old, new: next }) {
     if (old !== demoPin) throw new Error('PIN falsch.');
     demoPin = next;
@@ -285,7 +279,7 @@ const commands = {
     if (method === 'biometric') {
       throw new Error('Biometrisches Bestätigen ist auf dieser Plattform nicht angebunden.');
     }
-    if (method === 'master') return true;   // die Demo kennt kein echtes
+    if (method === 'master') return true;   // die Demo hat kein Master-Passwort
     if (secret !== demoPin) throw new Error('PIN falsch.');
     return true;
   },
@@ -309,7 +303,7 @@ const commands = {
     return clone(data.folders);
   },
 
-  /** In der Demo wird nichts geschrieben — die Änderungen bleiben im Speicher. */
+  /** In der Demo wird nichts geschrieben; Änderungen bleiben im Speicher. */
   async vault_commit() {
     return true;
   },
@@ -318,8 +312,7 @@ const commands = {
     return false;
   },
 
-  /* Versionen: zwei ausgedachte Stände, damit sich der Dialog in der Demo
-     und in den Tests ansehen lässt. Der Kern hebt echte auf. */
+  /* Versionen: zwei Beispielstände für den Dialog in Demo und Tests. */
   async vault_versions() {
     const vor = min => new Date(Date.now() - min * 60_000).toISOString();
     return [
@@ -415,8 +408,8 @@ const commands = {
 
   /* ---------- Selbstsperre ---------- */
 
-  // Im Browser gibt es keinen Wächter-Thread; die Kommandos existieren nur,
-  // damit die Oberfläche denselben Weg nimmt.
+  // Im Browser gibt es keinen Wächter-Thread; die Kommandos halten den
+  // Aufrufweg der Oberfläche gleich.
   async vault_touch() { return true; },
   async vault_set_auto_lock() { return true; },
 
@@ -437,7 +430,7 @@ const commands = {
     const reference = findEntry(referenceId);
     if (!entry || !reference) return false;
 
-    // Einsortieren heißt auch: den Ordner des Ziels übernehmen
+    // Beim Einsortieren wird der Ordner des Ziels übernommen
     entry.folder = reference.folder;
     return reorder(data.entries, entry, reference, position);
   },
@@ -565,9 +558,8 @@ const commands = {
   },
 
   /**
-   * Im Kern öffnet das den Dateidialog des Betriebssystems. Ohne Kern gibt
-   * es keinen — deshalb hier ein winziger erfundener Anhang, damit sich der
-   * Ablauf trotzdem durchklicken lässt.
+   * Im Kern öffnet das den Dateidialog des Betriebssystems. Die Demo liefert
+   * stattdessen einen kleinen Beispielanhang.
    */
   async pick_attachments() {
     const ref = `staged:${nextRef++}`;
@@ -578,7 +570,7 @@ const commands = {
     return [{ name, type: 'text/plain', size: 32, ref }];
   },
 
-  /** Ein Anhang eines gespeicherten Eintrags, sofort geschrieben — wie im Kern. */
+  /** Schreibt einen Anhang eines gespeicherten Eintrags sofort, wie im Kern. */
   async vault_write_attachment({ entryId, name, ref, previous }) {
     await ensureLoaded();
     const entry = data.entries.find(e => e.id === entryId);
@@ -615,9 +607,8 @@ const commands = {
   },
 
   /**
-   * Im Kern öffnet das den Speichern-Dialog des Systems. Ohne Kern gibt es
-   * keinen Dateizugriff — im Browser ist der Blob-Download aber der richtige
-   * Weg, und dort funktioniert er auch (anders als im Webview).
+   * Im Kern öffnet das den Speichern-Dialog des Systems. Im Browser erfolgt
+   * der Download stattdessen als Blob.
    */
   async save_attachment({ ref }) {
     const att = binaries.get(String(ref));
@@ -674,10 +665,7 @@ const commands = {
 
   /* ---------- Browser-Erweiterung ---------- */
 
-  /**
-   * Ohne Kern gibt es keinen Kanal und keine Manifest-Dateien. Die Demo
-   * zeigt den Abschnitt deshalb als „nicht verfügbar", statt so zu tun.
-   */
+  /** Ohne Kern gibt es keinen Kanal und keine Manifest-Dateien; der Abschnitt gilt als „nicht verfügbar". */
   async browser_status() {
     return {
       listening: false,
@@ -703,7 +691,7 @@ const commands = {
     return data.database.path;
   },
 
-  /** Fremde Seiten sperren den Abruf per CORS aus — im Browser also nichts. */
+  /** Fremde Seiten sperren den Abruf per CORS; im Browser wird nichts geholt. */
   async fetch_page_title() { return null; },
   async database_modified() { return Date.now() - 3600_000; },
 

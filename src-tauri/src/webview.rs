@@ -3,53 +3,35 @@
 //!
 //! # Das Kontextmenü
 //!
-//! Beim Rechtsklick zeigt der Webview sein eigenes Menü — unter WebKitGTK
-//! mit „Element untersuchen", „Neu laden" und Ähnlichem. Für einen
-//! Passwortmanager ist das nichts, was der Nutzer sehen soll: Wir haben ein
-//! eigenes Kontextmenü, und der Eintrag zum Untersuchen führt in die
-//! Entwicklerwerkzeuge.
+//! Der Webview zeigt beim Rechtsklick sein eigenes Menü (unter WebKitGTK mit
+//! „Element untersuchen", „Neu laden" u. a.). Die Anwendung hat ein eigenes
+//! Kontextmenü, daher wird das des Webviews abgeschaltet.
 //!
-//! Zwei Dinge sind zu unterscheiden:
-//!
-//!   * **„Element untersuchen"** taucht nur auf, wenn die
-//!     Entwicklerwerkzeuge eingeschaltet sind. Das ist in
-//!     Entwicklungsfassungen der Fall und verschwindet in einer mit
-//!     `cargo tauri build` gebauten Fassung von selbst.
-//!   * **Das restliche Menü** (Kopieren, Neu laden) bleibt auch dort. Wer es
-//!     ganz loswerden will, muss den Webview selbst fragen.
-//!
-//! Genau das passiert hier — in Rust, nicht mit einem `contextmenu`-Zuhörer
-//! in JavaScript. Ein Zuhörer ließe sich umgehen und müsste in jeder Ansicht
-//! mitgedacht werden; hier fällt die Entscheidung eine Ebene tiefer.
+//!   * „Element untersuchen" erscheint nur bei eingeschalteten
+//!     Entwicklerwerkzeugen, also in Entwicklungsfassungen.
+//!   * Das restliche Menü (Kopieren, Neu laden) bleibt auch in gebauten Fassungen
+//!     und wird in Rust beim Webview abgeschaltet, nicht per `contextmenu`-Zuhörer
+//!     in JavaScript.
 
 /// Setzt die Reihenfolge der Fensterknöpfe auf die des Schreibtischs.
 ///
-/// # Warum das nötig ist
+/// # Hintergrund
 ///
-/// Unter Wayland zeichnet GNOME keine Fensterleisten — die Anwendung malt
-/// sie selbst. Welche Knöpfe erscheinen, steht normalerweise in der
-/// GTK-Einstellung `gtk-decoration-layout`; auf diesem Schreibtisch etwa
-/// `menu:minimize,close`, also ohne Maximieren.
-///
-/// `tao`, die Fensterschicht unter Tauri, hängt dem Fenster jedoch eine
-/// eigene `GtkHeaderBar` an und schreibt die Reihenfolge fest hinein:
+/// Unter Wayland zeichnet GNOME keine Fensterleisten, die Anwendung malt sie selbst.
+/// Die Knöpfe stehen sonst in der GTK-Einstellung `gtk-decoration-layout`. `tao`,
+/// die Fensterschicht unter Tauri, hängt dem Fenster aber eine eigene `GtkHeaderBar`
+/// an und setzt die Reihenfolge fest:
 ///
 /// ```text
 /// // tao/src/platform_impl/linux/wayland/header.rs
 /// HeaderBar::builder().decoration_layout("menu:minimize,maximize,close")
 /// ```
 ///
-/// Am Widget gesetzt schlägt diese Eigenschaft die globale Einstellung.
-/// Deshalb hatte unser Fenster als einziges einen Maximieren-Knopf, und
-/// deshalb hilft es nichts, an `gtk-decoration-layout` zu drehen.
-///
-/// # Was hier passiert
-///
-/// Wir suchen genau diese Kopfleiste und überschreiben ihre Reihenfolge mit
-/// dem, was GTK für diesen Schreibtisch vorsieht. Bewusst nicht über
-/// `"maximizable": false` in der Konfiguration: Das nähme dem Fenster die
-/// Fähigkeit zu maximieren und damit auch den Doppelklick auf die Leiste.
-/// Hier verschwindet nur der Knopf.
+/// Die Eigenschaft am Widget hat Vorrang vor der globalen Einstellung. Die Funktion
+/// sucht diese Kopfleiste und überschreibt ihre Reihenfolge mit dem Wert, den GTK
+/// für den Schreibtisch vorsieht. `"maximizable": false` in der Konfiguration
+/// entfiele, da es das Maximieren und den Doppelklick auf die Leiste ganz
+/// abschaltet; so verschwindet nur der Knopf.
 pub fn apply_decoration_layout(window: &tauri::WebviewWindow) {
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))]
     {
@@ -80,10 +62,9 @@ pub fn apply_decoration_layout(window: &tauri::WebviewWindow) {
 
 /// Was GTK für diesen Schreibtisch als Knopfreihenfolge vorsieht.
 ///
-/// Diese Einstellung ist bereits übersetzt — GNOME schreibt `appmenu:…` in
-/// seine eigenen Einstellungen, GTK bekommt daraus `menu:…`. Unter KDE füllt
-/// `kde-gtk-config` denselben Wert. Wir müssen also nichts über den
-/// Schreibtisch wissen, nur GTK fragen.
+/// Diese Einstellung ist bereits übersetzt: GNOME schreibt `appmenu:…` in seine
+/// Einstellungen, GTK macht daraus `menu:…`; unter KDE füllt `kde-gtk-config`
+/// denselben Wert. Es genügt, GTK zu fragen.
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))]
 fn desktop_button_layout() -> Option<String> {
     use gtk::glib::object::ObjectExt;
@@ -95,8 +76,8 @@ fn desktop_button_layout() -> Option<String> {
 
 /// Sucht die Kopfleiste im Fensteraufbau.
 ///
-/// `tao` verpackt sie in eine `EventBox`, damit sich das Fenster daran
-/// ziehen lässt — wir dürfen also nicht nur die oberste Ebene ansehen.
+/// `tao` verpackt sie in eine `EventBox`, damit sich das Fenster daran ziehen
+/// lässt; deshalb wird der Aufbau rekursiv durchsucht.
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))]
 fn find_header_bar(widget: &gtk::Widget) -> Option<gtk::HeaderBar> {
     use gtk::prelude::{ContainerExt, Cast};
@@ -111,18 +92,16 @@ fn find_header_bar(widget: &gtk::Widget) -> Option<gtk::HeaderBar> {
 
 /// Gibt die Kamera frei — für das Einlesen von QR-Codes.
 ///
-/// WebKitGTK liefert zwei Hürden, und `wry` nimmt keine davon:
+/// Zwei Voraussetzungen, die `wry` nicht erfüllt:
 ///
-///  1. `enable-media-stream` ist **aus**. Solange das so ist, scheitert
-///     `getUserMedia` mit „not allowed by the user agent or the platform in
-///     the current context" — es fragt gar nicht erst.
-///  2. Auch eingeschaltet muss jede Anfrage einzeln beantwortet werden. Ohne
-///     Zuhörer am Signal `permission-request` gilt sie als abgelehnt.
+///  1. `enable-media-stream` ist in WebKitGTK standardmäßig aus; `getUserMedia`
+///     scheitert sonst mit „not allowed by the user agent or the platform in the
+///     current context".
+///  2. Jede Anfrage muss einzeln beantwortet werden; ohne Zuhörer am Signal
+///     `permission-request` gilt sie als abgelehnt.
 ///
-/// Wir erlauben ausschließlich die Kamera. Alles andere — Standort,
-/// Benachrichtigungen, Mikrofon, Bildschirmaufnahme — wird abgelehnt, statt
-/// pauschal durchzuwinken: Ein Passwortmanager hat davon nichts, und was
-/// nicht gebraucht wird, bleibt zu.
+/// Erlaubt wird ausschließlich die Kamera. Standort, Benachrichtigungen, Mikrofon
+/// und Bildschirmaufnahme werden abgelehnt.
 pub fn enable_camera(window: &tauri::WebviewWindow) {
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))]
     {
@@ -140,11 +119,9 @@ pub fn enable_camera(window: &tauri::WebviewWindow) {
             }
 
             view.connect_permission_request(|_, request| {
-                // Der Rückruf läuft aus C heraus. Ein Panic könnte hier nicht
-                // abgewickelt werden und würde das Programm hart abbrechen —
-                // „thread caused non-unwinding panic. aborting." Deshalb wird
-                // er hier abgefangen: Im Zweifel gilt die Anfrage als
-                // abgelehnt, und die App läuft weiter.
+                // Der Rückruf läuft aus C heraus; ein Panic könnte dort nicht abgewickelt
+                // werden und würde das Programm abbrechen. Er wird daher abgefangen, im Zweifel
+                // gilt die Anfrage als abgelehnt.
                 let answered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     let camera = request
                         .downcast_ref::<UserMediaPermissionRequest>()
@@ -178,11 +155,9 @@ pub fn enable_camera(window: &tauri::WebviewWindow) {
 /// Schaltet das eingebaute Kontextmenü des Webviews ab — **nur in der
 /// ausgelieferten Fassung**.
 ///
-/// Beim Entwickeln bleibt es an: Darin steckt „Element untersuchen", und
-/// ohne das kommt man an die Entwicklerwerkzeuge nur noch über
-/// Strg+Umschalt+I. Für einen Passwortmanager gehört das Menü in der
-/// fertigen Fassung trotzdem weg — wir haben ein eigenes, und der Eintrag
-/// zum Untersuchen hat dort nichts zu suchen.
+/// In der Entwicklung bleibt es an, da es „Element untersuchen" enthält; die
+/// Entwicklerwerkzeuge sind sonst nur über Strg+Umschalt+I erreichbar. In der
+/// fertigen Fassung ersetzt das eigene Kontextmenü es.
 pub fn suppress_context_menu(window: &tauri::WebviewWindow) {
     if cfg!(debug_assertions) {
         return;

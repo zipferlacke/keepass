@@ -1,12 +1,10 @@
 /**
  * qr.js — QR-Codes lesen und erzeugen.
  *
- * Die Bilderfassung passiert im Webview (getUserMedia + Canvas), die
- * Dekodierung im Kern (ZXing über rxing, dann rqrr). Das ist der
- * einzige Weg, der überall funktioniert — die native BarcodeDetector-API
- * fehlt genau dort, wo die App läuft: in WebKitGTK und in Firefox.
- *
- * Ohne Kern gibt es folglich keinen Scanner; die Oberfläche meldet das.
+ * Die Bilderfassung läuft im Webview (getUserMedia + Canvas), die
+ * Dekodierung im Kern (ZXing über rxing, dann rqrr), da die native
+ * BarcodeDetector-API in WebKitGTK und Firefox fehlt. Ohne Kern gibt es
+ * keinen Scanner; die Oberfläche meldet das.
  */
 
 import { isTauri, isMobile, invoke } from '../core/platform.js';
@@ -31,34 +29,30 @@ async function decodeBytes(bytes) {
 }
 
 /**
- * Kantenlänge, auf die ein Ausschnitt höchstens verkleinert wird. Nicht
- * kleiner: Ein TOTP-Code (otpauth://… mit Secret und Aussteller) hat
- * doppelt so viele Module wie ein Link. Bei zu wenigen Pixeln je Modul
- * erkennt rqrr den Link noch, den TOTP-Code nicht mehr.
+ * Maximale Kantenlänge, auf die ein Ausschnitt verkleinert wird. Ein
+ * TOTP-Code (otpauth://… mit Secret und Aussteller) hat doppelt so viele
+ * Module wie ein Link und braucht mehr Pixel je Modul, damit rqrr ihn erkennt.
  */
 const SCAN_EDGE = 900;
 
 /**
- * Welcher Anteil der kürzeren Bildseite je Durchgang geprüft wird. Der
- * Sucherrahmen deckt 75 % ab; enger (50 %) holt einen kleinen Code näher
- * heran, `1` ist das ganze Bild für den, der nicht mittig hält.
+ * Anteil der kürzeren Bildseite, der je Durchgang geprüft wird. Der
+ * Sucherrahmen deckt 75 % ab, 50 % vergrößert kleine Codes, `1` ist das
+ * ganze Bild.
  */
 const CROPS = [0.75, 0.5, 0.75, 1];
 
-/** Ein Canvas für alle Bilder — neu anlegen kostet bei 10 Bildern je Sekunde. */
+/** Gemeinsamer Canvas für alle Bilder, um das Neuanlegen zu sparen. */
 let scanCanvas = null;
 
 /**
  * Prüft ein Kamerabild auf einen QR-Code.
  *
- * Schnell, weil ohne Umwege: Graustufen direkt aus dem Canvas, als rohe
- * Bytes an Rust — kein JPEG kodieren und wieder entpacken, keine JSON-Liste
- * mit Hunderttausenden Zahlen. Das war der Grund, warum das Erkennen früher
- * Sekunden dauerte.
+ * Die Graustufen gehen direkt aus dem Canvas als rohe Bytes an Rust, ohne
+ * JPEG-Kodierung und ohne JSON-Zahlenliste.
  *
- * `center`: nur das mittlere Quadrat, dort wo der Sucherrahmen hinzeigt —
- * kleiner, also schneller, und der Code füllt es besser aus. Sonst das
- * ganze Bild, falls jemand nicht mittig hält.
+ * `center`: nur das mittlere Quadrat (Sucherrahmen), kleiner und damit
+ * schneller. Sonst wird das ganze Bild geprüft.
  */
 async function decodeFrame(video, crop, edge = SCAN_EDGE) {
   const vw = video.videoWidth ?? video.width;
@@ -93,9 +87,9 @@ async function decodeFrame(video, crop, edge = SCAN_EDGE) {
 }
 
 /**
- * Bytes als Base64 — für Android, wo die Brücke nur JSON durchlässt.
- * In Blöcken, weil `String.fromCharCode(...bytes)` bei großen Bildern
- * den Stapel sprengt.
+ * Bytes als Base64, für Android, wo die Brücke nur JSON überträgt. Die
+ * Umwandlung erfolgt blockweise, da `String.fromCharCode(...bytes)` bei
+ * großen Bildern den Stapel überläuft.
  */
 function toBase64(bytes) {
   let text = '';
@@ -119,12 +113,9 @@ export async function scanFile(file) {
 }
 
 /**
- * Ein Foto (etwa frisch aus der Kamera-App) nach einem Code absuchen.
- *
- * Das Foto ist scharf gestellt und hoch aufgelöst — der sichere Weg, wenn
- * die Vorschau einen dichten Code nicht packt. Verkleinert wird hier im
- * Webview; das volle Bild als Zahlenliste an den Kern zu schicken, dauerte
- * auf dem Telefon Sekunden.
+ * Sucht in einem Foto (z. B. aus der Kamera-App) nach einem Code. Das Foto
+ * ist scharf und hoch aufgelöst und eignet sich für dichte Codes. Es wird
+ * im Webview verkleinert, bevor es an den Kern geht.
  */
 export async function scanPhoto(file) {
   if (!scannerAvailable()) throw new Error(t('daten.qr.fehler.scannerFehlt'));
@@ -149,33 +140,21 @@ export async function scanPhoto(file) {
  * @returns {{promise: Promise<string>, stop: () => void}}
  */
 /**
- * Wie die Kamera angefragt wird — der Reihe nach, bis eine Fassung Bilder
- * liefert.
- *
- * `facingMode: 'environment'` meint die **rückwärtige** Kamera. An einem
- * Rechner gibt es die nicht, und zusammen mit einer Wunschbreite, die zu
- * keiner angebotenen Auflösung passt, kommt die Aushandlung ins Straucheln —
- * eine eingebaute Kamera bietet oft nur ein einziges Format an, unter Linux
- * gern auch hochkant und als DMABuf.
- *
- * Deshalb zuerst ohne jede Vorgabe fragen: Dann sucht der Webview selbst das
- * aus, was das Gerät wirklich kann. Der Wunsch nach der rückwärtigen Kamera
- * kommt danach — auf einem Telefon ist er richtig, dort greift er dann.
+ * Kameraanfragen am Rechner, der Reihe nach, bis eine Bilder liefert.
+ * Zuerst ohne Vorgabe, damit der Webview ein vom Gerät unterstütztes Format
+ * wählt; eingebaute Kameras bieten oft nur ein Format an, und
+ * `facingMode: 'environment'` (rückwärtige Kamera) gibt es am Rechner nicht.
  */
 // i18n: daten.qr.kamera.standard daten.qr.kamera.rueck daten.qr.kamera.k640 daten.qr.kamera.rueckHd daten.qr.kamera.rueckWunsch
 // (label ist ein Schlüssel, übersetzt wird beim Einsatz)
 const DESKTOP_ATTEMPTS = [
   { label: 'daten.qr.kamera.standard', constraints: { video: true, audio: false } },
   { label: 'daten.qr.kamera.rueck', constraints: { video: { facingMode: 'environment' }, audio: false } },
-  // Anderes Format erzwingen — manche Treiber liefern nur im Standardformat Schwarz.
+  // Format erzwingen; manche Treiber liefern nur im Standardformat ein schwarzes Bild.
   { label: 'daten.qr.kamera.k640', constraints: { video: { width: { exact: 640 }, height: { exact: 480 } }, audio: false } }
 ];
 
-/**
- * Auf dem Telefon umgekehrt: Dort ist die „Standardkamera" des Webviews
- * die vordere — und mit der fotografiert niemand einen QR-Code auf dem
- * Bildschirm. Also zuerst ausdrücklich die rückwärtige.
- */
+/** Kameraanfragen am Telefon: Die Standardkamera des Webviews ist die vordere, daher zuerst die rückwärtige. */
 const MOBILE_ATTEMPTS = [
   { label: 'daten.qr.kamera.rueckHd', constraints: { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false } },
   { label: 'daten.qr.kamera.rueck', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
@@ -205,10 +184,9 @@ function waitForFrames(video, timeout) {
 }
 
 /**
- * Kommt wirklich ein Bild, oder nur Schwarz? Manche Kameras (etwa unter
- * Linux, wenn der Treiber das Format nicht umsetzt) liefern Bilder mit
- * Maßen, aber ohne Inhalt. Bis zu 2,5 s wird gewartet — die ersten Bilder
- * sind oft dunkel, bis die Belichtung steht.
+ * Prüft, ob die Kamera Bildinhalt liefert und nicht nur schwarze Bilder
+ * (etwa unter Linux, wenn der Treiber das Format nicht umsetzt). Wartet bis
+ * zu 2,5 s, da die ersten Bilder bis zur Belichtung dunkel sein können.
  */
 async function hasPicture(video) {
   const canvas = document.createElement('canvas');
@@ -227,18 +205,14 @@ async function hasPicture(video) {
   return false;
 }
 
-/**
- * Dauerfokus einschalten, wo die Kamera ihn kann. Ohne ihn bleibt die
- * Rückkamera eines Telefons oft auf „unendlich" stehen — ein Code eine
- * Handbreit vor der Linse ist dann nie scharf genug.
- */
+/** Schaltet den Dauerfokus ein, wo die Kamera ihn unterstützt. */
 async function autofocus(stream) {
   const track = stream.getVideoTracks()[0];
   const modes = track?.getCapabilities?.().focusMode ?? [];
   if (!modes.includes('continuous')) return;
   try {
     await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-  } catch { /* dann eben mit dem, was die Kamera von sich aus macht */ }
+  } catch { /* Standardverhalten der Kamera */ }
 }
 
 export async function scanCamera(video) {
@@ -269,8 +243,7 @@ export async function scanCamera(video) {
     }
   }
 
-  // Ohne Bild lieber laut scheitern als eine schwarze Fläche zeigen: Sonst
-  // sitzt man davor und weiß nicht, ob es lädt oder nicht geht.
+  // Ohne Kamerabild wird ein Fehler gemeldet, statt eine schwarze Fläche zu zeigen.
   if (!stream) {
     throw new Error(t('daten.qr.fehler.keinKamerabild', { probleme: problems.join(' — ') }));
   }
@@ -290,9 +263,8 @@ export async function scanCamera(video) {
   let round = 0;
   let failures = 0;
 
-  // Wo der Webview den Barcode-Leser des Systems anbietet (Android), liest
-  // der direkt aus der Vorschau — schneller als jedes Bild zum Kern zu
-  // schicken. Der Kern bleibt der Weg für alle anderen und als Rückfall.
+  // Bietet der Webview den Barcode-Leser des Systems an (Android), liest
+  // dieser direkt aus der Vorschau; sonst und als Rückfall dekodiert der Kern.
   let detector = null;
   try {
     if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['qr_code'] });
@@ -317,8 +289,7 @@ export async function scanCamera(video) {
           if (value) { stop(); return resolve(value); }
         }
       } catch (err) {
-        // Einzelne Bilder dürfen scheitern. Scheitert aber jedes, kann der
-        // Scanner nie etwas finden — dann laut werden statt ewig zu suchen.
+        // Einzelne Bilder dürfen scheitern; nach 15 Fehlern in Folge wird abgebrochen.
         if (++failures >= 15) { stop(); return reject(new Error(t('daten.qr.fehler.auswertung', { fehler: err.message ?? err }))); }
       }
 

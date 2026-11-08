@@ -39,8 +39,8 @@ fi
   echo "import { bericht } from '/tests/lib/pruef.js';"
   echo 'await bericht();'
   echo '</script>'
-  # Hält das load-Ereignis auf, bis die Prüfungen durch sind — sie laden
-  # inzwischen die Sprachdateien nach (siehe tests/lib/server.py).
+  # Hält das load-Ereignis auf, bis die Prüfungen durch sind; sie laden die
+  # Sprachdateien nach (siehe tests/lib/server.py).
   echo '<img src="/__sleep" alt=""></body></html>'
 } > tests/_einheit.html
 trap 'rm -f tests/_einheit.html' EXIT

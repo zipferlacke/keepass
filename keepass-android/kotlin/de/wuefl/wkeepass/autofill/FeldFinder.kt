@@ -5,20 +5,17 @@ import android.view.View
 import android.view.autofill.AutofillId
 
 /**
- * Sucht in dem Baum, den Android mitschickt, die Anmeldefelder.
+ * Sucht im View-Baum einer Autofill-Anfrage die Anmeldefelder.
  *
- * Android liefert keine Liste von Feldern, sondern die ganze Ansicht als
- * Baum — bei einer Web-Seite in einer App sind das schnell hunderte Knoten.
- * Darin ist zu finden, wo Benutzername und Passwort hingehören.
+ * Android liefert die ganze Ansicht als Baum; bei einer Web-Seite in einer
+ * App sind das schnell hunderte Knoten. Benutzername und Passwort werden in
+ * dieser Reihenfolge erkannt:
  *
- * Es gibt drei Wege dorthin, und sie sind unterschiedlich verlässlich:
- *
- *   1. `autofillHints` — die App sagt es ausdrücklich. Wenn vorhanden, gilt
- *      das und sonst nichts.
- *   2. Der Eingabetyp. `TYPE_TEXT_VARIATION_PASSWORD` ist eindeutig, denn
- *      davon hängt ab, ob Zeichen als Punkte erscheinen.
- *   3. Raten anhand von Bezeichnern wie `login` oder `benutzer`. Das ist der
- *      letzte Weg, und er liegt bewusst hinten.
+ *   1. `autofillHints`: Die App benennt das Feld ausdrücklich; dann gilt
+ *      nur dieser Hinweis.
+ *   2. Der Eingabetyp: `TYPE_TEXT_VARIATION_PASSWORD` kennzeichnet
+ *      Passwortfelder eindeutig.
+ *   3. Bezeichner wie `login` oder `benutzer` (Heuristik, letzte Stufe).
  */
 object FeldFinder {
 
@@ -35,12 +32,9 @@ object FeldFinder {
         val code: AutofillId? = null,
     ) {
         /**
-         * Ohne Passwortfeld ist nichts zu holen.
-         *
-         * Ein Formular mit nur einem Benutzernamen ist meist die erste
-         * Hälfte einer zweistufigen Anmeldung. Dort etwas anzubieten, ohne
-         * zu wissen, ob überhaupt ein Passwort folgt, führt zu Vorschlägen
-         * an Stellen, wo sie stören.
+         * Ohne Passwortfeld wird nichts angeboten. Ein Formular nur mit
+         * Benutzernamen ist meist der erste Schritt einer zweistufigen
+         * Anmeldung.
          */
         val brauchbar: Boolean get() = passwort != null || code != null
 
@@ -64,12 +58,8 @@ object FeldFinder {
     }
 
     /**
-     * Läuft den Baum ab.
-     *
-     * Bereits Gefundenes wird **nicht** überschrieben. Der erste Treffer
-     * gewinnt, und der Baum kommt in Anzeigereihenfolge — bei zwei
-     * Passwortfeldern (Anmeldung oben, Registrierung darunter) ist das
-     * obere gemeint.
+     * Läuft den Baum in Anzeigereihenfolge ab. Bereits Gefundenes wird nicht
+     * überschrieben; bei mehreren Passwortfeldern gilt das erste.
      */
     private fun durchlaufe(knoten: AssistStructure.ViewNode, bisher: Felder): Felder {
         var stand = bisher
@@ -89,8 +79,7 @@ object FeldFinder {
         }
 
         // Browser und Apps mit eingebetteten Seiten hängen die Adresse an den
-        // Wurzelknoten des Dokuments. Sie ist die genauere Kennung als der
-        // Paketname — damit greift dieselbe Suche wie auf dem Desktop.
+        // Wurzelknoten des Dokuments; sie ist genauer als der Paketname.
         knoten.webDomain?.takeIf { it.isNotBlank() }?.let {
             if (stand.webAdresse == null) stand = stand.copy(webAdresse = it)
         }
@@ -115,9 +104,9 @@ object FeldFinder {
     private fun deute(knoten: AssistStructure.ViewNode): Art {
         // 1. Die App sagt es selbst.
         knoten.autofillHints?.forEach { hinweis ->
-            // Die Hinweise für Einmalcodes haben in `View` keine Konstante,
-            // nur in androidx: `smsOTPCode`, `2faAppOTPCode`, … — und Seiten
-            // melden `one-time-code` über ihr autocomplete-Attribut.
+            // Hinweise für Einmalcodes (`smsOTPCode`, `2faAppOTPCode`, …) gibt
+            // es nur in androidx; Seiten melden `one-time-code` über das
+            // autocomplete-Attribut.
             if (hinweis.contains("otp", ignoreCase = true) || hinweis == "one-time-code") return Art.CODE
             when (hinweis) {
                 View.AUTOFILL_HINT_PASSWORD -> return Art.PASSWORT
@@ -126,8 +115,7 @@ object FeldFinder {
             }
         }
 
-        // Nur Textfelder kommen überhaupt in Frage. Ohne diese Schranke
-        // landen Knöpfe und Beschriftungen in der Auswahl.
+        // Nur Textfelder kommen in Frage, keine Knöpfe oder Beschriftungen.
         if (knoten.autofillType != View.AUTOFILL_TYPE_TEXT) return Art.UNBEKANNT
 
         // 2. Der Eingabetyp. Punkte statt Zeichen heißt Passwort.

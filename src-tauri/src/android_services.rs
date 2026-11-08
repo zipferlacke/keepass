@@ -1,28 +1,24 @@
 //! Der Kern für Autofill und Passkeys auf Android.
 //!
-//! # Wer hier anruft
+//! # Aufrufer
 //!
-//! Nicht die Oberfläche, sondern Android selbst — über unsere Kotlin-Klassen
-//! (`keepass-android/kotlin/de/wuefl/wkeepass/kern/Kern.kt`). Der
-//! Autofill-Dienst und der Passkey-Anbieter laufen, während der Nutzer in
-//! einer **fremden** App steht. Sie fragen hier nach, was die offene
-//! Datenbank für diese App oder Seite hergibt.
+//! Android selbst, über die Kotlin-Klassen
+//! (`keepass-android/kotlin/de/wuefl/wkeepass/kern/Kern.kt`). Autofill-Dienst und
+//! Passkey-Anbieter laufen, während der Nutzer in einer **fremden** App steht, und
+//! fragen hier ab, was die offene Datenbank für diese App oder Seite hergibt.
 //!
 //! # Entsperren und Nachweis
 //!
-//! Beides geht auch aus dem Dienst heraus — über dieselben Wege wie im
-//! Fenster, nicht über eine zweite Tür: [`entsperren`] ruft `vault_unlock`,
-//! [`pruefen`] prüft PIN und Master-Passwort wie `confirm_presence`. Nur der
-//! Dialog steht woanders, nämlich in der Activity des Dienstes.
+//! [`entsperren`] ruft `vault_unlock`, [`pruefen`] prüft PIN und Master-Passwort
+//! wie `confirm_presence`. Der Dialog selbst liegt in der Activity des Dienstes.
 //!
-//! Läuft der Kern gar nicht (`"aus"`), geht das nicht: Ohne Tauri gibt es
-//! weder Einstellungen noch Schlüsselbund. Dann startet die Kotlin-Seite die
-//! App kurz (`Kaltstart.kt`), schickt sie wieder nach hinten, sobald der Kern
-//! antwortet, und entsperrt danach im Blatt.
+//! Läuft der Kern nicht (`"aus"`), gibt es weder Einstellungen noch Schlüsselbund.
+//! Die Kotlin-Seite startet die App dann kurz (`Kaltstart.kt`), schickt sie nach
+//! der Antwort des Kerns wieder nach hinten und entsperrt im Blatt.
 //!
 //! # Vor dem Einsetzen
 //!
-//! `android.guard` sagt, was vor der Herausgabe passiert — genau wie
+//! `android.guard` legt fest, was vor der Herausgabe passiert, entsprechend
 //! `browser.guard` am Rechner:
 //!
 //! ```text
@@ -31,17 +27,14 @@
 //! identify   Nachweis mit PIN, Master-Passwort oder Biometrie
 //! ```
 //!
-//! Die Entscheidung fällt hier, nicht in Kotlin: [`zugang`] gibt ohne
-//! gültigen Nachweis kein Passwort heraus, sondern `"status": "nachweis"`.
+//! Die Entscheidung fällt im Kern: [`zugang`] gibt ohne gültigen Nachweis kein
+//! Passwort heraus, sondern `"status": "nachweis"`.
 //!
-//! # Das Format
+//! # Format
 //!
-//! Jede Funktion gibt JSON als Text zurück. Ein Fehler steht unter
-//! `"fehler"`, nie als Java-Ausnahme — die wäre über die Grenze hinweg nur
-//! schwerer zu lesen, und eine vergessene riss früher den Prozess mit.
-//!
-//! Kein Panic darf die Grenze überqueren: Jeder Einstieg läuft durch
-//! [`antworte`], das ihn auffängt.
+//! Jede Funktion gibt JSON als Text zurück. Ein Fehler steht unter `"fehler"`,
+//! nicht als Java-Ausnahme. Jeder Einstieg läuft durch [`antworte`], das auch
+//! Panics auffängt, sodass keiner die Grenze überquert.
 
 use std::panic::AssertUnwindSafe;
 
@@ -75,9 +68,8 @@ pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_status<'l>(
 
 /// Meldet die sichtbare Activity des Dienstes an — `null` meldet sie ab.
 ///
-/// Solange sie steht, gehören Systemdialoge zu ihr. Ohne das erschiene der
-/// Fingerabdruck-Dialog beim Entsperren an einem Fenster, das gar nicht da
-/// ist, und der Nutzer sähe nichts.
+/// Solange sie steht, gehören Systemdialoge (etwa der Fingerabdruck-Dialog beim
+/// Entsperren) zu ihr.
 #[no_mangle]
 pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_aktivitaet<'l>(
     mut env: JNIEnv<'l>,
@@ -103,7 +95,7 @@ pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_wege<'l>(
 /// Entsperrt die zuletzt benutzte Datenbank.
 ///
 /// `methode`: `"geraet"` (Biometrie über den Keystore), `"pin"` oder
-/// `"master"`. Der Aufruf dauert — Argon2 —, er gehört auf einen Arbeitsfaden.
+/// `"master"`. Der Aufruf dauert (Argon2) und gehört auf einen Arbeitsfaden.
 #[no_mangle]
 pub extern "system" fn Java_de_wuefl_wkeepass_kern_Kern_entsperren<'l>(
     mut env: JNIEnv<'l>,
@@ -269,17 +261,15 @@ fn treffer(paket: &str, web: &str) -> Result<Value, String> {
         if bin.is_some_and(|b| entry.parent().id() == b) {
             continue;
         }
-        // Passkeys haben kein Passwort — in der Auswahl wären sie eine
-        // Zeile, die beim Antippen ein leeres Feld hinterlässt.
+        // Passkeys haben kein Passwort und erscheinen nicht in der Auswahl.
         if entry.get(crate::passkey::F_ID).is_some() {
             continue;
         }
 
         let urls = entry_urls(&entry);
         let score = if web.is_empty() {
-            // Eine App passt nur über ihren genauen Paketnamen. Ein
-            // Teilstück wie bei Rechnernamen gibt es hier nicht:
-            // `com.bank` ist nicht die Elternseite von `com.bank.fake`.
+            // Eine App passt nur über ihren genauen Paketnamen; `com.bank` ist nicht die
+            // Elternseite von `com.bank.fake`.
             urls.iter()
                 .any(|u| u.strip_prefix(APP_PREFIX).is_some_and(|p| p.trim_end_matches('/') == paket))
                 .then_some(100)
@@ -302,8 +292,8 @@ fn treffer(paket: &str, web: &str) -> Result<Value, String> {
         }
     }
 
-    // Passende zuerst, der genaueste oben; danach der Rest nach Titel —
-    // damit man auch an ein Konto kommt, das an der Seite noch nicht hängt.
+    // Passende zuerst, der genaueste oben; danach der Rest nach Titel, damit sich auch
+    // Konten wählen lassen, die an der Seite noch nicht hängen.
     passend.sort_by(|a, b| b.0.cmp(&a.0));
     alle.sort_by_key(|z| z["titel"].as_str().unwrap_or_default().to_lowercase());
     let liste: Vec<Value> = passend.into_iter().map(|(_, z)| z).chain(alle).collect();
@@ -397,8 +387,8 @@ fn datenbank(app: &tauri::AppHandle) -> Result<String, String> {
 /// Welche Wege zum Entsperren und zum Nachweis bereitstehen.
 fn wege() -> Result<Value, String> {
     let app = app()?;
-    // Ohne ausgewählte Datenbank gibt es nichts zu entsperren — dann hilft
-    // nur die App, und die Kotlin-Seite holt sie nach vorn.
+    // Ohne ausgewählte Datenbank gibt es nichts zu entsperren; die Kotlin-Seite holt
+    // dann die App nach vorn.
     let pfad = datenbank(&app)?;
     let angebot = crate::seal::offer(&app, Some(&pfad));
     Ok(json!({
@@ -461,10 +451,9 @@ fn pruefen(methode: &str, geheimnis: &str) -> Result<Value, String> {
             }
         }
 
-        // Den Systemdialog zeigt die Activity selbst: `BiometricPrompt`
-        // verlangt eine Unterklasse, die es nur in Kotlin gibt. Für einen
-        // Nachweis genügt das — anders als beim Entsperren fällt hier kein
-        // Schlüssel an, den der Chip hüten müsste.
+        // Den Systemdialog zeigt die Activity selbst, da `BiometricPrompt` eine
+        // Unterklasse verlangt, die es nur in Kotlin gibt. Für den Nachweis genügt das;
+        // anders als beim Entsperren fällt kein Schlüssel an.
         "bestaetigt" => {}
 
         other => return Err(format!("Unbekannter Nachweis: {other}")),
@@ -478,8 +467,7 @@ fn zugang(id: &str, paket: &str, merken: bool) -> Result<Value, String> {
     let app = app()?;
     let state = app.state::<Vault>();
 
-    // Erst der Nachweis, dann das Passwort. Die Auswahlliste stand schon —
-    // gesehen hat sie nur der Nutzer, herausgegeben wurde nichts.
+    // Erst der Nachweis, dann das Passwort; die Auswahlliste gibt nichts heraus.
     let stufe = wache(&app);
     if stufe != Wache::Nichts && !in_frist(&app) {
         return Ok(json!({ "status": "nachweis", "stufe": stufe.name() }));
@@ -503,8 +491,8 @@ fn zugang(id: &str, paket: &str, merken: bool) -> Result<Value, String> {
             json!({
                 "benutzer": entry.get_username().unwrap_or_default(),
                 "passwort": entry.get_password().unwrap_or_default(),
-                // Der gerade gültige Code — nach dem Einsetzen landet er in
-                // der Zwischenablage, oder direkt im Code-Feld.
+                // Der aktuell gültige Code; nach dem Einsetzen kommt er in die Zwischenablage
+                // oder direkt ins Code-Feld.
                 "totp": entry
                     .get_raw_otp_value()
                     .and_then(crate::secrets::current_totp)
@@ -536,8 +524,7 @@ fn zugang(id: &str, paket: &str, merken: bool) -> Result<Value, String> {
     crate::favicon::im_hintergrund(&app, vec![id.to_string()], false);
     if geaendert {
         speichern_im_hintergrund(&app);
-    // Neuer Zugang: Welcher Eintrag es ist, weiß `eintragen` — einfacher,
-    // alle nachzuziehen, denen noch ein Icon fehlt.
+    // Welcher Eintrag es ist, weiß `eintragen`; es werden alle ohne Icon nachgezogen.
     crate::favicon::im_hintergrund(&app, Vec::new(), false);
     }
     Ok(antwort)
@@ -554,8 +541,7 @@ fn speichern(paket: &str, web: &str, benutzer: &str, passwort: &str) -> Result<V
         passwort: zeroize::Zeroizing::new(passwort.to_string()),
     };
 
-    // Datenbank zu: vormerken und nach dem Entsperren eintragen. Sonst
-    // wäre ein gerade angelegtes Konto nur noch im Kopf des Nutzers.
+    // Datenbank gesperrt: vormerken und nach dem Entsperren eintragen.
     let Some(app) = crate::app_handle().cloned() else {
         vormerken(neu);
         return Ok(json!({ "status": "vorgemerkt" }));
@@ -573,8 +559,8 @@ fn speichern(paket: &str, web: &str, benutzer: &str, passwort: &str) -> Result<V
     Ok(json!({ "ok": true, "aktualisiert": geaendert }))
 }
 
-/// Ein Zugang, der auf das Entsperren wartet. Nur im Arbeitsspeicher —
-/// auf die Platte kommt ein Passwort bei uns nur verschlüsselt.
+/// Ein Zugang, der auf das Entsperren wartet. Nur im Arbeitsspeicher; Passwörter
+/// kommen nur verschlüsselt auf die Platte.
 struct Vorgemerkt {
     paket: String,
     web: String,
@@ -590,8 +576,8 @@ fn vormerken(zugang: Vorgemerkt) {
     }
 }
 
-/// Nach dem Entsperren: Was während der Sperre gespeichert werden sollte,
-/// kommt jetzt in die Datenbank. Aufgerufen aus `database::vault_unlock`.
+/// Trägt nach dem Entsperren ein, was während der Sperre vorgemerkt wurde.
+/// Aufgerufen aus `database::vault_unlock`.
 pub fn nach_entsperren(app: &tauri::AppHandle) {
     let wartend: Vec<Vorgemerkt> = match VORGEMERKT.lock() {
         Ok(mut liste) => std::mem::take(&mut *liste),
@@ -625,8 +611,7 @@ fn eintragen(vault: &mut VaultState, zugang: &Vorgemerkt) -> Result<bool, String
         let host = host_of(&zugang.web).unwrap_or_else(|| zugang.web.to_ascii_lowercase());
         (host.clone(), format!("https://{host}"), host)
     } else {
-        // `com.nextcloud.client` → „nextcloud" als Titel: das sprechendste
-        // Stück, meist der Herstellername.
+        // `com.nextcloud.client` ergibt „nextcloud" als Titel (meist der Herstellername).
         let titel = zugang
             .paket
             .split('.')
@@ -696,8 +681,8 @@ fn passkey_anlegen(anfrage: &str, herkunft: &str, client_hash: &str) -> Result<V
         origin: (!herkunft.is_empty()).then(|| herkunft.to_string()),
     };
 
-    // Nur ES256 können wir. Verlangt die Gegenstelle etwas anderes, ist
-    // ein ehrliches Nein besser als ein Schlüssel, den sie ablehnt.
+    // Unterstützt wird nur ES256; verlangt die Gegenstelle etwas anderes, wird
+    // abgelehnt.
     if let Some(params) = anfrage["pubKeyCredParams"].as_array() {
         if !params.is_empty() && !params.iter().any(|p| p["alg"].as_i64() == Some(-7)) {
             return Err("Die Gegenstelle verlangt ein Verfahren, das WKeePass nicht kann.".into());
@@ -709,8 +694,8 @@ fn passkey_anlegen(anfrage: &str, herkunft: &str, client_hash: &str) -> Result<V
     let created = {
         let mut vault = offen(&state)?;
 
-        // Schon einer da, den die Gegenstelle ausschließt? Dann doppelt
-        // anzulegen hieße, einen zweiten Zugang neben den ersten zu setzen.
+        // Schließt die Gegenstelle einen vorhandenen Passkey aus, wird kein zweiter
+        // angelegt.
         if let Some(ausschluss) = anfrage["excludeCredentials"].as_array() {
             let vorhanden = crate::passkey::list_in(&vault, Some(rp_id))?;
             if ausschluss.iter().any(|a| vorhanden.iter().any(|v| Some(v.credential_id.as_str()) == a["id"].as_str())) {
@@ -723,8 +708,8 @@ fn passkey_anlegen(anfrage: &str, herkunft: &str, client_hash: &str) -> Result<V
 
     let mut client_data = created.response.client_data_json.clone();
     if !client_hash.is_empty() {
-        // Der Browser hat das clientDataJSON selbst gebaut und setzt es
-        // ein. Unseres wäre falsch (andere Herkunft), deshalb Platzhalter.
+        // Der Browser baut das clientDataJSON selbst und setzt es ein; hier steht nur ein
+        // Platzhalter, da die Herkunft nicht stimmen würde.
         client_data = B64URL.encode(b"{}");
     }
 
@@ -818,8 +803,8 @@ fn offen<'a>(state: &'a Vault) -> Result<std::sync::MutexGuard<'a, VaultState>, 
     Ok(vault)
 }
 
-/// Zurückschreiben kostet eine Sekunde Argon2 — der Dienst soll darauf nicht
-/// warten. Klappt es nicht, erfährt es die Oberfläche.
+/// Das Zurückschreiben dauert wegen Argon2 etwa eine Sekunde und läuft daher im
+/// Hintergrund. Schlägt es fehl, erfährt es die Oberfläche.
 fn speichern_im_hintergrund(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
@@ -855,8 +840,8 @@ fn antworte(
 
     let wert = match ergebnis {
         Ok(wert) => wert,
-        // „zu" und „aus" sind Zustände, keine Fehler — die Kotlin-Seite
-        // holt dann die App nach vorn.
+        // „zu" und „aus" sind Zustände, keine Fehler; die Kotlin-Seite holt dann die
+        // App nach vorn.
         Err(e) if e == "zu" || e == "aus" => json!({ "status": e }),
         Err(e) => json!({ "fehler": e }),
     };

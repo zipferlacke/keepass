@@ -126,8 +126,8 @@ mod tests {
         e.id().uuid().to_string()
     }
 
-    /// Ändert ein Feld, `sek` Sekunden nach jetzt — so sind die Seiten
-    /// verschieden alt, wie im Leben.
+    /// Ändert ein Feld, `sek` Sekunden nach jetzt, damit die Seiten
+    /// unterschiedlich alt sind.
     fn setzen_um(db: &mut Database, uuid: &str, feld: &str, wert: &str, sek: i64) {
         let id = db.iter_all_entries().find(|e| e.id().uuid().to_string() == uuid).unwrap().id();
         let mut e = db.entry_mut(id).unwrap();
@@ -145,9 +145,9 @@ mod tests {
             .map(|e| e.get(feld).unwrap_or_default().to_string())
     }
 
-    /// Beispiel des Nutzers: Extern zwei neue Einträge und einer geändert,
-    /// hier ein neuer — kein Konflikt. Erst wenn beide Seiten denselben
-    /// Eintrag verschieden ändern, ist es einer.
+    /// Extern zwei neue Einträge und einer geändert, hier ein neuer: kein
+    /// Konflikt. Erst wenn beide Seiten denselben Eintrag verschieden ändern,
+    /// ist es einer.
     #[test]
     fn nur_beidseitig_verschieden_geaendert_ist_ein_konflikt() {
         let mut basis = Database::new();
@@ -180,7 +180,7 @@ mod tests {
     }
 
     /// Beide Seiten in derselben Sekunde: Die Bibliothek bricht dann ab. Der
-    /// Abgleich geht trotzdem durch, die App gilt — und es ist ein Konflikt.
+    /// Abgleich geht trotzdem durch, die App gilt, und es ist ein Konflikt.
     #[test]
     fn dieselbe_sekunde_bricht_nicht_ab() {
         let mut basis = Database::new();

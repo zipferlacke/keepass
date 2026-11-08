@@ -93,11 +93,9 @@ export async function set(path, value, { silent = false } = {}) {
 /** Kopie der Standardwerte — z. B. um nur einen Teilbereich zurückzusetzen. */
 export async function resetSettings() {
   const def = await loadDefaults();
-  // Vollständig ersetzen statt zu mischen — sonst überleben Schlüssel
-  // aus einer älteren Fassung der Datei. Was keine Einstellung ist, sondern
-  // Gedächtnis, bleibt: welche Datenbanken es gibt und was je Datenbank
-  // gilt, und dass das Willkommen schon gezeigt wurde. Vorher war danach
-  // die Liste der Datenbanken leer.
+  // Die Einstellungen werden vollständig ersetzt. Erhalten bleiben die
+  // Datenbankliste samt Einstellungen je Datenbank und das Merkmal, dass der
+  // Willkommensdialog gezeigt wurde.
   const behalten = {
     database: current?.database,
     databases: current?.databases,

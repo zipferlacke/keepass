@@ -1,15 +1,14 @@
 //! Das Symbol in der Leiste des Systems (Rechner).
 //!
-//! Startet der Browser WKeePass, läuft es ohne Fenster (`route::HINTERGRUND`).
-//! Damit man trotzdem sieht, dass es läuft — und es ohne Browser öffnen,
-//! sperren oder beenden kann —, steht ein Symbol in der Leiste.
+//! Startet der Browser WKeePass, läuft es ohne Fenster (`route::HINTERGRUND`). Das
+//! Symbol zeigt das an und erlaubt, die Anwendung ohne Browser zu öffnen, zu sperren
+//! oder zu beenden.
 //!
 //! Unter Linux geht das über StatusNotifierItem (AppIndicator). KDE, Xfce,
 //! Cinnamon und Budgie zeigen es von Haus aus; GNOME erst mit der
 //! Erweiterung „AppIndicator and KStatusNotifierItem Support“. Fehlt die
 //! Bibliothek `libayatana-appindicator3` ganz, bricht das Einrichten mit
-//! einem Panic ab — der wird hier aufgefangen, die Anwendung läuft ohne
-//! Symbol weiter.
+//! einem Panic ab; er wird aufgefangen, die Anwendung läuft ohne Symbol weiter.
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};

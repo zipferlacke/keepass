@@ -1,11 +1,10 @@
 /**
  * konflikte.js — „Hier so, in der Datei anders: welche Fassung?"
  *
- * Beim Zusammenführen gilt die jüngere Fassung eines Eintrags. Haben aber
- * beide Seiten denselben Eintrag seit dem letzten gemeinsamen Stand
- * verschieden geändert, soll der Nutzer entscheiden — dieser Dialog zeigt
- * je Eintrag, was hier und was in der Datei geändert wurde, und welche
- * Fassung gerade gilt. Die Konflikte selbst führt der Kern (konflikt.rs).
+ * Beim Zusammenführen gilt die jüngere Fassung eines Eintrags. Wurde ein
+ * Eintrag auf beiden Seiten seit dem letzten gemeinsamen Stand verschieden
+ * geändert, entscheidet der Nutzer: Der Dialog zeigt je Eintrag die
+ * Änderungen hier und in der Datei sowie die gerade geltende Fassung. Die Konflikte selbst führt der Kern (konflikt.rs).
  */
 
 import * as vault from '../data/vault.js';
@@ -14,7 +13,7 @@ import { esc } from '../core/state.js';
 import { t } from '../core/i18n.js';
 import { renderAll, refreshFromVault } from '../core/render.js';
 
-/** Steht der Dialog schon? Dann nicht ein zweites Mal öffnen. */
+/** Verhindert, dass der Dialog zweimal geöffnet wird. */
 let offen = false;
 
 /** Die Änderungen einer Seite — Passwörter ohne Wert, wie bei den Versionen. */
@@ -47,10 +46,7 @@ function karte(k) {
     </div>`;
 }
 
-/**
- * Zeigt die offenen Konflikte. Gibt es keine, passiert nichts — darf also
- * jederzeit aufgerufen werden (nach dem Entsperren, nach einem Abgleich).
- */
+/** Zeigt die offenen Konflikte; ohne Konflikte geschieht nichts. */
 export async function openKonflikte() {
   if (offen) return;
   let liste;

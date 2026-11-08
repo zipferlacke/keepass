@@ -56,11 +56,10 @@ export async function startCreation() {
           <small>${scannable ? t('dialoge.anlegen.wahl.bild.text') : t('dialoge.anlegen.wahl.nichtVerfuegbar')}</small>
         </button>
       </div>`,
-    // Nur eine Auswahl: Jede Kachel ist schon die Entscheidung, also keine
-    // Fußzeile.
+    // Jede Kachel ist bereits die Entscheidung; keine Fußzeile.
     confirmText: null,
     cancelText: t('allgemein.knoepfe.abbrechen'),
-    // Ohne Fußzeile führt nur das Kreuz oben heraus.
+    // Schließen über das Kreuz oben.
     barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.abbrechen'), action: 'cancel' },
     onInsert: () => queueMicrotask(() => {
       document.querySelectorAll('.choice[data-choice]').forEach(btn =>
@@ -75,8 +74,7 @@ export async function startCreation() {
   window.__wkChoice = null;
   if (!choice) return;
 
-  // Jeder Weg von hier aus trägt den Rückweg mit: oben links ein Pfeil
-  // zurück in diese Auswahl.
+  // Jeder Weg bietet oben links einen Pfeil zurück zu dieser Auswahl.
   if (choice === 'manual') { openEntryDialog(null, {}, { zurueck: startCreation }); return; }
   if (choice === 'files') { openEntryDialog(null, {}, { mode: 'files', zurueck: startCreation }); return; }
   if (choice === 'folder') { openFolderDialog({ zurueck: startCreation }); return; }
@@ -144,8 +142,8 @@ async function placeTotp(parsed) {
     (parsed.issuer && e.name.toLowerCase().includes(parsed.issuer.toLowerCase())) ||
     (parsed.issuer && e.url.toLowerCase().includes(parsed.issuer.toLowerCase())));
 
-  // Kein vorhandener Eintrag passt zum Aussteller? Dann gibt es nichts zu
-  // wählen — gleich den neuen Eintrag öffnen, vorausgefüllt.
+  // Passt kein vorhandener Eintrag zum Aussteller, wird gleich ein neuer,
+  // vorausgefüllter Eintrag geöffnet.
   const config0 = { digits: parsed.digits, period: parsed.period, algorithm: parsed.algorithm };
   if (!suggestion || suggestion.hasTotp) {
     openEntryDialog(null, {
@@ -211,7 +209,7 @@ async function placeTotp(parsed) {
     await refreshFromVault();
     renderAll({ ohne: ['einstellungen'] });
     banner(t('dialoge.anlegen.totp.hinzugefuegt', { name: entry.name }), 'success');
-    // Gleich zeigen, wo er gelandet ist.
+    // Neuen Eintrag anzeigen.
     openEntryDialog(entry.id);
     return;
   }
@@ -294,8 +292,7 @@ export async function importFromOtherApps({ zurueck = null } = {}) {
   try { result = await parseImport(file); }
   catch (err) { banner(t('dialoge.anlegen.import.nichtMoeglich', { fehler: err.message }), 'error', 8000); return; }
 
-  // Was es schon gibt (gleicher Name, Benutzer und Adresse), wird ausgelassen —
-  // so schadet es nicht, denselben Export zweimal einzulesen.
+  // Vorhandene Einträge (gleicher Name, Benutzer und Adresse) werden ausgelassen.
   const key = e => [e.name, e.username, e.url].map(v => String(v ?? '').trim().toLowerCase()).join('\u0001');
   const known = new Set(state.entries.map(key));
   const folder = `Importiert/${result.source.replace(/\//g, '-')}`;
@@ -309,8 +306,8 @@ export async function importFromOtherApps({ zurueck = null } = {}) {
   };
   count();
 
-  // Bei CSV lässt sich festlegen, welche Spalte was bedeutet. Ohne erkannte
-  // Passwort- oder 2FA-Spalte ist die Zuordnung gleich aufgeklappt.
+  // Bei CSV lässt sich die Spaltenzuordnung festlegen; sie ist aufgeklappt,
+  // wenn keine Passwort- oder 2FA-Spalte erkannt wurde.
   const csv = result.csv;
   const mapping = csv ? [...csv.mapping] : null;
   const needsMapping = csv && !mapping.some(f => f === 'password' || f === 'totp');
@@ -337,7 +334,7 @@ export async function importFromOtherApps({ zurueck = null } = {}) {
       </ul>`;
   };
 
-  // Beispielwert je Spalte — Passwörter und 2FA-Schlüssel nur als Punkte.
+  // Beispielwert je Spalte; Passwörter und 2FA-Schlüssel erscheinen als Punkte.
   const sample = i => {
     const v = csv.rows.map(r => (r[i] ?? '').trim()).find(Boolean) ?? '';
     if (!v) return '—';

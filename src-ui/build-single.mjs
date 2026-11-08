@@ -18,7 +18,7 @@ const { generateTotp, secondsRemaining } = __mod_totp;`,
 const { renderQrCode } = __mod_ui;`
 };
 
-/* Name im Bündel → Datei. Die Reihenfolge bleibt bedeutsam. */
+/* Name im Bündel → Datei, in Abhängigkeitsreihenfolge. */
 const MODULES = {
   dragmove:    'ui/dragmove.js',
   multiselect: 'ui/multiselect.js',

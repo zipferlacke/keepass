@@ -66,8 +66,8 @@ for datei in sorted(lang.glob('*_*.json')):
         if platzhalter(grund[k]) != platzhalter(andere[k]):
             fehler.append(f'{datei.name}: „{k}“ hat andere Platzhalter')
 
-# Auch als bloße Zeichenkette zählt ein Schlüssel als benutzt (Tabellen,
-# Bedingungen: t(x ? 'a.b' : 'a.c')).
+# Ein Schlüssel zählt auch als bloße Zeichenkette als benutzt (Tabellen,
+# Bedingungen wie t(x ? 'a.b' : 'a.c')).
 alles = '\n'.join(d.read_text() for d in wurzel.glob('js/**/*.js'))
 for k in grund:
     if f"'{k}'" in alles or f'"{k}"' in alles:

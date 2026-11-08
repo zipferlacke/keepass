@@ -1,10 +1,9 @@
 /**
  * settings.js — die Seite mit den Einstellungen.
  *
- * Ein Markup für beide Orte (Einstellungsseite und Zahnrad auf dem
- * Sperrbildschirm), dazu die Abschnitte, die eigene Logik haben: Android
- * (Autofill, Passkeys, Kamera), die Datenbank (Name, Verschlüsselungsstärke,
- * Versionen) und die Browser-Anbindung.
+ * Ein gemeinsames Markup für Einstellungsseite und Zahnrad auf dem Sperrbildschirm,
+ * dazu die Abschnitte mit eigener Logik: Android (Autofill, Passkeys, Kamera),
+ * Datenbank (Name, Verschlüsselungsstärke, Versionen) und Browser-Anbindung.
  */
 
 import * as vault from '../data/vault.js';
@@ -26,12 +25,9 @@ import { BRAND_MARK, deviceName, changePin, clearAppPin, createAppPin, manageAcc
    Einstellungen
    ========================================================= */
 /**
- * Baut die Einstellungen.
- *
- * Genau eine Quelle für beide Orte: die Einstellungsseite bei offener
- * Datenbank und das Zahnrad auf dem Sperrbildschirm. Der einzige
- * Unterschied ist der Abschnitt „Diese Datenbank" — ohne offene Datenbank
- * gibt es ihn schlicht nicht.
+ * Baut die Einstellungen. Gemeinsame Quelle für die Einstellungsseite bei
+ * offener Datenbank und das Zahnrad auf dem Sperrbildschirm; der Abschnitt
+ * „Diese Datenbank“ entfällt ohne offene Datenbank.
  */
 function settingsMarkup() {
   const s = settings.getSettings();
@@ -270,10 +266,7 @@ function settingsMarkup() {
     <p class="app-version" id="app-version">WKeePass</p>`
 }
 
-/**
- * Scrollt zu einem Abschnitt der Einstellungen, sodass er unter der
- * Kopfzeile steht. `scrollIntoView` schöbe ihn unter die Kopfzeile.
- */
+/** Scrollt zu einem Abschnitt der Einstellungen, sodass er unter der Kopfzeile steht. */
 function springeZu(id) {
   const ziel = document.getElementById(id);
   if (!ziel) return;
@@ -291,15 +284,14 @@ export function renderSettings() {
   body.innerHTML = settingsMarkup();
   wireSettings(body);
 
-  // Nachgereicht: Der Zustand kommt aus dem Kern und würde das Zeichnen
-  // sonst aufhalten.
+  // Der Zustand kommt aus dem Kern und wird nachgereicht.
   renderBrowserSection();
   renderDatabaseSection();
   renderAndroidSection($('#android-card'));
   zeigeVersion();
 }
 
-/** Die Versionsnummer ganz unten — dieselbe wie in tauri.conf.json. */
+/** Die Versionsnummer ganz unten (wie in tauri.conf.json). */
 async function zeigeVersion() {
   const el = $('#app-version');
   if (!el) return;
@@ -332,14 +324,9 @@ const androidFreigaben = () => [
 ];
 
 /**
- * Zeichnet die drei Freigaben in `card`. Nach einem Klick fragt es eine
- * Weile nach — der Nutzer kommt aus den Systemeinstellungen zurück, ohne
- * dass die Seite davon erfährt.
- */
-/**
- * Was passiert, bevor der Passwortmanager etwas in eine fremde App
- * einsetzt. Dieselben drei Stufen wie bei der Browser-Erweiterung — die
- * Auswahlliste kommt immer, herausgegeben wird erst danach.
+ * Android: Einstellung zum Verhalten vor dem Einsetzen in eine fremde App.
+ * Dieselben drei Stufen wie bei der Browser-Erweiterung; die Auswahlliste
+ * erscheint immer, herausgegeben wird erst danach.
  */
 function ausfuellMarkup() {
   const guard = settings.get('android.guard', 'identify');
@@ -376,14 +363,17 @@ function ausfuellMarkup() {
     </div>`;
 }
 
+/**
+ * Zeichnet die drei Freigaben in `card`. Nach einem Klick wird eine Weile
+ * nachgefragt, da die Rückkehr aus den Systemeinstellungen nicht gemeldet wird.
+ */
 async function renderAndroidSection(card, { ausfuellen = true } = {}) {
   if (!card) return;
   let status;
   try { status = await vault.androidSetupStatus(); } catch { status = null; }
 
-  // Die Stufe gilt auch dann, wenn die Freigaben gerade nicht zu erfragen
-  // sind — sie steht deshalb vor ihnen und bleibt stehen. Beim ersten Start
-  // geht es dagegen nur um die Freigaben; eingestellt wird später.
+  // Die Stufe steht vor den Freigaben, da sie auch gilt, wenn diese nicht abfragbar sind;
+  // beim ersten Start geht es nur um die Freigaben.
   card.innerHTML = ausfuellen ? ausfuellMarkup() : '';
   if (ausfuellen) wireAusfuellen(card);
   if (!status) return;
@@ -408,7 +398,7 @@ async function renderAndroidSection(card, { ausfuellen = true } = {}) {
   }));
 }
 
-/** Stufe und Frist: Der Dienst liest beides bei jeder Anfrage neu. */
+/** Stufe und Frist; der Dienst liest beides bei jeder Anfrage. */
 function wireAusfuellen(card) {
   card.querySelectorAll('[name="android.guard"]').forEach(el =>
     el.addEventListener('change', async () => {
@@ -440,9 +430,8 @@ function watchAndroidSetup(card, before) {
 }
 
 /**
- * Beim ersten Start auf Android: sagen, wozu die Freigaben gut sind, und
- * sie gleich einrichten lassen. Überspringen geht jederzeit — alles steht
- * danach auch in den Einstellungen.
+ * Beim ersten Start auf Android: erklärt die Freigaben und lässt sie einrichten.
+ * Überspringbar; alles steht danach auch in den Einstellungen.
  */
 export async function showAndroidSetup() {
   return new Promise(resolve => {
@@ -470,11 +459,10 @@ export async function showAndroidSetup() {
   });
 }
 
-/** Wie im Kern (database.rs): Wert, Name, Hinweis, Durchgänge, MiB, Fäden. */
 /**
- * Eine Stufe als Feld [Wert, Name, Hinweis, Durchgänge, MiB, Fäden]. Name und
- * Hinweis werden erst beim Lesen übersetzt — beim Import ist i18n noch nicht
- * geladen, und lock.js zerlegt das Feld weiterhin per Destrukturierung.
+ * Eine Stufe als Feld [Wert, Name, Hinweis, Durchgänge, MiB, Fäden], wie im Kern
+ * (database.rs). Name und Hinweis werden erst beim Lesen übersetzt, da i18n
+ * beim Import noch nicht geladen ist; lock.js zerlegt das Feld per Destrukturierung.
  */
 function stufe(wert, nameKey, hinweisKey, it, mib, p) {
   const f = [wert, null, null, it, mib, p];
@@ -492,16 +480,15 @@ export const STUFEN = [
   stufe('stark', 'einstellungen.verschluesselung.stufeStark', 'einstellungen.verschluesselung.hinweisStark', 20, 256, 4)
 ];
 
-/** Auf der Skala beschriftet sind nur diese — die beiden dazwischen nicht. */
+/** Auf der Skala beschriftet sind nur diese Stufen. */
 const BENANNT = new Set(['schnell', 'standard', 'stark']);
 
 /** „10 Durchgänge · 64 MiB · 4 Fäden" */
 const kdfWerte = (it, mib, p) => t('einstellungen.verschluesselung.werte', { it, mib, faeden: t('einstellungen.verschluesselung.faeden', { n: p }) });
 
 /**
- * Welche Stufe einer eigenen Einstellung am nächsten kommt. Der Aufwand
- * wächst mit Durchgängen mal Speicher; verglichen wird logarithmisch, weil
- * die Stufen jeweils ein Vielfaches auseinanderliegen.
+ * Die Stufe, die einer eigenen Einstellung am nächsten kommt. Der Aufwand
+ * wächst mit Durchgängen mal Speicher und wird logarithmisch verglichen.
  */
 function naechsteStufe(iterations, memoryMib) {
   const aufwand = Math.log(Math.max(1, iterations * memoryMib));
@@ -534,20 +521,12 @@ function kdfErklaeren() {
   });
 }
 
-/**
- * Name und Verschlüsselung der offenen Datenbank.
- *
- * Der Name steht in der Datei selbst, nicht im Dateinamen — er erscheint
- * überall dort, wo die Datenbank auftaucht, und ist auf dem Handy oft die
- * einzige Bezeichnung, die es gibt.
- */
+/** Name (aus der Datei, nicht dem Dateinamen) und Verschlüsselung der offenen Datenbank. */
 async function renderDatabaseSection() {
   const card = $('#database-card');
   if (!card) return;
 
-  // Solange am Regler eine Auswahl offen ist oder gerade geschrieben wird,
-  // bleibt der Abschnitt stehen. Neu gezeichnet risse er den Regler unter
-  // dem Finger weg — genau das Flackern, das hier nicht sein darf.
+  // Solange eine Auswahl am Regler offen ist oder geschrieben wird, bleibt der Abschnitt stehen (kein Neuzeichnen).
   if (card.dataset.offen) return;
 
   let info;
@@ -653,17 +632,8 @@ async function renderDatabaseSection() {
     if (name.value.trim() !== info.name) speichern('name', { name: name.value.trim() });
   });
 
-  /* Der Schieberegler.
-
-     Ziehen wählt nur aus. Geschrieben wird erst mit „Übernehmen" — jede
-     Änderung verschlüsselt die ganze Datei neu, und das dauert Sekunden.
-
-     Vorher schrieb der Regler von selbst, eine halbe Sekunde nach der
-     letzten Bewegung. Das ging auf dem Handy gründlich schief: Der
-     Webview meldet schon während des Ziehens, jede kurze Pause löste eine
-     Neuverschlüsselung aus, die Ladeanzeige legte sich über den Regler,
-     und bei einer eigenen Einstellung kam jedes Mal die Rückfrage. Jetzt
-     hängt am Regler nichts mehr, was etwas auslöst. */
+  // Der Regler wählt nur aus; geschrieben wird erst mit „Übernehmen“, da jede
+  // Änderung die ganze Datei neu verschlüsselt.
   regler = card.querySelector('#db-level');
   const note = card.querySelector('#db-level-note');
   const werte = card.querySelector('#db-level-values');
@@ -672,8 +642,7 @@ async function renderDatabaseSection() {
   const ok = card.querySelector('#db-level-ok');
   const undo = card.querySelector('#db-level-undo');
 
-  // Eine eigene Einstellung liegt auf keiner Stufe. Erst wenn der Regler
-  // angefasst wurde, gilt seine Stellung als Wunsch.
+  // Eine eigene Einstellung liegt auf keiner Stufe; erst nach Berührung des Reglers gilt seine Stellung.
   let beruehrt = false;
   const offen = () => beruehrt && (eigen || Number(regler.value) !== stufe);
 
@@ -682,15 +651,14 @@ async function renderDatabaseSection() {
     note.textContent = offen() && eigen
       ? t('einstellungen.verschluesselung.ersetzt', { stufe: STUFEN[i][1] })
       : hinweis(i) === STUFEN[i][2] ? t('einstellungen.verschluesselung.stufeHinweis', { stufe: STUFEN[i][1], hinweis: STUFEN[i][2] }) : hinweis(i);
-    // Klein darunter: was jetzt gilt — und, sobald etwas gewählt ist,
-    // was danach gilt.
+    // Darunter: aktuelle Werte und, bei offener Auswahl, die Werte danach.
     const [, , , it, mib, p] = STUFEN[i];
     werte.innerHTML = `${t('einstellungen.verschluesselung.jetzt', { werte: kdfWerte(info.iterations, info.memoryMib, info.parallelism) })}${
       offen() ? `<br>${t('einstellungen.verschluesselung.danach', { werte: kdfWerte(it, mib, p) })}` : ''}`;
     card.querySelectorAll('[data-stufe]').forEach(b =>
       b.toggleAttribute('aria-current', Number(b.dataset.stufe) === i));
     zeile.hidden = !offen();
-    // Der Abschnitt bleibt stehen, solange hier etwas offen ist.
+    // Solange etwas offen ist, bleibt der Abschnitt stehen.
     if (offen()) card.dataset.offen = '1'; else delete card.dataset.offen;
   };
 
@@ -735,8 +703,7 @@ async function renderDatabaseSection() {
 
   zeige();
 
-  // Änderungsdatum der Datei — fragt je nach Ort das Dateisystem oder den
-  // Cloud-Anbieter, darum nachgereicht statt beim Zeichnen.
+  // Änderungsdatum der Datei (Dateisystem oder Cloud-Anbieter); wird nachgereicht.
   const modifiedEl = card.querySelector('#db-modified');
   if (path && modifiedEl) {
     invoke('database_modified', { path }).then(ms => {
@@ -747,11 +714,9 @@ async function renderDatabaseSection() {
 }
 
 /**
- * Der Abschnitt zur Browser-Anbindung.
- *
- * Zeigt, ob der Kanal steht, wo er liegt, bei welchen Browsern wir
- * eingetragen sind und welche sich verknüpft haben. Der Pfad steht sichtbar
- * da, weil man ihn bei Problemen als Erstes braucht.
+ * Der Abschnitt zur Browser-Anbindung: Zustand und Pfad des Kanals, Browser mit
+ * Eintrag, verknüpfte Browser. Der Pfad ist sichtbar, da er bei Problemen
+ * als Erstes gebraucht wird.
  */
 async function renderBrowserSection() {
   const card = $('#browser-card');
@@ -890,7 +855,6 @@ async function renderBrowserSection() {
     }));
 }
 
-/** Trägt uns bei den Browsern ein — oder nimmt es zurück. */
 /** Wo es keepassxc-browser gibt — WKeePass spricht dasselbe Protokoll. */
 const BROWSER_STORES = [
   { name: 'Firefox', url: 'https://addons.mozilla.org/firefox/addon/keepassxc-browser/' },
@@ -899,10 +863,9 @@ const BROWSER_STORES = [
 ];
 
 /**
- * Beim ersten Start am Rechner: die Browser-Erweiterung vorstellen und
- * gleich einrichten lassen. Drei Schritte — bei den Browsern eintragen,
- * Erweiterung installieren, im Browser verbinden. Überspringen geht; alles
- * steht danach auch in den Einstellungen.
+ * Beim ersten Start am Rechner: stellt die Browser-Erweiterung vor und lässt sie
+ * einrichten (Browser eintragen, Erweiterung installieren, im Browser verbinden).
+ * Überspringbar; alles steht danach auch in den Einstellungen.
  */
 export async function showBrowserSetupPage() {
   return new Promise(resolve => {
@@ -969,6 +932,7 @@ export async function showBrowserSetupPage() {
   });
 }
 
+/** Trägt WKeePass bei den Browsern ein oder nimmt den Eintrag zurück. */
 async function browserSetup(install) {
   try {
     const results = install ? await vault.browserInstall() : await vault.browserUninstall();
@@ -995,11 +959,8 @@ async function browserSetup(install) {
 }
 
 /**
- * Einstellungen als volle Seite — auch vom Sperrbildschirm aus.
- *
- * Es gibt nur diesen einen Bauplan. Ohne offene Datenbank wird der
- * Abschnitt „Diese Datenbank" per CSS ausgeblendet (`[data-needs-db]`),
- * sonst ändert sich nichts.
+ * Einstellungen als volle Seite, auch vom Sperrbildschirm aus. Ohne offene
+ * Datenbank blendet CSS den Abschnitt „Diese Datenbank“ aus (`[data-needs-db]`).
  */
 export function openSettingsPage() {
   document.body.dataset.settingsOnly = 'true';
@@ -1016,12 +977,9 @@ export function closeSettingsPage() {
 }
 
 /**
- * Verkabelt die Einstellungen.
- *
- * `immediate` unterscheidet die beiden Orte: Auf der Seite gibt es kein
- * „Fertig", dort wirkt jede Änderung sofort. Im Dialog wird nur die
- * Darstellung vorab gezeigt — geschrieben wird erst beim Abschicken, damit
- * „Abbrechen" wirklich nichts hinterlässt.
+ * Verkabelt die Einstellungen. `immediate` unterscheidet die Orte: Auf der Seite
+ * wirkt jede Änderung sofort; im Dialog wird die Darstellung nur vorab gezeigt
+ * und erst beim Abschicken geschrieben.
  */
 function wireSettings(root = $('#settings-body')) {
   // Darstellung: sofort sichtbar und sofort gemerkt.
@@ -1057,7 +1015,7 @@ function wireSettings(root = $('#settings-body')) {
     const value = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
     await settings.set(el.dataset.set, value);
 
-    // Die Ruhezeit hütet der Kern, nicht das Fenster — er muss sie erfahren.
+    // Die Ruhezeit überwacht der Kern und muss sie erfahren.
     if (el.dataset.set === 'unlock.autoLockMinutes' && !state.locked) {
       await vault.setAutoLock(Number(value) || 0);
     }

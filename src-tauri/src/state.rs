@@ -5,8 +5,8 @@
 //! einen Baum aus Gruppen. Übersetzt wird hier, an genau einer Stelle.
 //!
 //! Die Wurzelgruppe hat in KDBX einen Namen (meist „Root" oder der
-//! Datenbankname), der die Oberfläche nichts angeht. Einträge, die direkt
-//! darin liegen, bekommen deshalb den Pfad `"Allgemein"`.
+//! Datenbankname), der in der Oberfläche nicht erscheint. Einträge direkt in
+//! der Wurzel erhalten den Pfad `"Allgemein"`.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -25,26 +25,26 @@ pub struct VaultState {
     pub path: Option<PathBuf>,
 
     /// SHA-256 der Datei, wie sie beim Öffnen auf der Platte lag. Vor dem
-    /// Schreiben wird erneut gehasht — hat inzwischen KeePassXC oder die
-    /// Nextcloud-Synchronisierung zugeschlagen, wird nicht überschrieben.
+    /// Schreiben wird erneut gehasht; hat sich die Datei inzwischen geändert
+    /// (etwa durch KeePassXC oder Synchronisierung), wird nicht überschrieben.
     pub opened_hash: Option<[u8; 32]>,
 
-    /// Verschlüsselung und Format der Datei, wie sie zuletzt gelesen oder
-    /// geschrieben wurde. Stellt ein anderes Programm sie um, steht in der
-    /// Datei etwas anderes — dann gilt das, sofern hier nichts umgestellt
-    /// wurde (siehe `database::einstellungen_uebernehmen`).
+    /// Verschlüsselung und Format der Datei, wie zuletzt gelesen oder
+    /// geschrieben. Ändert ein anderes Programm sie, gilt der Stand der
+    /// Datei, sofern hier nichts umgestellt wurde (siehe
+    /// `database::einstellungen_uebernehmen`).
     pub opened_config: Option<keepass::config::DatabaseConfig>,
 
-    /// In der App gespeichert, aber noch nicht in der Datei am Ort: Die
-    /// eigene Kopie ist voraus. `database::abgleichen` holt das nach.
+    /// In der App gespeichert, aber noch nicht in der Datei am Ort; die
+    /// eigene Kopie ist neuer. `database::abgleichen` holt das nach.
     pub ausstehend: bool,
 
     /// Einträge, die beide Seiten seit dem letzten gemeinsamen Stand
-    /// verschieden geändert haben — bis der Nutzer entscheidet.
+    /// unterschiedlich geändert haben, bis der Nutzer entscheidet.
     pub konflikte: Vec<crate::konflikt::Offen>,
 
-    /// Nur KDBX 4.1 lässt sich zurückschreiben. Alles andere wird geöffnet,
-    /// aber `vault_commit` verweigert die Arbeit.
+    /// Nur KDBX 4.1 lässt sich zurückschreiben. Andere Versionen werden
+    /// geöffnet, `vault_commit` lehnt sie aber ab.
     pub read_only: bool,
 
     /// Geöffnet ist die Offline-Kopie, weil die Datei nicht lesbar war.
@@ -61,26 +61,25 @@ pub struct VaultState {
     /// Inhalt der Schlüsseldatei, wenn die Datenbank eine braucht.
     pub keyfile: Option<Zeroizing<Vec<u8>>>,
 
-    /// Änderungsdatum der Datei beim letzten Blick (ms seit 1970). Solange
-    /// es sich nicht ändert, spart sich `vault_sync` das Lesen.
+    /// Änderungsdatum der Datei beim letzten Zugriff (ms seit 1970). Solange
+    /// es gleich bleibt, überspringt `vault_sync` das Lesen.
     pub seen_modified: Option<i64>,
 
     /// Klartextwerte, adressiert über ihren Token.
     pub secrets: HashMap<String, Zeroizing<String>>,
 
-    /// (Eintrags-UUID, Feldname) → Token. Sorgt dafür, dass ein Feld über
-    /// mehrere `vault_list_entries` hinweg denselben Token behält.
+    /// (Eintrags-UUID, Feldname) → Token. Ein Feld behält so über mehrere
+    /// `vault_list_entries` hinweg denselben Token.
     pub field_tokens: HashMap<(String, String), String>,
 
     /// Angehängte Dateien, die noch zu keinem Eintrag gehören.
     ///
-    /// In KDBX hängt ein Anhang immer an einem Eintrag; einen freistehenden
-    /// gibt es nicht. Die Oberfläche wählt ihn aber aus, **bevor** der
-    /// Eintrag gespeichert wird. Deshalb liest der Kern die Datei sofort ein
-    /// und legt sie hier ab; `vault_save_entry` löst die Verweise auf.
+    /// In KDBX gehört ein Anhang immer zu einem Eintrag. Die Oberfläche wählt
+    /// ihn aber vor dem Speichern des Eintrags aus; der Kern liest die Datei
+    /// daher sofort ein und legt sie hier ab. `vault_save_entry` löst die
+    /// Verweise auf.
     ///
-    /// Verworfen wird beim Sperren — wer den Dialog abbricht, lässt höchstens
-    /// ein paar Bytes bis dahin liegen.
+    /// Beim Sperren wird der Zwischenspeicher verworfen.
     pub staged: HashMap<String, StagedAttachment>,
 
     next_token: u32,
@@ -118,8 +117,7 @@ impl VaultState {
         self.db.as_mut().ok_or_else(|| "Keine Datenbank geöffnet.".into())
     }
 
-    /// Merkt sich, dass gerade etwas passiert ist — schiebt die Selbstsperre
-    /// nach hinten.
+    /// Vermerkt Aktivität und verschiebt damit die Selbstsperre.
     pub fn touch(&mut self) {
         if self.db.is_some() {
             self.last_activity = Some(std::time::Instant::now());
@@ -188,9 +186,9 @@ pub const PAPIERKORB_TAGE: i64 = 30;
 
 /// Seit wann liegt, was in `group` steckt, im Papierkorb?
 ///
-/// Maßgeblich ist, was direkt im Papierkorb liegt: Wird ein Ordner gelöscht,
-/// zieht er seine Einträge mit, und deren eigenes Datum bleibt das alte.
-/// `None`, wenn `group` nicht im Papierkorb liegt.
+/// Maßgeblich ist, was direkt im Papierkorb liegt: Beim Löschen eines Ordners
+/// behalten dessen Einträge ihr altes Datum. `None`, wenn `group` nicht im
+/// Papierkorb liegt.
 pub fn im_papierkorb_seit(
     db: &Database,
     group: GroupId,
@@ -214,10 +212,10 @@ pub fn im_papierkorb_seit(
 
 /// Entfernt endgültig, was länger als `tage` im Papierkorb liegt.
 ///
-/// Mit Löschvermerk — sonst brächte der Abgleich mit einem anderen Gerät
-/// es zurück. Was kein Datum trägt (von Hand oder von einer anderen App in
-/// den Papierkorb gelegt), bekommt jetzt eins und damit die volle Frist.
-/// Gibt zurück, wie viele Einträge und Ordner verschwunden sind.
+/// Mit Löschvermerk, damit der Abgleich mit einem anderen Gerät sie nicht
+/// zurückbringt. Was kein Datum trägt (von Hand oder von einer anderen App in
+/// den Papierkorb gelegt), erhält jetzt eins und damit die volle Frist.
+/// Gibt zurück, wie viele Einträge und Ordner entfernt wurden.
 pub fn papierkorb_aufraeumen(db: &mut Database, tage: i64, jetzt: NaiveDateTime) -> usize {
     let Some(bin) = recycle_bin(db) else { return 0 };
     let grenze = jetzt - chrono::Duration::days(tage);
@@ -253,7 +251,7 @@ pub fn papierkorb_aufraeumen(db: &mut Database, tage: i64, jetzt: NaiveDateTime)
     weg
 }
 
-/// Liegt `group` im Papierkorb — oder ist es der Papierkorb selbst?
+/// Liegt `group` im Papierkorb oder ist es der Papierkorb selbst?
 pub fn is_recycled(db: &Database, group: GroupId) -> bool {
     let Some(bin) = recycle_bin(db) else { return false };
 
@@ -295,7 +293,7 @@ pub fn all_folders(db: &Database) -> Vec<String> {
     let root = db.root().id();
     let mut out = vec![ROOT_LABEL.to_string()];
 
-    // Der Papierkorb ist kein Ordner im Baum — er steht für sich, ganz unten.
+    // Der Papierkorb ist kein Ordner im Baum, sondern steht für sich ganz unten.
     for group in db.iter_all_groups() {
         if group.id() != root && !is_recycled(db, group.id()) {
             out.push(folder_path(db, group.id()));
@@ -312,8 +310,8 @@ pub fn find_group(db: &Database, path: &str) -> Option<GroupId> {
         return Some(current);
     }
 
-    // Über die Kennung laufen und nicht über `GroupRef`: Letzteres liehe sich
-    // bei jedem Schritt selbst aus.
+    // Über die Kennung laufen statt über `GroupRef`, das sich bei jedem
+    // Schritt selbst ausleihen würde.
     for part in path.split('/').filter(|p| !p.is_empty()) {
         current = db.group(current)?.groups().find(|g| g.name == part)?.id();
     }
@@ -380,7 +378,7 @@ mod tests {
     fn ensure_group_legt_nur_fehlendes_an() {
         let (mut db, _, kog) = baum();
 
-        // Zweiter Aufruf darf keine zweite Gruppe erzeugen.
+        // Ein zweiter Aufruf erzeugt keine zweite Gruppe.
         assert_eq!(ensure_group(&mut db, "Arbeit/KoG"), kog);
 
         let vorher = db.iter_all_groups().count();
@@ -439,7 +437,7 @@ mod tests {
         };
         let alt = neu(bin, tage(31));
         let frisch = neu(bin, tage(29));
-        // Das eigene Datum des Eintrags zählt nicht, nur das des Ordners.
+        // Nur das Datum des Ordners zählt, nicht das des Eintrags.
         let drin = neu(ordner, tage(1));
 
         (db, jetzt, [alt, frisch, drin], ordner)
@@ -455,7 +453,7 @@ mod tests {
         assert!(db.entry(drin).is_none());
         assert!(db.group(ordner).is_none());
         assert!(db.entry(frisch).is_some());
-        // Mit Löschvermerk, sonst käme es beim Abgleich zurück.
+        // Mit Löschvermerk, damit es beim Abgleich nicht zurückkommt.
         assert!(db.deleted_objects.contains_key(&alt.uuid()));
         assert!(db.deleted_objects.contains_key(&drin.uuid()));
     }

@@ -38,10 +38,8 @@ export function formatBytes(n) {
 }
 
 /**
- * Herunterladen — erst nach ausdrücklicher Warnung.
- *
- * In der Datenbank ist die Datei verschlüsselt. Auf der Platte ist sie das
- * nicht mehr, und das soll niemand nebenbei übersehen.
+ * Herunterladen, nach ausdrücklicher Warnung: Auf der Platte ist die Datei
+ * nicht mehr verschlüsselt.
  */
 export async function downloadWithWarning(att) {
   if (!att) return;
@@ -59,11 +57,9 @@ export async function downloadWithWarning(att) {
 }
 
 /**
- * Schreibt einen Anhang als Datei — über den Kern, nicht über den Webview.
- *
- * Ein `<a download>` bewirkt hier nichts: WebKitGTK bringt in einem
- * eingebetteten View keine Download-Behandlung mit, der Klick verpufft
- * folgenlos. Deshalb fragt der Kern nach dem Ort und schreibt selbst.
+ * Schreibt einen Anhang als Datei, über den Kern statt über den Webview:
+ * `<a download>` funktioniert in einem eingebetteten WebKitGTK-View nicht,
+ * daher fragt der Kern nach dem Ort und schreibt selbst.
  */
 export async function saveAttachment(att) {
   try {

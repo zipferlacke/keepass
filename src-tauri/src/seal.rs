@@ -10,36 +10,34 @@
 //! PIN  --Argon2id(Salz)-->  ⊕ K  -->  App-Schlüssel
 //! ```
 //!
-//! Für **jede Datenbank einzeln** entscheidest du dann, ob sie damit
-//! geöffnet werden darf. Ist sie freigeschaltet, liegt ihr Master-Passwort
-//! hier verschlüsselt:
+//! Für jede Datenbank wird einzeln festgelegt, ob sie damit geöffnet werden
+//! darf. Ist sie freigeschaltet, liegt ihr Master-Passwort hier verschlüsselt:
 //!
 //! ```text
 //! pin:  mit dem App-Schlüssel   (PIN nötig)
 //! bio:  nur mit K               (Fingerabdruck als Nachweis davor)
 //! ```
 //!
-//! Der Unterschied ist wesentlich: Beim PIN-Weg braucht ein Angreifer zwei
-//! Geheimnisse, `K` und die PIN. Beim Finger-Weg nur `K` — der Fingerabdruck
-//! belegt, dass du es bist, er ist kein zweites Geheimnis. Die Prüfung
-//! fällt unter Linux und macOS in diesem Programm.
+//! Beim PIN-Weg braucht ein Angreifer zwei Geheimnisse, `K` und die PIN.
+//! Beim Finger-Weg genügt `K`; der Fingerabdruck dient nur als Nachweis der
+//! Anwesenheit und ist kein zweites Geheimnis. Diese Prüfung findet unter
+//! Linux und macOS im Programm selbst statt.
 //!
-//! Windows Hello und der Android-Keystore gehen einen dritten, stärkeren
-//! Weg ohne PIN: Dort ist die Biometrie selbst der Schlüssel. Siehe den
-//! Abschnitt „Gerätegebunden".
+//! Windows Hello und der Android-Keystore verwenden einen dritten Weg ohne
+//! PIN, bei dem die Biometrie selbst den Schlüssel freigibt (Abschnitt
+//! „Gerätegebunden").
 //!
 //! # Der Prüfblock
 //!
-//! Damit sich eine falsche PIN erkennen lässt, ohne dass eine Datenbank
-//! freigeschaltet sein muss, liegt ein fester Text mit dem App-Schlüssel
-//! verschlüsselt daneben. Geht der auf, war die PIN richtig.
+//! Ein fester Text, mit dem App-Schlüssel verschlüsselt, dient zur Prüfung
+//! der PIN, ohne dass eine Datenbank freigeschaltet sein muss. Lässt er sich
+//! entschlüsseln, ist die PIN richtig.
 //!
-//! # Was das kostet
+//! # Grenzen
 //!
-//! Ohne Schlüsselbund hängt alles allein an der PIN — rund zwanzig Bit, die
-//! Argon2id teuer macht, aber nicht unmöglich. Das Master-Passwort bleibt
-//! deshalb immer der Hauptschlüssel, und eine Wiederherstellung der PIN gibt
-//! es bewusst nicht: Sie wäre eine Hintertür.
+//! Ohne Schlüsselbund hängt die Sicherheit allein an der PIN (rund zwanzig
+//! Bit), die Argon2id verteuert. Das Master-Passwort bleibt der
+//! Hauptschlüssel; eine Wiederherstellung der PIN gibt es nicht.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -58,10 +56,10 @@ use zeroize::Zeroizing;
 use crate::keystore;
 use crate::util::write_atomic;
 
-/// Nach so vielen Fehlversuchen wird alles verworfen.
+/// Anzahl der Fehlversuche, nach der alle Freigaben verworfen werden.
 ///
-/// Das hält Gelegenheitsversuche am offenen Gerät auf. Gegen jemanden, der
-/// die Datei kopiert hat, hilft es nicht — der zählt nicht mit.
+/// Das begrenzt Versuche am offenen Gerät. Gegen eine kopierte Datei schützt
+/// es nicht, da der Zähler dort nicht mitläuft.
 const MAX_FAILURES: u32 = 5;
 
 const M_COST: u32 = 65_536;
@@ -224,8 +222,8 @@ pub fn confirm_pin(app: &tauri::AppHandle, pin: &str) -> Result<(), String> {
 
 /// Schaltet eine Datenbank für PIN und/oder Fingerabdruck frei.
 ///
-/// `master` kommt aus dem Kern, nicht aus der Oberfläche. Die PIN wird
-/// gebraucht, weil ohne sie kein App-Schlüssel entsteht.
+/// `master` stammt aus dem Kern, nicht aus der Oberfläche. Die PIN wird für
+/// die Ableitung des App-Schlüssels benötigt.
 pub fn remember(
     app: &tauri::AppHandle,
     path: &str,
@@ -344,9 +342,9 @@ pub fn device_offer(app: &tauri::AppHandle, path: Option<&str>) -> bool {
 
 /// Versiegelt das Master-Passwort mit dem Geräteschlüssel.
 ///
-/// Fragt dabei das Gerät ab. Unter Windows beim allerersten Mal zweimal,
-/// weil das Anlegen des Schlüssels im TPM selbst eine Prüfung verlangt;
-/// unter Android genügt ein Griff zum Finger.
+/// Fragt dabei das Gerät ab. Unter Windows geschieht das beim ersten Mal
+/// zweimal, da bereits das Anlegen des Schlüssels im TPM eine Prüfung
+/// verlangt; unter Android genügt eine Prüfung.
 pub fn remember_device(app: &tauri::AppHandle, path: &str, master: &str) -> Result<(), String> {
     let mut sealed = match read_device(app) {
         Some(sealed) => sealed,
@@ -371,8 +369,8 @@ pub fn forget_device(app: &tauri::AppHandle, path: &str) -> Result<(), String> {
     write_device(app, &sealed)
 }
 
-/// Öffnet über den Geräteschlüssel. Die Prüfung passiert dabei — ein
-/// vorgeschaltetes `biometric::verify` braucht es nicht.
+/// Öffnet über den Geräteschlüssel. Die Prüfung findet dabei statt; ein
+/// vorheriges `biometric::verify` ist nicht nötig.
 pub fn unseal_with_device(app: &tauri::AppHandle, path: &str) -> Result<Zeroizing<String>, String> {
     let sealed = read_device(app).ok_or("Auf diesem Gerät ist nichts freigeschaltet.")?;
 
@@ -423,8 +421,7 @@ fn verify(
     let k = load_keyring_key(sealed)?;
     let key = derive(pin, &salt, sealed.m_cost, sealed.t_cost, sealed.p_cost, k.as_deref())?;
 
-    // Poly1305 schlägt fehl, wenn die PIN falsch war — oder wenn jemand an
-    // der Datei war. Beides führt hierher.
+    // Poly1305 schlägt bei falscher PIN oder veränderter Datei fehl.
     if unwrap(&key, &sealed.check).is_err() {
         sealed.failures += 1;
         let left = MAX_FAILURES.saturating_sub(sealed.failures);
@@ -446,9 +443,8 @@ fn verify(
 
 /// Mischt zwei Geheimnisse zu einem Schlüssel.
 ///
-/// SHA-256 genügt: Beide Eingaben sind bereits gleichverteilt — die eine
-/// kommt aus Argon2, die andere aus dem Zufallsgenerator. Eine
-/// Extraktionsstufe wie bei HKDF brächte hier nichts dazu.
+/// SHA-256 genügt, da beide Eingaben bereits gleichverteilt sind (Argon2-
+/// Ausgabe und Zufallswert); eine Extraktionsstufe wie HKDF ist nicht nötig.
 fn mix(a: &[u8], b: &[u8], info: &[u8]) -> Zeroizing<[u8; 32]> {
     let mut hasher = Sha256::new();
     hasher.update(info);

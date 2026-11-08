@@ -1,9 +1,8 @@
 /**
  * theme.js — Farbschema und Akzentfarbe.
  *
- * Überschrieben wird bewusst nur die Primärfarbe. Warn-, Gefahr- und
- * Erfolgsfarben bleiben wie sie sind: Ein rotes „geleakt" muss rot
- * aussehen, egal welche Akzentfarbe jemand einstellt.
+ * Die Akzentfarbe ersetzt nur die Primärfarbe; Warn-, Gefahr- und
+ * Erfolgsfarben bleiben unverändert.
  */
 
 const THEMES = { system: 'light dark', light: 'light', dark: 'dark' };

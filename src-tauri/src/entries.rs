@@ -1,15 +1,12 @@
 //! Einträge und Ordner ändern.
 //!
-//! # Was die Reihenfolge angeht
+//! # Reihenfolge
 //!
-//! Innerhalb einer Gruppe liegen Einträge in KDBX in einer festen Reihenfolge,
-//! die `keepass` aber nicht nach außen gibt (`Group::entries` ist
-//! crate-intern). `vault_reorder_entry` und `vault_reorder_folder` setzen
-//! deshalb nur den **Ordner** des Ziels durch — das Einsortieren an eine
-//! bestimmte Stelle innerhalb des Ordners bleibt vorerst folgenlos.
-//!
-//! Das ist der sichtbare Teil des Ziehens und Fallenlassens: Etwas in einen
-//! anderen Ordner zu ziehen wirkt, die genaue Position darin nicht.
+//! Die Reihenfolge der Einträge innerhalb einer Gruppe gibt `keepass` nicht
+//! nach außen (`Group::entries` ist crate-intern). `vault_reorder_entry` und
+//! `vault_reorder_folder` setzen daher nur den Ordner des Ziels durch; die
+//! Position innerhalb des Ordners bleibt unverändert. Das Ziehen in einen
+//! anderen Ordner wirkt, die genaue Position darin nicht.
 
 use keepass::db::{EntryId, GroupId};
 use keepass::Database;
@@ -38,7 +35,7 @@ pub fn vault_save_entry(
 ) -> Result<dto::Entry, String> {
     let mut vault = lock(&state)?;
 
-    // Die Werte holen, solange der Zustand noch unangetastet ist.
+    // Werte holen, solange der Zustand unverändert ist.
     let password = entry
         .password_token
         .as_ref()
@@ -57,13 +54,12 @@ pub fn vault_save_entry(
 
         let existing = entry.id.as_deref().and_then(|id| entry_id_of(db, id));
 
-        // Den bisherigen Ordner ablesen, solange die Datenbank noch
-        // unveränderlich ausgeliehen ist — `EntryMut` gibt ihn nicht her.
+        // Den bisherigen Ordner ablesen, solange die Datenbank unveränderlich
+        // ausgeliehen ist; `EntryMut` gibt ihn nicht her.
         let previous = existing.and_then(|id| db.entry(id).map(|e| e.parent().id()));
 
-        // Erst die Kennung bestimmen, dann den Eintrag frisch holen: Ein
-        // `EntryMut` aus `add_entry()` lebt nur so lange wie die Gruppe,
-        // aus der es stammt.
+        // Erst die Kennung bestimmen, dann den Eintrag neu holen: Ein
+        // `EntryMut` aus `add_entry()` lebt nur so lange wie seine Gruppe.
         let id = match existing {
             Some(id) => {
                 if previous != Some(target) {
@@ -98,8 +94,8 @@ pub fn vault_save_entry(
 
     apply_attachments(&mut vault, entry_id, &entry)?;
 
-    // Die Token an die neue UUID binden, damit sie beim nächsten Auflisten
-    // wieder dieselben sind.
+    // Token an die neue UUID binden, damit sie beim nächsten Auflisten gleich
+    // bleiben.
     if let Some(token) = &entry.password_token {
         vault.field_tokens.insert((uuid.clone(), "Password".into()), token.clone());
     }
@@ -114,12 +110,11 @@ pub fn vault_save_entry(
     Ok(saved)
 }
 
-/// Schreibt einen einzelnen Anhang eines **gespeicherten** Eintrags sofort
-/// in die Datenbank — bearbeitet, umbenannt oder neu angelegt.
+/// Schreibt einen einzelnen Anhang eines gespeicherten Eintrags sofort in die
+/// Datenbank (bearbeitet, umbenannt oder neu angelegt).
 ///
-/// Anders als `vault_save_entry` fasst das nur diesen einen Anhang an. Was im
-/// Eintragsdialog sonst noch geändert, aber nicht gespeichert wurde, bleibt
-/// unberührt.
+/// Anders als `vault_save_entry` betrifft das nur diesen Anhang; nicht
+/// gespeicherte Änderungen im Eintragsdialog bleiben unberührt.
 ///
 /// `ref` ist entweder ein Verweis in den Zwischenspeicher (neuer Inhalt)
 /// oder die Kennung des vorhandenen Anhangs (nur umbenennen). `previous` ist
@@ -187,16 +182,14 @@ fn write_attachment(
 
 /// Bringt die Anhänge des Eintrags auf den Stand, den die Oberfläche meldet.
 ///
-/// Die Liste ist die Wahrheit: Was dort fehlt, wird entfernt; was mit
-/// `staged:` beginnt, kommt aus dem Zwischenspeicher neu hinzu. Alles andere
-/// steht bereits in der Datenbank und bleibt unangetastet — ein Anhang wird
-/// also nicht bei jedem Speichern neu geschrieben.
+/// Die Liste ist maßgeblich: Was dort fehlt, wird entfernt; was mit `staged:`
+/// beginnt, kommt aus dem Zwischenspeicher neu hinzu. Alles andere steht
+/// bereits in der Datenbank und wird nicht neu geschrieben.
 ///
 /// Umbenennen: Der Name ist in KDBX der Schlüssel, unter dem der Eintrag
 /// seinen Anhang führt. Trägt ein vorhandener Verweis einen anderen Namen als
 /// in der Datenbank, wird der Inhalt unter dem neuen Namen neu abgelegt und
-/// der alte Name fällt als überzählig weg. Früher fehlte der erste Teil — der
-/// Anhang wurde entfernt und nie wieder angelegt.
+/// der alte Name entfällt.
 ///
 /// Neuer Inhalt unter bekanntem Namen (Bearbeiten) ersetzt den alten, das
 /// erledigt `add_attachment` selbst.
@@ -207,7 +200,7 @@ fn apply_attachments(
 ) -> Result<(), String> {
     use keepass::db::Value;
 
-    // Erst einsammeln, was neu dazukommt — danach ist `vault` ausgeliehen.
+    // Zuerst einsammeln, was neu hinzukommt; danach ist `vault` ausgeliehen.
     let mut incoming = Vec::new();
     for link in &entry.attachments {
         if !link.reference.starts_with(crate::secrets::STAGED_PREFIX) {
@@ -220,7 +213,7 @@ fn apply_attachments(
         incoming.push((link.name.clone(), staged.bytes));
     }
 
-    // Umbenannte: Inhalt jetzt sichern, bevor der alte Name entfernt wird.
+    // Umbenannte: Inhalt sichern, bevor der alte Name entfernt wird.
     {
         let db = vault.database()?;
         if let Some(node) = db.entry(entry_id) {
@@ -243,8 +236,8 @@ fn apply_attachments(
     let keep: std::collections::HashSet<&str> =
         entry.attachments.iter().map(|a| a.name.as_str()).collect();
 
-    // Die Namen der vorhandenen Anhänge kennt nur die unveränderliche Sicht;
-    // `EntryMut` gibt sie nicht her. Deshalb erst lesen, dann ändern.
+    // Die Namen der vorhandenen Anhänge liefert nur die unveränderliche
+    // Sicht (`EntryMut` gibt sie nicht her); daher erst lesen, dann ändern.
     let db = vault.database_mut()?;
     let obsolete: Vec<String> = db
         .entry(entry_id)
@@ -272,10 +265,11 @@ fn apply_attachments(
 /// Löschen in zwei Stufen, wie KeePassXC es macht:
 ///
 ///   1. Ein Eintrag außerhalb des Papierkorbs wandert hinein. Er bleibt
-///      sichtbar, samt Passwort — nur eben im Papierkorb.
-///   2. Ein Eintrag, der schon drin liegt, wird endgültig entfernt. Dabei
-///      entsteht ein Löschvermerk in `deleted_objects`, sonst brächte ein
-///      Abgleich mit einem anderen Gerät ihn zurück.
+///   1. Ein Eintrag außerhalb des Papierkorbs wandert hinein und bleibt dort
+///      samt Passwort sichtbar.
+///   2. Ein Eintrag im Papierkorb wird endgültig entfernt. Dabei entsteht ein
+///      Löschvermerk in `deleted_objects`, damit ein Abgleich mit einem
+///      anderen Gerät ihn nicht zurückbringt.
 #[tauri::command]
 pub fn vault_delete_entry(state: tauri::State<'_, Vault>, id: String) -> Result<bool, String> {
     let mut vault = lock(&state)?;
@@ -285,7 +279,7 @@ pub fn vault_delete_entry(state: tauri::State<'_, Vault>, id: String) -> Result<
     let Some(parent) = db.entry(entry_id).map(|e| e.parent().id()) else { return Ok(false) };
 
     if is_recycled(db, parent) {
-        // `track_changes` ist der Weg, der den Löschvermerk schreibt.
+        // `track_changes` schreibt den Löschvermerk.
         db.entry_mut(entry_id).ok_or("Eintrag verschwunden.")?.track_changes().remove();
         vault.field_tokens.retain(|(uuid, _), _| uuid != &id);
         return Ok(true);
@@ -318,7 +312,7 @@ pub fn vault_empty_recycle_bin(state: tauri::State<'_, Vault>) -> Result<u32, St
         }
     }
 
-    // Untergruppen des Papierkorbs mit wegräumen, den Papierkorb selbst nicht.
+    // Untergruppen des Papierkorbs mitentfernen, den Papierkorb selbst nicht.
     let nested: Vec<_> = db
         .iter_all_groups()
         .filter(|g| g.id() != bin && is_recycled(db, g.id()))
@@ -327,19 +321,19 @@ pub fn vault_empty_recycle_bin(state: tauri::State<'_, Vault>) -> Result<u32, St
 
     for group in nested {
         if let Some(mut g) = db.group_mut(group) {
-            // Mit Löschvermerk, sonst brächte der Abgleich den Ordner zurück.
+            // Mit Löschvermerk, damit der Abgleich den Ordner nicht zurückbringt.
             g.track_changes().remove().ok();
         }
     }
 
-    // Erst jetzt, wenn die Ausleihe der Datenbank beendet ist.
+    // Erst nach Ende der Ausleihe der Datenbank.
     vault.field_tokens.retain(|(id, _), _| !gone.contains(id));
     Ok(gone.len() as u32)
 }
 
-/// Verschiebt einen Eintrag und vermerkt, wann. Die Bibliothek setzt
-/// `location_changed` dabei nicht — ohne den Zeitpunkt wüsste der Abgleich
-/// mit einem anderen Gerät nicht, welcher Ordner der neuere ist.
+/// Verschiebt einen Eintrag und vermerkt den Zeitpunkt. Die Bibliothek setzt
+/// `location_changed` nicht selbst; der Abgleich mit einem anderen Gerät
+/// braucht den Zeitpunkt, um den neueren Ordner zu bestimmen.
 fn moved_entry(db: &mut Database, id: EntryId, target: GroupId) -> Result<(), String> {
     let mut node = db.entry_mut(id).ok_or("Eintrag verschwunden.")?;
     node.move_to(target).map_err(|e| format!("Verschieben fehlgeschlagen: {e}"))?;
@@ -363,8 +357,8 @@ pub fn vault_move_entry(
     Ok(true)
 }
 
-/// Übernimmt den Ordner des Bezugseintrags. Siehe Modulkommentar: die
-/// Position innerhalb des Ordners bleibt unberührt.
+/// Übernimmt den Ordner des Bezugseintrags (siehe Modulkommentar; die
+/// Position innerhalb des Ordners bleibt unverändert).
 #[tauri::command]
 pub fn vault_reorder_entry(
     state: tauri::State<'_, Vault>,
@@ -435,10 +429,10 @@ pub fn vault_move_folder(
 
 /// Löscht einen Ordner in zwei Stufen, genau wie bei Einträgen:
 ///
-///   1. Ein Ordner außerhalb des Papierkorbs wandert samt Inhalt hinein.
-///      Nichts geht verloren, alles bleibt sichtbar.
-///   2. Ein Ordner, der schon drin liegt, wird endgültig entfernt — mit
-///      Löschvermerk, damit ein Abgleich ihn nicht zurückbringt.
+///   1. Ein Ordner außerhalb des Papierkorbs wandert samt Inhalt hinein und
+///      bleibt sichtbar.
+///   2. Ein Ordner im Papierkorb wird endgültig entfernt, mit Löschvermerk,
+///      damit ein Abgleich ihn nicht zurückbringt.
 #[tauri::command]
 pub fn vault_remove_folder(state: tauri::State<'_, Vault>, path: String) -> Result<bool, String> {
     let mut vault = lock(&state)?;
@@ -488,7 +482,7 @@ fn moved_group(db: &mut Database, group: GroupId, target: GroupId) -> Result<(),
     Ok(())
 }
 
-/// Sucht die Gruppe zum Pfad und weist die Wurzel zurück — die lässt sich
+/// Sucht die Gruppe zum Pfad und weist die Wurzel zurück; diese lässt sich
 /// weder umbenennen noch verschieben noch löschen.
 fn resolve_editable(db: &keepass::Database, path: &str) -> Result<Option<GroupId>, String> {
     let Some(group) = find_group(db, path) else { return Ok(None) };
@@ -583,7 +577,7 @@ mod tests {
     fn bearbeiteter_anhang_ueberlebt_das_speichern() {
         let (mut vault, id, _) = tresor_mit_anhang();
 
-        // Ein zweiter Anhang, damit die Kennungen nach dem Ersetzen Lücken haben.
+        // Ein zweiter Anhang, damit die Kennungen nach dem Ersetzen Lücken aufweisen.
         let zweiter = vault
             .database_mut()
             .unwrap()
@@ -650,8 +644,8 @@ mod tests {
 
 /// Vermerkt, dass Einträge gerade benutzt wurden (`LastAccessTime`).
 ///
-/// Daraus entsteht im Sicherheitscheck die Liste der inaktiven Einträge —
-/// und KeePassXC zeigt denselben Zeitpunkt an. Geschrieben wird er mit dem
+/// Daraus entsteht im Sicherheitscheck die Liste der inaktiven Einträge;
+/// KeePassXC zeigt denselben Zeitpunkt an. Geschrieben wird er mit dem
 /// nächsten Speichern; nur bei `persist` sofort, etwa wenn der Nutzer
 /// ausdrücklich „wird noch genutzt" sagt.
 #[tauri::command]
