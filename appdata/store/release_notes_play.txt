@@ -1,6 +1,5 @@
 <de-DE>
-• Öffnet und speichert sofort – die Datei in der Cloud wird im Hintergrund abgeglichen
-• Ausfüllen wartet nicht mehr, wenn Nextcloud langsam antwortet
+• Öffnet und speichert sofort – externe datein werden im Hintergund angefragt, ältere Version in der zwischen Zeit angezeigt.
 • Konflikte: Eintrag hier und anderswo verschieden geändert? Du wählst, welche Fassung gilt
 • Versionen: 30 bis 100 Stände, mit Herkunft je Änderung
 • Passkeys: nach dem Entsperren keine zweite Abfrage

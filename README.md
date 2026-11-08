@@ -150,7 +150,7 @@ Ist ein Dialog offen oder steht die Schreibmarke in einem anderen Feld, gehören
 
 ## Versionen
 
-Die letzten 20 Stände der Datei bleiben auf dem Gerät, verschlüsselt wie das Original: beim Öffnen, bei
+Die letzten 30 bis 100 Stände der Datei (einstellbar) bleiben auf dem Gerät, verschlüsselt wie das Original: beim Öffnen, bei
 jedem Speichern und jedes Mal, bevor der Stand eines anderen Geräts eingemischt wird. Unter
 *Einstellungen → Datenbank → Versionen* steht unter jedem Stand, was er gegenüber dem davor geändert hat —
 die Liste liest sich wie ein Verlauf. Ein Stand lässt sich öffnen; dort nimmt „Zurücknehmen" eine einzelne

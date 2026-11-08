@@ -150,7 +150,7 @@ If a dialog is open or the caret is in another field, the keys belong to that fi
 
 ## Versions
 
-The last 20 versions of the file are kept on the device, encrypted like the original: on opening, on
+The last 30 to 100 versions of the file (configurable) are kept on the device, encrypted like the original: on opening, on
 every save, and every time before another device's version is merged in. Under
 *Settings → Database → Versions*, each version shows what it changed compared with the one before —
 the list reads like a history. A version can be opened; there, "Revert" undoes a single
