@@ -120,6 +120,7 @@ index.html                 Grundgerüst: Navigation, Views, Sperrbildschirm, FAB
 css/app.css                alles, natives CSS-Nesting, @layer custom
 config/settings.default.json
 config/demo.json           Dummy-Datenbank für den Betrieb ohne Rust
+lang/                      Verweis auf ../appdata/lang: <sprache>.json + languages.json
 build-single.mjs           bündelt die ES-Module zu einer Vorschau-HTML
 
 js/
@@ -162,7 +163,13 @@ js/
   `banner`, `tableview`, `qrcode`. Eingebunden von `https://open.wuefl.de/wuefl-libs/`.
 - **CSS immer verschachtelt**, alles in `@layer custom`, Variablen `--clr-*`,
   `--fs-*`, `--br-*`. Icon-Knöpfe: `data-shape="square"`.
-- **Kommentare und Oberflächentexte auf Deutsch.**
+- **Kommentare auf Deutsch, Oberflächentexte nie fest im Code**, sondern in
+  `appdata/lang/de_DE.json` (Seite → Bereich → Text) und über
+  `t('seite.bereich.text')` aus `core/i18n.js`; feste Texte im HTML mit
+  `data-i18n`. Deutsch ist Vorlage und Rückfall, die übrigen Sprachen (wie in
+  wmap: da_DK, en_GB, fr_FR, nb_NO, pl_PL, sv_SE) haben dieselben Schlüssel.
+  `tools/sprachen.py` prüft das (läuft in `tests/all.sh` mit). Texte aus dem
+  Rust-Kern (Fehlermeldungen) und von Android-Blättern sind noch deutsch.
 - Module halten ihre Verantwortung sauber getrennt; `vault.js` ist die einzige
   Stelle, die den Kern kennt.
 

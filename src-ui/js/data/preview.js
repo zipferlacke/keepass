@@ -10,6 +10,8 @@
  * man die Notiz öffnet); dort steht der Bildtext.
  */
 
+import { t } from '../core/i18n.js';
+
 const TEXT_EXTENSIONS = /\.(txt|md|markdown|json|xml|csv|log|ini|conf|yml|yaml|js|css|html|sh|py|rs|php|sql)$/i;
 const MD_EXTENSIONS = /\.(md|markdown)$/i;
 
@@ -102,7 +104,7 @@ export function renderMarkdown(src) {
 
   // 1.5 Bequeme Markdown-Details-Syntax umwandeln (::: details Titel ... :::)
   text = text.replace(/^:::\s*details\s*(.*?)\n([\s\S]*?)^:::/gim, (_, summary, content) => {
-    const sumText = summary.trim() ? summary.trim() : 'Details';
+    const sumText = summary.trim() ? summary.trim() : t('daten.vorschau.markdown.details');
     return `<details>\n<summary>${sumText}</summary>\n${content}\n</details>`;
   });
 
@@ -262,7 +264,7 @@ function bilderEinsetzen(container, nachbarn) {
 
     const ersatz = document.createElement('em');
     ersatz.className = 'md-img-fehlt';
-    ersatz.textContent = `[Bild: ${img.alt || name}]`;
+    ersatz.textContent = t('daten.vorschau.markdown.bild', { text: img.alt || name });
     img.replaceWith(ersatz);
   }
 }
@@ -289,7 +291,7 @@ export async function renderPreview(container, att, { nachbarn = [] } = {}) {
         cleanups.push(() => URL.revokeObjectURL(url));
         container.innerHTML = `
           <iframe class="preview-pdf" src="${url}#view=FitH" title="${escapeHtml(att.name)}"></iframe>
-          <p class="preview-hint">Zeigt der eingebettete Betrachter nichts an, lade die Datei über den Knopf oben rechts herunter.</p>`;
+          <p class="preview-hint">${t('daten.vorschau.pdf.hinweis')}</p>`;
         break;
       }
 
@@ -318,10 +320,10 @@ export async function renderPreview(container, att, { nachbarn = [] } = {}) {
 
       default:
         container.innerHTML = `<p class="empty-state"><span class="msr preview-type-icon">draft</span><br>
-          Für diesen Dateityp gibt es keine Vorschau.<br>Zum Öffnen oben rechts herunterladen.</p>`;
+          ${t('daten.vorschau.keineVorschau')}</p>`;
     }
   } catch (err) {
-    container.innerHTML = `<p class="empty-state">Vorschau nicht möglich: ${escapeHtml(err.message)}</p>`;
+    container.innerHTML = `<p class="empty-state">${t('daten.vorschau.fehler', { fehler: escapeHtml(err.message) })}</p>`;
   }
 
   return () => cleanups.forEach(fn => fn());

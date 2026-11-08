@@ -18,6 +18,7 @@ import * as vault from '../data/vault.js';
 import * as settings from '../data/settings.js';
 import { state } from './state.js';
 import { banner } from '../ui/libs.js';
+import { t } from './i18n.js';
 
 const seiten = new Map();
 const nachher = [];
@@ -99,7 +100,7 @@ export async function takeForeign() {
   if (state.locked) return;
   await refreshFromVault();
   renderAll({ ohne: ['einstellungen'] });
-  banner('Änderungen von einem anderen Gerät übernommen.', 'success', 4000);
+  banner(t('ui.abgleich.uebernommen'), 'success', 4000);
 }
 
 /**

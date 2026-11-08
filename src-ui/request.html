@@ -30,11 +30,12 @@
   <div class="request-head">
     <span class="msr" id="req-icon">shield_person</span>
     <div class="request-head-text">
-      <strong id="req-title">Anfrage aus dem Browser</strong>
+      <strong id="req-title" data-i18n="anfrage.titel.anfrage">Anfrage aus dem Browser</strong>
       <small id="req-host"></small>
     </div>
     <button type="button" class="button" data-shape="round no-background"
-            id="req-gear" title="Einstellungen" aria-label="Einstellungen">
+            id="req-gear" title="Einstellungen" aria-label="Einstellungen"
+            data-i18n-title="anfrage.einstellungen.titel" data-i18n-aria-label="anfrage.einstellungen.titel">
       <span class="msr">settings</span>
     </button>
   </div>
@@ -54,19 +55,20 @@
       <span class="pw-field">
         <input type="password" id="req-secret" autocomplete="off">
         <button type="button" class="pw-eye" data-shape="square no-background"
-                id="req-eye" title="Sichtbar machen" aria-label="Sichtbar machen">
+                id="req-eye" title="Sichtbar machen" aria-label="Sichtbar machen"
+                data-i18n-title="anfrage.nachweis.sichtbar" data-i18n-aria-label="anfrage.nachweis.sichtbar">
           <span class="msr">visibility</span>
         </button>
       </span>
 
       <button type="button" class="button" data-shape="full" id="req-bio" hidden>
-        <span class="msr">fingerprint</span>&nbsp;<span id="req-bio-text">Mit Fingerabdruck bestätigen</span>
+        <span class="msr">fingerprint</span>&nbsp;<span id="req-bio-text" data-i18n="anfrage.nachweis.bioBestaetigenStandard">Mit Fingerabdruck bestätigen</span>
       </button>
     </div>
 
     <div class="request-actions">
-      <button type="button" class="button" id="req-deny">Abbrechen</button>
-      <button type="submit" class="button hightlight" id="req-allow">Übernehmen</button>
+      <button type="button" class="button" id="req-deny" data-i18n="allgemein.knoepfe.abbrechen">Abbrechen</button>
+      <button type="submit" class="button hightlight" id="req-allow" data-i18n="anfrage.knoepfe.uebernehmen">Übernehmen</button>
     </div>
   </form>
 </main>
@@ -76,11 +78,12 @@
   <div class="request-head">
     <span class="msr">settings</span>
     <div class="request-head-text">
-      <strong>Browser-Erweiterung</strong>
-      <small>Vor dem Ausfüllen</small>
+      <strong data-i18n="anfrage.einstellungen.kopf">Browser-Erweiterung</strong>
+      <small data-i18n="anfrage.einstellungen.unterkopf">Vor dem Ausfüllen</small>
     </div>
     <button type="button" class="button" data-shape="round no-background"
-            id="req-back" title="Zurück" aria-label="Zurück">
+            id="req-back" title="Zurück" aria-label="Zurück"
+            data-i18n-title="allgemein.knoepfe.zurueck" data-i18n-aria-label="allgemein.knoepfe.zurueck">
       <span class="msr">close</span>
     </button>
   </div>

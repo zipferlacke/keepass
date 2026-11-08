@@ -32,6 +32,7 @@ import { invoke, listen } from '../core/platform.js';
 import { applyAppearance } from '../core/theme.js';
 import * as settings from '../data/settings.js';
 import { aufdeckbar } from '../ui/aufdecken.js';
+import { initI18n, uebersetzeSeite, t } from '../core/i18n.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
@@ -55,8 +56,8 @@ let current = null;
  *   festgelegt ist (`pinSet`) — geöffnet wird damit nichts.
  */
 const METHODEN = {
-  pin: { label: 'PIN' },
-  master: { label: 'Master-Passwort' }
+  pin: { label: () => t('anfrage.nachweis.pin') },
+  master: { label: () => t('anfrage.nachweis.master') }
 };
 
 let wege = {};
@@ -68,16 +69,16 @@ let gewaehlt = 'master';
    ========================================================= */
 
 const TEXTE = {
-  unlock: () => 'Die Datenbank ist gesperrt. Ein Browser wartet darauf.',
+  unlock: () => t('anfrage.text.unlock'),
   // Nicht der Name der Verknüpfung („WKeePass kt249N“) — der sagt niemandem
   // etwas. Welche Seite fragt, steht darüber.
-  logins: () => 'Der Browser möchte Benutzername und Passwort einsetzen.',
-  totp: () => 'Der Browser möchte einen Einmalcode abrufen.',
-  create: () => 'Ein neuer Eintrag soll angelegt werden.',
-  update: () => 'Das Passwort soll geändert werden.',
-  delete: () => 'Ein Eintrag soll in den Papierkorb wandern.',
-  'passkey-register': () => 'Ein Passkey soll angelegt werden.',
-  'passkey-get': () => 'Mit einem Passkey soll angemeldet werden.'
+  logins: () => t('anfrage.text.logins'),
+  totp: () => t('anfrage.text.totp'),
+  create: () => t('anfrage.text.create'),
+  update: () => t('anfrage.text.update'),
+  delete: () => t('anfrage.text.delete'),
+  'passkey-register': () => t('anfrage.text.passkeyRegister'),
+  'passkey-get': () => t('anfrage.text.passkeyGet')
 };
 
 const ICONS = {
@@ -98,11 +99,11 @@ function render(req) {
   const entsperren = req.kind === 'unlock';
 
   $('#req-icon').textContent = ICONS[req.kind] ?? 'shield_person';
-  $('#req-title').textContent = entsperren ? 'Datenbank entsperren' : 'Anfrage aus dem Browser';
+  $('#req-title').textContent = entsperren ? t('anfrage.titel.entsperren') : t('anfrage.titel.anfrage');
   // Beim Entsperren steht hier, **welche** Datei geöffnet wird; sonst, wer
   // fragt. Beides beantwortet dieselbe Frage: worum geht es gerade?
   $('#req-host').textContent = (entsperren ? datenbank().name : req.host) ?? '';
-  $('#req-text').innerHTML = (TEXTE[req.kind] ?? (() => 'Zugriff auf die Datenbank.'))(req);
+  $('#req-text').innerHTML = (TEXTE[req.kind] ?? (() => t('anfrage.text.sonst')))(req);
 
   // Weicht das Ziel des Formulars vom besuchten Rechner ab, ist das das
   // klassische Merkmal einer untergeschobenen Anmeldemaske. Das gehört
@@ -110,21 +111,20 @@ function render(req) {
   const warnung = $('#req-warning');
   warnung.hidden = !req.mismatch;
   if (req.mismatch) {
-    warnung.innerHTML = `<strong>Achtung:</strong> Das Formular geht an
-      <code>${esc(req.submitUrl ?? '')}</code> — nicht an die besuchte Seite.`;
+    warnung.innerHTML = t('anfrage.warnung', { ziel: `<code>${esc(req.submitUrl ?? '')}</code>` });
   }
 
   const liste = $('#req-entries');
   const eintraege = req.entries ?? [];
   liste.hidden = eintraege.length === 0;
   liste.innerHTML = eintraege.map(e =>
-    `<li>${esc(e.name || '(ohne Namen)')}${e.login ? ` — ${esc(e.login)}` : ''}</li>`).join('');
+    `<li>${esc(e.name || t('anfrage.eintrag.ohneName'))}${e.login ? ` — ${esc(e.login)}` : ''}</li>`).join('');
 
   // Entsperren verlangt immer einen Schlüssel — da gibt es kein „nur
   // bestätigen". Sonst entscheidet die eingestellte Stufe.
   const nachweis = entsperren || req.guard === 'identify';
   $('#req-identify').hidden = !nachweis;
-  $('#req-allow').textContent = entsperren ? 'Entsperren' : 'Übernehmen';
+  $('#req-allow').textContent = entsperren ? t('anfrage.knoepfe.entsperren') : t('anfrage.knoepfe.uebernehmen');
 
   if (nachweis) zeigeMethoden(req.kind);
   (nachweis ? $('#req-secret') : $('#req-allow')).focus();
@@ -138,7 +138,7 @@ function datenbank() {
 
   return {
     path,
-    name: treffer?.name ?? (path ? path.split(/[\\/]/).pop() : 'Keine ausgewählt')
+    name: treffer?.name ?? (path ? path.split(/[\\/]/).pop() : t('anfrage.datenbank.keineAusgewaehlt'))
   };
 }
 
@@ -179,7 +179,7 @@ function zeigeMethoden(kind) {
   umschalter.innerHTML = verfuegbar.map(name => `
     <label>
       <input type="radio" name="methode" value="${name}"
-        ${name === gewaehlt ? 'checked' : ''}>${METHODEN[name].label}
+        ${name === gewaehlt ? 'checked' : ''}>${METHODEN[name].label()}
     </label>`).join('');
 
   umschalter.querySelectorAll('[name="methode"]').forEach(el =>
@@ -196,7 +196,8 @@ function zeigeMethoden(kind) {
   $('#req-bio').hidden = !(wege.biometric || geraet);
   $('#req-bio').dataset.method = kind === 'unlock' && wege.device ? 'device' : 'biometric';
   $('#req-bio-text').textContent =
-    `Mit ${geraet ? wege.deviceLabel ?? 'Biometrie' : 'Fingerabdruck'} ${kind === 'unlock' ? 'entsperren' : 'bestätigen'}`;
+    t(kind === 'unlock' ? 'anfrage.nachweis.bioEntsperren' : 'anfrage.nachweis.bioBestaetigen',
+      { name: geraet ? wege.deviceLabel ?? t('anfrage.nachweis.biometrie') : t('anfrage.nachweis.fingerabdruck') });
 }
 
 function waehleMethode(name) {
@@ -206,7 +207,7 @@ function waehleMethode(name) {
   feld.value = '';
   // Steht nur ein Weg zur Wahl, fehlt der Umschalter — dann muss der
   // Platzhalter sagen, was gemeint ist.
-  feld.placeholder = METHODEN[name].label;
+  feld.placeholder = METHODEN[name].label();
   feld.inputMode = name === 'pin' ? 'numeric' : 'text';
   feld.focus();
 }
@@ -214,7 +215,7 @@ function waehleMethode(name) {
 /** Prüft den Nachweis. */
 async function pruefe(method, secret) {
   try {
-    await invoke('confirm_presence', { reason: 'Zugriff aus dem Browser', method, secret });
+    await invoke('confirm_presence', { reason: t('anfrage.nachweis.grund'), method, secret });
     // Der Kern merkt sich das für die eingestellte Frist — wer gerade bestätigt hat,
     // soll nicht drei Formulare später wieder gefragt werden.
     await invoke('browser_identified');
@@ -240,7 +241,7 @@ async function pruefe(method, secret) {
 async function entsperre(method, secret) {
   const { path } = datenbank();
   if (!path) {
-    melde('Es ist keine Datenbank ausgewählt. Bitte einmal im Hauptfenster öffnen.');
+    melde(t('anfrage.fehler.keineDatenbank'));
     return false;
   }
 
@@ -271,7 +272,7 @@ function arbeitet(an) {
   const beschriftung = $('#req-allow').textContent;
 
   knoepfe.forEach(el => { el.disabled = an; });
-  if (an) $('#req-allow').textContent = 'Einen Moment …';
+  if (an) $('#req-allow').textContent = t('anfrage.knoepfe.einMoment');
 
   return () => {
     knoepfe.forEach(el => { el.disabled = false; });
@@ -283,7 +284,7 @@ function arbeitet(an) {
 function melde(text) {
   const feld = $('#req-secret');
   feld.value = '';
-  feld.setCustomValidity(text || 'Das hat nicht geklappt.');
+  feld.setCustomValidity(text || t('anfrage.fehler.nichtGeklappt'));
   feld.reportValidity();
   feld.setCustomValidity('');
   feld.focus();
@@ -318,11 +319,19 @@ async function answer(allow) {
    Einstellungen im selben Fenster
    ========================================================= */
 
-const NOTIZEN = {
-  never: 'Verknüpfte Browser füllen ohne Rückfrage aus. Ab der nächsten Anfrage — diese hier will noch beantwortet werden.',
-  confirm: 'Ein Knopfdruck genügt — Abbrechen oder Übernehmen, ohne Nachweis.',
-  identify: 'PIN, Master-Passwort oder Fingerabdruck. Wie lange danach nicht erneut gefragt wird, steht in den Einstellungen.'
-};
+const notizen = () => ({
+  never: t('anfrage.einstellungen.notizNever'),
+  confirm: t('anfrage.einstellungen.notizConfirm'),
+  identify: t('anfrage.einstellungen.notizIdentify')
+});
+
+/** Beschriftet die drei Stufen — der Text steht direkt hinter dem Kreis. */
+function beschrifteStufen() {
+  const namen = { never: 'nichts', confirm: 'bestaetigen', identify: 'legitimieren' };
+  $('#req-guard').querySelectorAll('[name="guard"]').forEach(el => {
+    el.nextSibling.textContent = t(`anfrage.einstellungen.${namen[el.value]}`); // i18n: anfrage.einstellungen.nichts anfrage.einstellungen.bestaetigen anfrage.einstellungen.legitimieren
+  });
+}
 
 function zeigeEinstellungen() {
   const jetzt = settings.get('browser.guard', 'identify');
@@ -330,7 +339,7 @@ function zeigeEinstellungen() {
   $('#req-guard').querySelectorAll('[name="guard"]').forEach(el => {
     el.checked = el.value === jetzt;
   });
-  $('#req-guard-note').textContent = NOTIZEN[jetzt] ?? '';
+  $('#req-guard-note').textContent = notizen()[jetzt] ?? '';
 
   zeige('#req-settings');
 }
@@ -350,6 +359,16 @@ async function boot() {
     console.error('Einstellungen nicht lesbar:', err);
   }
 
+  // Die Sprache gehört zum Aussehen: vor dem ersten Zeichnen laden. Auch
+  // ohne lesbare Einstellungen (dann gilt „auto").
+  try {
+    await initI18n(settings.get('appearance.language', 'auto'));
+  } catch (err) {
+    console.error('Sprache nicht ladbar:', err);
+  }
+  uebersetzeSeite();
+  beschrifteStufen();
+
   await ermittleMethoden();
 
   // Zwei Wege zur Anfrage, und beide werden gebraucht.
@@ -367,6 +386,11 @@ async function boot() {
     // unsichtbar weiterwarten zu lassen — und das Fenster ginge nie zu.
     if (current) return;
     try { await settings.reloadSettings(); } catch { /* alter Stand */ }
+    try {
+      await initI18n(settings.get('appearance.language', 'auto'));
+      uebersetzeSeite();
+      beschrifteStufen();
+    } catch { /* alte Sprache */ }
     await ermittleMethoden();
     render(ev?.payload ?? {});
   });
@@ -376,11 +400,11 @@ async function boot() {
     if (wartend && !current) render(wartend);
   } catch (err) {
     console.error('Anfrage nicht abrufbar:', err);
-    $('#req-title').textContent = 'Nicht erreichbar';
+    $('#req-title').textContent = t('anfrage.fehler.nichtErreichbar');
     $('#req-text').textContent = err.message;
     $('#req-identify').hidden = true;
     $('#req-allow').hidden = true;
-    $('#req-deny').textContent = 'Schließen';
+    $('#req-deny').textContent = t('allgemein.knoepfe.schliessen');
     zeige('#request');
   }
 
@@ -443,7 +467,7 @@ async function boot() {
   $('#req-guard').querySelectorAll('[name="guard"]').forEach(el =>
     el.addEventListener('change', async () => {
       await settings.set('browser.guard', el.value, { silent: true });
-      $('#req-guard-note').textContent = NOTIZEN[el.value] ?? '';
+      $('#req-guard-note').textContent = notizen()[el.value] ?? '';
     }));
 }
 

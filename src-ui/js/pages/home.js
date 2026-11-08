@@ -17,6 +17,7 @@ import { zeichne } from '../core/render.js';
 import { showView } from '../core/navigation.js';
 import { countProblems } from './checkup.js';
 import { renderEntryTable, wireEntryRows } from './entries.js';
+import { t } from '../core/i18n.js';
 
 export function renderTags() {
   const tags = vault.allTags();
@@ -41,19 +42,19 @@ export function renderHome() {
   const mailCheck = settings.get('checks.emailBreach', true);
   const problems = countProblems();
 
-  const einträge = n => `${n} ${n === 1 ? 'Eintrag' : 'Einträge'}`;
+  const einträge = n => t('uebersicht.kacheln.anzahl', { n });
 
   const tiles = [
-    { view: 'passwords', icon: 'key', name: 'Einträge', count: einträge(state.entries.length) },
-    { view: 'passwords', icon: 'passkey', name: 'Passkeys', count: einträge(state.entries.filter(e => e.passkey).length), kind: 'passkey' },
-    { view: 'totp', icon: 'timer', name: 'TOTP-Codes', count: `${state.entries.filter(e => e.hasTotp).length} Codes` },
-    { view: 'passwords', icon: 'folder_zip', name: 'Dateien', count: einträge(state.entries.filter(hasFiles).length), kind: 'files' }
+    { view: 'passwords', icon: 'key', name: t('uebersicht.kacheln.eintraege'), count: einträge(state.entries.length) },
+    { view: 'passwords', icon: 'passkey', name: t('uebersicht.kacheln.passkeys'), count: einträge(state.entries.filter(e => e.passkey).length), kind: 'passkey' },
+    { view: 'totp', icon: 'timer', name: t('uebersicht.kacheln.totp'), count: t('uebersicht.kacheln.codes', { n: state.entries.filter(e => e.hasTotp).length }) },
+    { view: 'passwords', icon: 'folder_zip', name: t('uebersicht.kacheln.dateien'), count: einträge(state.entries.filter(hasFiles).length), kind: 'files' }
   ];
 
   if (pwCheck || mailCheck) {
     tiles.push({
-      view: 'security', icon: 'gpp_maybe', name: 'Sicherheitscheck',
-      count: state.lastCheck ? `${problems} Funde` : 'noch nicht geprüft',
+      view: 'security', icon: 'gpp_maybe', name: t('uebersicht.kacheln.sicherheit'),
+      count: state.lastCheck ? t('uebersicht.kacheln.funde', { n: problems }) : t('uebersicht.kacheln.ungeprueft'),
       variant: problems > 0 ? 'alert' : null
     });
   }

@@ -1,0 +1,29 @@
+WKeePass to nowoczesny menedżer haseł oparty na sprawdzonym formacie KeePass. Twoje dane logowania są zaszyfrowane w pliku, który należy do ciebie – a nie w chmurze dostawcy. Bez konta, bez subskrypcji, bez reklam.
+
+Wszystko w jednej aplikacji
+• Hasła w folderach, z tagami, wyszukiwarką, generatorem haseł i wskaźnikiem siły
+• Kody 2FA (TOTP) tuż obok hasła – zeskanuj kod QR aparatem, także eksporty z Google Authenticator
+• Passkeys do logowania bez hasła – WKeePass może działać jako systemowy dostawca passkeys
+• Autouzupełnianie: wstawianie nazwy użytkownika i hasła bezpośrednio w aplikacjach i przeglądarce
+• Przechowywanie plików: dowody tożsamości, umowy czy kody odzyskiwania zapisane w postaci zaszyfrowanej, z możliwością podglądu
+• Ikony stron oraz wpisy, które automatycznie przyjmują nazwę usługi
+• Kosz: usunięte wpisy można przywrócić przez 30 dni, potem znikają na stałe
+
+Zgodność z KeePass
+WKeePass odczytuje i zapisuje KDBX 4.1. Ten sam plik otworzysz też w KeePassXC, KeePassDX lub Strongbox – nie jesteś związany z żadnym dostawcą.
+
+Na wszystkich urządzeniach
+Umieść bazę danych w folderze chmury, z którego i tak korzystasz – na przykład Nextcloud, Dropbox, Google Drive lub OneDrive. Jeśli zmienisz coś na dwóch urządzeniach jednocześnie, WKeePass scali obie wersje wpis po wpisie: wygrywa nowsza wersja, starsza zostaje w historii. Ostatnie 30–100 wersji pliku (do wyboru) zostaje na urządzeniu – każda pokazuje, co zmieniła, i można ją przywrócić pojedynczo lub w całości. Jeśli folder jest niedostępny, pracujesz dalej na kopii offline. WKeePass jest dostępny także dla Linuksa, Windowsa i macOS.
+
+Bezpieczeństwo
+• Szyfrowanie zgodne ze standardem KeePass z użyciem Argon2
+• Hasła są przetwarzane w rdzeniu aplikacji, interfejs nigdy nie widzi jawnego tekstu
+• Odblokowanie odciskiem palca, rozpoznawaniem twarzy lub PIN-em – hasło główne pozostaje chronione
+• Automatyczne blokowanie po chwili bezczynności, schowek jest czyszczony automatycznie
+• Kontrola bezpieczeństwa: słabe, powtarzające się i wygasłe hasła; porównanie ze znanymi wyciekami danych (Have I Been Pwned), bez opuszczania urządzenia przez twoje hasło
+
+Łatwa przeprowadzka
+Import z Bitwarden, 1Password, LastPass, Proton Pass, Chrome, Firefox, KeePass-XML, 2FAS, Aegis, andOTP i Proton Authenticator. W plikach CSV kolumny przypisujesz samodzielnie.
+
+Open source
+WKeePass jest oprogramowaniem open source na licencji Apache 2.0: https://github.com/zipferlacke/keepass

@@ -12,6 +12,7 @@
  */
 
 import { invoke } from '../core/platform.js';
+import { t } from '../core/i18n.js';
 
 const DEFAULTS_URL = './config/settings.default.json';
 
@@ -114,7 +115,7 @@ export async function resetSettings() {
 export async function importSettings(json) {
   const def = await loadDefaults();
   const parsed = typeof json === 'string' ? JSON.parse(json) : json;
-  if (!parsed || typeof parsed !== 'object') throw new Error('Keine gültige Konfiguration.');
+  if (!parsed || typeof parsed !== 'object') throw new Error(t('einstellungen.allgemein.keineKonfiguration'));
   current = deepMerge(def, parsed);
   await storage.write(current);
   emit();

@@ -1,0 +1,1316 @@
+{
+  "allgemein": {
+    "knoepfe": {
+      "schliessen": "Schließen",
+      "abbrechen": "Abbrechen",
+      "zurueck": "Zurück"
+    },
+    "zeit": {
+      "geradeEben": "gerade eben",
+      "vorMinuten": {
+        "one": "vor {n} Minute",
+        "other": "vor {n} Minuten"
+      },
+      "heute": "heute, {uhr}",
+      "tagUhr": "{tag}, {uhr}"
+    }
+  },
+  "navigation": {
+    "start": "Start",
+    "eintraege": "Einträge",
+    "totp": "TOTP",
+    "einstellungen": "Einstellungen",
+    "neu": "Neu anlegen",
+    "kopf": {
+      "sperren": "Datenbank sperren"
+    },
+    "titel": {
+      "home": "Übersicht",
+      "passwords": "Einträge",
+      "totp": "TOTP-Codes",
+      "security": "Sicherheitscheck",
+      "settings": "Einstellungen",
+      "dateien": "Dateien"
+    }
+  },
+  "uebersicht": {
+    "kacheln": {
+      "eintraege": "Einträge",
+      "passkeys": "Passkeys",
+      "totp": "TOTP-Codes",
+      "dateien": "Dateien",
+      "sicherheit": "Sicherheitscheck",
+      "anzahl": {
+        "one": "{n} Eintrag",
+        "other": "{n} Einträge"
+      },
+      "codes": {
+        "one": "{n} Code",
+        "other": "{n} Codes"
+      },
+      "funde": {
+        "one": "{n} Fund",
+        "other": "{n} Funde"
+      },
+      "ungeprueft": "noch nicht geprüft"
+    },
+    "zuletzt": {
+      "titel": "Zuletzt genutzt"
+    }
+  },
+  "eintraege": {
+    "liste": {
+      "suchen": "Suchen …"
+    },
+    "loeschen": "Löschen",
+    "leer": "Keine Einträge.",
+    "keineGefunden": "Keine Einträge gefunden.",
+    "iconNeuLaden": "Icon wird neu geladen.",
+    "kopiert": {
+      "benutzername": "Benutzername kopiert",
+      "passwort": "Passwort kopiert",
+      "totp": "TOTP kopiert"
+    },
+    "menue": {
+      "wiederherstellen": "Wiederherstellen",
+      "endgueltigLoeschen": "Endgültig löschen",
+      "papierkorbLeeren": "Papierkorb leeren",
+      "ordnerBearbeiten": "Ordner bearbeiten",
+      "eintragBearbeiten": "Eintrag bearbeiten",
+      "benutzernameKopieren": "Benutzername kopieren",
+      "passwortKopieren": "Passwort kopieren",
+      "totpKopieren": "TOTP kopieren",
+      "ausschneiden": "Ausschneiden",
+      "iconNeuLaden": "Icon neu laden",
+      "namenUebernehmen": "Namen von der Website übernehmen",
+      "einfuegen": "Einfügen",
+      "einfuegenAnzahl": "Einfügen ({n})",
+      "neuerEintrag": "Neuer Eintrag",
+      "neuerUnterordner": "Neuer Unterordner",
+      "neuerOrdner": "Neuer Ordner",
+      "eintragLoeschen": "Eintrag löschen",
+      "ordnerLoeschen": "Ordner löschen",
+      "wiederhergestellt": "Wiederhergestellt.",
+      "endgueltigGeloescht": "Endgültig gelöscht."
+    },
+    "ordnerLoeschen": {
+      "titel": "Ordner löschen",
+      "text": "„{name}\" wird entfernt. Ordner mit Einträgen lassen sich nicht löschen.",
+      "nichtLeer": "Der Ordner ist nicht leer.",
+      "geloescht": "Ordner gelöscht."
+    },
+    "eintragLoeschen": {
+      "titel": "Eintrag löschen",
+      "text": "„{name}\" wird aus der Datenbank entfernt. Das lässt sich nicht rückgängig machen.",
+      "geloescht": "Eintrag gelöscht."
+    },
+    "ausschneiden": {
+      "eins": "„{name}“ ausgeschnitten — im Zielordner einfügen (Strg+V).",
+      "mehrere": "{n} Einträge ausgeschnitten — im Zielordner einfügen (Strg+V)."
+    },
+    "einfuegen": {
+      "nichts": "Nichts ausgeschnitten.",
+      "nichtHier": "Hier lässt sich nichts einfügen.",
+      "schonDa": "Liegt schon in diesem Ordner.",
+      "verschobenEins": "Nach „{ordner}“ verschoben.",
+      "verschobenMehrere": "{n} Einträge nach „{ordner}“ verschoben."
+    },
+    "titel": {
+      "keineGeaendert": "Keine Namen geändert.",
+      "uebernommen": {
+        "one": "{n} Name übernommen.",
+        "other": "{n} Namen übernommen."
+      }
+    },
+    "spalten": {
+      "name": "Name",
+      "benutzer": "Benutzer",
+      "url": "URL",
+      "ordner": "Ordner",
+      "unterordner": "Unterordner",
+      "zustandPasswort": "Zustand des Passworts",
+      "totpHinterlegt": "TOTP hinterlegt",
+      "anhangVorhanden": "Anhang vorhanden",
+      "code": "Code",
+      "geaendert": "Geändert",
+      "endgueltigWeg": "Endgültig weg"
+    },
+    "ampel": {
+      "keins": "Kein Passwort hinterlegt",
+      "geleakt": "Passwort in {n} Leaks gefunden",
+      "staerke": "Passwort {staerke}",
+      "abgelaufen": "Passwort abgelaufen",
+      "mehrfach": "Passwort mehrfach genutzt",
+      "laeuftAb": {
+        "one": "Passwort läuft in {n} Tag ab",
+        "other": "Passwort läuft in {n} Tagen ab"
+      },
+      "unauffaellig": "Unauffällig"
+    },
+    "artFilter": {
+      "passkeys": "Nur Passkeys",
+      "dateien": "Dateien",
+      "zurueck": "Zurück zu allen Einträgen",
+      "aufheben": "Filter aufheben"
+    },
+    "legende": {
+      "passwort": "Passwort:",
+      "gut": "Gut",
+      "achtung": "Achtung",
+      "problem": "Problem",
+      "keins": "keins",
+      "totp": "TOTP",
+      "anhang": "Anhang"
+    },
+    "zeile": {
+      "passkey": "Passkey",
+      "anhaenge": {
+        "one": "{n} Anhang",
+        "other": "{n} Anhänge"
+      },
+      "beimOeffnen": "beim nächsten Öffnen",
+      "inTagen": {
+        "one": "in {n} Tag",
+        "other": "in {n} Tagen"
+      },
+      "mehr": "Mehr",
+      "imPapierkorb": "Liegt im Papierkorb"
+    },
+    "papierkorb": {
+      "titel": "Papierkorb",
+      "zusammenfassung": {
+        "one": "{n} Eintrag · nach {tage} Tagen endgültig gelöscht",
+        "other": "{n} Einträge · nach {tage} Tagen endgültig gelöscht"
+      },
+      "leeren": "Leeren",
+      "istLeer": "Der Papierkorb ist leer.",
+      "leerenText": {
+        "one": "{n} Eintrag wird endgültig entfernt. Das lässt sich nicht rückgängig machen.",
+        "other": "{n} Einträge werden endgültig entfernt. Das lässt sich nicht rückgängig machen."
+      },
+      "geleert": {
+        "one": "{n} Eintrag endgültig gelöscht.",
+        "other": "{n} Einträge endgültig gelöscht."
+      }
+    },
+    "dateien": {
+      "eintragOeffnenLang": "Eintrag öffnen — Name, Passwort, Notizen",
+      "eintragOeffnen": "Eintrag öffnen",
+      "keine": "Keine Dateien gefunden.",
+      "zumAnzeigen": "{name} — zum Anzeigen klicken",
+      "herunterladen": "Herunterladen",
+      "datei": "Datei",
+      "eintrag": "Eintrag",
+      "nichtLesbar": "Die Datei ließ sich nicht lesen."
+    },
+    "verschieben": {
+      "ordnerNicht": "Dieser Ordner lässt sich dorthin nicht verschieben.",
+      "ordnerVerschoben": "Ordner verschoben.",
+      "reihenfolge": "Reihenfolge geändert."
+    },
+    "auswahl": {
+      "anzahl": "{n} ausgewählt",
+      "verschieben": "Verschieben …",
+      "aufheben": "Auswahl aufheben",
+      "verschiebenTitel": {
+        "one": "{n} Eintrag verschieben",
+        "other": "{n} Einträge verschieben"
+      },
+      "zielordner": "Zielordner",
+      "verschiebenKnopf": "Verschieben",
+      "verschoben": "{n} verschoben.",
+      "loeschenTitel": {
+        "one": "{n} Eintrag löschen",
+        "other": "{n} Einträge löschen"
+      },
+      "loeschenImPapierkorb": "Diese Einträge liegen bereits im Papierkorb und werden endgültig entfernt. Das lässt sich nicht rückgängig machen.",
+      "loeschenText": "Die Einträge wandern in den Papierkorb und lassen sich von dort wiederherstellen.",
+      "inPapierkorb": "In den Papierkorb",
+      "geloescht": {
+        "one": "{n} Eintrag gelöscht.",
+        "other": "{n} Einträge gelöscht."
+      }
+    }
+  },
+  "start": {
+    "meldungen": {
+      "untaetig": "Wegen Untätigkeit gesperrt.",
+      "autofillGespeichert": {
+        "one": "Ein Zugang aus dem Autofill wurde gespeichert.",
+        "other": "{n} Zugänge aus dem Autofill wurden gespeichert."
+      },
+      "nichtGespeichert": "Änderung nicht gespeichert: {grund}",
+      "codeNachEntsperren": "Entsperren — danach wird der Code übernommen.",
+      "dateiNachgeholt": "In der App gespeichert, die Datei aber noch nicht: {grund} – wird nachgeholt."
+    },
+    "browser": {
+      "wartet": "Ein Browser wartet auf die Datenbank.",
+      "entsperrt": "Aus dem Browser entsperrt.",
+      "nichtGespeichert": "Änderung aus dem Browser nicht gespeichert: {grund}"
+    },
+    "fehler": {
+      "titel": "WKeePass konnte nicht starten",
+      "neuLaden": "Neu laden"
+    }
+  },
+  "daten": {
+    "import": {
+      "fehler": {
+        "leer": "Die Datei ist leer.",
+        "jsonNichtLesbar": "Die JSON-Datei ist nicht lesbar.",
+        "keineOtpauth": "In der Datei steht keine otpauth-Adresse.",
+        "protonVerschluesselt": "Der Proton-Pass-Export ist verschlüsselt. Bitte ohne PGP exportieren.",
+        "bitwardenVerschluesselt": "Der Bitwarden-Export ist verschlüsselt. Bitte als „.json“ ohne Passwortschutz exportieren.",
+        "aegisVerschluesselt": "Der Aegis-Export ist verschlüsselt. Bitte unverschlüsselt exportieren.",
+        "zweifasVerschluesselt": "Der 2FAS-Export ist verschlüsselt. Bitte ohne Passwort exportieren.",
+        "jsonUnbekannt": "Dieses JSON-Format ist unbekannt. Unterstützt: Bitwarden, Proton, Aegis, 2FAS, andOTP.",
+        "xmlNichtLesbar": "Die XML-Datei ist nicht lesbar.",
+        "keineKeepassXml": "Das ist keine KeePass-XML-Datei.",
+        "zipBeschaedigt": "Die ZIP-Datei ist beschädigt.",
+        "zipKeinExport": "In der ZIP-Datei steckt kein bekannter Export.",
+        "exportVerschluesselt": "Der Export ist verschlüsselt. Bitte ohne PGP exportieren.",
+        "zipKompression": "Diese ZIP-Kompression wird nicht unterstützt — bitte entpacken.",
+        "zipNichtUnterstuetzt": "ZIP wird hier nicht unterstützt — bitte die Datei vorher entpacken.",
+        "csvLeer": "In der CSV-Datei stehen keine Einträge."
+      },
+      "quelle": {
+        "ohneNamen": "Ohne Namen",
+        "zweiFaListe": "2FA-Liste",
+        "spalte": "Spalte {n}"
+      },
+      "felder": {
+        "nichtUebernehmen": "Nicht übernehmen",
+        "name": "Name",
+        "url": "Adresse",
+        "username": "Benutzername",
+        "email": "E-Mail",
+        "password": "Passwort",
+        "totp": "2FA-Schlüssel",
+        "notes": "Notizen",
+        "folder": "Ordner",
+        "tags": "Tags",
+        "extra": "An Notizen anhängen"
+      }
+    },
+    "anhaenge": {
+      "warnung": {
+        "titel": "Unverschlüsselt speichern?",
+        "text1": "<p>„{name}“ liegt in der Datenbank verschlüsselt. Beim Herunterladen wird die Datei <strong>unverschlüsselt</strong> auf die Festplatte geschrieben.</p>",
+        "text2": "<p>Danach kann sie jedes Programm und jeder mit Zugriff auf diesen Ordner lesen, und eine Synchronisierung nimmt sie womöglich mit. Lösche die Kopie, wenn du sie nicht mehr brauchst.</p>",
+        "bestaetigen": "Unverschlüsselt speichern"
+      },
+      "meldung": {
+        "gespeichert": "Gespeichert unter {pfad}",
+        "fehler": "Speichern fehlgeschlagen: {fehler}"
+      }
+    },
+    "vorschau": {
+      "markdown": {
+        "details": "Details",
+        "bild": "[Bild: {text}]"
+      },
+      "pdf": {
+        "hinweis": "Zeigt der eingebettete Betrachter nichts an, lade die Datei über den Knopf oben rechts herunter."
+      },
+      "keineVorschau": "Für diesen Dateityp gibt es keine Vorschau.<br>Zum Öffnen oben rechts herunterladen.",
+      "fehler": "Vorschau nicht möglich: {fehler}"
+    },
+    "qr": {
+      "fehler": {
+        "scannerFehlt": "Diese Umgebung kann keine QR-Codes lesen.",
+        "keinCodeBild": "Kein QR-Code im Bild gefunden.",
+        "keinCodeFoto": "Kein QR-Code im Foto gefunden.",
+        "keinBild": "Die Kamera liefert kein Bild.",
+        "keinKamerazugriff": "Kein Kamerazugriff möglich.",
+        "schwarzesBild": "liefert nur ein schwarzes Bild",
+        "keinKamerabild": "Kein Kamerabild. {probleme}. Stattdessen geht „QR-Code aus Bild“ mit einem Screenshot oder Foto.",
+        "abgebrochen": "abgebrochen",
+        "auswertung": "Auswertung fehlgeschlagen: {fehler}",
+        "keineDaten": "Der Code enthält keine Daten.",
+        "keineKonten": "Im Code stecken keine lesbaren Konten."
+      },
+      "kamera": {
+        "standard": "Standardkamera",
+        "rueck": "rückwärtige Kamera",
+        "k640": "Kamera 640×480",
+        "rueckHd": "rückwärtige Kamera (HD)",
+        "rueckWunsch": "rückwärtige Kamera (Wunsch)"
+      },
+      "konto": "Konto",
+      "wlan": {
+        "name": "WLAN {name}",
+        "ohneName": "WLAN",
+        "verschluesselung": "Verschlüsselung: {art}"
+      }
+    },
+    "sicherheit": {
+      "staerke": {
+        "leer": "leer",
+        "schwach0": "sehr schwach",
+        "schwach1": "schwach",
+        "mittel": "mittel",
+        "stark": "stark",
+        "sehrStark": "sehr stark"
+      },
+      "hinweise": {
+        "keinPasswort": "Kein Passwort gesetzt.",
+        "haeufig": "Steht auf Listen häufiger Passwörter.",
+        "wort": "Enthält das gängige Wort „{wort}“.",
+        "einZeichen": "Besteht nur aus einem wiederholten Zeichen.",
+        "wiederholt": "Enthält mehrfach wiederholte Zeichen.",
+        "reihenfolge": "Enthält eine Tastatur- oder Alphabet-Reihenfolge.",
+        "ziffern": "Besteht nur aus Ziffern.",
+        "jahr": "Sieht aus wie eine Jahreszahl.",
+        "kurz": "Kürzer als 8 Zeichen.",
+        "keineGross": "Keine Großbuchstaben.",
+        "keineSonder": "Keine Sonderzeichen."
+      },
+      "fehler": {
+        "ueberlastet": "Dienst überlastet, bitte später erneut prüfen"
+      }
+    }
+  },
+  "dialoge": {
+    "anlegen": {
+      "wahl": {
+        "titel": "Neu anlegen",
+        "eintrag": {
+          "titel": "Eintrag anlegen",
+          "text": "Name, Benutzername, Passwort selbst eingeben"
+        },
+        "dateien": {
+          "titel": "Dateien ablegen",
+          "text": "Dokumente verschlüsselt in der Datenbank aufbewahren"
+        },
+        "ordner": {
+          "titel": "Ordner anlegen",
+          "text": "Zum Sortieren der Einträge"
+        },
+        "import": {
+          "titel": "Importieren",
+          "text": "Passwörter und 2FA-Codes aus anderen Apps übernehmen"
+        },
+        "kamera": {
+          "titel": "QR-Code scannen",
+          "text": "TOTP einrichten oder einen Sammelexport einlesen"
+        },
+        "bild": {
+          "titel": "QR-Code aus Bild",
+          "text": "Screenshot oder Foto auswählen"
+        },
+        "nichtVerfuegbar": "In diesem Browser nicht verfügbar"
+      },
+      "scan": {
+        "fehler": "Scan fehlgeschlagen: {fehler}",
+        "nichtLesbar": "Code nicht lesbar: {fehler}",
+        "fido": "Das ist ein Anmelde-Code für Passkeys, keine übertragbaren Zugangsdaten. Passkeys legt der Systemdialog der Website an."
+      },
+      "totp": {
+        "keinSecret": "Im Code steckt kein TOTP-Secret.",
+        "titel": "TOTP hinzufügen",
+        "gefunden": "Gefunden: {name}",
+        "konto": "Konto",
+        "neu": {
+          "titel": "Neuer Eintrag",
+          "text": "Legt einen eigenen Eintrag dafür an"
+        },
+        "bestehend": {
+          "titel": "Zu bestehendem Eintrag",
+          "text": "An einen vorhandenen Eintrag anhängen",
+          "alleBelegt": "Alle Einträge haben schon ein TOTP"
+        },
+        "auswaehlen": "Eintrag auswählen",
+        "uebernehmen": "Übernehmen",
+        "nichtGefunden": "Eintrag nicht gefunden.",
+        "hinzugefuegt": "TOTP zu „{name}“ hinzugefügt."
+      },
+      "sammel": {
+        "titel": "Sammelexport gefunden",
+        "text": "Der Code enthält <strong>{n}</strong> Konten. Jedes wird als eigener Eintrag angelegt.",
+        "anlegen": "{n} Einträge anlegen",
+        "angelegt": "{n} Einträge angelegt.",
+        "angelegtUebersprungen": "{n} Einträge angelegt, {uebersprungen} übersprungen (kein TOTP)."
+      },
+      "import": {
+        "erstEntsperren": "Erst die Datenbank entsperren.",
+        "nichtMoeglich": "Import nicht möglich: {fehler}",
+        "alleVorhanden": "Alle {n} Einträge aus {quelle} sind schon vorhanden.",
+        "leer": "Noch keine Einträge — ordne unten mindestens Passwort, Benutzername, Adresse oder 2FA-Schlüssel einer Spalte zu.",
+        "zusammenfassung": "<strong>{n}</strong> Einträge — {pw} mit Passwort, {totp} mit 2FA-Code. Sie landen im Ordner {ordner}.",
+        "zusammenfassungDoppelt": "<strong>{n}</strong> Einträge — {pw} mit Passwort, {totp} mit 2FA-Code, {doppelt} schon vorhanden und ausgelassen. Sie landen im Ordner {ordner}.",
+        "zweiFA": "2FA-Code",
+        "weitere": "… und {n} weitere",
+        "spalte": "Spalte {n}",
+        "spaltenZuordnen": "Spalten zuordnen",
+        "importieren": "{n} Einträge importieren",
+        "importierenKurz": "Importieren",
+        "titel": "Import aus {quelle}",
+        "klartext": "Die Exportdatei enthält alles im Klartext — danach am besten löschen.",
+        "teilweise": "{n} importiert, {fehlt} nicht übernommen ({fehler}).",
+        "teilweiseMehr": "{n} importiert, {fehlt} nicht übernommen ({fehler} …).",
+        "fertig": "{n} Einträge aus {quelle} importiert. Die Exportdatei jetzt am besten löschen."
+      }
+    },
+    "konflikte": {
+      "art": {
+        "geaendert": "geändert",
+        "geloescht": "gelöscht"
+      },
+      "seite": {
+        "geloescht": "Eintrag gelöscht",
+        "feldGeaendert": "{name} geändert",
+        "hier": "Hier geändert",
+        "datei": "In der Datei geändert"
+      },
+      "ohneTitel": "(ohne Titel)",
+      "gilt": {
+        "hier": "Gerade gilt die Fassung von hier.",
+        "datei": "Gerade gilt die Fassung aus der Datei."
+      },
+      "wahl": {
+        "behalten": "Meine behalten",
+        "nehmen": "Aus der Datei nehmen"
+      },
+      "titel": {
+        "eins": "Ein Eintrag wurde auf beiden Seiten geändert",
+        "mehrere": "{n} Einträge wurden auf beiden Seiten geändert"
+      },
+      "hinweis": "Seit dem letzten Abgleich wurden diese Einträge hier und in der Datei verschieden geändert. Welche Fassung soll gelten? Bis du entscheidest, gilt die jüngere.",
+      "spaeter": "Später",
+      "entschieden": {
+        "hier": "Entschieden: deine Fassung.",
+        "datei": "Entschieden: die Fassung aus der Datei."
+      },
+      "fehler": "Nicht übernommen: {fehler}"
+    },
+    "versionen": {
+      "herkunft": {
+        "extern": "aus der Datei",
+        "hier": "hier",
+        "beide": "hier und in der Datei"
+      },
+      "art": {
+        "neu": {
+          "label": "Dazugekommen",
+          "kurz": "neu"
+        },
+        "geloescht": {
+          "label": "Gelöscht",
+          "kurz": "gelöscht"
+        },
+        "geaendert": {
+          "label": "Geändert",
+          "kurz": "geändert"
+        }
+      },
+      "passiert": {
+        "papierkorb": "in den Papierkorb",
+        "wiederhergestellt": "wiederhergestellt",
+        "verschoben": "verschoben"
+      },
+      "kurz": {
+        "aeltester": "Ältester aufgehobener Stand",
+        "keine": "Keine Einträge geändert"
+      },
+      "ohneTitel": "(ohne Titel)",
+      "liste": {
+        "fehler": "Versionen nicht lesbar: {fehler}",
+        "leer": "Noch keine Stände — der erste entsteht beim nächsten Öffnen oder Speichern.",
+        "titel": "Versionen",
+        "hinweis": "Die letzten Stände der Datei, der jüngste oben. Unter jedem steht, was er geändert hat — antippen zeigt es genau und erlaubt das Zurücknehmen.",
+        "aktuell": "aktueller Stand",
+        "nichtLesbar": "Nicht lesbar"
+      },
+      "stand": {
+        "vergleichFehler": "Der Stand ließ sich nicht vergleichen: {fehler}",
+        "feldGeaendert": "{name} geändert",
+        "zuruecknehmen": "Zurücknehmen",
+        "zuruecknehmenTitel": "Den Eintrag so zurückholen, wie er vor diesem Stand war",
+        "aeltesterHinweis": "Das ist der älteste aufgehobene Stand — was er gegenüber dem davor geändert hat, lässt sich nicht mehr sagen.",
+        "nichtsGeaendert": "An den Einträgen hat dieser Stand nichts geändert.",
+        "titel": "Stand {zeit}",
+        "gegenueber": "Das hat dieser Stand gegenüber dem davor geändert.",
+        "liegtDa": "So liegt die Datei gerade da.",
+        "ganzZurueckHinweis": "„Ganz auf diesen Stand zurück\" setzt alle Einträge so, wie sie hier waren — was danach kam, bleibt in den Versionen erhalten.",
+        "ganzZurueck": "Ganz auf diesen Stand zurück",
+        "zurueckgenommen": "Zurückgenommen"
+      },
+      "zurueckholen": {
+        "eintrag": "Eintrag zurückgeholt und gespeichert.",
+        "eintraege": {
+          "one": "{n} Eintrag zurückgeholt und gespeichert.",
+          "other": "{n} Einträge zurückgeholt und gespeichert."
+        },
+        "fehler": "Zurückholen fehlgeschlagen: {fehler}"
+      }
+    },
+    "eintrag": {
+      "allgemein": {
+        "anzeigen": "Anzeigen",
+        "verbergen": "Verbergen",
+        "kopieren": "Kopieren"
+      },
+      "ansicht": {
+        "ariaLabel": "Ansicht",
+        "dateien": "Dateien",
+        "alleFelder": "Alle Felder"
+      },
+      "titel": {
+        "neueDateiablage": "Neue Dateiablage",
+        "neuerEintrag": "Neuer Eintrag"
+      },
+      "felder": {
+        "name": "Name",
+        "ordner": "Ordner",
+        "tags": "Tags (Komma)",
+        "url": "URL"
+      },
+      "knoepfe": {
+        "speichern": "Speichern",
+        "anlegen": "Anlegen",
+        "ja": "Ja",
+        "nein": "Nein"
+      },
+      "passwort": {
+        "titel": "Passwort",
+        "gesetzt": "gesetzt",
+        "leer": "leer",
+        "benutzername": "Benutzername",
+        "passwort": "Passwort",
+        "platzhalter": "noch keins gesetzt",
+        "neuErzeugen": "Neu erzeugen",
+        "staerke": "Stärke: {label}",
+        "bit": "{n} Bit",
+        "hinweis": "Das gespeicherte Passwort liegt im Kern. Es wird erst geholt, wenn du das Feld anklickst oder auf „Anzeigen“ gehst — und nur dann, wenn du es wirklich änderst, auch geschrieben.",
+        "ablaufdatum": "Ablaufdatum (optional)",
+        "ablaufEntfernen": "Ablaufdatum entfernen"
+      },
+      "totp": {
+        "titel": "TOTP",
+        "eingerichtet": "eingerichtet",
+        "nichtEingerichtet": "nicht eingerichtet",
+        "secret": "Secret (Base32) oder otpauth://-URI",
+        "scanKamera": "QR-Code scannen",
+        "scanBild": "QR-Code aus Bild",
+        "stellen": "Stellen",
+        "intervall": "Intervall (Sek.)",
+        "algorithmus": "Algorithmus",
+        "qrCode": "QR-Code",
+        "kontoName": "Konto"
+      },
+      "passkey": {
+        "titel": "Passkey",
+        "hinterlegt": "hinterlegt",
+        "keiner": "keiner",
+        "konto": "Konto: {name} · ",
+        "beschreibung": "Anmelden ohne Passwort — der geheime Schlüssel liegt nur in dieser Datenbank.",
+        "hinweis": "Einen Passkey legst du direkt beim Dienst an („Passkey erstellen“). Browser-Erweiterung oder Android fragen dann WKeePass, und er landet von selbst in einem Eintrag."
+      },
+      "anhaenge": {
+        "titel": "Anhänge",
+        "dateienTitel": "Dateien",
+        "anhaengen": "Datei anhängen …",
+        "dateienHinzufuegen": "Dateien hinzufügen …",
+        "neueDatei": "Neue Datei …",
+        "keine": "Noch keine Anhänge.",
+        "zumAnzeigen": "{name} — zum Anzeigen klicken",
+        "entfernen": "Entfernen",
+        "herunterladen": "Herunterladen",
+        "leer": "(leer)",
+        "dateienKeine": "Noch keine Dateien",
+        "dateienHinweis": "Ziehe Dateien aufs Fenster, wähle sie unten aus oder lege eine neue an. Sie liegen danach verschlüsselt in der Datenbank.",
+        "nochNichtGespeichert": "noch nicht gespeichert"
+      },
+      "notizen": "Notizen",
+      "qr": {
+        "titel": "QR-Code: {name}",
+        "wirdErzeugt": "Wird erzeugt …",
+        "hinweis": "Mit einer Authenticator-App abscannen. Der Code enthält das Secret im Klartext — nicht weitergeben und nicht abfotografieren lassen."
+      },
+      "scan": {
+        "titel": "QR-Code scannen",
+        "rahmen": "Code in den Rahmen halten",
+        "foto": "Klappt nicht? Foto aufnehmen",
+        "fotoWirdAusgewertet": "Foto wird ausgewertet …",
+        "erkannt": "Erkannt",
+        "kameraFehlt": "Kamera nicht verfügbar: {fehler}",
+        "keineDekodierung": "QR-Dekodierung nicht verfügbar. Füge die otpauth://-URI stattdessen als Text ein.",
+        "browserOhneQr": "Dieser Browser kann keine QR-Codes lesen — in der Desktop- und App-Version übernimmt das Rust. Füge die otpauth://-URI hier als Text ein."
+      },
+      "viewer": {
+        "umbenennen": "Umbenennen",
+        "umbenennenTitel": "{name} — umbenennen",
+        "dateiname": "Dateiname",
+        "bearbeiten": "Bearbeiten",
+        "wirdGeladen": "Wird geladen …",
+        "aenderungenSpeichern": "Änderungen speichern?",
+        "wurdeBearbeitet": "„{name}“ wurde bearbeitet.",
+        "nameUngueltig": "Der Name darf nicht leer sein und keinen Schrägstrich enthalten.",
+        "speichernFehlgeschlagen": "Speichern fehlgeschlagen: {fehler}",
+        "umbenennenFehlgeschlagen": "Umbenennen fehlgeschlagen: {fehler}"
+      },
+      "neueDatei": {
+        "titel": "Neue Datei",
+        "platzhalter": "Notiz",
+        "art": "Art",
+        "arten": {
+          "text": "Text (.txt)",
+          "tabelle": "Tabelle (.csv)"
+        }
+      },
+      "meldungen": {
+        "gespeichert": "Eintrag gespeichert.",
+        "leak": "Achtung: Dieses Passwort taucht {n}× in bekannten Leaks auf.",
+        "passwortKopiert": "Passwort kopiert",
+        "benutzernameKopiert": "Benutzername kopiert",
+        "qrUebernommen": "QR-Code übernommen.",
+        "scanFehlgeschlagen": "Scan fehlgeschlagen: {fehler}",
+        "keinSecret": "Kein TOTP-Secret hinterlegt.",
+        "anhaengenFehlgeschlagen": "Anhängen fehlgeschlagen: {fehler}",
+        "schonAngehaengt": "„{name}“ hängt bereits an diesem Eintrag.",
+        "nameVergeben": "„{name}“ gibt es in diesem Eintrag schon.",
+        "anlegenFehlgeschlagen": "Anlegen fehlgeschlagen: {fehler}"
+      }
+    },
+    "ordner": {
+      "titel": {
+        "anlegen": "Ordner anlegen",
+        "bearbeiten": "Ordner „{name}\""
+      },
+      "felder": {
+        "name": "Name",
+        "uebergeordnet": "Übergeordneter Ordner",
+        "obersteEbene": "— oberste Ebene —"
+      },
+      "knoepfe": {
+        "speichern": "Speichern",
+        "anlegen": "Anlegen"
+      },
+      "meldungen": {
+        "nameLeer": "Der Name darf nicht leer sein.",
+        "schraegstrich": "Schrägstriche sind im Ordnernamen nicht erlaubt.",
+        "gespeichert": "Ordner gespeichert.",
+        "angelegt": "Ordner angelegt."
+      }
+    }
+  },
+  "sicherheit": {
+    "statistik": {
+      "leaked": "geleakte Passwörter",
+      "weak": "schwache Passwörter",
+      "reused": "mehrfach genutzt",
+      "expiring": "abgelaufen / bald fällig",
+      "mail": "E-Mail-Leaks",
+      "inactive": "lange nicht genutzt"
+    },
+    "gruppen": {
+      "leaked": "Geleakte Passwörter",
+      "weak": "Schwache Passwörter",
+      "reused": "Mehrfach genutzte Passwörter",
+      "expiring": "Ablaufdaten"
+    },
+    "pruefung": {
+      "laeuft": "Prüfe …",
+      "jetzt": "Jetzt prüfen",
+      "zuletzt": "Zuletzt: {zeit}",
+      "nochNicht": "Noch nicht geprüft"
+    },
+    "keineTreffer": "Keine Treffer – nichts zu tun",
+    "leckDaten": {
+      "email": "E-Mail-Adresse",
+      "passwort": "Passwort",
+      "benutzername": "Benutzername",
+      "name": "Name",
+      "telefon": "Telefonnummer",
+      "postanschrift": "Postanschrift",
+      "geburtsdatum": "Geburtsdatum",
+      "ip": "IP-Adresse",
+      "geschlecht": "Geschlecht",
+      "wohnort": "Wohnort",
+      "kreditkarte": "Kreditkarte",
+      "kreditkarteTeil": "Teile der Kreditkarte",
+      "kontonummer": "Kontonummer",
+      "sicherheitsfragen": "Sicherheitsfragen",
+      "token": "Anmelde-Token",
+      "socialMedia": "Social-Media-Profil",
+      "nachrichten": "Private Nachrichten",
+      "browser": "Browserdaten",
+      "einkaeufe": "Einkäufe",
+      "beruf": "Beruf",
+      "arbeitgeber": "Arbeitgeber"
+    },
+    "mail": {
+      "titel": "E-Mail-Datenlecks",
+      "rat": {
+        "passwortSofort": "<strong>Passwort sofort ändern</strong> — es war im Klartext oder leicht zu knacken gespeichert.",
+        "passwort": "Passwort ändern — es lag verschlüsselt vor, sicher ist das aber nicht.",
+        "mehrfach": "Dasselbe Passwort nutzt du noch woanders — dort ebenfalls ändern.",
+        "telefon": "Mit SMS- und Anruf-Betrug im Namen dieses Dienstes rechnen.",
+        "anschrift": "Anschrift oder Geburtsdatum sind bekannt — bei Rückfragen „zur Bestätigung\" skeptisch sein.",
+        "konto": "Kontoauszüge und Kreditkarte auf fremde Buchungen prüfen.",
+        "keinPasswort": "Kein Passwort betroffen. Wichtig ist hier vor allem: Mails im Namen dieses Dienstes kritisch lesen."
+      },
+      "abgeflossen": "Abgeflossen: {daten}",
+      "oeffnen": "{name} öffnen",
+      "hilfe": {
+        "frage": "Was bedeutet ein Treffer — und was ist zu tun?",
+        "einleitung": "Deine Adresse stand in Daten, die bei einem Dienst gestohlen und veröffentlicht wurden. Das heißt nicht, dass jemand in deinem Postfach war. Die Adresse lässt sich nicht zurückholen — das musst du auch nicht. Entscheidend ist, <em>was</em> zusammen mit ihr abgeflossen ist; danach richtet sich unten der Rat zu jedem einzelnen Leck.",
+        "schritt1": "Beim betroffenen Dienst das Passwort ändern — und überall dort, wo du dasselbe benutzt.",
+        "schritt2": "Wo möglich die Zwei-Faktor-Anmeldung einschalten. WKeePass kann die Codes gleich mit verwalten.",
+        "schritt3": "Mit Phishing rechnen: Angreifer schreiben gezielt an geleakte Adressen, gern im Namen genau dieses Dienstes.",
+        "schritt4": "Konten, die du nicht mehr brauchst, beim Dienst löschen — ein vergessenes Konto ist ein offenes Konto.",
+        "schritt5": "Für neue Anmeldungen Alias-Adressen nutzen, wenn dein Mail-Anbieter das kann. Dann trifft ein Leck nur noch eine davon.",
+        "abschluss": "Hast du alles erledigt, hake die Adresse ab. Neue Lecks meldet die nächste Prüfung wieder."
+      },
+      "lecks": {
+        "one": "ein Leck",
+        "other": "{n} Lecks"
+      },
+      "erledigt": "Erledigt",
+      "erledigtListe": "Erledigt: {adressen}"
+    },
+    "inaktiv": {
+      "vermerkt": "Vermerkt — der Eintrag gilt wieder als genutzt.",
+      "aufwand": {
+        "easy": "geht direkt auf der Seite",
+        "medium": "ein paar Schritte mehr",
+        "hard": "nur über den Support",
+        "impossible": "bietet keine Löschung an"
+      },
+      "titel": "Lange nicht genutzt",
+      "hinweis": "Diese Zugänge hast du seit über zwei Jahren nicht benutzt. Brauchst du einen nicht mehr, lösche zuerst das Konto beim Dienst und dann den Eintrag — ein vergessenes Konto mit altem Passwort ist ein beliebtes Ziel. Wird er noch gebraucht, genügt „Noch in Gebrauch\".",
+      "zuletzt": "Zuletzt genutzt: {monat}",
+      "kontoLoeschen": "Konto löschen {aufwand}",
+      "oeffnen": "Öffnen",
+      "nochInGebrauch": "Noch in Gebrauch",
+      "kontoLoeschenKnopf": "Konto löschen",
+      "zurSeite": "Zur Seite",
+      "eintragLoeschen": "Eintrag löschen"
+    },
+    "kontoFrage": {
+      "titel": "Konto gelöscht?",
+      "text": "Hast du das Konto bei {name} gelöscht? Dann kann auch der Eintrag weg.",
+      "papierkorb": "Er landet im Papierkorb der Datenbank, falls du ihn doch noch brauchst.",
+      "loeschen": "Eintrag löschen",
+      "nochNicht": "Noch nicht",
+      "erledigt": "Konto erledigt — Eintrag gelöscht."
+    },
+    "fehler": {
+      "passwort": "Passwort-Check: {fehler}",
+      "email": "E-Mail-Check: {fehler}"
+    },
+    "benachrichtigung": {
+      "titel": "WKeePass: neue Funde im Sicherheitscheck",
+      "passwoerter": {
+        "one": "{n} Passwort steht neu in einem Leak.",
+        "other": "{n} Passwörter stehen neu in einem Leak."
+      },
+      "lecks": {
+        "one": "{n} neues Datenleck bei deinen E-Mail-Adressen.",
+        "other": "{n} neue Datenlecks bei deinen E-Mail-Adressen."
+      }
+    },
+    "ergebnis": {
+      "teilweise": "Prüfung teilweise fehlgeschlagen: {fehler}",
+      "funde": "{n} Funde in der Prüfung.",
+      "keine": "Keine Probleme gefunden."
+    }
+  },
+  "einstellungen": {
+    "darstellung": {
+      "titel": "Darstellung",
+      "farbschema": "Farbschema",
+      "farbschemaHinweis": "System folgt der Einstellung des Betriebssystems",
+      "hell": "Hell",
+      "dunkel": "Dunkel",
+      "system": "System",
+      "akzentfarbe": "Akzentfarbe",
+      "akzentfarbeHinweis": "Warn- und Gefahrfarben bleiben unverändert, damit Hinweise erkennbar bleiben",
+      "sprache": "Sprache",
+      "spracheHinweis": "Die Oberfläche wird dabei neu geladen",
+      "spracheAuto": "Automatisch (Gerätesprache)"
+    },
+    "datenbank": {
+      "titel": "Datenbank",
+      "entsperren": "Entsperren dieser Datenbank",
+      "pin": "PIN",
+      "fingerabdruck": "Fingerabdruck",
+      "und": " und ",
+      "nurMaster": "Nur mit Master-Passwort",
+      "appMethoden": "Was die App überhaupt anbietet: {link}",
+      "appMethodenLink": "Entsperrmethoden der App",
+      "waehlen": "Wählen …",
+      "warnen": "Warnen vor Ablauf",
+      "warnenHinweis": "Tage im Voraus",
+      "papierkorb": "Papierkorb leeren",
+      "papierkorbHinweis": "Entfernt die gelöschten Einträge endgültig",
+      "papierkorbKnopf": "Leeren …",
+      "name": "Name der Datenbank",
+      "nameInDatei": "Steht in der Datei",
+      "namePlatzhalter": "Passwörter",
+      "nameGespeichert": "Name gespeichert.",
+      "geaendert": "geändert {datum}"
+    },
+    "allgemein": {
+      "wirdGeladen": "Wird geladen …",
+      "demo": "WKeePass · Demo im Browser",
+      "weiter": "Weiter",
+      "spaeter": "Später in den Einstellungen",
+      "nichtVerfuegbar": "Nicht verfügbar",
+      "uebernehmen": "Übernehmen",
+      "nichtGespeichert": "Nicht gespeichert: {fehler}",
+      "gespeichert": "Einstellung gespeichert.",
+      "keineKonfiguration": "Keine gültige Konfiguration."
+    },
+    "sperren": {
+      "titel": "Sperren",
+      "automatisch": "Automatisch sperren",
+      "automatischHinweis": "Minuten ohne Aktivität",
+      "zwischenablage": "Zwischenablage leeren",
+      "zwischenablageHinweis": "Sekunden nach dem Kopieren"
+    },
+    "browser": {
+      "titel": "Browser-Erweiterung",
+      "stufeNichts": "Verknüpfte Browser füllen ohne Rückfrage aus.",
+      "stufeLegitimieren": "PIN, Master-Passwort oder Fingerabdruck vor dem Ausfüllen.",
+      "verknuepft": "verknüpft",
+      "trennen": "Trennen",
+      "keinerVerknuepft": "Noch kein Browser verknüpft.",
+      "keinerEingetragen": "Bei keinem Browser eingetragen",
+      "stufeHinweis": "Was passiert, wenn ein verknüpfter Browser Zugangsdaten anfragt: nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Fingerabdruck.",
+      "fristHinweis": "Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen — eine Anmeldung mit mehreren Feldern fragt sonst mehrmals. Danach wird wieder gefragt. Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.",
+      "beimStart": "Beim Start des Browsers entsperren",
+      "beimStartHinweis": "Ist die Datenbank zu, wenn sich der Browser meldet, geht gleich das kleine Fenster auf — PIN, Fingerabdruck oder Master-Passwort, und die Erweiterung hat ihre Daten. Ohne das entsperrst du über das Menü der Erweiterung, wenn du etwas brauchst.",
+      "erweiterung": "Erweiterung",
+      "erweiterungHinweis": "KeePassXC-Browser — WKeePass spricht dasselbe Protokoll, deshalb gibt es keine eigene.",
+      "eingetragen": "Eingetragen bei",
+      "eingetragenHinweis": "„Einrichten“ legt je Browser eine Datei ab, die auf WKeePass zeigt — ohne sie darf der Browser WKeePass nicht starten.",
+      "einrichten": "Einrichten",
+      "entfernen": "Entfernen",
+      "kanal": "Kanal",
+      "nichtAktiv": "Nicht aktiv",
+      "getrennt": "Verknüpfung getrennt.",
+      "trennenFehler": "Trennen fehlgeschlagen: {fehler}",
+      "eingerichtetMeldung": "Eingerichtet: {liste}. Browser neu starten.",
+      "entferntMeldung": "Entfernt: {liste}. Browser neu starten.",
+      "keinGefunden": "Kein eingerichteter Browser gefunden.",
+      "fehlgeschlagen": "fehlgeschlagen",
+      "einrichtenFehler": "Fehlgeschlagen: {fehler}"
+    },
+    "eintraege": {
+      "titel": "Einträge und Websites",
+      "importieren": "Aus anderen Apps importieren",
+      "importierenHinweis": "Passwörter und 2FA-Codes aus Bitwarden, 1Password, LastPass, Browsern, Aegis, 2FAS …",
+      "importierenKnopf": "Importieren …",
+      "iconsLaden": "Icons der Websites laden",
+      "iconsLadenHinweis": "Einmal direkt von der jeweiligen Seite, ohne Sammeldienst — am besten beim Anmelden, wenn sie erreichbar ist. Danach liegt das Icon in der Datenbank und steht auch offline und auf allen Geräten bereit.",
+      "iconsNeu": "Alle Icons neu abrufen",
+      "iconsNeuHinweis": "Ersetzt die gespeicherten durch frisch geladene",
+      "iconsNeuKnopf": "Neu laden",
+      "namen": "Namen von der Website",
+      "namenHinweis": "An: Steht als Name nur eine Adresse, heißt der Eintrag von selbst wie der Dienst — etwa „GitHub“ statt „https://github.com/login“. Selbst vergebene Namen bleiben.",
+      "namenPruefenHinweis": "„Jetzt prüfen“ gleicht alle Einträge mit Adresse ab und ersetzt nach Rückfrage auch selbst vergebene Namen.",
+      "namenAutomatisch": "Namen automatisch setzen",
+      "namenPruefen": "Jetzt prüfen",
+      "iconsAbruf": "Icons werden neu abgerufen — sie erscheinen, sobald sie da sind.",
+      "keineUrl": "Kein Eintrag hat eine URL.",
+      "uebernehmenTitel": "Namen übernehmen",
+      "uebernehmenText": "Bei {n} Einträgen wird der Name durch den Namen des Dienstes ersetzt.",
+      "uebernehmenBrowser": "Im Browser blockiert die Sicherheitsrichtlinie fremder Seiten den Abruf — dort wird ersatzweise der Hostname verwendet."
+    },
+    "pruefungen": {
+      "titel": "Prüfungen",
+      "staerke": "Passwortstärke anzeigen",
+      "staerkeHinweis": "Berechnung läuft im Kern",
+      "mehrfach": "Mehrfachnutzung erkennen",
+      "mehrfachHinweis": "Vergleich innerhalb der Datenbank",
+      "vorwarn": "Vorwarnzeit bei Ablauf",
+      "vorwarnHinweis": "Tage vor dem Ablaufdatum",
+      "leaks": "Passwörter auf Leaks prüfen",
+      "leaksHinweis": "Have I Been Pwned — es wird nur ein Hash-Präfix gesendet, nie das Passwort",
+      "email": "E-Mail-Adressen prüfen",
+      "emailHinweis": "Über XposedOrNot",
+      "benachrichtigen": "Bei neuen Funden benachrichtigen",
+      "benachrichtigenHinweis": "Wenn eine Prüfung ein neues Leck findet — auch bei der automatischen",
+      "automatisch": "Automatisch prüfen",
+      "automatischHinweis": "Beim Öffnen der App, sofern die letzte Prüfung länger her ist",
+      "zuletzt": " — zuletzt am {datum}",
+      "taeglich": "Täglich",
+      "woechentlich": "Wöchentlich",
+      "aus": "Aus"
+    },
+    "appEntsperren": {
+      "einleitung": "Was dieses Gerät zum Entsperren anbietet. Welche davon eine Datenbank nutzen darf, legst du je Datenbank fest: Datenbank → Entsperren dieser Datenbank.",
+      "biometrie": "Biometrie verwenden",
+      "biometrieGeraet": "{geraet} — beim Öffnen anbieten, ersetzt PIN und Master-Passwort",
+      "biometrieFinger": "Fingerabdruck oder Gesichtserkennung",
+      "biometrieNicht": "Auf diesem Gerät nicht verfügbar",
+      "pin": "PIN des Programms",
+      "pinSchluesselbund": "Festgelegt — geschützt durch PIN und Schlüsselbund",
+      "pinOhne": "Festgelegt — ohne Schlüsselbund hängt alles an der PIN",
+      "pinKeine": "Noch keine PIN. Gilt für alle Datenbanken.",
+      "aendern": "Ändern …",
+      "entfernen": "Entfernen",
+      "festlegen": "Festlegen …"
+    },
+    "export": {
+      "titel": "Exportieren und Importieren",
+      "exportieren": "Einstellungen exportieren",
+      "exportierenHinweis": "Als settings.json sichern",
+      "exportierenKnopf": "Exportieren",
+      "importieren": "Einstellungen importieren",
+      "importierenHinweis": "Aus einer settings.json übernehmen",
+      "importierenKnopf": "Importieren",
+      "zuruecksetzen": "Auf Standard zurücksetzen",
+      "zuruecksetzenHinweis": "Nur die Einstellungen — Datenbanken, PIN und Browser-Verknüpfungen bleiben",
+      "zuruecksetzenKnopf": "Zurücksetzen",
+      "konfiguration": "Aktuelle Konfiguration (settings.json)",
+      "exportiert": "settings.json exportiert.",
+      "importiert": "Einstellungen importiert.",
+      "nichtGelesen": "Datei konnte nicht gelesen werden: {fehler}",
+      "zuruecksetzenTitel": "Einstellungen zurücksetzen",
+      "zuruecksetzenText1": "Darstellung, Entsperren, Prüfungen, Browser und Android gehen auf die Standardwerte zurück.",
+      "zuruecksetzenText2": "Es bleiben: die Datenbank selbst, die Liste deiner Datenbanken samt ihren eigenen Einstellungen, die App-PIN und die Verknüpfungen mit dem Browser.",
+      "zurueckgesetzt": "Auf Standard zurückgesetzt."
+    },
+    "android": {
+      "passwortmanager": "Passwortmanager",
+      "passwortmanagerText": "Füllt Anmeldungen in Apps und im Browser aus und bietet an, neue Zugänge zu speichern.",
+      "passwortmanagerAktion": "Als Standard festlegen",
+      "passkeys": "Passkeys",
+      "passkeysText": "Anmelden ohne Passwort. Die Passkeys liegen in deiner Datenbank, nicht bei Google.",
+      "passkeysAktion": "Aktivieren",
+      "passkeysFehlt": "Erst ab Android 14",
+      "kamera": "Kamera",
+      "kameraText": "Nur für den QR-Scanner: Zwei-Faktor-Codes einrichten, ohne das Geheimnis abzutippen.",
+      "kameraAktion": "Erlauben",
+      "stufeHinweis": "Was passiert, wenn du einen Zugang aus der Liste antippst: nichts, ein Knopfdruck oder ein Nachweis mit PIN, Master-Passwort oder Biometrie.",
+      "fristHinweis": "Wer gerade bestätigt oder entsperrt hat, wird so lange in Ruhe gelassen — ein Formular mit Name und Passwort fragt sonst zweimal. Gilt nicht bei „Nichts“; Sperren beendet die Frist sofort.",
+      "stufeNichts": "Zugänge werden ohne Rückfrage eingesetzt.",
+      "stufeLegitimieren": "PIN, Master-Passwort oder Biometrie vor dem Einsetzen.",
+      "aktiv": "Aktiv",
+      "nichtVerfuegbar": "Nicht verfügbar",
+      "inAppErlauben": "In App-Einstellungen erlauben"
+    },
+    "stufe": {
+      "nichts": "Nichts",
+      "bestaetigen": "Bestätigen",
+      "legitimieren": "Legitimieren",
+      "titel": "Vor dem Ausfüllen",
+      "bestaetigenMeldung": "Ein Knopfdruck genügt — ohne Nachweis."
+    },
+    "frist": {
+      "jedesMal": "Jedes Mal fragen",
+      "sek30": "30 Sekunden",
+      "min1": "1 Minute",
+      "min5": "5 Minuten",
+      "min15": "15 Minuten",
+      "titel": "Danach nicht erneut fragen"
+    },
+    "androidStart": {
+      "titel": "Drei Freigaben für den Alltag",
+      "text": "Damit WKeePass nicht nur Tresor ist, sondern dir beim Anmelden hilft, braucht es die Erlaubnis von Android. Nichts davon schickt Daten irgendwohin — die Passwörter bleiben in deiner Datei."
+    },
+    "verschluesselung": {
+      "stufeSchnell": "Schnell",
+      "hinweisSchnell": "Öffnet zügig, auch auf älteren Geräten",
+      "stufeZuegig": "Zügig",
+      "hinweisZuegig": "Etwas mehr Schutz, kaum langsamer",
+      "stufeStandard": "Standard",
+      "hinweisStandard": "Guter Mittelweg, geht überall auf — Empfehlung",
+      "stufeErhoeht": "Erhöht",
+      "hinweisErhoeht": "Mehr Speicher, schwerer für Grafikkarten — am iPhone/iPad geht Ausfüllen über die Tastatur nicht mehr",
+      "stufeHoch": "Hoch",
+      "hinweisHoch": "Noch mehr Speicher — am iPhone/iPad kein Ausfüllen über die Tastatur",
+      "stufeStark": "Stark",
+      "hinweisStark": "Bestmöglicher Schutz, spürbar längeres Öffnen — am iPhone/iPad kein Ausfüllen über die Tastatur",
+      "werte": "{it} Durchgänge · {mib} MiB · {faeden}",
+      "faeden": {
+        "one": "{n} Faden",
+        "other": "{n} Fäden"
+      },
+      "titel": "Verschlüsselungsstärke",
+      "erklaerung": {
+        "einleitung": "Aus dem Master-Passwort wird erst ein Schlüssel abgeleitet — absichtlich langsam, mit Argon2. Jeder Rateversuch eines Angreifers muss diese Arbeit genauso leisten.",
+        "durchgaengeBegriff": "Durchgänge",
+        "durchgaenge": "Wie oft Argon2 über den Speicher rechnet. Doppelt so viele dauern doppelt so lange.",
+        "speicherBegriff": "Speicher (MiB)",
+        "speicher": "Wie viel Arbeitsspeicher jeder Versuch belegt (1 MiB ≈ 1 MB). Das bremst Angriffe mit Grafikkarten am stärksten, weil dort Speicher knapp ist.",
+        "faedenBegriff": "Fäden",
+        "faeden": "Wie viele Prozessorkerne gleichzeitig rechnen. Am Schutz ändert das nichts — es macht nur das Öffnen auf deinem Gerät schneller.",
+        "eigenBegriff": "Eigene Einstellung",
+        "eigen": "Andere Apps und ältere Dateien bringen eigene Werte mit, etwa 50 Durchgänge mit nur 1 MiB. Die App zeigt dann die Stufe, die am nächsten liegt, und lässt die Werte stehen, bis du eine Stufe übernimmst."
+      },
+      "eigenHinweis": "Eigene Einstellung, etwa aus einer anderen App — liegt ungefähr bei „{stufe}“. Eine Stufe übernehmen ersetzt sie.",
+      "werteFrage": "Was bedeuten die Werte?",
+      "hinweis": "Wie lange das Ableiten des Schlüssels dauert — für dich einmal beim Öffnen, für einen Angreifer bei jedem Rateversuch",
+      "geaendert": "Verschlüsselung geändert — die Datei wurde neu geschrieben.",
+      "ersetzt": "Ersetzt die eigene Einstellung durch „{stufe}“.",
+      "stufeHinweis": "{stufe}: {hinweis}",
+      "jetzt": "Jetzt: {werte}",
+      "danach": "Danach: {werte}"
+    },
+    "versionen": {
+      "titel": "Versionen",
+      "hinweis": "Die letzten Stände dieser Datei — beim Öffnen, nach dem Speichern, nach Änderungen von einem anderen Gerät und nach jedem Zusammenführen. Daraus lässt sich Einzelnes oder alles zurückholen.",
+      "ansehen": "Versionen ansehen …",
+      "aufheben": "Stände aufheben",
+      "aufhebenBereich": "30 bis 100",
+      "aufhebenFrage": "Wie viele Stände aufheben",
+      "aufgehoben": "Es werden {n} Stände aufgehoben."
+    },
+    "browserStart": {
+      "titel": "Passwörter direkt im Browser",
+      "text": "Mit einer Browser-Erweiterung füllt WKeePass Anmeldungen auf Webseiten aus, bietet neue Zugänge zum Speichern an und meldet dich mit Passkeys an. Die Passwörter bleiben in deiner Datei — der Browser fragt jedes Mal bei WKeePass nach. Dafür braucht es alle drei Schritte.",
+      "schritt1": "1. WKeePass bei den Browsern anmelden",
+      "schritt1Text": "Notwendig: Ein Browser darf nur Programme starten, die bei ihm eingetragen sind. Der Knopf legt dafür je Browser eine kleine Datei ab, die auf WKeePass zeigt — am Browser selbst ändert sich nichts. Ist KeePassXC installiert, spricht die Erweiterung danach mit WKeePass statt mit KeePassXC.",
+      "gefunden": "Gefunden: {liste}",
+      "keinBrowser": "Kein Browser gefunden — nach der Installation eines Browsers geht das in den Einstellungen.",
+      "erledigt": "Erledigt",
+      "eintragen": "Eintragen",
+      "schritt2": "2. Erweiterung KeePassXC-Browser installieren",
+      "schritt2Text": "Notwendig: Die Erweiterung stammt von KeePassXC und ist kostenlos. WKeePass spricht dieselbe Sprache, deshalb gibt es keine eigene. Der Knopf öffnet die Seite im Store deines Browsers.",
+      "schritt3": "3. Im Browser verbinden",
+      "schritt3Text": "Einmal je Browser: Browser neu starten, auf das Symbol der Erweiterung klicken und „Verbinden“ wählen. WKeePass fragt dann nach einem Namen für diesen Browser — erst danach werden Passwörter ausgefüllt."
+    }
+  },
+  "totp": {
+    "leer": "Keine TOTP-Einträge vorhanden.",
+    "karte": {
+      "hinweis": "Klick kopiert, Doppelklick öffnet den Eintrag"
+    },
+    "kopiert": "Code kopiert",
+    "alsNaechstes": "als Nächstes {code}"
+  },
+  "ui": {
+    "abgleich": {
+      "uebernommen": "Änderungen von einem anderen Gerät übernommen."
+    },
+    "zwischenablage": {
+      "fehler": "Kopieren nicht möglich."
+    },
+    "kern": {
+      "fehler": "Der Kern meldet einen Fehler bei „{befehl}“: {ursache}"
+    },
+    "formular": {
+      "pinMitSchluesselbund": "Der Schlüssel entsteht aus deiner PIN <em>und</em> einem Zufallswert im Schlüsselbund des Systems. Ein Angreifer bräuchte beides: die PIN und deine angemeldete Sitzung.",
+      "pinOhneSchluesselbund": "<strong>Auf diesem Gerät ist kein Schlüsselbund erreichbar.</strong> Dann hängt alles allein an der PIN — wähle sie entsprechend lang.",
+      "sichtbarMachen": "Sichtbar machen",
+      "verbergen": "Verbergen"
+    }
+  },
+  "entsperren": {
+    "geraet": {
+      "biometrie": "Biometrie"
+    },
+    "datenbank": {
+      "nochNichtGeoeffnet": "Noch nicht geöffnet",
+      "keineDatei": "Es wurde keine Datei ausgewählt."
+    },
+    "sperrbildschirm": {
+      "keineDatenbank": "Noch keine Datenbank ausgewählt",
+      "mitGeraet": "Mit {name} entsperren",
+      "mitPasswortOderPin": "Mit Passwort oder PIN …",
+      "entsperren": "Entsperren",
+      "datenbankWaehlen": "Datenbank auswählen …",
+      "neueDatenbank": "Neue Datenbank anlegen …",
+      "zuletztGenutzt": "Zuletzt genutzt"
+    },
+    "dialog": {
+      "titel": "Entsperren",
+      "mitBiometrie": "Mit Biometrie entsperren",
+      "appPin": "App-PIN",
+      "pinPlatzhalter": "PIN",
+      "masterPasswort": "Master-Passwort",
+      "masterPasswortFalls": "Master-Passwort (falls die PIN nicht passt)",
+      "biometrieKuenftig": "Künftig mit Biometrie öffnen",
+      "biometrieGeraetHinweis": "Ersetzt das Master-Passwort — der Schlüssel liegt im Sicherheitschip",
+      "biometrieSchluesselbundHinweis": "Der Finger weist dich aus, der Schlüssel liegt im Schlüsselbund",
+      "biometrieSchluesselbundHinweisPin": "Der Finger weist dich aus, der Schlüssel liegt im Schlüsselbund — dafür wird eine App-PIN festgelegt",
+      "pinKuenftig": "Künftig auch mit PIN öffnen",
+      "pinKuenftigHinweis": "Dafür wird gleich eine App-PIN festgelegt",
+      "bestaetigen": "Entsperren",
+      "eingabeFehlt": "Bitte PIN oder Master-Passwort eingeben."
+    },
+    "appPinAbfrage": {
+      "titel": "App-PIN bestätigen",
+      "text": "Zum Freischalten dieser Datenbank wird die PIN des Programms gebraucht.",
+      "platzhalter": "App-PIN",
+      "bestaetigen": "Bestätigen"
+    },
+    "herkunft": {
+      "downloads": "Downloads",
+      "geraetespeicher": "Gerätespeicher",
+      "medien": "Medien"
+    },
+    "biometrieFehlt": {
+      "keinFinger": "Kein Finger oder Gesicht hinterlegt — in den Android-Einstellungen einrichten.",
+      "nichtVerfuegbar": "Auf dem Gerät nicht verfügbar",
+      "ohneSchluesselbund": "Ohne Schlüsselbund nicht möglich"
+    },
+    "willkommen": {
+      "titel": "Willkommen bei WKeePass",
+      "text": "Für die einfachere Verwendung der App lassen sich eine <b>PIN</b> und/oder <b>Biometrie</b> zum Entschlüsseln der Daten und zum Bestätigen beim Entnehmen nutzen. Nach der Einrichtung kann pro Datenbank individuell die vereinfachte Entschlüsselung und Bestätigung eingestellt werden.",
+      "pinEinrichten": "PIN einrichten",
+      "pinPlatzhalter": "Mindestens vier Zeichen",
+      "pinWiederholen": "PIN wiederholen",
+      "sichtbar": "Sichtbar machen",
+      "geraetNutzen": "{name} nutzen",
+      "geraetHinweis": "Ersetzt PIN und Master-Passwort. Der Schlüssel liegt im Sicherheitschip dieses Geräts — eine PIN ist dann nur noch Rückfallweg.",
+      "biometrieNutzen": "Biometrie-Entsperrung nutzen",
+      "einrichten": "Einrichten",
+      "ohnePin": "Ohne PIN weiter",
+      "pinFehlt": "Bitte eine PIN vergeben — oder „Ohne PIN weiter\".",
+      "pinUngleich": "Die beiden PINs stimmen nicht überein.",
+      "pinFestgelegt": "PIN festgelegt.",
+      "geraetEinrichtung": "{name} wird beim ersten Öffnen eingerichtet."
+    },
+    "trotzdemSperren": {
+      "titel": "Nicht gespeichert",
+      "text": "Sperrst du trotzdem, gehen die Änderungen seit dem letzten Speichern verloren.",
+      "bestaetigen": "Trotzdem sperren"
+    },
+    "zugriffEntzogen": {
+      "titel": "Kein Zugriff mehr auf die Datei",
+      "text1": "Android hat WKeePass den Zugriff auf diese Datei entzogen. Das passiert, wenn ein anderes Programm sie gelöscht und neu angelegt hat, statt sie zu überschreiben.",
+      "text2": "Geöffnet ist die Offline-Kopie — speichern geht so nicht. Wähle die Datei einmal neu aus, dann gilt der Zugriff wieder dauerhaft.",
+      "neuWaehlen": "Datei neu wählen",
+      "spaeter": "Später"
+    },
+    "appPin": {
+      "titel": "PIN festlegen",
+      "text1": "Diese PIN gilt für das ganze Programm. Bei jeder Datenbank entscheidest du danach einzeln, ob sie damit geöffnet werden darf.",
+      "text2": "Nach fünf Fehlversuchen wird die PIN verworfen. Eine Wiederherstellung gibt es nicht — dann geht es mit den Master-Passwörtern weiter.",
+      "neuePin": "Neue PIN",
+      "platzhalter": "Mindestens vier Zeichen",
+      "wiederholen": "Wiederholen",
+      "wiederholenPlatzhalter": "PIN wiederholen",
+      "festlegen": "Festlegen",
+      "eingeben": "Bitte eine PIN eingeben.",
+      "ungleich": "Die beiden PINs stimmen nicht überein.",
+      "festgelegt": "PIN festgelegt."
+    },
+    "freigabe": {
+      "titel": "Diese Datenbank freischalten",
+      "offenNoetig": "Dafür muss die Datenbank offen sein.",
+      "mitPin": "Mit PIN öffnen",
+      "mitPinHinweis": "Das Master-Passwort wird verschlüsselt hinterlegt; zum Öffnen genügt dann die App-PIN.",
+      "mitFingerabdruck": "Mit Fingerabdruck öffnen",
+      "fingerabdruckHinweis": "Der Fingerabdruck ist dabei <em>kein Schlüssel</em>, sondern der Nachweis, dass du es bist — der Schutz kommt allein aus dem Schlüsselbund. Damit ist dieser Weg schwächer als die PIN, denn ein Angreifer braucht nur eines statt zwei. Auf macOS und Windows erzwingt die Hardware die Prüfung, unter Linux dieses Programm.",
+      "pinBestaetigen": "Zum Bestätigen die App-PIN eingeben:",
+      "pinPlatzhalter": "App-PIN",
+      "uebernehmen": "Übernehmen",
+      "ohnePin": "Ohne PIN lässt sich das nicht bestätigen.",
+      "gespeichert": "Freigabe gespeichert.",
+      "mitGeraet": "Mit {name} öffnen",
+      "geraetHinweis": "Ersetzt beim Öffnen PIN und Master-Passwort. Das Master-Passwort wird mit einem Schlüssel versiegelt, den der Sicherheitschip dieses Geräts erst nach der Prüfung durch {name} herausgibt — eine kopierte Datei nützt ohne dieses Gerät nichts.",
+      "windowsZweimal": "Beim ersten Einrichten fragt Windows unter Umständen zweimal.",
+      "rueckfall": "Rückfallweg, falls {name} gerade nicht geht.",
+      "pinFreigabeOhnePin": "Ohne PIN lässt sich die PIN-Freigabe nicht ändern."
+    },
+    "pinEntfernen": {
+      "titel": "PIN entfernen",
+      "text": "Die PIN und alle Freigaben werden verworfen. Danach öffnest du jede Datenbank wieder mit ihrem Master-Passwort.",
+      "bestaetigen": "Entfernen",
+      "entfernt": "PIN entfernt."
+    },
+    "pinAendern": {
+      "titel": "PIN ändern",
+      "text1": "Die freigeschalteten Datenbanken bleiben erhalten — sie werden im Hintergrund auf die neue PIN umgeschlüsselt. Du musst also <strong>keine</strong> Master-Passwörter erneut eingeben.",
+      "text2": "Hast du die bisherige PIN vergessen, hilft nur „Entfernen“ — dann sind alle Freigaben weg und jede Datenbank braucht wieder ihr Master-Passwort.",
+      "bisherige": "Bisherige PIN",
+      "neue": "Neue PIN",
+      "neueWiederholen": "Neue PIN wiederholen",
+      "bestaetigen": "Ändern",
+      "beideNoetig": "Bitte beide PINs eingeben.",
+      "ungleich": "Die beiden neuen PINs stimmen nicht überein.",
+      "geaendert": "PIN geändert. Alle Freigaben gelten weiter."
+    },
+    "anlegen": {
+      "titel": "Neue Datenbank anlegen",
+      "name": "Name der Datenbank",
+      "standardName": "Passwörter",
+      "staerke": "Verschlüsselungsstärke",
+      "hinweis": "Das Master-Passwort ist der Hauptschlüssel. Es gibt keine Wiederherstellung — ist es weg, sind die Einträge weg.",
+      "passwort": "Master-Passwort",
+      "passwortWiederholen": "Master-Passwort wiederholen",
+      "weiter": "Weiter zum Speicherort",
+      "passwortFehlt": "Ohne Master-Passwort geht es nicht.",
+      "passwortUngleich": "Die beiden Passwörter stimmen nicht überein.",
+      "keinOrt": "Es wurde kein Speicherort ausgewählt.",
+      "angelegt": "Datenbank angelegt.",
+      "fehlgeschlagen": "Anlegen fehlgeschlagen: {fehler}"
+    },
+    "entsperren": {
+      "laeuft": "Es läuft bereits ein Entsperrversuch.",
+      "zuerstWaehlen": "Bitte zuerst eine Datenbank auswählen.",
+      "offlineKopie": "Die Datei ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie vom {datum}. Speichern geht erst wieder, wenn die Datei da ist.",
+      "nurLesen": "{format} kann nur gelesen werden — Änderungen lassen sich nicht speichern.",
+      "diesesFormat": "Dieses Format",
+      "freigabeGeraet": "Datenbank für {name} freigeschaltet.",
+      "freigabePin": "Datenbank für die PIN freigeschaltet.",
+      "fehlgeschlagen": "Entsperren fehlgeschlagen: {fehler}",
+      "entschluesselt": "Wird entschlüsselt … das dauert einen Moment."
+    },
+    "sperren": {
+      "gesperrt": "Gesperrt — die Werte wurden aus dem Speicher entfernt.",
+      "banner": "Datenbank gesperrt."
+    }
+  },
+  "anfrage": {
+    "nachweis": {
+      "pin": "PIN",
+      "master": "Master-Passwort",
+      "sichtbar": "Sichtbar machen",
+      "biometrie": "Biometrie",
+      "fingerabdruck": "Fingerabdruck",
+      "bioEntsperren": "Mit {name} entsperren",
+      "bioBestaetigen": "Mit {name} bestätigen",
+      "bioBestaetigenStandard": "Mit Fingerabdruck bestätigen",
+      "grund": "Zugriff aus dem Browser"
+    },
+    "text": {
+      "unlock": "Die Datenbank ist gesperrt. Ein Browser wartet darauf.",
+      "logins": "Der Browser möchte Benutzername und Passwort einsetzen.",
+      "totp": "Der Browser möchte einen Einmalcode abrufen.",
+      "create": "Ein neuer Eintrag soll angelegt werden.",
+      "update": "Das Passwort soll geändert werden.",
+      "delete": "Ein Eintrag soll in den Papierkorb wandern.",
+      "passkeyRegister": "Ein Passkey soll angelegt werden.",
+      "passkeyGet": "Mit einem Passkey soll angemeldet werden.",
+      "sonst": "Zugriff auf die Datenbank."
+    },
+    "titel": {
+      "entsperren": "Datenbank entsperren",
+      "anfrage": "Anfrage aus dem Browser"
+    },
+    "warnung": "<strong>Achtung:</strong> Das Formular geht an {ziel} — nicht an die besuchte Seite.",
+    "eintrag": {
+      "ohneName": "(ohne Namen)"
+    },
+    "knoepfe": {
+      "entsperren": "Entsperren",
+      "uebernehmen": "Übernehmen",
+      "einMoment": "Einen Moment …"
+    },
+    "datenbank": {
+      "keineAusgewaehlt": "Keine ausgewählt"
+    },
+    "fehler": {
+      "keineDatenbank": "Es ist keine Datenbank ausgewählt. Bitte einmal im Hauptfenster öffnen.",
+      "nichtGeklappt": "Das hat nicht geklappt.",
+      "nichtErreichbar": "Nicht erreichbar"
+    },
+    "einstellungen": {
+      "titel": "Einstellungen",
+      "kopf": "Browser-Erweiterung",
+      "unterkopf": "Vor dem Ausfüllen",
+      "nichts": "Nichts",
+      "bestaetigen": "Bestätigen",
+      "legitimieren": "Legitimieren",
+      "notizNever": "Verknüpfte Browser füllen ohne Rückfrage aus. Ab der nächsten Anfrage — diese hier will noch beantwortet werden.",
+      "notizConfirm": "Ein Knopfdruck genügt — Abbrechen oder Übernehmen, ohne Nachweis.",
+      "notizIdentify": "PIN, Master-Passwort oder Fingerabdruck. Wie lange danach nicht erneut gefragt wird, steht in den Einstellungen."
+    }
+  }
+}

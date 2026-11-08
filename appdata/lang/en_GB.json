@@ -1,0 +1,1316 @@
+{
+  "allgemein": {
+    "knoepfe": {
+      "schliessen": "Close",
+      "abbrechen": "Cancel",
+      "zurueck": "Back"
+    },
+    "zeit": {
+      "geradeEben": "just now",
+      "vorMinuten": {
+        "one": "{n} minute ago",
+        "other": "{n} minutes ago"
+      },
+      "heute": "today, {uhr}",
+      "tagUhr": "{tag}, {uhr}"
+    }
+  },
+  "navigation": {
+    "start": "Home",
+    "eintraege": "Entries",
+    "totp": "TOTP",
+    "einstellungen": "Settings",
+    "neu": "Add new",
+    "kopf": {
+      "sperren": "Lock database"
+    },
+    "titel": {
+      "home": "Overview",
+      "passwords": "Entries",
+      "totp": "TOTP codes",
+      "security": "Security check",
+      "settings": "Settings",
+      "dateien": "Files"
+    }
+  },
+  "uebersicht": {
+    "kacheln": {
+      "eintraege": "Entries",
+      "passkeys": "Passkeys",
+      "totp": "TOTP codes",
+      "dateien": "Files",
+      "sicherheit": "Security check",
+      "anzahl": {
+        "one": "{n} entry",
+        "other": "{n} entries"
+      },
+      "codes": {
+        "one": "{n} code",
+        "other": "{n} codes"
+      },
+      "funde": {
+        "one": "{n} finding",
+        "other": "{n} findings"
+      },
+      "ungeprueft": "not checked yet"
+    },
+    "zuletzt": {
+      "titel": "Recently used"
+    }
+  },
+  "eintraege": {
+    "liste": {
+      "suchen": "Search …"
+    },
+    "loeschen": "Delete",
+    "leer": "No entries.",
+    "keineGefunden": "No entries found.",
+    "iconNeuLaden": "Reloading icon.",
+    "kopiert": {
+      "benutzername": "Username copied",
+      "passwort": "Password copied",
+      "totp": "TOTP copied"
+    },
+    "menue": {
+      "wiederherstellen": "Restore",
+      "endgueltigLoeschen": "Delete permanently",
+      "papierkorbLeeren": "Empty Recycle Bin",
+      "ordnerBearbeiten": "Edit folder",
+      "eintragBearbeiten": "Edit entry",
+      "benutzernameKopieren": "Copy username",
+      "passwortKopieren": "Copy password",
+      "totpKopieren": "Copy TOTP",
+      "ausschneiden": "Cut",
+      "iconNeuLaden": "Reload icon",
+      "namenUebernehmen": "Use name from website",
+      "einfuegen": "Paste",
+      "einfuegenAnzahl": "Paste ({n})",
+      "neuerEintrag": "New entry",
+      "neuerUnterordner": "New subfolder",
+      "neuerOrdner": "New folder",
+      "eintragLoeschen": "Delete entry",
+      "ordnerLoeschen": "Delete folder",
+      "wiederhergestellt": "Restored.",
+      "endgueltigGeloescht": "Permanently deleted."
+    },
+    "ordnerLoeschen": {
+      "titel": "Delete folder",
+      "text": "“{name}” will be removed. Folders containing entries can’t be deleted.",
+      "nichtLeer": "The folder isn’t empty.",
+      "geloescht": "Folder deleted."
+    },
+    "eintragLoeschen": {
+      "titel": "Delete entry",
+      "text": "“{name}” will be removed from the database. This can’t be undone.",
+      "geloescht": "Entry deleted."
+    },
+    "ausschneiden": {
+      "eins": "“{name}” cut — paste it into the destination folder (Ctrl+V).",
+      "mehrere": "{n} entries cut — paste them into the destination folder (Ctrl+V)."
+    },
+    "einfuegen": {
+      "nichts": "Nothing has been cut.",
+      "nichtHier": "Nothing can be pasted here.",
+      "schonDa": "Already in this folder.",
+      "verschobenEins": "Moved to “{ordner}”.",
+      "verschobenMehrere": "{n} entries moved to “{ordner}”."
+    },
+    "titel": {
+      "keineGeaendert": "No names changed.",
+      "uebernommen": {
+        "one": "{n} name applied.",
+        "other": "{n} names applied."
+      }
+    },
+    "spalten": {
+      "name": "Name",
+      "benutzer": "User",
+      "url": "URL",
+      "ordner": "Folder",
+      "unterordner": "Subfolder",
+      "zustandPasswort": "Password status",
+      "totpHinterlegt": "TOTP set up",
+      "anhangVorhanden": "Has attachment",
+      "code": "Code",
+      "geaendert": "Modified",
+      "endgueltigWeg": "Gone for good"
+    },
+    "ampel": {
+      "keins": "No password set",
+      "geleakt": "Password found in {n} leaks",
+      "staerke": "Password {staerke}",
+      "abgelaufen": "Password expired",
+      "mehrfach": "Password used more than once",
+      "laeuftAb": {
+        "one": "Password expires in {n} day",
+        "other": "Password expires in {n} days"
+      },
+      "unauffaellig": "No issues"
+    },
+    "artFilter": {
+      "passkeys": "Passkeys only",
+      "dateien": "Files",
+      "zurueck": "Back to all entries",
+      "aufheben": "Clear filter"
+    },
+    "legende": {
+      "passwort": "Password:",
+      "gut": "Good",
+      "achtung": "Caution",
+      "problem": "Problem",
+      "keins": "none",
+      "totp": "TOTP",
+      "anhang": "Attachment"
+    },
+    "zeile": {
+      "passkey": "Passkey",
+      "anhaenge": {
+        "one": "{n} attachment",
+        "other": "{n} attachments"
+      },
+      "beimOeffnen": "next time it opens",
+      "inTagen": {
+        "one": "in {n} day",
+        "other": "in {n} days"
+      },
+      "mehr": "More",
+      "imPapierkorb": "In the Recycle Bin"
+    },
+    "papierkorb": {
+      "titel": "Recycle Bin",
+      "zusammenfassung": {
+        "one": "{n} entry · permanently deleted after {tage} days",
+        "other": "{n} entries · permanently deleted after {tage} days"
+      },
+      "leeren": "Empty",
+      "istLeer": "The Recycle Bin is empty.",
+      "leerenText": {
+        "one": "{n} entry will be permanently removed. This can’t be undone.",
+        "other": "{n} entries will be permanently removed. This can’t be undone."
+      },
+      "geleert": {
+        "one": "{n} entry permanently deleted.",
+        "other": "{n} entries permanently deleted."
+      }
+    },
+    "dateien": {
+      "eintragOeffnenLang": "Open entry — name, password, notes",
+      "eintragOeffnen": "Open entry",
+      "keine": "No files found.",
+      "zumAnzeigen": "{name} — click to view",
+      "herunterladen": "Download",
+      "datei": "File",
+      "eintrag": "Entry",
+      "nichtLesbar": "The file couldn’t be read."
+    },
+    "verschieben": {
+      "ordnerNicht": "This folder can’t be moved there.",
+      "ordnerVerschoben": "Folder moved.",
+      "reihenfolge": "Order changed."
+    },
+    "auswahl": {
+      "anzahl": "{n} selected",
+      "verschieben": "Move …",
+      "aufheben": "Clear selection",
+      "verschiebenTitel": {
+        "one": "Move {n} entry",
+        "other": "Move {n} entries"
+      },
+      "zielordner": "Destination folder",
+      "verschiebenKnopf": "Move",
+      "verschoben": "{n} moved.",
+      "loeschenTitel": {
+        "one": "Delete {n} entry",
+        "other": "Delete {n} entries"
+      },
+      "loeschenImPapierkorb": "These entries are already in the Recycle Bin and will be permanently removed. This can’t be undone.",
+      "loeschenText": "The entries will go to the Recycle Bin, from where they can be restored.",
+      "inPapierkorb": "Move to Recycle Bin",
+      "geloescht": {
+        "one": "{n} entry deleted.",
+        "other": "{n} entries deleted."
+      }
+    }
+  },
+  "start": {
+    "meldungen": {
+      "untaetig": "Locked due to inactivity.",
+      "autofillGespeichert": {
+        "one": "One login from Autofill was saved.",
+        "other": "{n} logins from Autofill were saved."
+      },
+      "nichtGespeichert": "Change not saved: {grund}",
+      "codeNachEntsperren": "Unlock — the code will be added afterwards.",
+      "dateiNachgeholt": "Saved in the app, but not yet to the file: {grund} – it will be saved later."
+    },
+    "browser": {
+      "wartet": "A browser is waiting for the database.",
+      "entsperrt": "Unlocked from the browser.",
+      "nichtGespeichert": "Change from the browser not saved: {grund}"
+    },
+    "fehler": {
+      "titel": "WKeePass couldn’t start",
+      "neuLaden": "Reload"
+    }
+  },
+  "daten": {
+    "import": {
+      "fehler": {
+        "leer": "The file is empty.",
+        "jsonNichtLesbar": "The JSON file can’t be read.",
+        "keineOtpauth": "The file contains no otpauth address.",
+        "protonVerschluesselt": "The Proton Pass export is encrypted. Please export it without PGP.",
+        "bitwardenVerschluesselt": "The Bitwarden export is encrypted. Please export it as “.json” without password protection.",
+        "aegisVerschluesselt": "The Aegis export is encrypted. Please export it unencrypted.",
+        "zweifasVerschluesselt": "The 2FAS export is encrypted. Please export it without a password.",
+        "jsonUnbekannt": "This JSON format is not recognised. Supported: Bitwarden, Proton, Aegis, 2FAS, andOTP.",
+        "xmlNichtLesbar": "The XML file can’t be read.",
+        "keineKeepassXml": "This is not a KeePass XML file.",
+        "zipBeschaedigt": "The ZIP file is damaged.",
+        "zipKeinExport": "The ZIP file contains no known export.",
+        "exportVerschluesselt": "The export is encrypted. Please export it without PGP.",
+        "zipKompression": "This ZIP compression is not supported — please extract the file.",
+        "zipNichtUnterstuetzt": "ZIP is not supported here — please extract the file first.",
+        "csvLeer": "The CSV file contains no entries."
+      },
+      "quelle": {
+        "ohneNamen": "Unnamed",
+        "zweiFaListe": "2FA list",
+        "spalte": "Column {n}"
+      },
+      "felder": {
+        "nichtUebernehmen": "Don’t import",
+        "name": "Name",
+        "url": "Address",
+        "username": "Username",
+        "email": "Email",
+        "password": "Password",
+        "totp": "2FA key",
+        "notes": "Notes",
+        "folder": "Folder",
+        "tags": "Tags",
+        "extra": "Append to notes"
+      }
+    },
+    "anhaenge": {
+      "warnung": {
+        "titel": "Save unencrypted?",
+        "text1": "<p>“{name}” is stored encrypted in the database. When you download it, the file is written to the disk <strong>unencrypted</strong>.</p>",
+        "text2": "<p>After that, any program and anyone with access to that folder can read it, and syncing may take it along. Delete the copy when you no longer need it.</p>",
+        "bestaetigen": "Save unencrypted"
+      },
+      "meldung": {
+        "gespeichert": "Saved to {pfad}",
+        "fehler": "Saving failed: {fehler}"
+      }
+    },
+    "vorschau": {
+      "markdown": {
+        "details": "Details",
+        "bild": "[Image: {text}]"
+      },
+      "pdf": {
+        "hinweis": "If the embedded viewer shows nothing, download the file using the button at the top right."
+      },
+      "keineVorschau": "There is no preview for this file type.<br>Download it using the button at the top right to open it.",
+      "fehler": "Preview not possible: {fehler}"
+    },
+    "qr": {
+      "fehler": {
+        "scannerFehlt": "This environment can’t read QR codes.",
+        "keinCodeBild": "No QR code found in the image.",
+        "keinCodeFoto": "No QR code found in the photo.",
+        "keinBild": "The camera isn’t providing an image.",
+        "keinKamerazugriff": "Camera access isn’t possible.",
+        "schwarzesBild": "only provides a black image",
+        "keinKamerabild": "No camera image. {probleme}. Instead, “QR code from image” works with a screenshot or photo.",
+        "abgebrochen": "cancelled",
+        "auswertung": "Evaluation failed: {fehler}",
+        "keineDaten": "The code contains no data.",
+        "keineKonten": "The code contains no readable accounts."
+      },
+      "kamera": {
+        "standard": "default camera",
+        "rueck": "rear camera",
+        "k640": "camera 640×480",
+        "rueckHd": "rear camera (HD)",
+        "rueckWunsch": "rear camera (requested)"
+      },
+      "konto": "Account",
+      "wlan": {
+        "name": "Wi-Fi {name}",
+        "ohneName": "Wi-Fi",
+        "verschluesselung": "Encryption: {art}"
+      }
+    },
+    "sicherheit": {
+      "staerke": {
+        "leer": "empty",
+        "schwach0": "very weak",
+        "schwach1": "weak",
+        "mittel": "fair",
+        "stark": "strong",
+        "sehrStark": "very strong"
+      },
+      "hinweise": {
+        "keinPasswort": "No password set.",
+        "haeufig": "Appears on lists of common passwords.",
+        "wort": "Contains the common word “{wort}”.",
+        "einZeichen": "Consists of a single repeated character.",
+        "wiederholt": "Contains repeated characters.",
+        "reihenfolge": "Contains a keyboard or alphabetical sequence.",
+        "ziffern": "Consists of digits only.",
+        "jahr": "Looks like a year.",
+        "kurz": "Shorter than 8 characters.",
+        "keineGross": "No capital letters.",
+        "keineSonder": "No special characters."
+      },
+      "fehler": {
+        "ueberlastet": "Service overloaded, please check again later"
+      }
+    }
+  },
+  "dialoge": {
+    "anlegen": {
+      "wahl": {
+        "titel": "Add new",
+        "eintrag": {
+          "titel": "Create entry",
+          "text": "Enter name, username and password yourself"
+        },
+        "dateien": {
+          "titel": "Store files",
+          "text": "Keep documents encrypted in the database"
+        },
+        "ordner": {
+          "titel": "Create folder",
+          "text": "For sorting your entries"
+        },
+        "import": {
+          "titel": "Import",
+          "text": "Bring in passwords and 2FA codes from other apps"
+        },
+        "kamera": {
+          "titel": "Scan QR code",
+          "text": "Set up TOTP or read a bulk export"
+        },
+        "bild": {
+          "titel": "QR code from image",
+          "text": "Choose a screenshot or photo"
+        },
+        "nichtVerfuegbar": "Not available in this browser"
+      },
+      "scan": {
+        "fehler": "Scan failed: {fehler}",
+        "nichtLesbar": "Code not readable: {fehler}",
+        "fido": "This is a sign-in code for passkeys, not transferable credentials. Passkeys are created by the system dialogue of the website."
+      },
+      "totp": {
+        "keinSecret": "The code contains no TOTP secret.",
+        "titel": "Add TOTP",
+        "gefunden": "Found: {name}",
+        "konto": "Account",
+        "neu": {
+          "titel": "New entry",
+          "text": "Creates a separate entry for it"
+        },
+        "bestehend": {
+          "titel": "Add to existing entry",
+          "text": "Attach it to an existing entry",
+          "alleBelegt": "All entries already have a TOTP"
+        },
+        "auswaehlen": "Choose entry",
+        "uebernehmen": "Apply",
+        "nichtGefunden": "Entry not found.",
+        "hinzugefuegt": "TOTP added to “{name}”."
+      },
+      "sammel": {
+        "titel": "Bulk export found",
+        "text": "The code contains <strong>{n}</strong> accounts. Each one is created as a separate entry.",
+        "anlegen": "Create {n} entries",
+        "angelegt": "{n} entries created.",
+        "angelegtUebersprungen": "{n} entries created, {uebersprungen} skipped (no TOTP)."
+      },
+      "import": {
+        "erstEntsperren": "Unlock the database first.",
+        "nichtMoeglich": "Import not possible: {fehler}",
+        "alleVorhanden": "All {n} entries from {quelle} already exist.",
+        "leer": "No entries yet — assign at least password, username, address or 2FA key to a column below.",
+        "zusammenfassung": "<strong>{n}</strong> entries — {pw} with a password, {totp} with a 2FA code. They will go into the folder {ordner}.",
+        "zusammenfassungDoppelt": "<strong>{n}</strong> entries — {pw} with a password, {totp} with a 2FA code, {doppelt} already exist and were skipped. They will go into the folder {ordner}.",
+        "zweiFA": "2FA code",
+        "weitere": "… and {n} more",
+        "spalte": "Column {n}",
+        "spaltenZuordnen": "Assign columns",
+        "importieren": "Import {n} entries",
+        "importierenKurz": "Import",
+        "titel": "Import from {quelle}",
+        "klartext": "The export file contains everything in plain text — it’s best to delete it afterwards.",
+        "teilweise": "{n} imported, {fehlt} not imported ({fehler}).",
+        "teilweiseMehr": "{n} imported, {fehlt} not imported ({fehler} …).",
+        "fertig": "{n} entries imported from {quelle}. It’s best to delete the export file now."
+      }
+    },
+    "konflikte": {
+      "art": {
+        "geaendert": "modified",
+        "geloescht": "deleted"
+      },
+      "seite": {
+        "geloescht": "Entry deleted",
+        "feldGeaendert": "{name} changed",
+        "hier": "Changed here",
+        "datei": "Changed in the file"
+      },
+      "ohneTitel": "(untitled)",
+      "gilt": {
+        "hier": "The version from here currently applies.",
+        "datei": "The version from the file currently applies."
+      },
+      "wahl": {
+        "behalten": "Keep mine",
+        "nehmen": "Take from file"
+      },
+      "titel": {
+        "eins": "An entry was changed on both sides",
+        "mehrere": "{n} entries were changed on both sides"
+      },
+      "hinweis": "Since the last sync, these entries were changed differently here and in the file. Which version should apply? Until you decide, the newer one applies.",
+      "spaeter": "Later",
+      "entschieden": {
+        "hier": "Decided: your version.",
+        "datei": "Decided: the version from the file."
+      },
+      "fehler": "Not applied: {fehler}"
+    },
+    "versionen": {
+      "herkunft": {
+        "extern": "from the file",
+        "hier": "here",
+        "beide": "here and in the file"
+      },
+      "art": {
+        "neu": {
+          "label": "Added",
+          "kurz": "new"
+        },
+        "geloescht": {
+          "label": "Deleted",
+          "kurz": "deleted"
+        },
+        "geaendert": {
+          "label": "Modified",
+          "kurz": "modified"
+        }
+      },
+      "passiert": {
+        "papierkorb": "to the Recycle Bin",
+        "wiederhergestellt": "restored",
+        "verschoben": "moved"
+      },
+      "kurz": {
+        "aeltester": "Oldest saved version",
+        "keine": "No entries changed"
+      },
+      "ohneTitel": "(untitled)",
+      "liste": {
+        "fehler": "Versions can’t be read: {fehler}",
+        "leer": "No versions yet — the first one is created the next time you open or save.",
+        "titel": "Versions",
+        "hinweis": "The most recent versions of the file, newest at the top. Under each one you can see what it changed — tap it for details and to undo the change.",
+        "aktuell": "current version",
+        "nichtLesbar": "Not readable"
+      },
+      "stand": {
+        "vergleichFehler": "The version couldn’t be compared: {fehler}",
+        "feldGeaendert": "{name} changed",
+        "zuruecknehmen": "Undo",
+        "zuruecknehmenTitel": "Restore the entry as it was before this version",
+        "aeltesterHinweis": "This is the oldest saved version — what it changed compared with the one before can no longer be determined.",
+        "nichtsGeaendert": "This version changed nothing in the entries.",
+        "titel": "Version {zeit}",
+        "gegenueber": "This is what this version changed compared with the one before.",
+        "liegtDa": "This is how the file currently is.",
+        "ganzZurueckHinweis": "“Revert fully to this version” sets all entries back to how they were then — what came afterwards remains in the versions.",
+        "ganzZurueck": "Revert fully to this version",
+        "zurueckgenommen": "Undone"
+      },
+      "zurueckholen": {
+        "eintrag": "Entry restored and saved.",
+        "eintraege": {
+          "one": "{n} entry restored and saved.",
+          "other": "{n} entries restored and saved."
+        },
+        "fehler": "Restoring failed: {fehler}"
+      }
+    },
+    "eintrag": {
+      "allgemein": {
+        "anzeigen": "Show",
+        "verbergen": "Hide",
+        "kopieren": "Copy"
+      },
+      "ansicht": {
+        "ariaLabel": "View",
+        "dateien": "Files",
+        "alleFelder": "All fields"
+      },
+      "titel": {
+        "neueDateiablage": "New file store",
+        "neuerEintrag": "New entry"
+      },
+      "felder": {
+        "name": "Name",
+        "ordner": "Folder",
+        "tags": "Tags (comma)",
+        "url": "URL"
+      },
+      "knoepfe": {
+        "speichern": "Save",
+        "anlegen": "Create",
+        "ja": "Yes",
+        "nein": "No"
+      },
+      "passwort": {
+        "titel": "Password",
+        "gesetzt": "set",
+        "leer": "empty",
+        "benutzername": "Username",
+        "passwort": "Password",
+        "platzhalter": "none set yet",
+        "neuErzeugen": "Regenerate",
+        "staerke": "Strength: {label}",
+        "bit": "{n} bits",
+        "hinweis": "The saved password is held in the core. It is only fetched when you click the field or choose “Show” — and only written back if you actually change it.",
+        "ablaufdatum": "Expiry date (optional)",
+        "ablaufEntfernen": "Remove expiry date"
+      },
+      "totp": {
+        "titel": "TOTP",
+        "eingerichtet": "set up",
+        "nichtEingerichtet": "not set up",
+        "secret": "Secret (Base32) or otpauth:// URI",
+        "scanKamera": "Scan QR code",
+        "scanBild": "QR code from image",
+        "stellen": "Digits",
+        "intervall": "Interval (sec.)",
+        "algorithmus": "Algorithm",
+        "qrCode": "QR code",
+        "kontoName": "Account"
+      },
+      "passkey": {
+        "titel": "Passkey",
+        "hinterlegt": "stored",
+        "keiner": "none",
+        "konto": "Account: {name} · ",
+        "beschreibung": "Sign in without a password — the secret key is stored only in this database.",
+        "hinweis": "You create a passkey directly with the service (“Create passkey”). A browser extension or Android then asks WKeePass, and it ends up in an entry automatically."
+      },
+      "anhaenge": {
+        "titel": "Attachments",
+        "dateienTitel": "Files",
+        "anhaengen": "Attach file …",
+        "dateienHinzufuegen": "Add files …",
+        "neueDatei": "New file …",
+        "keine": "No attachments yet.",
+        "zumAnzeigen": "{name} — click to view",
+        "entfernen": "Remove",
+        "herunterladen": "Download",
+        "leer": "(empty)",
+        "dateienKeine": "No files yet",
+        "dateienHinweis": "Drag files onto the window, choose them below or create a new one. They are then stored encrypted in the database.",
+        "nochNichtGespeichert": "not saved yet"
+      },
+      "notizen": "Notes",
+      "qr": {
+        "titel": "QR code: {name}",
+        "wirdErzeugt": "Generating …",
+        "hinweis": "Scan it with an authenticator app. The code contains the secret in plain text — don’t share it and don’t let anyone photograph it."
+      },
+      "scan": {
+        "titel": "Scan QR code",
+        "rahmen": "Hold the code within the frame",
+        "foto": "Not working? Take a photo",
+        "fotoWirdAusgewertet": "Evaluating photo …",
+        "erkannt": "Recognised",
+        "kameraFehlt": "Camera not available: {fehler}",
+        "keineDekodierung": "QR decoding isn’t available. Paste the otpauth:// URI as text instead.",
+        "browserOhneQr": "This browser can’t read QR codes — in the desktop and app versions Rust handles that. Paste the otpauth:// URI here as text."
+      },
+      "viewer": {
+        "umbenennen": "Rename",
+        "umbenennenTitel": "{name} — rename",
+        "dateiname": "File name",
+        "bearbeiten": "Edit",
+        "wirdGeladen": "Loading …",
+        "aenderungenSpeichern": "Save changes?",
+        "wurdeBearbeitet": "“{name}” has been edited.",
+        "nameUngueltig": "The name must not be empty or contain a slash.",
+        "speichernFehlgeschlagen": "Saving failed: {fehler}",
+        "umbenennenFehlgeschlagen": "Renaming failed: {fehler}"
+      },
+      "neueDatei": {
+        "titel": "New file",
+        "platzhalter": "Note",
+        "art": "Type",
+        "arten": {
+          "text": "Text (.txt)",
+          "tabelle": "Spreadsheet (.csv)"
+        }
+      },
+      "meldungen": {
+        "gespeichert": "Entry saved.",
+        "leak": "Caution: this password appears {n}× in known leaks.",
+        "passwortKopiert": "Password copied",
+        "benutzernameKopiert": "Username copied",
+        "qrUebernommen": "QR code applied.",
+        "scanFehlgeschlagen": "Scan failed: {fehler}",
+        "keinSecret": "No TOTP secret stored.",
+        "anhaengenFehlgeschlagen": "Attaching failed: {fehler}",
+        "schonAngehaengt": "“{name}” is already attached to this entry.",
+        "nameVergeben": "“{name}” already exists in this entry.",
+        "anlegenFehlgeschlagen": "Creating failed: {fehler}"
+      }
+    },
+    "ordner": {
+      "titel": {
+        "anlegen": "Create folder",
+        "bearbeiten": "Folder “{name}”"
+      },
+      "felder": {
+        "name": "Name",
+        "uebergeordnet": "Parent folder",
+        "obersteEbene": "— top level —"
+      },
+      "knoepfe": {
+        "speichern": "Save",
+        "anlegen": "Create"
+      },
+      "meldungen": {
+        "nameLeer": "The name must not be empty.",
+        "schraegstrich": "Slashes aren’t allowed in folder names.",
+        "gespeichert": "Folder saved.",
+        "angelegt": "Folder created."
+      }
+    }
+  },
+  "sicherheit": {
+    "statistik": {
+      "leaked": "leaked passwords",
+      "weak": "weak passwords",
+      "reused": "used more than once",
+      "expiring": "expired / due soon",
+      "mail": "email leaks",
+      "inactive": "not used for a long time"
+    },
+    "gruppen": {
+      "leaked": "Leaked passwords",
+      "weak": "Weak passwords",
+      "reused": "Passwords used more than once",
+      "expiring": "Expiry dates"
+    },
+    "pruefung": {
+      "laeuft": "Checking …",
+      "jetzt": "Check now",
+      "zuletzt": "Last: {zeit}",
+      "nochNicht": "Not checked yet"
+    },
+    "keineTreffer": "No matches – nothing to do",
+    "leckDaten": {
+      "email": "Email address",
+      "passwort": "Password",
+      "benutzername": "Username",
+      "name": "Name",
+      "telefon": "Phone number",
+      "postanschrift": "Postal address",
+      "geburtsdatum": "Date of birth",
+      "ip": "IP address",
+      "geschlecht": "Gender",
+      "wohnort": "Place of residence",
+      "kreditkarte": "Credit card",
+      "kreditkarteTeil": "Parts of the credit card",
+      "kontonummer": "Account number",
+      "sicherheitsfragen": "Security questions",
+      "token": "Sign-in token",
+      "socialMedia": "Social media profile",
+      "nachrichten": "Private messages",
+      "browser": "Browser data",
+      "einkaeufe": "Purchases",
+      "beruf": "Occupation",
+      "arbeitgeber": "Employer"
+    },
+    "mail": {
+      "titel": "Email data breaches",
+      "rat": {
+        "passwortSofort": "<strong>Change your password immediately</strong> — it was stored in plain text or was easy to crack.",
+        "passwort": "Change your password — it was stored encrypted, but that doesn’t make it safe.",
+        "mehrfach": "You use the same password elsewhere — change it there too.",
+        "telefon": "Expect SMS and phone scams in the name of this service.",
+        "anschrift": "Your address or date of birth is known — be sceptical of requests “for confirmation”.",
+        "konto": "Check your bank statements and credit card for transactions that aren’t yours.",
+        "keinPasswort": "No password affected. The main thing here: read emails in the name of this service critically."
+      },
+      "abgeflossen": "Exposed: {daten}",
+      "oeffnen": "Open {name}",
+      "hilfe": {
+        "frage": "What does a match mean — and what should you do?",
+        "einleitung": "Your address was in data that was stolen from a service and published. That doesn’t mean anyone has been in your mailbox. The address can’t be taken back — and you don’t need to. What matters is <em>what</em> was exposed along with it; the advice below for each individual breach depends on that.",
+        "schritt1": "Change the password with the affected service — and everywhere else you use the same one.",
+        "schritt2": "Turn on two-factor authentication where possible. WKeePass can manage the codes too.",
+        "schritt3": "Expect phishing: attackers target leaked addresses, often in the name of exactly this service.",
+        "schritt4": "Delete accounts you no longer need with the service — a forgotten account is an open account.",
+        "schritt5": "Use alias addresses for new sign-ups if your email provider supports it. Then a breach only affects one of them.",
+        "abschluss": "Once you’ve done everything, tick off the address. The next check will report any new breaches."
+      },
+      "lecks": {
+        "one": "one breach",
+        "other": "{n} breaches"
+      },
+      "erledigt": "Done",
+      "erledigtListe": "Done: {adressen}"
+    },
+    "inaktiv": {
+      "vermerkt": "Noted — the entry counts as in use again.",
+      "aufwand": {
+        "easy": "can be done directly on the site",
+        "medium": "a few more steps",
+        "hard": "only via support",
+        "impossible": "doesn’t offer deletion"
+      },
+      "titel": "Not used for a long time",
+      "hinweis": "You haven’t used these logins for over two years. If you no longer need one, first delete the account with the service and then the entry — a forgotten account with an old password is a popular target. If it’s still needed, “Still in use” is enough.",
+      "zuletzt": "Last used: {monat}",
+      "kontoLoeschen": "Delete account {aufwand}",
+      "oeffnen": "Open",
+      "nochInGebrauch": "Still in use",
+      "kontoLoeschenKnopf": "Delete account",
+      "zurSeite": "Go to site",
+      "eintragLoeschen": "Delete entry"
+    },
+    "kontoFrage": {
+      "titel": "Account deleted?",
+      "text": "Have you deleted your account with {name}? Then the entry can go too.",
+      "papierkorb": "It goes to the database’s Recycle Bin in case you still need it.",
+      "loeschen": "Delete entry",
+      "nochNicht": "Not yet",
+      "erledigt": "Account done — entry deleted."
+    },
+    "fehler": {
+      "passwort": "Password check: {fehler}",
+      "email": "Email check: {fehler}"
+    },
+    "benachrichtigung": {
+      "titel": "WKeePass: new findings in the security check",
+      "passwoerter": {
+        "one": "{n} password is newly found in a leak.",
+        "other": "{n} passwords are newly found in a leak."
+      },
+      "lecks": {
+        "one": "{n} new data breach affecting your email addresses.",
+        "other": "{n} new data breaches affecting your email addresses."
+      }
+    },
+    "ergebnis": {
+      "teilweise": "Check partly failed: {fehler}",
+      "funde": "{n} findings in the check.",
+      "keine": "No problems found."
+    }
+  },
+  "einstellungen": {
+    "darstellung": {
+      "titel": "Appearance",
+      "farbschema": "Colour scheme",
+      "farbschemaHinweis": "System follows the operating system setting",
+      "hell": "Light",
+      "dunkel": "Dark",
+      "system": "System",
+      "akzentfarbe": "Accent colour",
+      "akzentfarbeHinweis": "Warning and danger colours stay unchanged so that alerts remain recognisable",
+      "sprache": "Language",
+      "spracheHinweis": "The interface is reloaded when you change this",
+      "spracheAuto": "Automatic (device language)"
+    },
+    "datenbank": {
+      "titel": "Database",
+      "entsperren": "Unlocking this database",
+      "pin": "PIN",
+      "fingerabdruck": "Fingerprint",
+      "und": " and ",
+      "nurMaster": "Master password only",
+      "appMethoden": "What the app offers at all: {link}",
+      "appMethodenLink": "App unlock methods",
+      "waehlen": "Choose …",
+      "warnen": "Warn before expiry",
+      "warnenHinweis": "Days in advance",
+      "papierkorb": "Empty Recycle Bin",
+      "papierkorbHinweis": "Permanently removes the deleted entries",
+      "papierkorbKnopf": "Empty …",
+      "name": "Database name",
+      "nameInDatei": "Stored in the file",
+      "namePlatzhalter": "Passwords",
+      "nameGespeichert": "Name saved.",
+      "geaendert": "modified {datum}"
+    },
+    "allgemein": {
+      "wirdGeladen": "Loading …",
+      "demo": "WKeePass · Demo in the browser",
+      "weiter": "Continue",
+      "spaeter": "Later in Settings",
+      "nichtVerfuegbar": "Not available",
+      "uebernehmen": "Apply",
+      "nichtGespeichert": "Not saved: {fehler}",
+      "gespeichert": "Setting saved.",
+      "keineKonfiguration": "Not a valid configuration."
+    },
+    "sperren": {
+      "titel": "Locking",
+      "automatisch": "Lock automatically",
+      "automatischHinweis": "Minutes of inactivity",
+      "zwischenablage": "Clear clipboard",
+      "zwischenablageHinweis": "Seconds after copying"
+    },
+    "browser": {
+      "titel": "Browser extension",
+      "stufeNichts": "Linked browsers fill in without asking.",
+      "stufeLegitimieren": "PIN, master password or fingerprint before filling in.",
+      "verknuepft": "linked",
+      "trennen": "Unlink",
+      "keinerVerknuepft": "No browser linked yet.",
+      "keinerEingetragen": "Not registered with any browser",
+      "stufeHinweis": "What happens when a linked browser requests credentials: nothing, a button press, or proof with PIN, master password or fingerprint.",
+      "fristHinweis": "Anyone who has just confirmed or unlocked is left alone for this long — a sign-in with several fields would otherwise ask repeatedly. After that you’re asked again. Doesn’t apply to “Nothing”; locking ends the grace period immediately.",
+      "beimStart": "Unlock when the browser starts",
+      "beimStartHinweis": "If the database is closed when the browser makes contact, the small window opens straight away — PIN, fingerprint or master password, and the extension has its data. Without this, you unlock via the extension’s menu when you need something.",
+      "erweiterung": "Extension",
+      "erweiterungHinweis": "KeePassXC-Browser — WKeePass speaks the same protocol, so it doesn’t have its own.",
+      "eingetragen": "Registered with",
+      "eingetragenHinweis": "“Set up” places a file for each browser that points to WKeePass — without it, the browser isn’t allowed to start WKeePass.",
+      "einrichten": "Set up",
+      "entfernen": "Remove",
+      "kanal": "Channel",
+      "nichtAktiv": "Not active",
+      "getrennt": "Link removed.",
+      "trennenFehler": "Unlinking failed: {fehler}",
+      "eingerichtetMeldung": "Set up: {liste}. Restart the browser.",
+      "entferntMeldung": "Removed: {liste}. Restart the browser.",
+      "keinGefunden": "No configured browser found.",
+      "fehlgeschlagen": "failed",
+      "einrichtenFehler": "Failed: {fehler}"
+    },
+    "eintraege": {
+      "titel": "Entries and websites",
+      "importieren": "Import from other apps",
+      "importierenHinweis": "Passwords and 2FA codes from Bitwarden, 1Password, LastPass, browsers, Aegis, 2FAS …",
+      "importierenKnopf": "Import …",
+      "iconsLaden": "Load website icons",
+      "iconsLadenHinweis": "Once, directly from the site itself, without an aggregator — ideally when signing in, while it’s reachable. After that the icon is stored in the database and is available offline and on all devices.",
+      "iconsNeu": "Fetch all icons again",
+      "iconsNeuHinweis": "Replaces the saved ones with freshly loaded ones",
+      "iconsNeuKnopf": "Reload",
+      "namen": "Names from the website",
+      "namenHinweis": "On: if the name is only an address, the entry is automatically named after the service — for example “GitHub” instead of “https://github.com/login”. Names you chose yourself are kept.",
+      "namenPruefenHinweis": "“Check now” compares all entries that have an address and, after asking, also replaces names you chose yourself.",
+      "namenAutomatisch": "Set names automatically",
+      "namenPruefen": "Check now",
+      "iconsAbruf": "Icons are being fetched again — they appear as soon as they’re ready.",
+      "keineUrl": "No entry has a URL.",
+      "uebernehmenTitel": "Apply names",
+      "uebernehmenText": "For {n} entries, the name will be replaced by the name of the service.",
+      "uebernehmenBrowser": "In the browser, the security policy of other sites blocks the request — the hostname is used instead."
+    },
+    "pruefungen": {
+      "titel": "Checks",
+      "staerke": "Show password strength",
+      "staerkeHinweis": "Calculated in the core",
+      "mehrfach": "Detect repeated use",
+      "mehrfachHinweis": "Comparison within the database",
+      "vorwarn": "Warning period before expiry",
+      "vorwarnHinweis": "Days before the expiry date",
+      "leaks": "Check passwords for leaks",
+      "leaksHinweis": "Have I Been Pwned — only a hash prefix is sent, never the password",
+      "email": "Check email addresses",
+      "emailHinweis": "Via XposedOrNot",
+      "benachrichtigen": "Notify about new findings",
+      "benachrichtigenHinweis": "When a check finds a new breach — including the automatic one",
+      "automatisch": "Check automatically",
+      "automatischHinweis": "When opening the app, if the last check was a while ago",
+      "zuletzt": " — last on {datum}",
+      "taeglich": "Daily",
+      "woechentlich": "Weekly",
+      "aus": "Off"
+    },
+    "appEntsperren": {
+      "einleitung": "What this device offers for unlocking. Which of them a database may use is set per database: Database → Unlocking this database.",
+      "biometrie": "Use biometrics",
+      "biometrieGeraet": "{geraet} — offered on opening, replaces PIN and master password",
+      "biometrieFinger": "Fingerprint or face recognition",
+      "biometrieNicht": "Not available on this device",
+      "pin": "App PIN",
+      "pinSchluesselbund": "Set — protected by PIN and keychain",
+      "pinOhne": "Set — without a keychain, everything depends on the PIN",
+      "pinKeine": "No PIN yet. Applies to all databases.",
+      "aendern": "Change …",
+      "entfernen": "Remove",
+      "festlegen": "Set …"
+    },
+    "export": {
+      "titel": "Export and import",
+      "exportieren": "Export settings",
+      "exportierenHinweis": "Save as settings.json",
+      "exportierenKnopf": "Export",
+      "importieren": "Import settings",
+      "importierenHinweis": "Apply from a settings.json",
+      "importierenKnopf": "Import",
+      "zuruecksetzen": "Reset to default",
+      "zuruecksetzenHinweis": "Settings only — databases, PIN and browser links remain",
+      "zuruecksetzenKnopf": "Reset",
+      "konfiguration": "Current configuration (settings.json)",
+      "exportiert": "settings.json exported.",
+      "importiert": "Settings imported.",
+      "nichtGelesen": "The file couldn’t be read: {fehler}",
+      "zuruecksetzenTitel": "Reset settings",
+      "zuruecksetzenText1": "Appearance, unlocking, checks, browser and Android return to their default values.",
+      "zuruecksetzenText2": "What stays: the database itself, the list of your databases with their own settings, the app PIN and the browser links.",
+      "zurueckgesetzt": "Reset to default."
+    },
+    "android": {
+      "passwortmanager": "Password manager",
+      "passwortmanagerText": "Fills in logins in apps and in the browser, and offers to save new ones.",
+      "passwortmanagerAktion": "Set as default",
+      "passkeys": "Passkeys",
+      "passkeysText": "Sign in without a password. Your passkeys are stored in your database, not with Google.",
+      "passkeysAktion": "Enable",
+      "passkeysFehlt": "Android 14 or later only",
+      "kamera": "Camera",
+      "kameraText": "Only for the QR scanner: set up two-factor codes without typing the secret.",
+      "kameraAktion": "Allow",
+      "stufeHinweis": "What happens when you tap a login in the list: nothing, a button press, or proof with PIN, master password or biometrics.",
+      "fristHinweis": "Anyone who has just confirmed or unlocked is left alone for this long — a form with a username and password would otherwise ask twice. Doesn’t apply to “Nothing”; locking ends the grace period immediately.",
+      "stufeNichts": "Logins are filled in without asking.",
+      "stufeLegitimieren": "PIN, master password or biometrics before filling in.",
+      "aktiv": "Active",
+      "nichtVerfuegbar": "Not available",
+      "inAppErlauben": "Allow in app settings"
+    },
+    "stufe": {
+      "nichts": "Nothing",
+      "bestaetigen": "Confirm",
+      "legitimieren": "Verify",
+      "titel": "Before filling in",
+      "bestaetigenMeldung": "A button press is enough — no proof needed."
+    },
+    "frist": {
+      "jedesMal": "Ask every time",
+      "sek30": "30 seconds",
+      "min1": "1 minute",
+      "min5": "5 minutes",
+      "min15": "15 minutes",
+      "titel": "Don’t ask again afterwards for"
+    },
+    "androidStart": {
+      "titel": "Three permissions for everyday use",
+      "text": "For WKeePass to be more than a vault and help you sign in, it needs permission from Android. None of this sends data anywhere — your passwords stay in your file."
+    },
+    "verschluesselung": {
+      "stufeSchnell": "Fast",
+      "hinweisSchnell": "Opens quickly, even on older devices",
+      "stufeZuegig": "Brisk",
+      "hinweisZuegig": "Slightly more protection, hardly slower",
+      "stufeStandard": "Standard",
+      "hinweisStandard": "A good compromise that works everywhere — recommended",
+      "stufeErhoeht": "Increased",
+      "hinweisErhoeht": "More memory, harder for graphics cards — on iPhone/iPad, filling in via the keyboard no longer works",
+      "stufeHoch": "High",
+      "hinweisHoch": "Even more memory — no filling in via the keyboard on iPhone/iPad",
+      "stufeStark": "Strong",
+      "hinweisStark": "Best possible protection, noticeably longer to open — no filling in via the keyboard on iPhone/iPad",
+      "werte": "{it} passes · {mib} MiB · {faeden}",
+      "faeden": {
+        "one": "{n} thread",
+        "other": "{n} threads"
+      },
+      "titel": "Encryption strength",
+      "erklaerung": {
+        "einleitung": "A key is first derived from the master password — deliberately slowly, using Argon2. Every guess an attacker makes has to do this same work.",
+        "durchgaengeBegriff": "Passes",
+        "durchgaenge": "How many times Argon2 runs over the memory. Twice as many take twice as long.",
+        "speicherBegriff": "Memory (MiB)",
+        "speicher": "How much working memory each attempt uses (1 MiB ≈ 1 MB). This slows down attacks with graphics cards the most, because memory is scarce there.",
+        "faedenBegriff": "Threads",
+        "faeden": "How many processor cores work at the same time. This makes no difference to protection — it only makes opening faster on your device.",
+        "eigenBegriff": "Custom setting",
+        "eigen": "Other apps and older files bring their own values, such as 50 passes with only 1 MiB. The app then shows the closest level and leaves the values as they are until you apply a level."
+      },
+      "eigenHinweis": "Custom setting, for example from another app — roughly at “{stufe}”. Applying a level replaces it.",
+      "werteFrage": "What do the values mean?",
+      "hinweis": "How long deriving the key takes — for you once when opening, for an attacker with every guess",
+      "geaendert": "Encryption changed — the file was rewritten.",
+      "ersetzt": "Replaces the custom setting with “{stufe}”.",
+      "stufeHinweis": "{stufe}: {hinweis}",
+      "jetzt": "Now: {werte}",
+      "danach": "Afterwards: {werte}"
+    },
+    "versionen": {
+      "titel": "Versions",
+      "hinweis": "The most recent versions of this file — on opening, after saving, after changes from another device and after every merge. You can restore individual items or everything from them.",
+      "ansehen": "View versions …",
+      "aufheben": "Versions to keep",
+      "aufhebenBereich": "30 to 100",
+      "aufhebenFrage": "How many versions to keep",
+      "aufgehoben": "{n} versions will be kept."
+    },
+    "browserStart": {
+      "titel": "Passwords right in the browser",
+      "text": "With a browser extension, WKeePass fills in logins on websites, offers to save new ones and signs you in with passkeys. Your passwords stay in your file — the browser asks WKeePass every time. All three steps are needed.",
+      "schritt1": "1. Register WKeePass with your browsers",
+      "schritt1Text": "Required: a browser may only start programs that are registered with it. The button places a small file for each browser that points to WKeePass — nothing changes in the browser itself. If KeePassXC is installed, the extension will then talk to WKeePass instead of KeePassXC.",
+      "gefunden": "Found: {liste}",
+      "keinBrowser": "No browser found — after installing a browser, you can do this in Settings.",
+      "erledigt": "Done",
+      "eintragen": "Register",
+      "schritt2": "2. Install the KeePassXC-Browser extension",
+      "schritt2Text": "Required: the extension comes from KeePassXC and is free. WKeePass speaks the same protocol, so it doesn’t have its own. The button opens the page in your browser’s store.",
+      "schritt3": "3. Connect in the browser",
+      "schritt3Text": "Once per browser: restart the browser, click the extension’s icon and choose “Connect”. WKeePass then asks for a name for this browser — only after that are passwords filled in."
+    }
+  },
+  "totp": {
+    "leer": "No TOTP entries.",
+    "karte": {
+      "hinweis": "Click to copy, double-click to open the entry"
+    },
+    "kopiert": "Code copied",
+    "alsNaechstes": "next {code}"
+  },
+  "ui": {
+    "abgleich": {
+      "uebernommen": "Changes from another device applied."
+    },
+    "zwischenablage": {
+      "fehler": "Copying isn’t possible."
+    },
+    "kern": {
+      "fehler": "The core reports an error at “{befehl}”: {ursache}"
+    },
+    "formular": {
+      "pinMitSchluesselbund": "The key is created from your PIN <em>and</em> a random value in the system keychain. An attacker would need both: the PIN and your signed-in session.",
+      "pinOhneSchluesselbund": "<strong>No keychain is available on this device.</strong> Everything then depends on the PIN alone — choose one that is long enough.",
+      "sichtbarMachen": "Show",
+      "verbergen": "Hide"
+    }
+  },
+  "entsperren": {
+    "geraet": {
+      "biometrie": "Biometrics"
+    },
+    "datenbank": {
+      "nochNichtGeoeffnet": "Not opened yet",
+      "keineDatei": "No file was chosen."
+    },
+    "sperrbildschirm": {
+      "keineDatenbank": "No database chosen yet",
+      "mitGeraet": "Unlock with {name}",
+      "mitPasswortOderPin": "With password or PIN …",
+      "entsperren": "Unlock",
+      "datenbankWaehlen": "Choose database …",
+      "neueDatenbank": "Create new database …",
+      "zuletztGenutzt": "Recently used"
+    },
+    "dialog": {
+      "titel": "Unlock",
+      "mitBiometrie": "Unlock with biometrics",
+      "appPin": "App PIN",
+      "pinPlatzhalter": "PIN",
+      "masterPasswort": "Master password",
+      "masterPasswortFalls": "Master password (if the PIN doesn’t match)",
+      "biometrieKuenftig": "Open with biometrics in future",
+      "biometrieGeraetHinweis": "Replaces the master password — the key is stored in the security chip",
+      "biometrieSchluesselbundHinweis": "Your finger proves who you are; the key is stored in the keychain",
+      "biometrieSchluesselbundHinweisPin": "Your finger proves who you are; the key is stored in the keychain — an app PIN will be set for this",
+      "pinKuenftig": "Also open with PIN in future",
+      "pinKuenftigHinweis": "An app PIN will be set next for this",
+      "bestaetigen": "Unlock",
+      "eingabeFehlt": "Please enter the PIN or master password."
+    },
+    "appPinAbfrage": {
+      "titel": "Confirm app PIN",
+      "text": "The app PIN is needed to enable this database.",
+      "platzhalter": "App PIN",
+      "bestaetigen": "Confirm"
+    },
+    "herkunft": {
+      "downloads": "Downloads",
+      "geraetespeicher": "Device storage",
+      "medien": "Media"
+    },
+    "biometrieFehlt": {
+      "keinFinger": "No fingerprint or face enrolled — set one up in Android settings.",
+      "nichtVerfuegbar": "Not available on this device",
+      "ohneSchluesselbund": "Not possible without a keychain"
+    },
+    "willkommen": {
+      "titel": "Welcome to WKeePass",
+      "text": "To make the app easier to use, a <b>PIN</b> and/or <b>biometrics</b> can be used to decrypt your data and to confirm when retrieving it. After setup, simplified decryption and confirmation can be set individually for each database.",
+      "pinEinrichten": "Set up PIN",
+      "pinPlatzhalter": "At least four characters",
+      "pinWiederholen": "Repeat PIN",
+      "sichtbar": "Show",
+      "geraetNutzen": "Use {name}",
+      "geraetHinweis": "Replaces PIN and master password. The key is stored in this device’s security chip — a PIN is then only a fallback.",
+      "biometrieNutzen": "Use biometric unlocking",
+      "einrichten": "Set up",
+      "ohnePin": "Continue without PIN",
+      "pinFehlt": "Please set a PIN — or “Continue without PIN”.",
+      "pinUngleich": "The two PINs don’t match.",
+      "pinFestgelegt": "PIN set.",
+      "geraetEinrichtung": "{name} will be set up the first time you open."
+    },
+    "trotzdemSperren": {
+      "titel": "Not saved",
+      "text": "If you lock anyway, changes since the last save will be lost.",
+      "bestaetigen": "Lock anyway"
+    },
+    "zugriffEntzogen": {
+      "titel": "No access to the file any more",
+      "text1": "Android has withdrawn WKeePass’s access to this file. This happens when another program deleted and recreated it instead of overwriting it.",
+      "text2": "The offline copy is open — saving isn’t possible this way. Choose the file again once, and access will be permanent again.",
+      "neuWaehlen": "Choose file again",
+      "spaeter": "Later"
+    },
+    "appPin": {
+      "titel": "Set PIN",
+      "text1": "This PIN applies to the whole program. For each database you then decide individually whether it may be opened with it.",
+      "text2": "After five failed attempts the PIN is discarded. There is no recovery — you then continue with your master passwords.",
+      "neuePin": "New PIN",
+      "platzhalter": "At least four characters",
+      "wiederholen": "Repeat",
+      "wiederholenPlatzhalter": "Repeat PIN",
+      "festlegen": "Set",
+      "eingeben": "Please enter a PIN.",
+      "ungleich": "The two PINs don’t match.",
+      "festgelegt": "PIN set."
+    },
+    "freigabe": {
+      "titel": "Enable this database",
+      "offenNoetig": "The database must be open for this.",
+      "mitPin": "Open with PIN",
+      "mitPinHinweis": "The master password is stored encrypted; the app PIN is then enough to open it.",
+      "mitFingerabdruck": "Open with fingerprint",
+      "fingerabdruckHinweis": "The fingerprint is <em>not a key</em> here, but proof that it is you — the protection comes from the keychain alone. That makes this route weaker than the PIN, as an attacker needs only one thing instead of two. On macOS and Windows the hardware enforces the check; on Linux this program does.",
+      "pinBestaetigen": "Enter the app PIN to confirm:",
+      "pinPlatzhalter": "App PIN",
+      "uebernehmen": "Apply",
+      "ohnePin": "This can’t be confirmed without a PIN.",
+      "gespeichert": "Authorisation saved.",
+      "mitGeraet": "Open with {name}",
+      "geraetHinweis": "Replaces PIN and master password when opening. The master password is sealed with a key that this device’s security chip only releases after {name} has verified you — a copied file is useless without this device.",
+      "windowsZweimal": "When setting up for the first time, Windows may ask twice.",
+      "rueckfall": "Fallback in case {name} isn’t working right now.",
+      "pinFreigabeOhnePin": "PIN authorisation can’t be changed without a PIN."
+    },
+    "pinEntfernen": {
+      "titel": "Remove PIN",
+      "text": "The PIN and all authorisations are discarded. After that you open each database with its master password again.",
+      "bestaetigen": "Remove",
+      "entfernt": "PIN removed."
+    },
+    "pinAendern": {
+      "titel": "Change PIN",
+      "text1": "The enabled databases are kept — they are re-encrypted with the new PIN in the background. So you do <strong>not</strong> need to enter any master passwords again.",
+      "text2": "If you’ve forgotten the current PIN, the only option is “Remove” — then all authorisations are gone and every database needs its master password again.",
+      "bisherige": "Current PIN",
+      "neue": "New PIN",
+      "neueWiederholen": "Repeat new PIN",
+      "bestaetigen": "Change",
+      "beideNoetig": "Please enter both PINs.",
+      "ungleich": "The two new PINs don’t match.",
+      "geaendert": "PIN changed. All authorisations remain valid."
+    },
+    "anlegen": {
+      "titel": "Create new database",
+      "name": "Database name",
+      "standardName": "Passwords",
+      "staerke": "Encryption strength",
+      "hinweis": "The master password is the main key. There is no recovery — if it’s lost, the entries are lost.",
+      "passwort": "Master password",
+      "passwortWiederholen": "Repeat master password",
+      "weiter": "Continue to storage location",
+      "passwortFehlt": "It won’t work without a master password.",
+      "passwortUngleich": "The two passwords don’t match.",
+      "keinOrt": "No storage location was chosen.",
+      "angelegt": "Database created.",
+      "fehlgeschlagen": "Creating failed: {fehler}"
+    },
+    "entsperren": {
+      "laeuft": "An unlock attempt is already in progress.",
+      "zuerstWaehlen": "Please choose a database first.",
+      "offlineKopie": "The file isn’t reachable at the moment — the offline copy from {datum} is open. Saving only works again once the file is available.",
+      "nurLesen": "{format} is read-only — changes can’t be saved.",
+      "diesesFormat": "This format",
+      "freigabeGeraet": "Database enabled for {name}.",
+      "freigabePin": "Database enabled for the PIN.",
+      "fehlgeschlagen": "Unlocking failed: {fehler}",
+      "entschluesselt": "Decrypting … this will take a moment."
+    },
+    "sperren": {
+      "gesperrt": "Locked — the values were removed from memory.",
+      "banner": "Database locked."
+    }
+  },
+  "anfrage": {
+    "nachweis": {
+      "pin": "PIN",
+      "master": "Master password",
+      "sichtbar": "Show",
+      "biometrie": "Biometrics",
+      "fingerabdruck": "Fingerprint",
+      "bioEntsperren": "Unlock with {name}",
+      "bioBestaetigen": "Confirm with {name}",
+      "bioBestaetigenStandard": "Confirm with fingerprint",
+      "grund": "Access from the browser"
+    },
+    "text": {
+      "unlock": "The database is locked. A browser is waiting for it.",
+      "logins": "The browser would like to fill in a username and password.",
+      "totp": "The browser would like to retrieve a one-time code.",
+      "create": "A new entry is to be created.",
+      "update": "The password is to be changed.",
+      "delete": "An entry is to be moved to the Recycle Bin.",
+      "passkeyRegister": "A passkey is to be created.",
+      "passkeyGet": "A passkey is to be used to sign in.",
+      "sonst": "Access to the database."
+    },
+    "titel": {
+      "entsperren": "Unlock database",
+      "anfrage": "Request from the browser"
+    },
+    "warnung": "<strong>Caution:</strong> the form is sent to {ziel} — not to the site you are visiting.",
+    "eintrag": {
+      "ohneName": "(unnamed)"
+    },
+    "knoepfe": {
+      "entsperren": "Unlock",
+      "uebernehmen": "Allow",
+      "einMoment": "One moment …"
+    },
+    "datenbank": {
+      "keineAusgewaehlt": "None chosen"
+    },
+    "fehler": {
+      "keineDatenbank": "No database is chosen. Please open one in the main window first.",
+      "nichtGeklappt": "That didn’t work.",
+      "nichtErreichbar": "Not reachable"
+    },
+    "einstellungen": {
+      "titel": "Settings",
+      "kopf": "Browser extension",
+      "unterkopf": "Before filling in",
+      "nichts": "Nothing",
+      "bestaetigen": "Confirm",
+      "legitimieren": "Verify",
+      "notizNever": "Linked browsers fill in without asking. From the next request on — this one still needs an answer.",
+      "notizConfirm": "A button press is enough — Cancel or Allow, no proof needed.",
+      "notizIdentify": "PIN, master password or fingerprint. How long you aren’t asked again afterwards is set in Settings."
+    }
+  }
+}

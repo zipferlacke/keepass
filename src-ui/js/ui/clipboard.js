@@ -13,6 +13,7 @@
 
 import * as settings from '../data/settings.js';
 import { banner } from './libs.js';
+import { t } from '../core/i18n.js';
 
 let clipboardTimer = null;
 
@@ -30,7 +31,7 @@ export async function copyPlain(value, message) {
     scheduleClipboardClear();
     return true;
   } catch {
-    banner('Kopieren nicht möglich.', 'error');
+    banner(t('ui.zwischenablage.fehler'), 'error');
     return false;
   }
 }

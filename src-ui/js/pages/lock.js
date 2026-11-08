@@ -21,10 +21,11 @@ import { restoreCheck, runSecurityCheck } from './checkup.js';
 import { showView } from '../core/navigation.js';
 import { handleScan } from '../dialogs/create.js';
 import { STUFEN, openSettingsPage, renderSettings } from './settings.js';
+import { t, gebiet } from '../core/i18n.js';
 
 /** Wie der gerätegebundene Weg heißt, etwa „Windows Hello". */
 export function deviceName() {
-  return state.unlock.deviceLabel ?? 'Biometrie';
+  return state.unlock.deviceLabel ?? t('entsperren.geraet.biometrie');
 }
 
 /**
@@ -62,7 +63,8 @@ export async function rememberDatabase(entry) {
 
   // Kam beim Auswählen kein Name heraus, nimm den Dateinamen aus der
   // Auskunft („Downloads — passwoerter.kdbx").
-  const name = entry.name && entry.name !== 'Noch nicht geöffnet'
+  // Älter gemerkte Namen stehen noch deutsch in den Einstellungen.
+  const name = entry.name && entry.name !== t('entsperren.datenbank.nochNichtGeoeffnet') && entry.name !== 'Noch nicht geöffnet'
     ? entry.name
     : (label?.split('/').pop() ?? entry.name);
 
@@ -138,24 +140,24 @@ export function renderLockscreen(message) {
              <small>${esc(pfadLabel(active.path, active.label))}</small>
            </span>
          </div>`
-      : `<p class="lock-sub">Noch keine Datenbank ausgewählt</p>`}
+      : `<p class="lock-sub">${t('entsperren.sperrbildschirm.keineDatenbank')}</p>`}
 
     ${active ? `<div class="lock-actions lock-primary">
       ${state.unlock.device
-        ? `<button class="button hightlight" data-shape="full" id="lock-device"><span class="msr">fingerprint</span>&nbsp;Mit ${esc(deviceName())} entsperren</button>
-           <button class="button" data-shape="full" id="lock-unlock"><span class="msr">password</span>&nbsp;Mit Passwort oder PIN …</button>`
-        : `<button class="button hightlight" data-shape="full" id="lock-unlock"><span class="msr">lock_open</span>&nbsp;Entsperren</button>`}
+        ? `<button class="button hightlight" data-shape="full" id="lock-device"><span class="msr">fingerprint</span>&nbsp;${t('entsperren.sperrbildschirm.mitGeraet', { name: esc(deviceName()) })}</button>
+           <button class="button" data-shape="full" id="lock-unlock"><span class="msr">password</span>&nbsp;${t('entsperren.sperrbildschirm.mitPasswortOderPin')}</button>`
+        : `<button class="button hightlight" data-shape="full" id="lock-unlock"><span class="msr">lock_open</span>&nbsp;${t('entsperren.sperrbildschirm.entsperren')}</button>`}
     </div>` : ''}
 
     <div class="lock-actions">
-      <button class="button" data-shape="full" id="lock-pick"><span class="msr">folder_open</span>&nbsp;Datenbank auswählen …</button>
-      <button class="button" data-shape="full" id="lock-new"><span class="msr">add</span>&nbsp;Neue Datenbank anlegen …</button>
+      <button class="button" data-shape="full" id="lock-pick"><span class="msr">folder_open</span>&nbsp;${t('entsperren.sperrbildschirm.datenbankWaehlen')}</button>
+      <button class="button" data-shape="full" id="lock-new"><span class="msr">add</span>&nbsp;${t('entsperren.sperrbildschirm.neueDatenbank')}</button>
     </div>
 
     ${list.length ? `<details class="lock-recent">
       <summary>
         <span class="msr">history</span>
-        <span class="folder-name">Zuletzt genutzt</span>
+        <span class="folder-name">${t('entsperren.sperrbildschirm.zuletztGenutzt')}</span>
         <span class="folder-count">${list.length}</span>
       </summary>
       <div class="lock-db-list">
@@ -195,33 +197,33 @@ export async function openUnlockDialog() {
   const bioWeg = biometrieWeg(u);
 
   const res = await dialog({
-    title: 'Entsperren',
+    title: t('entsperren.dialog.titel'),
     content: `
       ${u.biometric ? `<button type="button" class="button hightlight" data-shape="full" id="dlg-bio">
-        <span class="msr">fingerprint</span>&nbsp;Mit Biometrie entsperren</button>` : ''}
+        <span class="msr">fingerprint</span>&nbsp;${t('entsperren.dialog.mitBiometrie')}</button>` : ''}
 
-      ${u.pin ? `<label class="field-label">App-PIN</label>
-        ${passwordField('pin', 'PIN', { required: false })}` : ''}
+      ${u.pin ? `<label class="field-label">${t('entsperren.dialog.appPin')}</label>
+        ${passwordField('pin', t('entsperren.dialog.pinPlatzhalter'), { required: false })}` : ''}
 
-      <label class="field-label">Master-Passwort${u.pin ? ' (falls die PIN nicht passt)' : ''}</label>
-      ${passwordField('pw', 'Master-Passwort', { required: !u.pin })}
+      <label class="field-label">${u.pin ? t('entsperren.dialog.masterPasswortFalls') : t('entsperren.dialog.masterPasswort')}</label>
+      ${passwordField('pw', t('entsperren.dialog.masterPasswort'), { required: !u.pin })}
 
       ${bioWeg ? `<div class="setting">
-        <div class="setting-label"><strong>Künftig mit Biometrie öffnen</strong>
+        <div class="setting-label"><strong>${t('entsperren.dialog.biometrieKuenftig')}</strong>
           <small>${bioWeg === 'device'
-            ? 'Ersetzt das Master-Passwort — der Schlüssel liegt im Sicherheitschip'
-            : `Der Finger weist dich aus, der Schlüssel liegt im Schlüsselbund${u.pinSet ? '' : ' — dafür wird eine App-PIN festgelegt'}`}</small></div>
+            ? t('entsperren.dialog.biometrieGeraetHinweis')
+            : t(u.pinSet ? 'entsperren.dialog.biometrieSchluesselbundHinweis' : 'entsperren.dialog.biometrieSchluesselbundHinweisPin')}</small></div>
         <div class="setting-control"><input type="checkbox" data-shape="toggle" name="rememberBio"
           ${settings.get('unlock.biometrics', true) ? 'checked' : ''}></div>
       </div>` : ''}
 
       ${u.pin ? '' : `<div class="setting">
-        <div class="setting-label"><strong>Künftig auch mit PIN öffnen</strong>
-          ${u.pinSet ? '' : '<small>Dafür wird gleich eine App-PIN festgelegt</small>'}</div>
+        <div class="setting-label"><strong>${t('entsperren.dialog.pinKuenftig')}</strong>
+          ${u.pinSet ? '' : `<small>${t('entsperren.dialog.pinKuenftigHinweis')}</small>`}</div>
         <div class="setting-control"><input type="checkbox" data-shape="toggle" name="remember"></div>
       </div>`}`,
-    confirmText: 'Entsperren',
-    cancelText: 'Abbrechen',
+    confirmText: t('entsperren.dialog.bestaetigen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: () => {
       fields.onInsert();
       // Gleich lostippen können: Ohne das steht der Fokus auf dem ersten
@@ -240,7 +242,7 @@ export async function openUnlockDialog() {
   const d = { pin: fields.value('pin', res.data), pw: fields.value('pw', res.data) };
 
   if (d.pin) { unlock({ method: 'pin', secret: d.pin }); return; }
-  if (!d.pw) { banner('Bitte PIN oder Master-Passwort eingeben.', 'warning'); return; }
+  if (!d.pw) { banner(t('entsperren.dialog.eingabeFehlt'), 'warning'); return; }
 
   const wantsPin = fieldChecked(res.data, 'remember');
   const wantsBioSwitch = fieldChecked(res.data, 'rememberBio');
@@ -292,11 +294,11 @@ async function askAppPin() {
   const fields = captureFields('pin');
 
   const res = await dialog({
-    title: 'App-PIN bestätigen',
-    content: `<p>Zum Freischalten dieser Datenbank wird die PIN des Programms gebraucht.</p>
-      ${passwordField('pin', 'App-PIN', { minlength: 4 })}`,
-    confirmText: 'Bestätigen',
-    cancelText: 'Abbrechen',
+    title: t('entsperren.appPinAbfrage.titel'),
+    content: `<p>${t('entsperren.appPinAbfrage.text')}</p>
+      ${passwordField('pin', t('entsperren.appPinAbfrage.platzhalter'), { minlength: 4 })}`,
+    confirmText: t('entsperren.appPinAbfrage.bestaetigen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: fields.onInsert
   });
   return res?.submit ? fields.value('pin', res.data) : '';
@@ -316,13 +318,13 @@ async function askAppPin() {
  * `content://org.nextcloud.documents/document/5092c86d…`. Die sagt niemandem
  * etwas; die Anwendung dahinter schon.
  */
-const HERKUNFT = {
-  'com.android.providers.downloads.documents': 'Downloads',
-  'com.android.externalstorage.documents': 'Gerätespeicher',
-  'com.android.providers.media.documents': 'Medien',
+const herkunft = () => ({
+  'com.android.providers.downloads.documents': t('entsperren.herkunft.downloads'),
+  'com.android.externalstorage.documents': t('entsperren.herkunft.geraetespeicher'),
+  'com.android.providers.media.documents': t('entsperren.herkunft.medien'),
   'org.nextcloud.documents': 'Nextcloud',
   'com.google.android.apps.docs.storage': 'Google Drive'
-};
+});
 
 /**
  * Der Name, unter dem eine Datenbank in der Liste steht — bevor sie einmal
@@ -341,7 +343,7 @@ export function dbName(path) {
   // Steckt kein Name in der Adresse, kennt ihn niemand: Android gibt beim
   // Auswählen und beim Anlegen nur eine Kennung zurück. Der richtige Name
   // steht in der Datenbank selbst und kommt beim ersten Öffnen.
-  return name.includes('.') && !/^[0-9a-f]+$/i.test(name) ? name : 'Noch nicht geöffnet';
+  return name.includes('.') && !/^[0-9a-f]+$/i.test(name) ? name : t('entsperren.datenbank.nochNichtGeoeffnet');
 }
 
 /** Fragt den Kern, wie die Datei heißt und wo sie liegt. */
@@ -362,7 +364,7 @@ export function pfadLabel(path, gemerkt = null) {
 
   const authority = text.slice('content://'.length).split('/')[0];
   const name = safeDecode(text).split(/[/:]/).pop() ?? '';
-  const ort = HERKUNFT[authority] ?? authority.replace(/\.documents$/, '').split('.').pop();
+  const ort = herkunft()[authority] ?? authority.replace(/\.documents$/, '').split('.').pop();
 
   return name.includes('.') && !/^[0-9a-f]+$/i.test(name) ? `${ort} — ${name}` : ort;
 }
@@ -371,10 +373,10 @@ export function pfadLabel(path, gemerkt = null) {
 function biometrieFehlt() {
   if (!state.unlock.biometricAvailable) {
     return isMobile
-      ? 'Kein Finger oder Gesicht hinterlegt — in den Android-Einstellungen einrichten.'
-      : 'Auf dem Gerät nicht verfügbar';
+      ? t('entsperren.biometrieFehlt.keinFinger')
+      : t('entsperren.biometrieFehlt.nichtVerfuegbar');
   }
-  return 'Ohne Schlüsselbund nicht möglich';
+  return t('entsperren.biometrieFehlt.ohneSchluesselbund');
 }
 
 export async function showWelcome() {
@@ -383,24 +385,22 @@ export async function showWelcome() {
 
     $('#welcome-card').innerHTML = `
       ${BRAND_MARK}
-      <h2>Willkommen bei WKeePass</h2>
-      <p class="lock-sub">Für die einfachere Verwendung der App kann eine <b>Pin</b> und/oder eine <b>Biometrie</b> genutzet werden zur Entschlüsselung der Daten und Bestätigung beim Entnehmen.
-        Nach der Einrichtung kann pro Datenbank individuell die vereinfachte Entschlüsselung und Bestätigung eingestellt werden.
-      </p>
+      <h2>${t('entsperren.willkommen.titel')}</h2>
+      <p class="lock-sub">${t('entsperren.willkommen.text')}</p>
       
 
       <div class="setting">
         <div class="setting-label">
-          <strong>PIN einrichten</strong>
+          <strong>${t('entsperren.willkommen.pinEinrichten')}</strong>
         </div>
         <div class="setting-control">
           <span class="pw-field">
-            <input type="password" id="wc-pin" inputmode="numeric" placeholder="Mindestens vier Zeichen" autocomplete="off" minlength="4">
-            <button type="button" class="pw-eye" title="Sichtbar machen" aria-label="Sichtbar machen"><span class="msr">visibility</span></button>
+            <input type="password" id="wc-pin" inputmode="numeric" placeholder="${t('entsperren.willkommen.pinPlatzhalter')}" autocomplete="off" minlength="4">
+            <button type="button" class="pw-eye" title="${t('entsperren.willkommen.sichtbar')}" aria-label="${t('entsperren.willkommen.sichtbar')}"><span class="msr">visibility</span></button>
           </span>
           <span class="pw-field">
-            <input type="password" id="wc-pin2" inputmode="numeric" placeholder="PIN wiederholen" autocomplete="off" minlength="4">
-            <button type="button" class="pw-eye" title="Sichtbar machen" aria-label="Sichtbar machen"><span class="msr">visibility</span></button>
+            <input type="password" id="wc-pin2" inputmode="numeric" placeholder="${t('entsperren.willkommen.pinWiederholen')}" autocomplete="off" minlength="4">
+            <button type="button" class="pw-eye" title="${t('entsperren.willkommen.sichtbar')}" aria-label="${t('entsperren.willkommen.sichtbar')}"><span class="msr">visibility</span></button>
           </span>
         </div>
       </div>
@@ -408,8 +408,8 @@ export async function showWelcome() {
       ${state.unlock.deviceAvailable
         ? `<div class="setting">
             <div class="setting-label">
-              <strong>${esc(deviceName())} nutzen</strong>
-              <small>Ersetzt PIN und Master-Passwort. Der Schlüssel liegt im Sicherheitschip dieses Geräts — eine PIN ist dann nur noch Rückfallweg.</small>
+              <strong>${t('entsperren.willkommen.geraetNutzen', { name: esc(deviceName()) })}</strong>
+              <small>${t('entsperren.willkommen.geraetHinweis')}</small>
             </div>
             <div class="setting-control">
               <input type="checkbox" data-shape="toggle" id="wc-bio" checked>
@@ -417,7 +417,7 @@ export async function showWelcome() {
           </div>`
         : `<div class="setting">
             <div class="setting-label">
-              <strong>Biometrie Entsperrung nutzen</strong>
+              <strong>${t('entsperren.willkommen.biometrieNutzen')}</strong>
               <small>${state.unlock.keyring && state.unlock.biometricAvailable ? '' : biometrieFehlt()}</small>
             </div>
             <div class="setting-control">
@@ -427,8 +427,8 @@ export async function showWelcome() {
           </div>`}
 
       <div class="lock-actions">
-        <button type="button" class="button hightlight" data-shape="full" id="wc-ok"><span class="msr">check</span>&nbsp;Einrichten</button>
-        <button type="button" class="button" data-shape="full" id="wc-skip">Ohne PIN weiter</button>
+        <button type="button" class="button hightlight" data-shape="full" id="wc-ok"><span class="msr">check</span>&nbsp;${t('entsperren.willkommen.einrichten')}</button>
+        <button type="button" class="button" data-shape="full" id="wc-skip">${t('entsperren.willkommen.ohnePin')}</button>
       </div>`;
 
     wirePasswordFields($('#welcome-card'));
@@ -448,14 +448,14 @@ export async function showWelcome() {
       // dann beim ersten Öffnen einer Datenbank.
       const deviceOnly = bio && state.unlock.deviceAvailable;
 
-      if (!pin && !deviceOnly) { banner('Bitte eine PIN vergeben — oder „Ohne PIN weiter".', 'warning'); return; }
-      if (pin && pin !== $('#wc-pin2').value.trim()) { banner('Die beiden PINs stimmen nicht überein.', 'warning'); return; }
+      if (!pin && !deviceOnly) { banner(t('entsperren.willkommen.pinFehlt'), 'warning'); return; }
+      if (pin && pin !== $('#wc-pin2').value.trim()) { banner(t('entsperren.willkommen.pinUngleich'), 'warning'); return; }
 
       try {
         if (pin) await vault.createPin(pin);
         await settings.set('unlock.biometrics', bio, { silent: true });
         state.unlock = await unlockMethods(settings.get('database.current', null));
-        banner(pin ? 'PIN festgelegt.' : `${deviceName()} wird beim ersten Öffnen eingerichtet.`, 'success');
+        banner(pin ? t('entsperren.willkommen.pinFestgelegt') : t('entsperren.willkommen.geraetEinrichtung', { name: deviceName() }), 'success');
         await done();
       } catch (err) {
         banner(err.message, 'error', 6000);
@@ -468,11 +468,11 @@ export async function showWelcome() {
 async function trotzdemSperren(err) {
   try {
     const res = await dialog({
-      title: 'Nicht gespeichert',
+      title: t('entsperren.trotzdemSperren.titel'),
       content: `<p>${esc(err?.message ?? err)}</p>
-        <p>Sperrst du trotzdem, gehen die Änderungen seit dem letzten Speichern verloren.</p>`,
-      confirmText: 'Trotzdem sperren',
-      cancelText: 'Abbrechen'
+        <p>${t('entsperren.trotzdemSperren.text')}</p>`,
+      confirmText: t('entsperren.trotzdemSperren.bestaetigen'),
+      cancelText: t('allgemein.knoepfe.abbrechen')
     });
     return res?.submit ?? res === true;
   } catch {
@@ -498,14 +498,12 @@ async function zugriffNeu() {
   let neu = false;
   try {
     const res = await dialog({
-      title: 'Kein Zugriff mehr auf die Datei',
+      title: t('entsperren.zugriffEntzogen.titel'),
       content: `
-        <p>Android hat WKeePass den Zugriff auf diese Datei entzogen. Das passiert, wenn ein
-        anderes Programm sie gelöscht und neu angelegt hat, statt sie zu überschreiben.</p>
-        <p>Geöffnet ist die Offline-Kopie — speichern geht so nicht. Wähle die Datei einmal neu
-        aus, dann gilt der Zugriff wieder dauerhaft.</p>`,
-      confirmText: 'Datei neu wählen',
-      cancelText: 'Später'
+        <p>${t('entsperren.zugriffEntzogen.text1')}</p>
+        <p>${t('entsperren.zugriffEntzogen.text2')}</p>`,
+      confirmText: t('entsperren.zugriffEntzogen.neuWaehlen'),
+      cancelText: t('entsperren.zugriffEntzogen.spaeter')
     });
     neu = res?.submit ?? res === true;
   } catch { neu = false; }
@@ -523,7 +521,7 @@ async function zugriffNeu() {
 async function pickDatabase() {
   const picked = await pickDatabaseFile();
 
-  if (!picked) { banner('Es wurde keine Datei ausgewählt.', 'info'); return; }
+  if (!picked) { banner(t('entsperren.datenbank.keineDatei'), 'info'); return; }
 
   const name = dbName(picked);
   await rememberDatabase({ name, path: picked });
@@ -546,18 +544,16 @@ export async function createAppPin() {
   const fields = captureFields('pin', 'pin2');
 
   const res = await dialog({
-    title: 'PIN festlegen',
-    content: `<p>Diese PIN gilt für das ganze Programm. Bei jeder Datenbank
-      entscheidest du danach einzeln, ob sie damit geöffnet werden darf.</p>
+    title: t('entsperren.appPin.titel'),
+    content: `<p>${t('entsperren.appPin.text1')}</p>
       <p>${pinStrengthNote()}</p>
-      <p>Nach fünf Fehlversuchen wird die PIN verworfen. Eine Wiederherstellung
-      gibt es nicht — dann geht es mit den Master-Passwörtern weiter.</p>
-      <label class="field-label">Neue PIN</label>
-      ${passwordField('pin', 'Mindestens vier Zeichen', { minlength: 4 })}
-      <label class="field-label">Wiederholen</label>
-      ${passwordField('pin2', 'PIN wiederholen', { minlength: 4 })}`,
-    confirmText: 'Festlegen',
-    cancelText: 'Abbrechen',
+      <p>${t('entsperren.appPin.text2')}</p>
+      <label class="field-label">${t('entsperren.appPin.neuePin')}</label>
+      ${passwordField('pin', t('entsperren.appPin.platzhalter'), { minlength: 4 })}
+      <label class="field-label">${t('entsperren.appPin.wiederholen')}</label>
+      ${passwordField('pin2', t('entsperren.appPin.wiederholenPlatzhalter'), { minlength: 4 })}`,
+    confirmText: t('entsperren.appPin.festlegen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: fields.onInsert
   });
 
@@ -565,13 +561,13 @@ export async function createAppPin() {
   const pin = fields.value('pin', res.data);
   const pin2 = fields.value('pin2', res.data);
 
-  if (!pin) { banner('Bitte eine PIN eingeben.', 'warning'); return false; }
-  if (pin !== pin2) { banner('Die beiden PINs stimmen nicht überein.', 'warning'); return false; }
+  if (!pin) { banner(t('entsperren.appPin.eingeben'), 'warning'); return false; }
+  if (pin !== pin2) { banner(t('entsperren.appPin.ungleich'), 'warning'); return false; }
 
   try {
     await vault.createPin(pin);
     state.unlock = await unlockMethods(settings.get('database.current', null));
-    banner('PIN festgelegt.', 'success');
+    banner(t('entsperren.appPin.festgelegt'), 'success');
     return true;
   } catch (err) {
     banner(err.message, 'error', 6000);
@@ -584,7 +580,7 @@ export async function createAppPin() {
  * nimmt die Freigabe zurück. Jede Option wird erklärt.
  */
 export async function manageAccess() {
-  if (state.locked) { banner('Dafür muss die Datenbank offen sein.', 'warning'); return; }
+  if (state.locked) { banner(t('entsperren.freigabe.offenNoetig'), 'warning'); return; }
   if (state.unlock.deviceAvailable) return manageDeviceAccess();
 
   if (!state.unlock.pinSet && !(await createAppPin())) return;
@@ -592,44 +588,39 @@ export async function manageAccess() {
   const fields = captureFields('pin_confirm');
 
   const res = await dialog({
-    title: 'Diese Datenbank freischalten',
+    title: t('entsperren.freigabe.titel'),
     content: `
       <label class="check">
-        <strong>Mit PIN öffnen</strong>
+        <strong>${t('entsperren.freigabe.mitPin')}</strong>
         <input type="checkbox" data-shape="toggle" name="pin" ${state.unlock.pin ? 'checked' : ''}>
       </label>
-      <p class="hint">Das Master-Passwort wird verschlüsselt hinterlegt; zum Öffnen
-      genügt dann die App-PIN. ${pinStrengthNote()}</p>
+      <p class="hint">${t('entsperren.freigabe.mitPinHinweis')} ${pinStrengthNote()}</p>
 
       <label class="check">
-        <strong>Mit Fingerabdruck öffnen</strong>
+        <strong>${t('entsperren.freigabe.mitFingerabdruck')}</strong>
         <input type="checkbox" data-shape="toggle" name="bio" ${state.unlock.biometric ? 'checked' : ''}
           ${state.unlock.keyring && state.unlock.biometricAvailable ? '' : 'disabled'}>
       </label>
-      <p class="hint">Der Fingerabdruck ist dabei <em>kein Schlüssel</em>, sondern der
-      Nachweis, dass du es bist — der Schutz kommt allein aus dem Schlüsselbund.
-      Damit ist dieser Weg schwächer als die PIN, denn ein Angreifer braucht nur
-      eines statt zwei. Auf macOS und Windows erzwingt die Hardware die Prüfung,
-      unter Linux dieses Programm.
-      ${state.unlock.keyring ? '' : '<br><strong>Ohne Schlüsselbund nicht möglich.</strong>'}</p>
+      <p class="hint">${t('entsperren.freigabe.fingerabdruckHinweis')}
+      ${state.unlock.keyring ? '' : `<br><strong>${t('entsperren.biometrieFehlt.ohneSchluesselbund')}.</strong>`}</p>
 
-      <p>Zum Bestätigen die App-PIN eingeben:</p>
-      ${passwordField('pin_confirm', 'App-PIN', { minlength: 4 })}`,
-    confirmText: 'Übernehmen',
-    cancelText: 'Abbrechen',
+      <p>${t('entsperren.freigabe.pinBestaetigen')}</p>
+      ${passwordField('pin_confirm', t('entsperren.freigabe.pinPlatzhalter'), { minlength: 4 })}`,
+    confirmText: t('entsperren.freigabe.uebernehmen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: fields.onInsert
   });
 
   if (!res?.submit) return;
   const confirm = fields.value('pin_confirm', res.data);
 
-  if (!confirm) { banner('Ohne PIN lässt sich das nicht bestätigen.', 'warning'); return; }
+  if (!confirm) { banner(t('entsperren.freigabe.ohnePin'), 'warning'); return; }
 
   try {
     await vault.remember(confirm, fieldChecked(res.data, 'pin'), fieldChecked(res.data, 'bio'));
     state.unlock = await unlockMethods(settings.get('database.current', null));
     renderSettings();
-    banner('Freigabe gespeichert.', 'success');
+    banner(t('entsperren.freigabe.gespeichert'), 'success');
   } catch (err) {
     banner(err.message, 'error', 6000);
   }
@@ -648,24 +639,21 @@ async function manageDeviceAccess() {
   const name = esc(deviceName());
 
   const res = await dialog({
-    title: 'Diese Datenbank freischalten',
+    title: t('entsperren.freigabe.titel'),
     content: `
       <label class="check">
-        <strong>Mit ${name} öffnen</strong>
+        <strong>${t('entsperren.freigabe.mitGeraet', { name })}</strong>
         <input type="checkbox" data-shape="toggle" name="device" ${u.device ? 'checked' : ''}>
       </label>
-      <p class="hint">Ersetzt beim Öffnen PIN und Master-Passwort. Das Master-Passwort
-      wird mit einem Schlüssel versiegelt, den der Sicherheitschip dieses Geräts erst
-      nach der Prüfung durch ${name} herausgibt — eine kopierte Datei nützt ohne dieses
-      Gerät nichts.${/windows/i.test(deviceName()) ? ' Beim ersten Einrichten fragt Windows unter Umständen zweimal.' : ''}</p>
+      <p class="hint">${t('entsperren.freigabe.geraetHinweis', { name })}${/windows/i.test(deviceName()) ? ` ${t('entsperren.freigabe.windowsZweimal')}` : ''}</p>
 
       <label class="check">
-        <strong>Mit PIN öffnen</strong>
+        <strong>${t('entsperren.freigabe.mitPin')}</strong>
         <input type="checkbox" data-shape="toggle" name="pin" ${u.pin ? 'checked' : ''}>
       </label>
-      <p class="hint">Rückfallweg, falls ${name} gerade nicht geht. ${pinStrengthNote()}</p>`,
-    confirmText: 'Übernehmen',
-    cancelText: 'Abbrechen'
+      <p class="hint">${t('entsperren.freigabe.rueckfall', { name })} ${pinStrengthNote()}</p>`,
+    confirmText: t('entsperren.freigabe.uebernehmen'),
+    cancelText: t('allgemein.knoepfe.abbrechen')
   });
 
   if (!res?.submit) return;
@@ -678,13 +666,13 @@ async function manageDeviceAccess() {
     if (wantPin !== u.pin) {
       if (wantPin && !u.pinSet && !(await createAppPin())) return;
       const confirm = await askAppPin();
-      if (!confirm) { banner('Ohne PIN lässt sich die PIN-Freigabe nicht ändern.', 'warning'); }
+      if (!confirm) { banner(t('entsperren.freigabe.pinFreigabeOhnePin'), 'warning'); }
       else await vault.remember(confirm, wantPin, false);
     }
 
     state.unlock = await unlockMethods(settings.get('database.current', null));
     renderSettings();
-    banner('Freigabe gespeichert.', 'success');
+    banner(t('entsperren.freigabe.gespeichert'), 'success');
   } catch (err) {
     state.unlock = await unlockMethods(settings.get('database.current', null));
     renderSettings();
@@ -697,11 +685,10 @@ export async function clearAppPin() {
   let confirmed = false;
   try {
     const res = await dialog({
-      title: 'PIN entfernen',
-      content: `Die PIN und alle Freigaben werden verworfen. Danach öffnest du
-        jede Datenbank wieder mit ihrem Master-Passwort.`,
-      confirmText: 'Entfernen',
-      cancelText: 'Abbrechen'
+      title: t('entsperren.pinEntfernen.titel'),
+      content: t('entsperren.pinEntfernen.text'),
+      confirmText: t('entsperren.pinEntfernen.bestaetigen'),
+      cancelText: t('allgemein.knoepfe.abbrechen')
     });
     confirmed = res?.submit ?? res === true;
   } catch { confirmed = false; }
@@ -710,7 +697,7 @@ export async function clearAppPin() {
   await vault.clearPin();
   state.unlock = await unlockMethods(settings.get('database.current', null));
   renderSettings();
-  banner('PIN entfernt.', 'success');
+  banner(t('entsperren.pinEntfernen.entfernt'), 'success');
 }
 
 /** Ändert die PIN. Ohne die alte geht es nicht — Absicht. */
@@ -718,17 +705,14 @@ export async function changePin() {
   const fields = captureFields('old', 'next', 'next2');
 
   const res = await dialog({
-    title: 'PIN ändern',
-    content: `<p>Die freigeschalteten Datenbanken bleiben erhalten — sie werden
-      im Hintergrund auf die neue PIN umgeschlüsselt. Du musst also
-      <strong>keine</strong> Master-Passwörter erneut eingeben.</p>
-      <p>Hast du die bisherige PIN vergessen, hilft nur „Entfernen“ — dann sind
-      alle Freigaben weg und jede Datenbank braucht wieder ihr Master-Passwort.</p>
-      ${passwordField('old', 'Bisherige PIN', { minlength: 4 })}
-      ${passwordField('next', 'Neue PIN', { minlength: 4 })}
-      ${passwordField('next2', 'Neue PIN wiederholen', { minlength: 4 })}`,
-    confirmText: 'Ändern',
-    cancelText: 'Abbrechen',
+    title: t('entsperren.pinAendern.titel'),
+    content: `<p>${t('entsperren.pinAendern.text1')}</p>
+      <p>${t('entsperren.pinAendern.text2')}</p>
+      ${passwordField('old', t('entsperren.pinAendern.bisherige'), { minlength: 4 })}
+      ${passwordField('next', t('entsperren.pinAendern.neue'), { minlength: 4 })}
+      ${passwordField('next2', t('entsperren.pinAendern.neueWiederholen'), { minlength: 4 })}`,
+    confirmText: t('entsperren.pinAendern.bestaetigen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: fields.onInsert
   });
 
@@ -736,12 +720,12 @@ export async function changePin() {
   const old = fields.value('old', res.data);
   const next = fields.value('next', res.data);
 
-  if (!old || !next) { banner('Bitte beide PINs eingeben.', 'warning'); return; }
-  if (next !== fields.value('next2', res.data)) { banner('Die beiden neuen PINs stimmen nicht überein.', 'warning'); return; }
+  if (!old || !next) { banner(t('entsperren.pinAendern.beideNoetig'), 'warning'); return; }
+  if (next !== fields.value('next2', res.data)) { banner(t('entsperren.pinAendern.ungleich'), 'warning'); return; }
 
   try {
     await vault.changePin(old, next);
-    banner('PIN geändert. Alle Freigaben gelten weiter.', 'success');
+    banner(t('entsperren.pinAendern.geaendert'), 'success');
   } catch (err) {
     banner(err.message, 'error', 6000);
   }
@@ -760,15 +744,15 @@ async function createDatabase() {
   const fields = captureFields('pw', 'pw2');
 
   const res = await dialog({
-    title: 'Neue Datenbank anlegen',
+    title: t('entsperren.anlegen.titel'),
     content: `<div class="dlg-field">
-        <label for="fld-db-name">Name der Datenbank</label>
+        <label for="fld-db-name">${t('entsperren.anlegen.name')}</label>
         <div class="dlg-input-row">
-          <input id="fld-db-name" type="text" name="dbName" placeholder="Passwörter" autocomplete="off">
+          <input id="fld-db-name" type="text" name="dbName" placeholder="${t('entsperren.anlegen.standardName')}" autocomplete="off">
         </div>
       </div>
       <div class="dlg-field">
-        <label for="fld-db-level">Verschlüsselungsstärke</label>
+        <label for="fld-db-level">${t('entsperren.anlegen.staerke')}</label>
         <div class="dlg-input-row">
           <select id="fld-db-level" name="dbLevel" data-sp-picker data-sp-search="false">
             ${STUFEN.map(([wert, label, hinweis]) =>
@@ -776,23 +760,22 @@ async function createDatabase() {
           </select>
         </div>
       </div>
-      <p>Das Master-Passwort ist der Hauptschlüssel. Es gibt keine
-      Wiederherstellung — ist es weg, sind die Einträge weg.</p>
-      ${passwordField('pw', 'Master-Passwort', { minlength: 1 })}
-      ${passwordField('pw2', 'Master-Passwort wiederholen', { minlength: 1 })}`,
-    confirmText: 'Weiter zum Speicherort',
-    cancelText: 'Abbrechen',
+      <p>${t('entsperren.anlegen.hinweis')}</p>
+      ${passwordField('pw', t('entsperren.anlegen.passwort'), { minlength: 1 })}
+      ${passwordField('pw2', t('entsperren.anlegen.passwortWiederholen'), { minlength: 1 })}`,
+    confirmText: t('entsperren.anlegen.weiter'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: fields.onInsert
   });
 
   if (!res?.submit) return;
 
-  const name = String(res.data?.dbName ?? '').trim() || 'Passwörter';
+  const name = String(res.data?.dbName ?? '').trim() || t('entsperren.anlegen.standardName');
   const level = String(res.data?.dbLevel ?? 'standard');
   const pw = fields.value('pw', res.data);
 
-  if (!pw) { banner('Ohne Master-Passwort geht es nicht.', 'warning'); return; }
-  if (pw !== fields.value('pw2', res.data)) { banner('Die beiden Passwörter stimmen nicht überein.', 'warning'); return; }
+  if (!pw) { banner(t('entsperren.anlegen.passwortFehlt'), 'warning'); return; }
+  if (pw !== fields.value('pw2', res.data)) { banner(t('entsperren.anlegen.passwortUngleich'), 'warning'); return; }
 
   // Aus „Passwörter privat" wird „passwoerter-privat.kdbx" als Vorschlag.
   const datei = `${name.toLowerCase()
@@ -800,7 +783,7 @@ async function createDatabase() {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'passwoerter'}.kdbx`;
 
   const path = await pickSavePath(datei);
-  if (!path) { banner('Es wurde kein Speicherort ausgewählt.', 'info'); return; }
+  if (!path) { banner(t('entsperren.anlegen.keinOrt'), 'info'); return; }
 
   try {
     const info = await vault.create({
@@ -811,10 +794,10 @@ async function createDatabase() {
     await rememberDatabase({ name: info.name, path: info.path });
     await settings.set('database.current', info.path, { silent: true });
 
-    banner('Datenbank angelegt.', 'success');
+    banner(t('entsperren.anlegen.angelegt'), 'success');
     await enterUnlocked();
   } catch (err) {
-    banner(`Anlegen fehlgeschlagen: ${err.message}`, 'error', 7000);
+    banner(t('entsperren.anlegen.fehlgeschlagen', { fehler: err.message }), 'error', 7000);
   }
 }
 
@@ -873,13 +856,13 @@ export function unlockBusy() {
 
 export async function unlock({ method = 'password', secret = null, remember = null } = {}) {
   if (unlocking) {
-    banner('Es läuft bereits ein Entsperrversuch.', 'info');
+    banner(t('entsperren.entsperren.laeuft'), 'info');
     return;
   }
 
   const path = settings.get('database.current', null);
   if (!path && recentDatabases().length === 0 && isTauri) {
-    banner('Bitte zuerst eine Datenbank auswählen.', 'warning');
+    banner(t('entsperren.entsperren.zuerstWaehlen'), 'warning');
     return;
   }
 
@@ -897,16 +880,16 @@ export async function unlock({ method = 'password', secret = null, remember = nu
 
     const entzogen = info?.cachedAt && zugriffEntzogen(info.offlineReason);
     if (info?.cachedAt && !entzogen) {
-      const when = new Date(info.cachedAt).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
-      banner(`Die Datei ist gerade nicht erreichbar — geöffnet ist die Offline-Kopie vom ${when}. Speichern geht erst wieder, wenn die Datei da ist.`, 'warning', 10000);
+      const when = new Date(info.cachedAt).toLocaleString(gebiet(), { dateStyle: 'medium', timeStyle: 'short' });
+      banner(t('entsperren.entsperren.offlineKopie', { datum: when }), 'warning', 10000);
     }
     if (info?.readOnly) {
-      banner(`${info.format ?? 'Dieses Format'} kann nur gelesen werden — Änderungen lassen sich nicht speichern.`, 'warning', 8000);
+      banner(t('entsperren.entsperren.nurLesen', { format: info.format ?? t('entsperren.entsperren.diesesFormat') }), 'warning', 8000);
     }
     if (remember) {
       banner(remember.allowDevice
-        ? `Datenbank für ${deviceName()} freigeschaltet.`
-        : 'Datenbank für die PIN freigeschaltet.', 'success');
+        ? t('entsperren.entsperren.freigabeGeraet', { name: deviceName() })
+        : t('entsperren.entsperren.freigabePin'), 'success');
     }
 
     await enterUnlocked();
@@ -922,7 +905,7 @@ export async function unlock({ method = 'password', secret = null, remember = nu
       return;
     }
     busy();
-    banner(`Entsperren fehlgeschlagen: ${err.message}`, 'error', 6000);
+    banner(t('entsperren.entsperren.fehlgeschlagen', { fehler: err.message }), 'error', 6000);
   } finally {
     unlocking = false;
   }
@@ -939,7 +922,7 @@ function markUnlocking(on) {
 
   const hint = $('.lock-sub');
   const before = hint?.textContent;
-  if (on && hint) hint.textContent = 'Wird entschlüsselt … das dauert einen Moment.';
+  if (on && hint) hint.textContent = t('entsperren.entsperren.entschluesselt');
 
   // Drei springende Punkte — sichtbar, dass gerechnet wird.
   const dots = document.createElement('div');
@@ -968,8 +951,8 @@ export async function lockDatabase() {
     }
   }
   await vault.lock();
-  await gesperrtAufraeumen('Gesperrt — die Werte wurden aus dem Speicher entfernt.');
-  banner('Datenbank gesperrt.', 'info');
+  await gesperrtAufraeumen(t('entsperren.sperren.gesperrt'));
+  banner(t('entsperren.sperren.banner'), 'info');
 }
 
 /**

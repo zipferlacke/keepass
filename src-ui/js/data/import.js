@@ -21,6 +21,8 @@
  *                       totp: { secret, digits, period, algorithm } | null }] }
  */
 
+import { t } from '../core/i18n.js';
+
 import { parseOtpauth } from './totp.js';
 import { parseMigration } from './qr.js';
 
@@ -40,14 +42,14 @@ export async function parseImport(file) {
 function parseText(fileName, text) {
   const raw = String(text ?? '').replace(/^\uFEFF/, '');
   const trimmed = raw.trim();
-  if (!trimmed) throw new Error('Die Datei ist leer.');
+  if (!trimmed) throw new Error(t('daten.import.fehler.leer'));
 
   if (trimmed.startsWith('<')) return fromKeePassXml(trimmed);
 
   if (/^[[{]/.test(trimmed)) {
     let data;
     try { data = JSON.parse(trimmed); }
-    catch { throw new Error('Die JSON-Datei ist nicht lesbar.'); }
+    catch { throw new Error(t('daten.import.fehler.jsonNichtLesbar')); }
     return fromJson(data);
   }
 
@@ -82,7 +84,7 @@ function totpFrom(value, extra = {}) {
 
 function item(fields) {
   return {
-    name: fields.name?.trim() || hostOf(fields.url) || fields.username || 'Ohne Namen',
+    name: fields.name?.trim() || hostOf(fields.url) || fields.username || t('daten.import.quelle.ohneNamen'),
     username: fields.username ?? '',
     password: fields.password ?? '',
     url: fields.url ?? '',
@@ -111,8 +113,8 @@ function fromOtpList(text) {
     const p = parseOtpauth(line);
     if (p?.secret) items.push(item({ name: p.issuer || p.name, username: p.name, totp: totpFrom(line) }));
   }
-  if (!items.length) throw new Error('In der Datei steht keine otpauth-Adresse.');
-  return { source: '2FA-Liste', items };
+  if (!items.length) throw new Error(t('daten.import.fehler.keineOtpauth'));
+  return { source: t('daten.import.quelle.zweiFaListe'), items };
 }
 
 /* =========================================================
@@ -122,7 +124,7 @@ function fromOtpList(text) {
 function fromJson(data) {
   // Proton Pass: Tresore mit Einträgen
   if (data?.vaults && typeof data.vaults === 'object') {
-    if (data.encrypted) throw new Error('Der Proton-Pass-Export ist verschlüsselt. Bitte ohne PGP exportieren.');
+    if (data.encrypted) throw new Error(t('daten.import.fehler.protonVerschluesselt'));
     return fromProtonPass(data);
   }
 
@@ -132,20 +134,20 @@ function fromJson(data) {
   }
 
   // Bitwarden
-  if (data?.encrypted === true) throw new Error('Der Bitwarden-Export ist verschlüsselt. Bitte als „.json“ ohne Passwortschutz exportieren.');
+  if (data?.encrypted === true) throw new Error(t('daten.import.fehler.bitwardenVerschluesselt'));
   if (Array.isArray(data?.items) && ('folders' in data || data.items.some(i => 'login' in i))) {
     return fromBitwarden(data);
   }
 
   // Aegis
   if (data?.db !== undefined && data?.header) {
-    if (typeof data.db === 'string') throw new Error('Der Aegis-Export ist verschlüsselt. Bitte unverschlüsselt exportieren.');
+    if (typeof data.db === 'string') throw new Error(t('daten.import.fehler.aegisVerschluesselt'));
     return fromAegis(data.db);
   }
 
   // 2FAS
   if (Array.isArray(data?.services) || data?.servicesEncrypted) {
-    if (data.servicesEncrypted && !data.services?.length) throw new Error('Der 2FAS-Export ist verschlüsselt. Bitte ohne Passwort exportieren.');
+    if (data.servicesEncrypted && !data.services?.length) throw new Error(t('daten.import.fehler.zweifasVerschluesselt'));
     return from2fas(data);
   }
 
@@ -154,7 +156,7 @@ function fromJson(data) {
     return fromAndOtp(data);
   }
 
-  throw new Error('Dieses JSON-Format ist unbekannt. Unterstützt: Bitwarden, Proton, Aegis, 2FAS, andOTP.');
+  throw new Error(t('daten.import.fehler.jsonUnbekannt'));
 }
 
 function fromProtonPass(data) {
@@ -198,9 +200,9 @@ function fromProtonAuthenticator(data) {
 
 function fromKeePassXml(text) {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
-  if (doc.querySelector('parsererror')) throw new Error('Die XML-Datei ist nicht lesbar.');
+  if (doc.querySelector('parsererror')) throw new Error(t('daten.import.fehler.xmlNichtLesbar'));
   const root = doc.querySelector('KeePassFile > Root > Group');
-  if (!root) throw new Error('Das ist keine KeePass-XML-Datei.');
+  if (!root) throw new Error(t('daten.import.fehler.keineKeepassXml'));
 
   // Der Papierkorb kommt nicht mit.
   const recycleBin = doc.querySelector('Meta > RecycleBinUUID')?.textContent;
@@ -244,7 +246,7 @@ async function textFromZip(bytes) {
   for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
     if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
   }
-  if (eocd < 0) throw new Error('Die ZIP-Datei ist beschädigt.');
+  if (eocd < 0) throw new Error(t('daten.import.fehler.zipBeschaedigt'));
 
   let pos = view.getUint32(eocd + 16, true);
   const count = view.getUint16(eocd + 10, true);
@@ -263,14 +265,14 @@ async function textFromZip(bytes) {
 
   const want = found.find(f => /(^|\/)data\.json$/i.test(f.name))
     ?? found.find(f => /\.(json|csv|xml|txt)$/i.test(f.name));
-  if (!want) throw new Error('In der ZIP-Datei steckt kein bekannter Export.');
-  if (/\.pgp$/i.test(want.name)) throw new Error('Der Export ist verschlüsselt. Bitte ohne PGP exportieren.');
+  if (!want) throw new Error(t('daten.import.fehler.zipKeinExport'));
+  if (/\.pgp$/i.test(want.name)) throw new Error(t('daten.import.fehler.exportVerschluesselt'));
 
   const start = want.local + 30 + view.getUint16(want.local + 26, true) + view.getUint16(want.local + 28, true);
   const data = bytes.subarray(start, start + want.size);
   if (want.method === 0) return new TextDecoder().decode(data);
-  if (want.method !== 8) throw new Error('Diese ZIP-Kompression wird nicht unterstützt — bitte entpacken.');
-  if (typeof DecompressionStream === 'undefined') throw new Error('ZIP wird hier nicht unterstützt — bitte die Datei vorher entpacken.');
+  if (want.method !== 8) throw new Error(t('daten.import.fehler.zipKompression'));
+  if (typeof DecompressionStream === 'undefined') throw new Error(t('daten.import.fehler.zipNichtUnterstuetzt'));
 
   const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
   return new Response(stream).text();
@@ -409,19 +411,21 @@ function sourceOf(header, fileName) {
 }
 
 /** Was eine CSV-Spalte bedeuten kann — für die Zuordnung im Import-Dialog. */
-export const CSV_FIELDS = [
-  ['', 'Nicht übernehmen'],
-  ['name', 'Name'],
-  ['url', 'Adresse'],
-  ['username', 'Benutzername'],
-  ['email', 'E-Mail'],
-  ['password', 'Passwort'],
-  ['totp', '2FA-Schlüssel'],
-  ['notes', 'Notizen'],
-  ['folder', 'Ordner'],
-  ['tags', 'Tags'],
-  ['extra', 'An Notizen anhängen']
-];
+export function csvFelder() {
+  return [
+    ['', t('daten.import.felder.nichtUebernehmen')],
+    ['name', t('daten.import.felder.name')],
+    ['url', t('daten.import.felder.url')],
+    ['username', t('daten.import.felder.username')],
+    ['email', t('daten.import.felder.email')],
+    ['password', t('daten.import.felder.password')],
+    ['totp', t('daten.import.felder.totp')],
+    ['notes', t('daten.import.felder.notes')],
+    ['folder', t('daten.import.felder.folder')],
+    ['tags', t('daten.import.felder.tags')],
+    ['extra', t('daten.import.felder.extra')]
+  ];
+}
 
 /**
  * CSV wird nicht nur gelesen, sondern bleibt samt Zuordnung im Ergebnis
@@ -431,7 +435,7 @@ export const CSV_FIELDS = [
  */
 function fromCsv(text, fileName) {
   const rows = parseCsv(text);
-  if (rows.length < 2) throw new Error('In der CSV-Datei stehen keine Einträge.');
+  if (rows.length < 2) throw new Error(t('daten.import.fehler.csvLeer'));
 
   const header = rows[0].map(h => h.trim());
   const lower = header.map(h => h.toLowerCase());
@@ -445,7 +449,7 @@ function fromCsv(text, fileName) {
   return { source: sourceOf(lower, fileName), items: itemsFromCsv(csv, mapping), csv };
 }
 
-/** Baut die Einträge einer CSV nach `mapping` (je Spalte ein Feld aus `CSV_FIELDS`). */
+/** Baut die Einträge einer CSV nach `mapping` (je Spalte ein Feld aus `csvFelder()`). */
 export function itemsFromCsv(csv, mapping) {
   const items = [];
   for (const r of csv.rows) {
@@ -454,7 +458,7 @@ export function itemsFromCsv(csv, mapping) {
     mapping.forEach((field, i) => {
       const v = field === 'password' ? (r[i] ?? '') : (r[i] ?? '').trim();
       if (!field || !v) return;
-      if (field === 'extra') extra.push(`${csv.header[i] || `Spalte ${i + 1}`}: ${v}`);
+      if (field === 'extra') extra.push(`${csv.header[i] || t('daten.import.quelle.spalte', { n: i + 1 })}: ${v}`);
       else (values[field] ??= []).push(v);
     });
     const first = k => values[k]?.[0] ?? '';

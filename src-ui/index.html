@@ -21,10 +21,10 @@
     </button>
 
     <div class="nav-items">
-      <button data-view="home" aria-current="page"><span class="msr">home</span><span class="nav-label">Start</span></button>
-      <button data-view="passwords"><span class="msr">key</span><span class="nav-label">Einträge</span></button>
-      <button data-view="totp"><span class="msr">timer</span><span class="nav-label">TOTP</span></button>
-      <button data-view="settings"><span class="msr">settings</span><span class="nav-label">Einstellungen</span></button>
+      <button data-view="home" aria-current="page"><span class="msr">home</span><span class="nav-label" data-i18n="navigation.start">Start</span></button>
+      <button data-view="passwords"><span class="msr">key</span><span class="nav-label" data-i18n="navigation.eintraege">Einträge</span></button>
+      <button data-view="totp"><span class="msr">timer</span><span class="nav-label" data-i18n="navigation.totp">TOTP</span></button>
+      <button data-view="settings"><span class="msr">settings</span><span class="nav-label" data-i18n="navigation.einstellungen">Einstellungen</span></button>
     </div>
   </nav>
 
@@ -34,8 +34,8 @@
       <div class="header-row">
         <h1 id="app-title">WKeePass</h1>
         <div class="header-actions">
-          <button class="button" data-shape="round no-background" id="btn-lock" title="Datenbank sperren"><span class="msr">lock</span></button>
-          <button class="button" data-shape="round no-background" id="btn-close-settings" title="Schließen" aria-label="Schließen"><span class="msr">close</span></button>
+          <button class="button" data-shape="round no-background" id="btn-lock" title="Datenbank sperren" data-i18n-title="navigation.kopf.sperren"><span class="msr">lock</span></button>
+          <button class="button" data-shape="round no-background" id="btn-close-settings" title="Schließen" aria-label="Schließen" data-i18n-title="allgemein.knoepfe.schliessen" data-i18n-aria-label="allgemein.knoepfe.schliessen"><span class="msr">close</span></button>
         </div>
       </div>
 
@@ -44,7 +44,7 @@
     <main>
       <section class="view" id="view-home" data-active>
         <div class="tile-grid" id="tile-grid"></div>
-        <div class="section-label">Zuletzt genutzt</div>
+        <div class="section-label" data-i18n="uebersicht.zuletzt.titel">Zuletzt genutzt</div>
         <div class="entry-list" id="recent-list"></div>
       </section>
 
@@ -52,7 +52,7 @@
         <div class="list-toolbar">
           <div class="searchbar" id="searchbar">
             <span class="msr">search</span>
-            <input id="search" type="text" placeholder="Suchen …" autocomplete="off">
+            <input id="search" type="text" placeholder="Suchen …" data-i18n-placeholder="eintraege.liste.suchen" autocomplete="off">
           </div>
           <div class="tagbar" id="tagbar"></div>
         </div>
@@ -78,7 +78,7 @@
          der Start ab, bleibt er stehen, statt eine leere Hauptseite zu zeigen. -->
     <div class="lockscreen" id="lockscreen">
       <div class="lock-topbar">
-        <button class="lock-settings" id="lock-gear" title="Einstellungen" aria-label="Einstellungen">
+        <button class="lock-settings" id="lock-gear" title="Einstellungen" aria-label="Einstellungen" data-i18n-title="navigation.einstellungen" data-i18n-aria-label="navigation.einstellungen">
           <span class="msr">settings</span>
         </button>
       </div>
@@ -91,7 +91,7 @@
     </div>
 
     <!-- Neuer Eintrag: runder Knopf über der Navigation -->
-    <button class="fab" id="btn-add" title="Neu anlegen" aria-label="Neu anlegen">
+    <button class="fab" id="btn-add" title="Neu anlegen" aria-label="Neu anlegen" data-i18n-title="navigation.neu" data-i18n-aria-label="navigation.neu">
       <span class="msr">add</span>
     </button>
 

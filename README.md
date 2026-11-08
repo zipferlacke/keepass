@@ -31,6 +31,7 @@ Platzhalter. Warum das so ist und wie die Teile zusammenspielen, steht in
 | Android                  | Autofill, Passkeys, Datenbank über die Dateiauswahl (Nextcloud, Drive); läuft die App nicht, startet sie nur kurz und entsperrt wird im Blatt über der aufrufenden App              | `android_services.rs`, `keepass-android/`                               |
 | Sicherheitscheck         | schwache, mehrfach genutzte, abgelaufene und geleakte Passwörter (HIBP, k-Anonymität)                                                                                               | `pages/checkup.js`, `data/security.js`                                  |
 | Import                   | 2FAS, Aegis, andOTP, Bitwarden, KeePass-XML, Proton Pass/Authenticator, CSV mit eigener Spaltenzuordnung                                                                            | `data/import.js`, `dialogs/create.js`                                   |
+| Sprachen                 | Deutsch, English, Français, Dansk, Norsk bokmål, Polski, Svenska – Gerätesprache oder in den Einstellungen gewählt; je Sprache eine Datei, gegliedert nach Seite und Bereich; Store-Texte ebenso | `core/i18n.js`, `appdata/lang/`, `appdata/store/`                       |
 | Website-Icons und -Namen | einmal holen, dann in der Datenbank                                                                                                                                                 | `favicon.rs`, `web.rs`                                                  |
 
 ---
@@ -52,8 +53,9 @@ src-ui/             die Oberfläche
   js/dialogs/       die größeren Dialoge
   css/app.css       Stil (nested CSS, Variablen für wuefl-libs)
   libs/             Verweis auf wuefl-libs (Nachbarprojekt)
+  lang/             Verweis auf appdata/lang (die Sprachdateien)
 keepass-android/    Kotlin für Autofill und Passkeys — eingebunden von tools/android-einbinden.py
-appdata/            Neuigkeiten, Symbole, Screenshots, Werbebilder, Store-Texte, version.py
+appdata/            Neuigkeiten, Sprachdateien (lang/), Symbole, Screenshots, Werbebilder, Store-Texte je Sprache, version.py
 flatpak/            Flatpak-Manifest und Metainfo
 tests/              alle Tests, siehe unten
 tools/              Hilfsskripte: Android-Bau, Symbole, Web-Demo, Entwicklungsserver

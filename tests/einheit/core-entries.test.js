@@ -6,6 +6,9 @@
  */
 import { pruefe, gleich, wahr } from '../lib/pruef.js';
 import { state } from '/src-ui/js/core/state.js';
+import { initI18n } from '/src-ui/js/core/i18n.js';
+
+await initI18n('de_DE');
 import { liveEntries, visibleEntries, expiryState, byId, hasFiles, isFileEntry,
          usageMap, formatDate, zeitLabel, lastUsed } from '/src-ui/js/core/entries.js';
 

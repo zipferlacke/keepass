@@ -1,0 +1,1356 @@
+{
+  "allgemein": {
+    "knoepfe": {
+      "schliessen": "Zamknij",
+      "abbrechen": "Anuluj",
+      "zurueck": "Wstecz"
+    },
+    "zeit": {
+      "geradeEben": "przed chwilą",
+      "vorMinuten": {
+        "one": "{n} minutę temu",
+        "few": "{n} minuty temu",
+        "many": "{n} minut temu",
+        "other": "{n} minuty temu"
+      },
+      "heute": "dziś, {uhr}",
+      "tagUhr": "{tag}, {uhr}"
+    }
+  },
+  "navigation": {
+    "start": "Start",
+    "eintraege": "Wpisy",
+    "totp": "TOTP",
+    "einstellungen": "Ustawienia",
+    "neu": "Dodaj",
+    "kopf": {
+      "sperren": "Zablokuj bazę danych"
+    },
+    "titel": {
+      "home": "Przegląd",
+      "passwords": "Wpisy",
+      "totp": "Kody TOTP",
+      "security": "Kontrola bezpieczeństwa",
+      "settings": "Ustawienia",
+      "dateien": "Pliki"
+    }
+  },
+  "uebersicht": {
+    "kacheln": {
+      "eintraege": "Wpisy",
+      "passkeys": "Passkeys",
+      "totp": "Kody TOTP",
+      "dateien": "Pliki",
+      "sicherheit": "Kontrola bezpieczeństwa",
+      "anzahl": {
+        "one": "{n} wpis",
+        "few": "{n} wpisy",
+        "many": "{n} wpisów",
+        "other": "{n} wpisu"
+      },
+      "codes": {
+        "one": "{n} kod",
+        "few": "{n} kody",
+        "many": "{n} kodów",
+        "other": "{n} kodu"
+      },
+      "funde": {
+        "one": "{n} znalezisko",
+        "few": "{n} znaleziska",
+        "many": "{n} znalezisk",
+        "other": "{n} znaleziska"
+      },
+      "ungeprueft": "jeszcze nie sprawdzono"
+    },
+    "zuletzt": {
+      "titel": "Ostatnio używane"
+    }
+  },
+  "eintraege": {
+    "liste": {
+      "suchen": "Szukaj …"
+    },
+    "loeschen": "Usuń",
+    "leer": "Brak wpisów.",
+    "keineGefunden": "Nie znaleziono wpisów.",
+    "iconNeuLaden": "Ikona jest ładowana ponownie.",
+    "kopiert": {
+      "benutzername": "Skopiowano nazwę użytkownika",
+      "passwort": "Skopiowano hasło",
+      "totp": "Skopiowano TOTP"
+    },
+    "menue": {
+      "wiederherstellen": "Przywróć",
+      "endgueltigLoeschen": "Usuń na stałe",
+      "papierkorbLeeren": "Opróżnij kosz",
+      "ordnerBearbeiten": "Edytuj folder",
+      "eintragBearbeiten": "Edytuj wpis",
+      "benutzernameKopieren": "Kopiuj nazwę użytkownika",
+      "passwortKopieren": "Kopiuj hasło",
+      "totpKopieren": "Kopiuj TOTP",
+      "ausschneiden": "Wytnij",
+      "iconNeuLaden": "Załaduj ikonę ponownie",
+      "namenUebernehmen": "Przejmij nazwę ze strony",
+      "einfuegen": "Wklej",
+      "einfuegenAnzahl": "Wklej ({n})",
+      "neuerEintrag": "Nowy wpis",
+      "neuerUnterordner": "Nowy podfolder",
+      "neuerOrdner": "Nowy folder",
+      "eintragLoeschen": "Usuń wpis",
+      "ordnerLoeschen": "Usuń folder",
+      "wiederhergestellt": "Przywrócono.",
+      "endgueltigGeloescht": "Usunięto na stałe."
+    },
+    "ordnerLoeschen": {
+      "titel": "Usuń folder",
+      "text": "Folder „{name}” zostanie usunięty. Nie można usunąć folderu, w którym są wpisy.",
+      "nichtLeer": "Folder nie jest pusty.",
+      "geloescht": "Folder usunięty."
+    },
+    "eintragLoeschen": {
+      "titel": "Usuń wpis",
+      "text": "Wpis „{name}” zostanie usunięty z bazy danych. Tej operacji nie można cofnąć.",
+      "geloescht": "Wpis usunięty."
+    },
+    "ausschneiden": {
+      "eins": "Wycięto „{name}” — wklej w folderze docelowym (Ctrl+V).",
+      "mehrere": "Wycięto wpisy: {n} — wklej w folderze docelowym (Ctrl+V)."
+    },
+    "einfuegen": {
+      "nichts": "Nic nie wycięto.",
+      "nichtHier": "Nie można tu nic wkleić.",
+      "schonDa": "Już jest w tym folderze.",
+      "verschobenEins": "Przeniesiono do „{ordner}”.",
+      "verschobenMehrere": "Przeniesiono wpisy ({n}) do „{ordner}”."
+    },
+    "titel": {
+      "keineGeaendert": "Nie zmieniono żadnych nazw.",
+      "uebernommen": {
+        "one": "Przejęto {n} nazwę.",
+        "few": "Przejęto {n} nazwy.",
+        "many": "Przejęto {n} nazw.",
+        "other": "Przejęto {n} nazwy."
+      }
+    },
+    "spalten": {
+      "name": "Nazwa",
+      "benutzer": "Użytkownik",
+      "url": "URL",
+      "ordner": "Folder",
+      "unterordner": "Podfolder",
+      "zustandPasswort": "Stan hasła",
+      "totpHinterlegt": "Zapisano TOTP",
+      "anhangVorhanden": "Jest załącznik",
+      "code": "Kod",
+      "geaendert": "Zmieniono",
+      "endgueltigWeg": "Usunięcie na stałe"
+    },
+    "ampel": {
+      "keins": "Brak zapisanego hasła",
+      "geleakt": "Hasło znaleziono w wyciekach: {n}",
+      "staerke": "Hasło: {staerke}",
+      "abgelaufen": "Hasło wygasło",
+      "mehrfach": "Hasło użyte wielokrotnie",
+      "laeuftAb": {
+        "one": "Hasło wygasa za {n} dzień",
+        "few": "Hasło wygasa za {n} dni",
+        "many": "Hasło wygasa za {n} dni",
+        "other": "Hasło wygasa za {n} dnia"
+      },
+      "unauffaellig": "Bez zastrzeżeń"
+    },
+    "artFilter": {
+      "passkeys": "Tylko passkeys",
+      "dateien": "Pliki",
+      "zurueck": "Wróć do wszystkich wpisów",
+      "aufheben": "Wyłącz filtr"
+    },
+    "legende": {
+      "passwort": "Hasło:",
+      "gut": "Dobre",
+      "achtung": "Uwaga",
+      "problem": "Problem",
+      "keins": "brak",
+      "totp": "TOTP",
+      "anhang": "Załącznik"
+    },
+    "zeile": {
+      "passkey": "Passkey",
+      "anhaenge": {
+        "one": "{n} załącznik",
+        "few": "{n} załączniki",
+        "many": "{n} załączników",
+        "other": "{n} załącznika"
+      },
+      "beimOeffnen": "przy następnym otwarciu",
+      "inTagen": {
+        "one": "za {n} dzień",
+        "few": "za {n} dni",
+        "many": "za {n} dni",
+        "other": "za {n} dnia"
+      },
+      "mehr": "Więcej",
+      "imPapierkorb": "Jest w koszu"
+    },
+    "papierkorb": {
+      "titel": "Kosz",
+      "zusammenfassung": {
+        "one": "{n} wpis · usunięcie na stałe po {tage} dniach",
+        "few": "{n} wpisy · usunięcie na stałe po {tage} dniach",
+        "many": "{n} wpisów · usunięcie na stałe po {tage} dniach",
+        "other": "{n} wpisu · usunięcie na stałe po {tage} dniach"
+      },
+      "leeren": "Opróżnij",
+      "istLeer": "Kosz jest pusty.",
+      "leerenText": {
+        "one": "{n} wpis zostanie usunięty na stałe. Tej operacji nie można cofnąć.",
+        "few": "{n} wpisy zostaną usunięte na stałe. Tej operacji nie można cofnąć.",
+        "many": "{n} wpisów zostanie usuniętych na stałe. Tej operacji nie można cofnąć.",
+        "other": "{n} wpisu zostanie usuniętych na stałe. Tej operacji nie można cofnąć."
+      },
+      "geleert": {
+        "one": "Usunięto na stałe {n} wpis.",
+        "few": "Usunięto na stałe {n} wpisy.",
+        "many": "Usunięto na stałe {n} wpisów.",
+        "other": "Usunięto na stałe {n} wpisu."
+      }
+    },
+    "dateien": {
+      "eintragOeffnenLang": "Otwórz wpis — nazwa, hasło, notatki",
+      "eintragOeffnen": "Otwórz wpis",
+      "keine": "Nie znaleziono plików.",
+      "zumAnzeigen": "{name} — kliknij, aby wyświetlić",
+      "herunterladen": "Pobierz",
+      "datei": "Plik",
+      "eintrag": "Wpis",
+      "nichtLesbar": "Nie udało się odczytać pliku."
+    },
+    "verschieben": {
+      "ordnerNicht": "Tego folderu nie można tam przenieść.",
+      "ordnerVerschoben": "Folder przeniesiony.",
+      "reihenfolge": "Zmieniono kolejność."
+    },
+    "auswahl": {
+      "anzahl": "Wybrano: {n}",
+      "verschieben": "Przenieś …",
+      "aufheben": "Wyczyść wybór",
+      "verschiebenTitel": {
+        "one": "Przenieś {n} wpis",
+        "few": "Przenieś {n} wpisy",
+        "many": "Przenieś {n} wpisów",
+        "other": "Przenieś {n} wpisu"
+      },
+      "zielordner": "Folder docelowy",
+      "verschiebenKnopf": "Przenieś",
+      "verschoben": "Przeniesiono: {n}.",
+      "loeschenTitel": {
+        "one": "Usuń {n} wpis",
+        "few": "Usuń {n} wpisy",
+        "many": "Usuń {n} wpisów",
+        "other": "Usuń {n} wpisu"
+      },
+      "loeschenImPapierkorb": "Te wpisy są już w koszu i zostaną usunięte na stałe. Tej operacji nie można cofnąć.",
+      "loeschenText": "Wpisy trafią do kosza i będzie można je stamtąd przywrócić.",
+      "inPapierkorb": "Do kosza",
+      "geloescht": {
+        "one": "Usunięto {n} wpis.",
+        "few": "Usunięto {n} wpisy.",
+        "many": "Usunięto {n} wpisów.",
+        "other": "Usunięto {n} wpisu."
+      }
+    }
+  },
+  "start": {
+    "meldungen": {
+      "untaetig": "Zablokowano z powodu bezczynności.",
+      "autofillGespeichert": {
+        "one": "Zapisano jedne dane logowania z autouzupełniania.",
+        "few": "Zapisano dane logowania z autouzupełniania: {n}.",
+        "many": "Zapisano dane logowania z autouzupełniania: {n}.",
+        "other": "Zapisano dane logowania z autouzupełniania: {n}."
+      },
+      "nichtGespeichert": "Zmiana nie została zapisana: {grund}",
+      "codeNachEntsperren": "Odblokuj — potem kod zostanie przejęty.",
+      "dateiNachgeholt": "Zapisano w aplikacji, ale jeszcze nie w pliku: {grund} – zostanie nadrobione."
+    },
+    "browser": {
+      "wartet": "Przeglądarka czeka na bazę danych.",
+      "entsperrt": "Odblokowano z przeglądarki.",
+      "nichtGespeichert": "Zmiana z przeglądarki nie została zapisana: {grund}"
+    },
+    "fehler": {
+      "titel": "Nie udało się uruchomić WKeePass",
+      "neuLaden": "Załaduj ponownie"
+    }
+  },
+  "daten": {
+    "import": {
+      "fehler": {
+        "leer": "Plik jest pusty.",
+        "jsonNichtLesbar": "Nie można odczytać pliku JSON.",
+        "keineOtpauth": "W pliku nie ma adresu otpauth.",
+        "protonVerschluesselt": "Eksport z Proton Pass jest zaszyfrowany. Wyeksportuj go bez PGP.",
+        "bitwardenVerschluesselt": "Eksport z Bitwarden jest zaszyfrowany. Wyeksportuj go jako „.json” bez ochrony hasłem.",
+        "aegisVerschluesselt": "Eksport z Aegis jest zaszyfrowany. Wyeksportuj go bez szyfrowania.",
+        "zweifasVerschluesselt": "Eksport z 2FAS jest zaszyfrowany. Wyeksportuj go bez hasła.",
+        "jsonUnbekannt": "Nieznany format JSON. Obsługiwane: Bitwarden, Proton, Aegis, 2FAS, andOTP.",
+        "xmlNichtLesbar": "Nie można odczytać pliku XML.",
+        "keineKeepassXml": "To nie jest plik XML programu KeePass.",
+        "zipBeschaedigt": "Plik ZIP jest uszkodzony.",
+        "zipKeinExport": "W pliku ZIP nie ma żadnego znanego eksportu.",
+        "exportVerschluesselt": "Eksport jest zaszyfrowany. Wyeksportuj go bez PGP.",
+        "zipKompression": "Ta kompresja ZIP nie jest obsługiwana — rozpakuj plik.",
+        "zipNichtUnterstuetzt": "ZIP nie jest tu obsługiwany — najpierw rozpakuj plik.",
+        "csvLeer": "W pliku CSV nie ma wpisów."
+      },
+      "quelle": {
+        "ohneNamen": "Bez nazwy",
+        "zweiFaListe": "Lista 2FA",
+        "spalte": "Kolumna {n}"
+      },
+      "felder": {
+        "nichtUebernehmen": "Nie przejmuj",
+        "name": "Nazwa",
+        "url": "Adres",
+        "username": "Nazwa użytkownika",
+        "email": "E-mail",
+        "password": "Hasło",
+        "totp": "Klucz 2FA",
+        "notes": "Notatki",
+        "folder": "Folder",
+        "tags": "Tagi",
+        "extra": "Dołącz do notatek"
+      }
+    },
+    "anhaenge": {
+      "warnung": {
+        "titel": "Zapisać bez szyfrowania?",
+        "text1": "<p>„{name}” jest w bazie danych zaszyfrowany. Przy pobieraniu plik zostanie zapisany na dysku <strong>bez szyfrowania</strong>.</p>",
+        "text2": "<p>Każdy program i każdy, kto ma dostęp do tego folderu, będzie mógł go odczytać, a synchronizacja może go zabrać ze sobą. Usuń kopię, gdy jej już nie potrzebujesz.</p>",
+        "bestaetigen": "Zapisz bez szyfrowania"
+      },
+      "meldung": {
+        "gespeichert": "Zapisano w {pfad}",
+        "fehler": "Zapis nie powiódł się: {fehler}"
+      }
+    },
+    "vorschau": {
+      "markdown": {
+        "details": "Szczegóły",
+        "bild": "[Obraz: {text}]"
+      },
+      "pdf": {
+        "hinweis": "Jeśli wbudowana przeglądarka niczego nie pokazuje, pobierz plik przyciskiem w prawym górnym rogu."
+      },
+      "keineVorschau": "Ten typ pliku nie ma podglądu.<br>Aby go otworzyć, pobierz go przyciskiem w prawym górnym rogu.",
+      "fehler": "Podgląd niemożliwy: {fehler}"
+    },
+    "qr": {
+      "fehler": {
+        "scannerFehlt": "To środowisko nie potrafi odczytywać kodów QR.",
+        "keinCodeBild": "Nie znaleziono kodu QR na obrazie.",
+        "keinCodeFoto": "Nie znaleziono kodu QR na zdjęciu.",
+        "keinBild": "Aparat nie przekazuje obrazu.",
+        "keinKamerazugriff": "Brak dostępu do aparatu.",
+        "schwarzesBild": "przekazuje tylko czarny obraz",
+        "keinKamerabild": "Brak obrazu z aparatu. {probleme}. Zamiast tego użyj „Kod QR z obrazu” ze zrzutem ekranu lub zdjęciem.",
+        "abgebrochen": "anulowano",
+        "auswertung": "Analiza nie powiodła się: {fehler}",
+        "keineDaten": "Kod nie zawiera danych.",
+        "keineKonten": "W kodzie nie ma czytelnych kont."
+      },
+      "kamera": {
+        "standard": "Aparat domyślny",
+        "rueck": "aparat tylny",
+        "k640": "Aparat 640×480",
+        "rueckHd": "aparat tylny (HD)",
+        "rueckWunsch": "aparat tylny (żądany)"
+      },
+      "konto": "Konto",
+      "wlan": {
+        "name": "Wi-Fi {name}",
+        "ohneName": "Wi-Fi",
+        "verschluesselung": "Szyfrowanie: {art}"
+      }
+    },
+    "sicherheit": {
+      "staerke": {
+        "leer": "puste",
+        "schwach0": "bardzo słabe",
+        "schwach1": "słabe",
+        "mittel": "średnie",
+        "stark": "silne",
+        "sehrStark": "bardzo silne"
+      },
+      "hinweise": {
+        "keinPasswort": "Nie ustawiono hasła.",
+        "haeufig": "Jest na listach popularnych haseł.",
+        "wort": "Zawiera popularne słowo „{wort}”.",
+        "einZeichen": "Składa się tylko z jednego powtarzanego znaku.",
+        "wiederholt": "Zawiera wielokrotnie powtórzone znaki.",
+        "reihenfolge": "Zawiera ciąg z klawiatury lub alfabetu.",
+        "ziffern": "Składa się tylko z cyfr.",
+        "jahr": "Wygląda jak rok.",
+        "kurz": "Krótsze niż 8 znaków.",
+        "keineGross": "Brak wielkich liter.",
+        "keineSonder": "Brak znaków specjalnych."
+      },
+      "fehler": {
+        "ueberlastet": "Usługa jest przeciążona, spróbuj ponownie później"
+      }
+    }
+  },
+  "dialoge": {
+    "anlegen": {
+      "wahl": {
+        "titel": "Dodaj",
+        "eintrag": {
+          "titel": "Dodaj wpis",
+          "text": "Wpisz samodzielnie nazwę, użytkownika i hasło"
+        },
+        "dateien": {
+          "titel": "Zapisz pliki",
+          "text": "Przechowuj dokumenty zaszyfrowane w bazie danych"
+        },
+        "ordner": {
+          "titel": "Dodaj folder",
+          "text": "Do sortowania wpisów"
+        },
+        "import": {
+          "titel": "Importuj",
+          "text": "Przenieś hasła i kody 2FA z innych aplikacji"
+        },
+        "kamera": {
+          "titel": "Skanuj kod QR",
+          "text": "Skonfiguruj TOTP lub wczytaj zbiorczy eksport"
+        },
+        "bild": {
+          "titel": "Kod QR z obrazu",
+          "text": "Wybierz zrzut ekranu lub zdjęcie"
+        },
+        "nichtVerfuegbar": "Niedostępne w tej przeglądarce"
+      },
+      "scan": {
+        "fehler": "Skanowanie nie powiodło się: {fehler}",
+        "nichtLesbar": "Nie można odczytać kodu: {fehler}",
+        "fido": "To kod logowania dla passkeys, a nie dane dostępowe do przeniesienia. Passkeys tworzy okno systemowe strony."
+      },
+      "totp": {
+        "keinSecret": "W kodzie nie ma sekretu TOTP.",
+        "titel": "Dodaj TOTP",
+        "gefunden": "Znaleziono: {name}",
+        "konto": "Konto",
+        "neu": {
+          "titel": "Nowy wpis",
+          "text": "Tworzy dla niego osobny wpis"
+        },
+        "bestehend": {
+          "titel": "Do istniejącego wpisu",
+          "text": "Dołącz do istniejącego wpisu",
+          "alleBelegt": "Wszystkie wpisy mają już TOTP"
+        },
+        "auswaehlen": "Wybierz wpis",
+        "uebernehmen": "Zastosuj",
+        "nichtGefunden": "Nie znaleziono wpisu.",
+        "hinzugefuegt": "Dodano TOTP do „{name}”."
+      },
+      "sammel": {
+        "titel": "Znaleziono eksport zbiorczy",
+        "text": "Kod zawiera konta: <strong>{n}</strong>. Każde zostanie utworzone jako osobny wpis.",
+        "anlegen": "Utwórz wpisy ({n})",
+        "angelegt": "Utworzono wpisy: {n}.",
+        "angelegtUebersprungen": "Utworzono wpisy: {n}, pominięto: {uebersprungen} (brak TOTP)."
+      },
+      "import": {
+        "erstEntsperren": "Najpierw odblokuj bazę danych.",
+        "nichtMoeglich": "Import niemożliwy: {fehler}",
+        "alleVorhanden": "Wszystkie wpisy z {quelle} ({n}) już istnieją.",
+        "leer": "Nie ma jeszcze wpisów — przypisz poniżej do kolumny co najmniej hasło, nazwę użytkownika, adres lub klucz 2FA.",
+        "zusammenfassung": "Wpisy: <strong>{n}</strong> — z hasłem: {pw}, z kodem 2FA: {totp}. Trafią do folderu {ordner}.",
+        "zusammenfassungDoppelt": "Wpisy: <strong>{n}</strong> — z hasłem: {pw}, z kodem 2FA: {totp}, już istnieje i pominięto: {doppelt}. Trafią do folderu {ordner}.",
+        "zweiFA": "Kod 2FA",
+        "weitere": "… i {n} więcej",
+        "spalte": "Kolumna {n}",
+        "spaltenZuordnen": "Przypisz kolumny",
+        "importieren": "Importuj wpisy ({n})",
+        "importierenKurz": "Importuj",
+        "titel": "Import z {quelle}",
+        "klartext": "Plik eksportu zawiera wszystko jawnym tekstem — najlepiej usuń go potem.",
+        "teilweise": "Zaimportowano: {n}, nie przejęto: {fehlt} ({fehler}).",
+        "teilweiseMehr": "Zaimportowano: {n}, nie przejęto: {fehlt} ({fehler} …).",
+        "fertig": "Zaimportowano wpisy z {quelle}: {n}. Najlepiej od razu usuń plik eksportu."
+      }
+    },
+    "konflikte": {
+      "art": {
+        "geaendert": "zmieniono",
+        "geloescht": "usunięto"
+      },
+      "seite": {
+        "geloescht": "Wpis usunięty",
+        "feldGeaendert": "Zmieniono: {name}",
+        "hier": "Zmieniono tutaj",
+        "datei": "Zmieniono w pliku"
+      },
+      "ohneTitel": "(bez tytułu)",
+      "gilt": {
+        "hier": "Obecnie obowiązuje wersja stąd.",
+        "datei": "Obecnie obowiązuje wersja z pliku."
+      },
+      "wahl": {
+        "behalten": "Zachowaj moją",
+        "nehmen": "Weź z pliku"
+      },
+      "titel": {
+        "eins": "Wpis zmieniono po obu stronach",
+        "mehrere": "Wpisy zmienione po obu stronach: {n}"
+      },
+      "hinweis": "Od ostatniej synchronizacji te wpisy zostały zmienione inaczej tutaj i w pliku. Która wersja ma obowiązywać? Dopóki nie zdecydujesz, obowiązuje nowsza.",
+      "spaeter": "Później",
+      "entschieden": {
+        "hier": "Zdecydowano: twoja wersja.",
+        "datei": "Zdecydowano: wersja z pliku."
+      },
+      "fehler": "Nie przejęto: {fehler}"
+    },
+    "versionen": {
+      "herkunft": {
+        "extern": "z pliku",
+        "hier": "tutaj",
+        "beide": "tutaj i w pliku"
+      },
+      "art": {
+        "neu": {
+          "label": "Dodano",
+          "kurz": "nowy"
+        },
+        "geloescht": {
+          "label": "Usunięto",
+          "kurz": "usunięto"
+        },
+        "geaendert": {
+          "label": "Zmieniono",
+          "kurz": "zmieniono"
+        }
+      },
+      "passiert": {
+        "papierkorb": "do kosza",
+        "wiederhergestellt": "przywrócono",
+        "verschoben": "przeniesiono"
+      },
+      "kurz": {
+        "aeltester": "Najstarsza zachowana wersja",
+        "keine": "Nie zmieniono żadnych wpisów"
+      },
+      "ohneTitel": "(bez tytułu)",
+      "liste": {
+        "fehler": "Nie można odczytać wersji: {fehler}",
+        "leer": "Nie ma jeszcze wersji — pierwsza powstanie przy następnym otwarciu lub zapisie.",
+        "titel": "Wersje",
+        "hinweis": "Ostatnie wersje pliku, najnowsza na górze. Pod każdą widać, co zmieniła — dotknij, aby zobaczyć szczegóły i móc to cofnąć.",
+        "aktuell": "wersja bieżąca",
+        "nichtLesbar": "Nie można odczytać"
+      },
+      "stand": {
+        "vergleichFehler": "Nie udało się porównać wersji: {fehler}",
+        "feldGeaendert": "Zmieniono: {name}",
+        "zuruecknehmen": "Cofnij",
+        "zuruecknehmenTitel": "Przywróć wpis do stanu sprzed tej wersji",
+        "aeltesterHinweis": "To najstarsza zachowana wersja — nie da się już powiedzieć, co zmieniła względem poprzedniej.",
+        "nichtsGeaendert": "Ta wersja niczego nie zmieniła we wpisach.",
+        "titel": "Wersja {zeit}",
+        "gegenueber": "Tyle ta wersja zmieniła względem poprzedniej.",
+        "liegtDa": "Tak plik wygląda teraz.",
+        "ganzZurueckHinweis": "„Wróć w całości do tej wersji” ustawia wszystkie wpisy tak, jak były wtedy — to, co było potem, zostaje w wersjach.",
+        "ganzZurueck": "Wróć w całości do tej wersji",
+        "zurueckgenommen": "Cofnięto"
+      },
+      "zurueckholen": {
+        "eintrag": "Wpis przywrócony i zapisany.",
+        "eintraege": {
+          "one": "{n} wpis przywrócony i zapisany.",
+          "few": "{n} wpisy przywrócone i zapisane.",
+          "many": "{n} wpisów przywróconych i zapisanych.",
+          "other": "{n} wpisu przywróconych i zapisanych."
+        },
+        "fehler": "Przywracanie nie powiodło się: {fehler}"
+      }
+    },
+    "eintrag": {
+      "allgemein": {
+        "anzeigen": "Pokaż",
+        "verbergen": "Ukryj",
+        "kopieren": "Kopiuj"
+      },
+      "ansicht": {
+        "ariaLabel": "Widok",
+        "dateien": "Pliki",
+        "alleFelder": "Wszystkie pola"
+      },
+      "titel": {
+        "neueDateiablage": "Nowy zbiór plików",
+        "neuerEintrag": "Nowy wpis"
+      },
+      "felder": {
+        "name": "Nazwa",
+        "ordner": "Folder",
+        "tags": "Tagi (po przecinku)",
+        "url": "URL"
+      },
+      "knoepfe": {
+        "speichern": "Zapisz",
+        "anlegen": "Utwórz",
+        "ja": "Tak",
+        "nein": "Nie"
+      },
+      "passwort": {
+        "titel": "Hasło",
+        "gesetzt": "ustawione",
+        "leer": "puste",
+        "benutzername": "Nazwa użytkownika",
+        "passwort": "Hasło",
+        "platzhalter": "jeszcze nie ustawiono",
+        "neuErzeugen": "Wygeneruj nowe",
+        "staerke": "Siła: {label}",
+        "bit": "{n} bit.",
+        "hinweis": "Zapisane hasło znajduje się w rdzeniu. Jest pobierane dopiero po kliknięciu pola lub „Pokaż” — i tylko wtedy zapisywane, gdy naprawdę je zmienisz.",
+        "ablaufdatum": "Data wygaśnięcia (opcjonalnie)",
+        "ablaufEntfernen": "Usuń datę wygaśnięcia"
+      },
+      "totp": {
+        "titel": "TOTP",
+        "eingerichtet": "skonfigurowano",
+        "nichtEingerichtet": "nie skonfigurowano",
+        "secret": "Sekret (Base32) lub URI otpauth://",
+        "scanKamera": "Skanuj kod QR",
+        "scanBild": "Kod QR z obrazu",
+        "stellen": "Cyfry",
+        "intervall": "Interwał (s)",
+        "algorithmus": "Algorytm",
+        "qrCode": "Kod QR",
+        "kontoName": "Konto"
+      },
+      "passkey": {
+        "titel": "Passkey",
+        "hinterlegt": "zapisano",
+        "keiner": "brak",
+        "konto": "Konto: {name} · ",
+        "beschreibung": "Logowanie bez hasła — tajny klucz jest tylko w tej bazie danych.",
+        "hinweis": "Passkey tworzysz bezpośrednio w serwisie („Utwórz passkey”). Rozszerzenie przeglądarki lub Android zapyta wtedy WKeePass, a passkey sam trafi do wpisu."
+      },
+      "anhaenge": {
+        "titel": "Załączniki",
+        "dateienTitel": "Pliki",
+        "anhaengen": "Dołącz plik …",
+        "dateienHinzufuegen": "Dodaj pliki …",
+        "neueDatei": "Nowy plik …",
+        "keine": "Nie ma jeszcze załączników.",
+        "zumAnzeigen": "{name} — kliknij, aby wyświetlić",
+        "entfernen": "Usuń",
+        "herunterladen": "Pobierz",
+        "leer": "(pusty)",
+        "dateienKeine": "Nie ma jeszcze plików",
+        "dateienHinweis": "Przeciągnij pliki na okno, wybierz je poniżej lub utwórz nowy. Potem będą w bazie danych zaszyfrowane.",
+        "nochNichtGespeichert": "jeszcze nie zapisano"
+      },
+      "notizen": "Notatki",
+      "qr": {
+        "titel": "Kod QR: {name}",
+        "wirdErzeugt": "Trwa generowanie …",
+        "hinweis": "Zeskanuj aplikacją uwierzytelniającą. Kod zawiera sekret jawnym tekstem — nie udostępniaj go i nie pozwalaj go fotografować."
+      },
+      "scan": {
+        "titel": "Skanuj kod QR",
+        "rahmen": "Ustaw kod w ramce",
+        "foto": "Nie działa? Zrób zdjęcie",
+        "fotoWirdAusgewertet": "Trwa analiza zdjęcia …",
+        "erkannt": "Rozpoznano",
+        "kameraFehlt": "Aparat niedostępny: {fehler}",
+        "keineDekodierung": "Dekodowanie QR niedostępne. Wklej zamiast tego URI otpauth:// jako tekst.",
+        "browserOhneQr": "Ta przeglądarka nie potrafi odczytywać kodów QR — w wersji na komputer i w aplikacji robi to Rust. Wklej tutaj URI otpauth:// jako tekst."
+      },
+      "viewer": {
+        "umbenennen": "Zmień nazwę",
+        "umbenennenTitel": "{name} — zmień nazwę",
+        "dateiname": "Nazwa pliku",
+        "bearbeiten": "Edytuj",
+        "wirdGeladen": "Ładowanie …",
+        "aenderungenSpeichern": "Zapisać zmiany?",
+        "wurdeBearbeitet": "Plik „{name}” został zmieniony.",
+        "nameUngueltig": "Nazwa nie może być pusta ani zawierać ukośnika.",
+        "speichernFehlgeschlagen": "Zapis nie powiódł się: {fehler}",
+        "umbenennenFehlgeschlagen": "Zmiana nazwy nie powiodła się: {fehler}"
+      },
+      "neueDatei": {
+        "titel": "Nowy plik",
+        "platzhalter": "Notatka",
+        "art": "Rodzaj",
+        "arten": {
+          "text": "Tekst (.txt)",
+          "tabelle": "Tabela (.csv)"
+        }
+      },
+      "meldungen": {
+        "gespeichert": "Wpis zapisany.",
+        "leak": "Uwaga: to hasło występuje w znanych wyciekach ({n}×).",
+        "passwortKopiert": "Skopiowano hasło",
+        "benutzernameKopiert": "Skopiowano nazwę użytkownika",
+        "qrUebernommen": "Kod QR przejęty.",
+        "scanFehlgeschlagen": "Skanowanie nie powiodło się: {fehler}",
+        "keinSecret": "Nie zapisano sekretu TOTP.",
+        "anhaengenFehlgeschlagen": "Dołączanie nie powiodło się: {fehler}",
+        "schonAngehaengt": "„{name}” jest już dołączony do tego wpisu.",
+        "nameVergeben": "„{name}” już istnieje w tym wpisie.",
+        "anlegenFehlgeschlagen": "Tworzenie nie powiodło się: {fehler}"
+      }
+    },
+    "ordner": {
+      "titel": {
+        "anlegen": "Dodaj folder",
+        "bearbeiten": "Folder „{name}”"
+      },
+      "felder": {
+        "name": "Nazwa",
+        "uebergeordnet": "Folder nadrzędny",
+        "obersteEbene": "— najwyższy poziom —"
+      },
+      "knoepfe": {
+        "speichern": "Zapisz",
+        "anlegen": "Utwórz"
+      },
+      "meldungen": {
+        "nameLeer": "Nazwa nie może być pusta.",
+        "schraegstrich": "Ukośniki są niedozwolone w nazwie folderu.",
+        "gespeichert": "Folder zapisany.",
+        "angelegt": "Folder utworzony."
+      }
+    }
+  },
+  "sicherheit": {
+    "statistik": {
+      "leaked": "hasła z wycieków",
+      "weak": "słabe hasła",
+      "reused": "użyte wielokrotnie",
+      "expiring": "wygasłe / wkrótce do zmiany",
+      "mail": "wycieki e-maili",
+      "inactive": "dawno nieużywane"
+    },
+    "gruppen": {
+      "leaked": "Hasła z wycieków",
+      "weak": "Słabe hasła",
+      "reused": "Hasła użyte wielokrotnie",
+      "expiring": "Daty wygaśnięcia"
+    },
+    "pruefung": {
+      "laeuft": "Sprawdzanie …",
+      "jetzt": "Sprawdź teraz",
+      "zuletzt": "Ostatnio: {zeit}",
+      "nochNicht": "Jeszcze nie sprawdzono"
+    },
+    "keineTreffer": "Brak trafień – nic do zrobienia",
+    "leckDaten": {
+      "email": "Adres e-mail",
+      "passwort": "Hasło",
+      "benutzername": "Nazwa użytkownika",
+      "name": "Imię i nazwisko",
+      "telefon": "Numer telefonu",
+      "postanschrift": "Adres pocztowy",
+      "geburtsdatum": "Data urodzenia",
+      "ip": "Adres IP",
+      "geschlecht": "Płeć",
+      "wohnort": "Miejsce zamieszkania",
+      "kreditkarte": "Karta kredytowa",
+      "kreditkarteTeil": "Fragmenty karty kredytowej",
+      "kontonummer": "Numer konta",
+      "sicherheitsfragen": "Pytania zabezpieczające",
+      "token": "Token logowania",
+      "socialMedia": "Profil w mediach społecznościowych",
+      "nachrichten": "Prywatne wiadomości",
+      "browser": "Dane przeglądarki",
+      "einkaeufe": "Zakupy",
+      "beruf": "Zawód",
+      "arbeitgeber": "Pracodawca"
+    },
+    "mail": {
+      "titel": "Wycieki danych e-mail",
+      "rat": {
+        "passwortSofort": "<strong>Natychmiast zmień hasło</strong> — było zapisane jawnym tekstem lub łatwe do złamania.",
+        "passwort": "Zmień hasło — było zapisane w postaci zaszyfrowanej, ale to nie jest bezpieczne.",
+        "mehrfach": "To samo hasło używasz jeszcze gdzie indziej — tam też je zmień.",
+        "telefon": "Spodziewaj się oszustw przez SMS i telefon podszywających się pod tę usługę.",
+        "anschrift": "Adres lub data urodzenia są znane — bądź nieufny wobec próśb o „potwierdzenie”.",
+        "konto": "Sprawdź wyciągi z konta i kartę kredytową pod kątem obcych transakcji.",
+        "keinPasswort": "Hasło nie jest zagrożone. Najważniejsze: czytaj krytycznie wiadomości podszywające się pod tę usługę."
+      },
+      "abgeflossen": "Wyciekło: {daten}",
+      "oeffnen": "Otwórz {name}",
+      "hilfe": {
+        "frage": "Co oznacza trafienie — i co robić?",
+        "einleitung": "Twój adres był w danych, które wykradziono z usługi i opublikowano. Nie znaczy to, że ktoś był w twojej skrzynce. Adresu nie da się odzyskać — i nie musisz. Liczy się to, <em>co</em> wyciekło razem z nim; od tego zależy rada przy każdym wycieku poniżej.",
+        "schritt1": "Zmień hasło w danej usłudze — i wszędzie tam, gdzie używasz tego samego.",
+        "schritt2": "Jeśli to możliwe, włącz uwierzytelnianie dwuskładnikowe. WKeePass może od razu zarządzać kodami.",
+        "schritt3": "Spodziewaj się phishingu: atakujący piszą celowo na adresy z wycieków, chętnie w imieniu tej właśnie usługi.",
+        "schritt4": "Usuń w usłudze konta, których już nie potrzebujesz — zapomniane konto to otwarte konto.",
+        "schritt5": "Przy nowych rejestracjach używaj adresów-aliasów, jeśli twój dostawca poczty to umożliwia. Wtedy wyciek dotknie tylko jednego z nich.",
+        "abschluss": "Gdy wszystko załatwisz, odhacz adres. O nowych wyciekach poinformuje kolejna kontrola."
+      },
+      "lecks": {
+        "one": "jeden wyciek",
+        "few": "{n} wycieki",
+        "many": "{n} wycieków",
+        "other": "{n} wycieku"
+      },
+      "erledigt": "Załatwione",
+      "erledigtListe": "Załatwione: {adressen}"
+    },
+    "inaktiv": {
+      "vermerkt": "Odnotowano — wpis znów jest uznawany za używany.",
+      "aufwand": {
+        "easy": "da się od razu na stronie",
+        "medium": "kilka kroków więcej",
+        "hard": "tylko przez pomoc techniczną",
+        "impossible": "nie oferuje usunięcia"
+      },
+      "titel": "Dawno nieużywane",
+      "hinweis": "Tych dostępów nie używasz od ponad dwóch lat. Jeśli któryś jest ci niepotrzebny, najpierw usuń konto w usłudze, a potem wpis — zapomniane konto ze starym hasłem to częsty cel ataków. Jeśli jest nadal potrzebny, wystarczy „Nadal używam”.",
+      "zuletzt": "Ostatnio używano: {monat}",
+      "kontoLoeschen": "Usuń konto {aufwand}",
+      "oeffnen": "Otwórz",
+      "nochInGebrauch": "Nadal używam",
+      "kontoLoeschenKnopf": "Usuń konto",
+      "zurSeite": "Do strony",
+      "eintragLoeschen": "Usuń wpis"
+    },
+    "kontoFrage": {
+      "titel": "Konto usunięte?",
+      "text": "Czy konto w {name} zostało usunięte? Wtedy wpis też może zniknąć.",
+      "papierkorb": "Trafi do kosza bazy danych, gdybyś jednak go potrzebował.",
+      "loeschen": "Usuń wpis",
+      "nochNicht": "Jeszcze nie",
+      "erledigt": "Konto załatwione — wpis usunięty."
+    },
+    "fehler": {
+      "passwort": "Kontrola haseł: {fehler}",
+      "email": "Kontrola e-maili: {fehler}"
+    },
+    "benachrichtigung": {
+      "titel": "WKeePass: nowe znaleziska w kontroli bezpieczeństwa",
+      "passwoerter": {
+        "one": "{n} hasło jest nowo w wycieku.",
+        "few": "{n} hasła są nowo w wycieku.",
+        "many": "{n} haseł jest nowo w wycieku.",
+        "other": "{n} hasła jest nowo w wycieku."
+      },
+      "lecks": {
+        "one": "{n} nowy wyciek danych dotyczący twoich adresów e-mail.",
+        "few": "{n} nowe wycieki danych dotyczące twoich adresów e-mail.",
+        "many": "{n} nowych wycieków danych dotyczących twoich adresów e-mail.",
+        "other": "{n} nowego wycieku danych dotyczącego twoich adresów e-mail."
+      }
+    },
+    "ergebnis": {
+      "teilweise": "Kontrola częściowo nie powiodła się: {fehler}",
+      "funde": "Znaleziska w kontroli: {n}.",
+      "keine": "Nie znaleziono problemów."
+    }
+  },
+  "einstellungen": {
+    "darstellung": {
+      "titel": "Wygląd",
+      "farbschema": "Motyw kolorystyczny",
+      "farbschemaHinweis": "System podąża za ustawieniem systemu operacyjnego",
+      "hell": "Jasny",
+      "dunkel": "Ciemny",
+      "system": "System",
+      "akzentfarbe": "Kolor akcentu",
+      "akzentfarbeHinweis": "Kolory ostrzeżeń i zagrożeń pozostają bez zmian, aby komunikaty były rozpoznawalne",
+      "sprache": "Język",
+      "spracheHinweis": "Interfejs zostanie przy tym załadowany ponownie",
+      "spracheAuto": "Automatycznie (język urządzenia)"
+    },
+    "datenbank": {
+      "titel": "Baza danych",
+      "entsperren": "Odblokowywanie tej bazy danych",
+      "pin": "PIN",
+      "fingerabdruck": "Odcisk palca",
+      "und": " i ",
+      "nurMaster": "Tylko hasłem głównym",
+      "appMethoden": "Co w ogóle oferuje aplikacja: {link}",
+      "appMethodenLink": "Metody odblokowania aplikacji",
+      "waehlen": "Wybierz …",
+      "warnen": "Ostrzegaj przed wygaśnięciem",
+      "warnenHinweis": "Dni wcześniej",
+      "papierkorb": "Opróżnij kosz",
+      "papierkorbHinweis": "Usuwa skasowane wpisy na stałe",
+      "papierkorbKnopf": "Opróżnij …",
+      "name": "Nazwa bazy danych",
+      "nameInDatei": "Zapisana w pliku",
+      "namePlatzhalter": "Hasła",
+      "nameGespeichert": "Nazwa zapisana.",
+      "geaendert": "zmieniono {datum}"
+    },
+    "allgemein": {
+      "wirdGeladen": "Ładowanie …",
+      "demo": "WKeePass · Demo w przeglądarce",
+      "weiter": "Dalej",
+      "spaeter": "Później w ustawieniach",
+      "nichtVerfuegbar": "Niedostępne",
+      "uebernehmen": "Zastosuj",
+      "nichtGespeichert": "Nie zapisano: {fehler}",
+      "gespeichert": "Ustawienie zapisane.",
+      "keineKonfiguration": "Nieprawidłowa konfiguracja."
+    },
+    "sperren": {
+      "titel": "Blokowanie",
+      "automatisch": "Blokuj automatycznie",
+      "automatischHinweis": "Minuty bez aktywności",
+      "zwischenablage": "Czyść schowek",
+      "zwischenablageHinweis": "Sekundy po skopiowaniu"
+    },
+    "browser": {
+      "titel": "Rozszerzenie przeglądarki",
+      "stufeNichts": "Połączone przeglądarki wypełniają dane bez pytania.",
+      "stufeLegitimieren": "PIN, hasło główne lub odcisk palca przed wypełnieniem.",
+      "verknuepft": "połączono",
+      "trennen": "Rozłącz",
+      "keinerVerknuepft": "Nie połączono jeszcze żadnej przeglądarki.",
+      "keinerEingetragen": "Nie zarejestrowano w żadnej przeglądarce",
+      "stufeHinweis": "Co się dzieje, gdy połączona przeglądarka prosi o dane logowania: nic, naciśnięcie przycisku albo potwierdzenie PIN-em, hasłem głównym lub odciskiem palca.",
+      "fristHinweis": "Kto przed chwilą potwierdził lub odblokował, nie jest przez jakiś czas pytany — logowanie z wieloma polami pytałoby inaczej kilka razy. Potem znów pojawia się pytanie. Nie dotyczy opcji „Nic”; zablokowanie kończy ten czas natychmiast.",
+      "beimStart": "Odblokuj przy uruchomieniu przeglądarki",
+      "beimStartHinweis": "Jeśli baza danych jest zamknięta, gdy zgłosi się przeglądarka, od razu otworzy się małe okno — PIN, odcisk palca lub hasło główne i rozszerzenie ma swoje dane. Bez tego odblokowujesz przez menu rozszerzenia, gdy coś potrzebujesz.",
+      "erweiterung": "Rozszerzenie",
+      "erweiterungHinweis": "KeePassXC-Browser — WKeePass używa tego samego protokołu, dlatego nie ma własnego.",
+      "eingetragen": "Zarejestrowano w",
+      "eingetragenHinweis": "„Skonfiguruj” zapisuje dla każdej przeglądarki plik wskazujący na WKeePass — bez niego przeglądarka nie może uruchomić WKeePass.",
+      "einrichten": "Skonfiguruj",
+      "entfernen": "Usuń",
+      "kanal": "Kanał",
+      "nichtAktiv": "Nieaktywne",
+      "getrennt": "Połączenie rozłączone.",
+      "trennenFehler": "Rozłączanie nie powiodło się: {fehler}",
+      "eingerichtetMeldung": "Skonfigurowano: {liste}. Uruchom przeglądarkę ponownie.",
+      "entferntMeldung": "Usunięto: {liste}. Uruchom przeglądarkę ponownie.",
+      "keinGefunden": "Nie znaleziono skonfigurowanej przeglądarki.",
+      "fehlgeschlagen": "nie powiodło się",
+      "einrichtenFehler": "Nie powiodło się: {fehler}"
+    },
+    "eintraege": {
+      "titel": "Wpisy i strony",
+      "importieren": "Importuj z innych aplikacji",
+      "importierenHinweis": "Hasła i kody 2FA z Bitwarden, 1Password, LastPass, przeglądarek, Aegis, 2FAS …",
+      "importierenKnopf": "Importuj …",
+      "iconsLaden": "Ładuj ikony stron",
+      "iconsLadenHinweis": "Jednorazowo bezpośrednio z danej strony, bez usługi pośredniczącej — najlepiej przy logowaniu, gdy strona jest dostępna. Potem ikona jest w bazie danych i działa także offline oraz na wszystkich urządzeniach.",
+      "iconsNeu": "Pobierz wszystkie ikony ponownie",
+      "iconsNeuHinweis": "Zastępuje zapisane ikony świeżo załadowanymi",
+      "iconsNeuKnopf": "Załaduj ponownie",
+      "namen": "Nazwy ze strony",
+      "namenHinweis": "Włączone: jeśli nazwą jest tylko adres, wpis sam przyjmuje nazwę usługi — np. „GitHub” zamiast „https://github.com/login”. Nazwy nadane samodzielnie zostają.",
+      "namenPruefenHinweis": "„Sprawdź teraz” porównuje wszystkie wpisy z adresem i po potwierdzeniu zastępuje także nazwy nadane samodzielnie.",
+      "namenAutomatisch": "Ustawiaj nazwy automatycznie",
+      "namenPruefen": "Sprawdź teraz",
+      "iconsAbruf": "Ikony są pobierane ponownie — pojawią się, gdy tylko będą gotowe.",
+      "keineUrl": "Żaden wpis nie ma adresu URL.",
+      "uebernehmenTitel": "Przejmij nazwy",
+      "uebernehmenText": "W {n} wpisach nazwa zostanie zastąpiona nazwą usługi.",
+      "uebernehmenBrowser": "W przeglądarce polityka bezpieczeństwa obcych stron blokuje pobieranie — zamiast tego używana jest nazwa hosta."
+    },
+    "pruefungen": {
+      "titel": "Kontrole",
+      "staerke": "Pokazuj siłę hasła",
+      "staerkeHinweis": "Obliczenia wykonuje rdzeń",
+      "mehrfach": "Wykrywaj wielokrotne użycie",
+      "mehrfachHinweis": "Porównanie w obrębie bazy danych",
+      "vorwarn": "Czas ostrzeżenia przed wygaśnięciem",
+      "vorwarnHinweis": "Dni przed datą wygaśnięcia",
+      "leaks": "Sprawdzaj hasła pod kątem wycieków",
+      "leaksHinweis": "Have I Been Pwned — wysyłany jest tylko prefiks skrótu, nigdy hasło",
+      "email": "Sprawdzaj adresy e-mail",
+      "emailHinweis": "Przez XposedOrNot",
+      "benachrichtigen": "Powiadamiaj o nowych znaleziskach",
+      "benachrichtigenHinweis": "Gdy kontrola znajdzie nowy wyciek — także przy automatycznej",
+      "automatisch": "Sprawdzaj automatycznie",
+      "automatischHinweis": "Przy otwarciu aplikacji, jeśli ostatnia kontrola była dawno",
+      "zuletzt": " — ostatnio {datum}",
+      "taeglich": "Codziennie",
+      "woechentlich": "Co tydzień",
+      "aus": "Wyłączone"
+    },
+    "appEntsperren": {
+      "einleitung": "Co to urządzenie oferuje do odblokowywania. Które z tych metod może używać dana baza danych, ustalasz osobno dla każdej: Baza danych → Odblokowywanie tej bazy danych.",
+      "biometrie": "Używaj biometrii",
+      "biometrieGeraet": "{geraet} — oferowane przy otwarciu, zastępuje PIN i hasło główne",
+      "biometrieFinger": "Odcisk palca lub rozpoznawanie twarzy",
+      "biometrieNicht": "Niedostępne na tym urządzeniu",
+      "pin": "PIN programu",
+      "pinSchluesselbund": "Ustawiono — chroniony PIN-em i pękiem kluczy",
+      "pinOhne": "Ustawiono — bez pęku kluczy wszystko zależy od PIN-u",
+      "pinKeine": "Brak PIN-u. Dotyczy wszystkich baz danych.",
+      "aendern": "Zmień …",
+      "entfernen": "Usuń",
+      "festlegen": "Ustaw …"
+    },
+    "export": {
+      "titel": "Eksport i import",
+      "exportieren": "Eksportuj ustawienia",
+      "exportierenHinweis": "Zapisz jako settings.json",
+      "exportierenKnopf": "Eksportuj",
+      "importieren": "Importuj ustawienia",
+      "importierenHinweis": "Przejmij z pliku settings.json",
+      "importierenKnopf": "Importuj",
+      "zuruecksetzen": "Przywróć domyślne",
+      "zuruecksetzenHinweis": "Tylko ustawienia — bazy danych, PIN i połączenia z przeglądarkami zostają",
+      "zuruecksetzenKnopf": "Przywróć",
+      "konfiguration": "Bieżąca konfiguracja (settings.json)",
+      "exportiert": "Wyeksportowano settings.json.",
+      "importiert": "Ustawienia zaimportowane.",
+      "nichtGelesen": "Nie udało się odczytać pliku: {fehler}",
+      "zuruecksetzenTitel": "Przywróć ustawienia",
+      "zuruecksetzenText1": "Wygląd, odblokowywanie, kontrole, przeglądarka i Android wracają do wartości domyślnych.",
+      "zuruecksetzenText2": "Zostają: sama baza danych, lista twoich baz danych wraz z ich własnymi ustawieniami, PIN aplikacji i połączenia z przeglądarką.",
+      "zurueckgesetzt": "Przywrócono ustawienia domyślne."
+    },
+    "android": {
+      "passwortmanager": "Menedżer haseł",
+      "passwortmanagerText": "Wypełnia dane logowania w aplikacjach i przeglądarce oraz proponuje zapisanie nowych danych.",
+      "passwortmanagerAktion": "Ustaw jako domyślny",
+      "passkeys": "Passkeys",
+      "passkeysText": "Logowanie bez hasła. Passkeys są w twojej bazie danych, a nie u Google.",
+      "passkeysAktion": "Włącz",
+      "passkeysFehlt": "Dopiero od Androida 14",
+      "kamera": "Aparat",
+      "kameraText": "Tylko dla skanera QR: konfiguruj kody dwuskładnikowe bez przepisywania sekretu.",
+      "kameraAktion": "Zezwól",
+      "stufeHinweis": "Co się dzieje, gdy stukniesz dostęp na liście: nic, naciśnięcie przycisku albo potwierdzenie PIN-em, hasłem głównym lub biometrią.",
+      "fristHinweis": "Kto przed chwilą potwierdził lub odblokował, nie jest przez jakiś czas pytany — formularz z nazwą i hasłem pytałby inaczej dwa razy. Nie dotyczy opcji „Nic”; zablokowanie kończy ten czas natychmiast.",
+      "stufeNichts": "Dane logowania są wstawiane bez pytania.",
+      "stufeLegitimieren": "PIN, hasło główne lub biometria przed wstawieniem.",
+      "aktiv": "Aktywne",
+      "nichtVerfuegbar": "Niedostępne",
+      "inAppErlauben": "Zezwól w ustawieniach aplikacji"
+    },
+    "stufe": {
+      "nichts": "Nic",
+      "bestaetigen": "Potwierdź",
+      "legitimieren": "Uwierzytelnij",
+      "titel": "Przed wypełnieniem",
+      "bestaetigenMeldung": "Wystarczy nacisnąć przycisk — bez uwierzytelniania."
+    },
+    "frist": {
+      "jedesMal": "Pytaj za każdym razem",
+      "sek30": "30 sekund",
+      "min1": "1 minuta",
+      "min5": "5 minut",
+      "min15": "15 minut",
+      "titel": "Potem nie pytaj ponownie"
+    },
+    "androidStart": {
+      "titel": "Trzy zgody na co dzień",
+      "text": "Aby WKeePass był nie tylko sejfem, ale też pomagał przy logowaniu, potrzebuje zgody Androida. Nic z tego nie wysyła danych w żadne miejsce — hasła zostają w twoim pliku."
+    },
+    "verschluesselung": {
+      "stufeSchnell": "Szybkie",
+      "hinweisSchnell": "Otwiera się sprawnie, także na starszych urządzeniach",
+      "stufeZuegig": "Sprawne",
+      "hinweisZuegig": "Trochę więcej ochrony, prawie nie wolniej",
+      "stufeStandard": "Standardowe",
+      "hinweisStandard": "Dobry kompromis, działa wszędzie — zalecane",
+      "stufeErhoeht": "Podwyższone",
+      "hinweisErhoeht": "Więcej pamięci, trudniejsze dla kart graficznych — na iPhonie/iPadzie wypełnianie z klawiatury już nie działa",
+      "stufeHoch": "Wysokie",
+      "hinweisHoch": "Jeszcze więcej pamięci — na iPhonie/iPadzie bez wypełniania z klawiatury",
+      "stufeStark": "Silne",
+      "hinweisStark": "Najlepsza możliwa ochrona, wyraźnie dłuższe otwieranie — na iPhonie/iPadzie bez wypełniania z klawiatury",
+      "werte": "Przebiegi: {it} · {mib} MiB · {faeden}",
+      "faeden": {
+        "one": "{n} wątek",
+        "few": "{n} wątki",
+        "many": "{n} wątków",
+        "other": "{n} wątku"
+      },
+      "titel": "Siła szyfrowania",
+      "erklaerung": {
+        "einleitung": "Z hasła głównego najpierw wyprowadzany jest klucz — celowo powoli, za pomocą Argon2. Każda próba zgadnięcia atakującego musi wykonać tę samą pracę.",
+        "durchgaengeBegriff": "Przebiegi",
+        "durchgaenge": "Ile razy Argon2 przelicza pamięć. Dwa razy więcej trwa dwa razy dłużej.",
+        "speicherBegriff": "Pamięć (MiB)",
+        "speicher": "Ile pamięci operacyjnej zajmuje każda próba (1 MiB ≈ 1 MB). To najmocniej spowalnia ataki z użyciem kart graficznych, bo tam pamięci jest mało.",
+        "faedenBegriff": "Wątki",
+        "faeden": "Ile rdzeni procesora liczy jednocześnie. Na ochronę to nie wpływa — tylko przyspiesza otwieranie na twoim urządzeniu.",
+        "eigenBegriff": "Ustawienie własne",
+        "eigen": "Inne aplikacje i starsze pliki mają własne wartości, np. 50 przebiegów przy zaledwie 1 MiB. Aplikacja pokazuje wtedy najbliższy poziom i zostawia wartości, dopóki nie wybierzesz poziomu."
+      },
+      "eigenHinweis": "Ustawienie własne, np. z innej aplikacji — mniej więcej na poziomie „{stufe}”. Wybranie poziomu je zastąpi.",
+      "werteFrage": "Co oznaczają te wartości?",
+      "hinweis": "Jak długo trwa wyprowadzanie klucza — dla ciebie raz przy otwarciu, dla atakującego przy każdej próbie zgadnięcia",
+      "geaendert": "Zmieniono szyfrowanie — plik został zapisany od nowa.",
+      "ersetzt": "Zastępuje ustawienie własne poziomem „{stufe}”.",
+      "stufeHinweis": "{stufe}: {hinweis}",
+      "jetzt": "Teraz: {werte}",
+      "danach": "Potem: {werte}"
+    },
+    "versionen": {
+      "titel": "Wersje",
+      "hinweis": "Ostatnie wersje tego pliku — przy otwarciu, po zapisie, po zmianach z innego urządzenia i po każdym scaleniu. Można z nich przywrócić pojedyncze wpisy lub wszystko.",
+      "ansehen": "Zobacz wersje …",
+      "aufheben": "Przechowuj wersje",
+      "aufhebenBereich": "od 30 do 100",
+      "aufhebenFrage": "Ile wersji przechowywać",
+      "aufgehoben": "Przechowywanych wersji: {n}."
+    },
+    "browserStart": {
+      "titel": "Hasła bezpośrednio w przeglądarce",
+      "text": "Dzięki rozszerzeniu przeglądarki WKeePass wypełnia dane logowania na stronach, proponuje zapisanie nowych i loguje cię za pomocą passkeys. Hasła zostają w twoim pliku — przeglądarka za każdym razem pyta WKeePass. Potrzebne są do tego wszystkie trzy kroki.",
+      "schritt1": "1. Zarejestruj WKeePass w przeglądarkach",
+      "schritt1Text": "Wymagane: przeglądarka może uruchamiać tylko programy, które są w niej zarejestrowane. Przycisk zapisuje dla każdej przeglądarki mały plik wskazujący na WKeePass — w samej przeglądarce nic się nie zmienia. Jeśli KeePassXC jest zainstalowany, rozszerzenie będzie potem rozmawiać z WKeePass zamiast z KeePassXC.",
+      "gefunden": "Znaleziono: {liste}",
+      "keinBrowser": "Nie znaleziono przeglądarki — po jej zainstalowaniu można to zrobić w ustawieniach.",
+      "erledigt": "Gotowe",
+      "eintragen": "Zarejestruj",
+      "schritt2": "2. Zainstaluj rozszerzenie KeePassXC-Browser",
+      "schritt2Text": "Wymagane: rozszerzenie pochodzi od KeePassXC i jest bezpłatne. WKeePass mówi tym samym językiem, dlatego nie ma własnego. Przycisk otwiera stronę w sklepie twojej przeglądarki.",
+      "schritt3": "3. Połącz w przeglądarce",
+      "schritt3Text": "Raz dla każdej przeglądarki: uruchom przeglądarkę ponownie, kliknij ikonę rozszerzenia i wybierz „Połącz”. WKeePass zapyta wtedy o nazwę tej przeglądarki — dopiero potem hasła będą wypełniane."
+    }
+  },
+  "totp": {
+    "leer": "Brak wpisów TOTP.",
+    "karte": {
+      "hinweis": "Kliknięcie kopiuje, dwukrotne otwiera wpis"
+    },
+    "kopiert": "Skopiowano kod",
+    "alsNaechstes": "następny {code}"
+  },
+  "ui": {
+    "abgleich": {
+      "uebernommen": "Przejęto zmiany z innego urządzenia."
+    },
+    "zwischenablage": {
+      "fehler": "Kopiowanie niemożliwe."
+    },
+    "kern": {
+      "fehler": "Rdzeń zgłasza błąd przy „{befehl}”: {ursache}"
+    },
+    "formular": {
+      "pinMitSchluesselbund": "Klucz powstaje z twojego PIN-u <em>oraz</em> losowej wartości w pęku kluczy systemu. Atakujący potrzebowałby obu: PIN-u i twojej zalogowanej sesji.",
+      "pinOhneSchluesselbund": "<strong>Na tym urządzeniu nie ma dostępnego pęku kluczy.</strong> Wtedy wszystko zależy wyłącznie od PIN-u — wybierz odpowiednio długi.",
+      "sichtbarMachen": "Pokaż",
+      "verbergen": "Ukryj"
+    }
+  },
+  "entsperren": {
+    "geraet": {
+      "biometrie": "Biometria"
+    },
+    "datenbank": {
+      "nochNichtGeoeffnet": "Jeszcze nie otwarto",
+      "keineDatei": "Nie wybrano pliku."
+    },
+    "sperrbildschirm": {
+      "keineDatenbank": "Nie wybrano jeszcze bazy danych",
+      "mitGeraet": "Odblokuj: {name}",
+      "mitPasswortOderPin": "Hasłem lub PIN-em …",
+      "entsperren": "Odblokuj",
+      "datenbankWaehlen": "Wybierz bazę danych …",
+      "neueDatenbank": "Utwórz nową bazę danych …",
+      "zuletztGenutzt": "Ostatnio używane"
+    },
+    "dialog": {
+      "titel": "Odblokuj",
+      "mitBiometrie": "Odblokuj biometrią",
+      "appPin": "PIN aplikacji",
+      "pinPlatzhalter": "PIN",
+      "masterPasswort": "Hasło główne",
+      "masterPasswortFalls": "Hasło główne (jeśli PIN nie pasuje)",
+      "biometrieKuenftig": "Otwieraj w przyszłości biometrią",
+      "biometrieGeraetHinweis": "Zastępuje hasło główne — klucz jest w układzie zabezpieczeń",
+      "biometrieSchluesselbundHinweis": "Palec potwierdza twoją tożsamość, klucz jest w pęku kluczy",
+      "biometrieSchluesselbundHinweisPin": "Palec potwierdza twoją tożsamość, klucz jest w pęku kluczy — w tym celu zostanie ustawiony PIN aplikacji",
+      "pinKuenftig": "Otwieraj w przyszłości także PIN-em",
+      "pinKuenftigHinweis": "W tym celu zaraz zostanie ustawiony PIN aplikacji",
+      "bestaetigen": "Odblokuj",
+      "eingabeFehlt": "Wpisz PIN lub hasło główne."
+    },
+    "appPinAbfrage": {
+      "titel": "Potwierdź PIN aplikacji",
+      "text": "Do odblokowania tej bazy danych potrzebny jest PIN programu.",
+      "platzhalter": "PIN aplikacji",
+      "bestaetigen": "Potwierdź"
+    },
+    "herkunft": {
+      "downloads": "Pobrane",
+      "geraetespeicher": "Pamięć urządzenia",
+      "medien": "Multimedia"
+    },
+    "biometrieFehlt": {
+      "keinFinger": "Nie zapisano odcisku palca ani twarzy — skonfiguruj je w ustawieniach Androida.",
+      "nichtVerfuegbar": "Niedostępne na urządzeniu",
+      "ohneSchluesselbund": "Niemożliwe bez pęku kluczy"
+    },
+    "willkommen": {
+      "titel": "Witaj w WKeePass",
+      "text": "Dla wygodniejszego korzystania z aplikacji można użyć <b>PIN-u</b> i/lub <b>biometrii</b> do odszyfrowania danych i potwierdzania przy pobieraniu. Po konfiguracji można ustawić uproszczone odszyfrowanie i potwierdzanie osobno dla każdej bazy danych.",
+      "pinEinrichten": "Ustaw PIN",
+      "pinPlatzhalter": "Co najmniej cztery znaki",
+      "pinWiederholen": "Powtórz PIN",
+      "sichtbar": "Pokaż",
+      "geraetNutzen": "Użyj: {name}",
+      "geraetHinweis": "Zastępuje PIN i hasło główne. Klucz jest w układzie zabezpieczeń tego urządzenia — PIN jest wtedy tylko drogą zapasową.",
+      "biometrieNutzen": "Użyj odblokowania biometrycznego",
+      "einrichten": "Skonfiguruj",
+      "ohnePin": "Dalej bez PIN-u",
+      "pinFehlt": "Ustaw PIN — albo wybierz „Dalej bez PIN-u”.",
+      "pinUngleich": "Oba PIN-y nie są zgodne.",
+      "pinFestgelegt": "PIN ustawiony.",
+      "geraetEinrichtung": "{name} zostanie skonfigurowane przy pierwszym otwarciu."
+    },
+    "trotzdemSperren": {
+      "titel": "Nie zapisano",
+      "text": "Jeśli mimo to zablokujesz, zmiany od ostatniego zapisu zostaną utracone.",
+      "bestaetigen": "Zablokuj mimo to"
+    },
+    "zugriffEntzogen": {
+      "titel": "Brak już dostępu do pliku",
+      "text1": "Android odebrał WKeePass dostęp do tego pliku. Dzieje się tak, gdy inny program usunął go i utworzył od nowa zamiast nadpisać.",
+      "text2": "Otwarta jest kopia offline — zapis w takim stanie nie jest możliwy. Wybierz plik raz jeszcze, a dostęp znów będzie trwały.",
+      "neuWaehlen": "Wybierz plik ponownie",
+      "spaeter": "Później"
+    },
+    "appPin": {
+      "titel": "Ustaw PIN",
+      "text1": "Ten PIN obowiązuje w całym programie. Dla każdej bazy danych osobno zdecydujesz potem, czy można ją nim otwierać.",
+      "text2": "Po pięciu błędnych próbach PIN zostaje usunięty. Nie da się go odzyskać — wtedy dalej działają hasła główne.",
+      "neuePin": "Nowy PIN",
+      "platzhalter": "Co najmniej cztery znaki",
+      "wiederholen": "Powtórz",
+      "wiederholenPlatzhalter": "Powtórz PIN",
+      "festlegen": "Ustaw",
+      "eingeben": "Wpisz PIN.",
+      "ungleich": "Oba PIN-y nie są zgodne.",
+      "festgelegt": "PIN ustawiony."
+    },
+    "freigabe": {
+      "titel": "Zezwól na tę bazę danych",
+      "offenNoetig": "Baza danych musi być w tym celu otwarta.",
+      "mitPin": "Otwieraj PIN-em",
+      "mitPinHinweis": "Hasło główne jest zapisywane w postaci zaszyfrowanej; do otwarcia wystarczy potem PIN aplikacji.",
+      "mitFingerabdruck": "Otwieraj odciskiem palca",
+      "fingerabdruckHinweis": "Odcisk palca <em>nie jest kluczem</em>, lecz dowodem, że to ty — ochrona pochodzi wyłącznie z pęku kluczy. Dlatego ta droga jest słabsza niż PIN, bo atakujący potrzebuje tylko jednego zamiast dwóch. W macOS i Windows sprawdzenie wymusza sprzęt, w Linuksie ten program.",
+      "pinBestaetigen": "Aby potwierdzić, wpisz PIN aplikacji:",
+      "pinPlatzhalter": "PIN aplikacji",
+      "uebernehmen": "Zastosuj",
+      "ohnePin": "Bez PIN-u nie można tego potwierdzić.",
+      "gespeichert": "Zezwolenie zapisane.",
+      "mitGeraet": "Otwieraj: {name}",
+      "geraetHinweis": "Zastępuje przy otwarciu PIN i hasło główne. Hasło główne jest zapieczętowane kluczem, który układ zabezpieczeń tego urządzenia wydaje dopiero po weryfikacji przez {name} — skopiowany plik bez tego urządzenia na nic się nie przyda.",
+      "windowsZweimal": "Przy pierwszej konfiguracji Windows może zapytać dwukrotnie.",
+      "rueckfall": "Droga zapasowa, gdy {name} akurat nie działa.",
+      "pinFreigabeOhnePin": "Bez PIN-u nie można zmienić zezwolenia dla PIN-u."
+    },
+    "pinEntfernen": {
+      "titel": "Usuń PIN",
+      "text": "PIN i wszystkie zezwolenia zostaną usunięte. Potem każdą bazę danych znów otworzysz jej hasłem głównym.",
+      "bestaetigen": "Usuń",
+      "entfernt": "PIN usunięty."
+    },
+    "pinAendern": {
+      "titel": "Zmień PIN",
+      "text1": "Odblokowane bazy danych zostają — w tle są ponownie szyfrowane nowym PIN-em. Nie musisz więc <strong>ponownie</strong> wpisywać haseł głównych.",
+      "text2": "Jeśli zapomnisz dotychczasowego PIN-u, pomoże tylko „Usuń” — wtedy znikają wszystkie zezwolenia i każda baza danych znów wymaga swojego hasła głównego.",
+      "bisherige": "Dotychczasowy PIN",
+      "neue": "Nowy PIN",
+      "neueWiederholen": "Powtórz nowy PIN",
+      "bestaetigen": "Zmień",
+      "beideNoetig": "Wpisz oba PIN-y.",
+      "ungleich": "Oba nowe PIN-y nie są zgodne.",
+      "geaendert": "PIN zmieniony. Wszystkie zezwolenia nadal obowiązują."
+    },
+    "anlegen": {
+      "titel": "Utwórz nową bazę danych",
+      "name": "Nazwa bazy danych",
+      "standardName": "Hasła",
+      "staerke": "Siła szyfrowania",
+      "hinweis": "Hasło główne to klucz główny. Nie da się go odzyskać — jeśli go zabraknie, znikną też wpisy.",
+      "passwort": "Hasło główne",
+      "passwortWiederholen": "Powtórz hasło główne",
+      "weiter": "Dalej do miejsca zapisu",
+      "passwortFehlt": "Bez hasła głównego się nie da.",
+      "passwortUngleich": "Oba hasła nie są zgodne.",
+      "keinOrt": "Nie wybrano miejsca zapisu.",
+      "angelegt": "Baza danych utworzona.",
+      "fehlgeschlagen": "Tworzenie nie powiodło się: {fehler}"
+    },
+    "entsperren": {
+      "laeuft": "Próba odblokowania już trwa.",
+      "zuerstWaehlen": "Najpierw wybierz bazę danych.",
+      "offlineKopie": "Plik jest chwilowo niedostępny — otwarta jest kopia offline z {datum}. Zapis będzie możliwy dopiero, gdy plik wróci.",
+      "nurLesen": "{format} można tylko odczytać — zmian nie da się zapisać.",
+      "diesesFormat": "Ten format",
+      "freigabeGeraet": "Baza danych odblokowana dla: {name}.",
+      "freigabePin": "Baza danych odblokowana dla PIN-u.",
+      "fehlgeschlagen": "Odblokowanie nie powiodło się: {fehler}",
+      "entschluesselt": "Trwa odszyfrowywanie … to chwilę potrwa."
+    },
+    "sperren": {
+      "gesperrt": "Zablokowano — wartości zostały usunięte z pamięci.",
+      "banner": "Baza danych zablokowana."
+    }
+  },
+  "anfrage": {
+    "nachweis": {
+      "pin": "PIN",
+      "master": "Hasło główne",
+      "sichtbar": "Pokaż",
+      "biometrie": "Biometria",
+      "fingerabdruck": "Odcisk palca",
+      "bioEntsperren": "Odblokuj: {name}",
+      "bioBestaetigen": "Potwierdź: {name}",
+      "bioBestaetigenStandard": "Potwierdź odciskiem palca",
+      "grund": "Dostęp z przeglądarki"
+    },
+    "text": {
+      "unlock": "Baza danych jest zablokowana. Czeka na nią przeglądarka.",
+      "logins": "Przeglądarka chce wstawić nazwę użytkownika i hasło.",
+      "totp": "Przeglądarka chce pobrać kod jednorazowy.",
+      "create": "Ma zostać utworzony nowy wpis.",
+      "update": "Hasło ma zostać zmienione.",
+      "delete": "Wpis ma trafić do kosza.",
+      "passkeyRegister": "Ma zostać utworzony passkey.",
+      "passkeyGet": "Ma nastąpić logowanie za pomocą passkey.",
+      "sonst": "Dostęp do bazy danych."
+    },
+    "titel": {
+      "entsperren": "Odblokuj bazę danych",
+      "anfrage": "Żądanie z przeglądarki"
+    },
+    "warnung": "<strong>Uwaga:</strong> Formularz trafia do {ziel} — a nie na odwiedzaną stronę.",
+    "eintrag": {
+      "ohneName": "(bez nazwy)"
+    },
+    "knoepfe": {
+      "entsperren": "Odblokuj",
+      "uebernehmen": "Zastosuj",
+      "einMoment": "Chwileczkę …"
+    },
+    "datenbank": {
+      "keineAusgewaehlt": "Nie wybrano"
+    },
+    "fehler": {
+      "keineDatenbank": "Nie wybrano bazy danych. Otwórz ją raz w głównym oknie.",
+      "nichtGeklappt": "To się nie udało.",
+      "nichtErreichbar": "Niedostępne"
+    },
+    "einstellungen": {
+      "titel": "Ustawienia",
+      "kopf": "Rozszerzenie przeglądarki",
+      "unterkopf": "Przed wypełnieniem",
+      "nichts": "Nic",
+      "bestaetigen": "Potwierdź",
+      "legitimieren": "Uwierzytelnij",
+      "notizNever": "Połączone przeglądarki wypełniają dane bez pytania. Od następnego żądania — na to obecne trzeba jeszcze odpowiedzieć.",
+      "notizConfirm": "Wystarczy nacisnąć przycisk — Anuluj lub Zastosuj, bez uwierzytelniania.",
+      "notizIdentify": "PIN, hasło główne lub odcisk palca. Jak długo potem nie będzie ponownego pytania, ustawiasz w ustawieniach."
+    }
+  }
+}

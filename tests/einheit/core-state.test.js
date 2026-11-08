@@ -2,7 +2,11 @@
  * core/state.js — der gemeinsame Zustand und die drei Handgriffe.
  */
 import { pruefe, gleich, wahr } from '../lib/pruef.js';
-import { state, $, $$, esc, SECRET_MASK, VIEW_TITLES } from '/src-ui/js/core/state.js';
+import { state, $, $$, esc, SECRET_MASK, viewTitle } from '/src-ui/js/core/state.js';
+import { initI18n, t } from '/src-ui/js/core/i18n.js';
+
+// Die Titel kommen aus den Sprachdateien — geprüft wird mit Deutsch.
+await initI18n('de_DE');
 
 pruefe('esc entschärft alles, was HTML durcheinanderbrächte', () => {
   gleich(esc('<script>alert("x")</script>'),
@@ -34,7 +38,18 @@ pruefe('der Zustand startet auf der Übersicht und gesperrt', () => {
 
 pruefe('jede Ansicht hat einen Titel, die Maske ist nicht leer', () => {
   for (const name of ['home', 'passwords', 'totp', 'security', 'settings']) {
-    wahr(Boolean(VIEW_TITLES[name]), `Titel für ${name}`);
+    wahr(Boolean(viewTitle(name)) && viewTitle(name) !== 'WKeePass', `Titel für ${name}`);
   }
   wahr(SECRET_MASK.length > 0, 'Maske');
+});
+
+pruefe('Sprachen: Mehrzahl, Platzhalter und Rückfall auf Deutsch', async () => {
+  gleich(t('uebersicht.kacheln.anzahl', { n: 1 }), '1 Eintrag');
+  gleich(t('uebersicht.kacheln.anzahl', { n: 3 }), '3 Einträge');
+  gleich(t('start.meldungen.nichtGespeichert', { grund: 'X' }), 'Änderung nicht gespeichert: X');
+  await initI18n('en_GB');
+  gleich(t('uebersicht.kacheln.anzahl', { n: 3 }), '3 entries');
+  await initI18n('pl_PL');
+  wahr(t('uebersicht.kacheln.anzahl', { n: 5 }).startsWith('5 '), 'polnisch: many');
+  await initI18n('de_DE');
 });

@@ -1,0 +1,1316 @@
+{
+  "allgemein": {
+    "knoepfe": {
+      "schliessen": "Stäng",
+      "abbrechen": "Avbryt",
+      "zurueck": "Tillbaka"
+    },
+    "zeit": {
+      "geradeEben": "nyss",
+      "vorMinuten": {
+        "one": "för {n} minut sedan",
+        "other": "för {n} minuter sedan"
+      },
+      "heute": "i dag, {uhr}",
+      "tagUhr": "{tag}, {uhr}"
+    }
+  },
+  "navigation": {
+    "start": "Start",
+    "eintraege": "Poster",
+    "totp": "TOTP",
+    "einstellungen": "Inställningar",
+    "neu": "Skapa ny",
+    "kopf": {
+      "sperren": "Lås databasen"
+    },
+    "titel": {
+      "home": "Översikt",
+      "passwords": "Poster",
+      "totp": "TOTP-koder",
+      "security": "Säkerhetskontroll",
+      "settings": "Inställningar",
+      "dateien": "Filer"
+    }
+  },
+  "uebersicht": {
+    "kacheln": {
+      "eintraege": "Poster",
+      "passkeys": "Passkeys",
+      "totp": "TOTP-koder",
+      "dateien": "Filer",
+      "sicherheit": "Säkerhetskontroll",
+      "anzahl": {
+        "one": "{n} post",
+        "other": "{n} poster"
+      },
+      "codes": {
+        "one": "{n} kod",
+        "other": "{n} koder"
+      },
+      "funde": {
+        "one": "{n} fynd",
+        "other": "{n} fynd"
+      },
+      "ungeprueft": "inte kontrollerad än"
+    },
+    "zuletzt": {
+      "titel": "Senast använda"
+    }
+  },
+  "eintraege": {
+    "liste": {
+      "suchen": "Sök …"
+    },
+    "loeschen": "Ta bort",
+    "leer": "Inga poster.",
+    "keineGefunden": "Inga poster hittades.",
+    "iconNeuLaden": "Ikonen hämtas på nytt.",
+    "kopiert": {
+      "benutzername": "Användarnamn kopierat",
+      "passwort": "Lösenord kopierat",
+      "totp": "TOTP kopierad"
+    },
+    "menue": {
+      "wiederherstellen": "Återställ",
+      "endgueltigLoeschen": "Ta bort permanent",
+      "papierkorbLeeren": "Töm papperskorgen",
+      "ordnerBearbeiten": "Redigera mapp",
+      "eintragBearbeiten": "Redigera post",
+      "benutzernameKopieren": "Kopiera användarnamn",
+      "passwortKopieren": "Kopiera lösenord",
+      "totpKopieren": "Kopiera TOTP",
+      "ausschneiden": "Klipp ut",
+      "iconNeuLaden": "Hämta ikon igen",
+      "namenUebernehmen": "Använd namnet från webbplatsen",
+      "einfuegen": "Klistra in",
+      "einfuegenAnzahl": "Klistra in ({n})",
+      "neuerEintrag": "Ny post",
+      "neuerUnterordner": "Ny undermapp",
+      "neuerOrdner": "Ny mapp",
+      "eintragLoeschen": "Ta bort post",
+      "ordnerLoeschen": "Ta bort mapp",
+      "wiederhergestellt": "Återställd.",
+      "endgueltigGeloescht": "Permanent borttagen."
+    },
+    "ordnerLoeschen": {
+      "titel": "Ta bort mapp",
+      "text": "”{name}” tas bort. Mappar som innehåller poster kan inte tas bort.",
+      "nichtLeer": "Mappen är inte tom.",
+      "geloescht": "Mappen har tagits bort."
+    },
+    "eintragLoeschen": {
+      "titel": "Ta bort post",
+      "text": "”{name}” tas bort från databasen. Det går inte att ångra.",
+      "geloescht": "Posten har tagits bort."
+    },
+    "ausschneiden": {
+      "eins": "”{name}” utklippt — klistra in i målmappen (Ctrl+V).",
+      "mehrere": "{n} poster utklippta — klistra in i målmappen (Ctrl+V)."
+    },
+    "einfuegen": {
+      "nichts": "Inget är utklippt.",
+      "nichtHier": "Det går inte att klistra in något här.",
+      "schonDa": "Finns redan i den här mappen.",
+      "verschobenEins": "Flyttad till ”{ordner}”.",
+      "verschobenMehrere": "{n} poster flyttade till ”{ordner}”."
+    },
+    "titel": {
+      "keineGeaendert": "Inga namn ändrades.",
+      "uebernommen": {
+        "one": "{n} namn har använts.",
+        "other": "{n} namn har använts."
+      }
+    },
+    "spalten": {
+      "name": "Namn",
+      "benutzer": "Användare",
+      "url": "URL",
+      "ordner": "Mapp",
+      "unterordner": "Undermapp",
+      "zustandPasswort": "Lösenordets status",
+      "totpHinterlegt": "TOTP finns",
+      "anhangVorhanden": "Bilaga finns",
+      "code": "Kod",
+      "geaendert": "Ändrad",
+      "endgueltigWeg": "Tas bort permanent"
+    },
+    "ampel": {
+      "keins": "Inget lösenord sparat",
+      "geleakt": "Lösenordet hittades i {n} läckor",
+      "staerke": "Lösenord: {staerke}",
+      "abgelaufen": "Lösenordet har gått ut",
+      "mehrfach": "Lösenordet används på flera ställen",
+      "laeuftAb": {
+        "one": "Lösenordet går ut om {n} dag",
+        "other": "Lösenordet går ut om {n} dagar"
+      },
+      "unauffaellig": "Inga anmärkningar"
+    },
+    "artFilter": {
+      "passkeys": "Endast passkeys",
+      "dateien": "Filer",
+      "zurueck": "Tillbaka till alla poster",
+      "aufheben": "Ta bort filtret"
+    },
+    "legende": {
+      "passwort": "Lösenord:",
+      "gut": "Bra",
+      "achtung": "Varning",
+      "problem": "Problem",
+      "keins": "inget",
+      "totp": "TOTP",
+      "anhang": "Bilaga"
+    },
+    "zeile": {
+      "passkey": "Passkey",
+      "anhaenge": {
+        "one": "{n} bilaga",
+        "other": "{n} bilagor"
+      },
+      "beimOeffnen": "vid nästa öppning",
+      "inTagen": {
+        "one": "om {n} dag",
+        "other": "om {n} dagar"
+      },
+      "mehr": "Mer",
+      "imPapierkorb": "Ligger i papperskorgen"
+    },
+    "papierkorb": {
+      "titel": "Papperskorg",
+      "zusammenfassung": {
+        "one": "{n} post · tas bort permanent efter {tage} dagar",
+        "other": "{n} poster · tas bort permanent efter {tage} dagar"
+      },
+      "leeren": "Töm",
+      "istLeer": "Papperskorgen är tom.",
+      "leerenText": {
+        "one": "{n} post tas bort permanent. Det går inte att ångra.",
+        "other": "{n} poster tas bort permanent. Det går inte att ångra."
+      },
+      "geleert": {
+        "one": "{n} post har tagits bort permanent.",
+        "other": "{n} poster har tagits bort permanent."
+      }
+    },
+    "dateien": {
+      "eintragOeffnenLang": "Öppna post — namn, lösenord, anteckningar",
+      "eintragOeffnen": "Öppna post",
+      "keine": "Inga filer hittades.",
+      "zumAnzeigen": "{name} — klicka för att visa",
+      "herunterladen": "Ladda ned",
+      "datei": "Fil",
+      "eintrag": "Post",
+      "nichtLesbar": "Filen kunde inte läsas."
+    },
+    "verschieben": {
+      "ordnerNicht": "Mappen kan inte flyttas dit.",
+      "ordnerVerschoben": "Mappen har flyttats.",
+      "reihenfolge": "Ordningen har ändrats."
+    },
+    "auswahl": {
+      "anzahl": "{n} markerade",
+      "verschieben": "Flytta …",
+      "aufheben": "Avmarkera",
+      "verschiebenTitel": {
+        "one": "Flytta {n} post",
+        "other": "Flytta {n} poster"
+      },
+      "zielordner": "Målmapp",
+      "verschiebenKnopf": "Flytta",
+      "verschoben": "{n} flyttade.",
+      "loeschenTitel": {
+        "one": "Ta bort {n} post",
+        "other": "Ta bort {n} poster"
+      },
+      "loeschenImPapierkorb": "De här posterna ligger redan i papperskorgen och tas bort permanent. Det går inte att ångra.",
+      "loeschenText": "Posterna flyttas till papperskorgen och kan återställas därifrån.",
+      "inPapierkorb": "Till papperskorgen",
+      "geloescht": {
+        "one": "{n} post har tagits bort.",
+        "other": "{n} poster har tagits bort."
+      }
+    }
+  },
+  "start": {
+    "meldungen": {
+      "untaetig": "Låst på grund av inaktivitet.",
+      "autofillGespeichert": {
+        "one": "En inloggning från autofyll har sparats.",
+        "other": "{n} inloggningar från autofyll har sparats."
+      },
+      "nichtGespeichert": "Ändringen sparades inte: {grund}",
+      "codeNachEntsperren": "Lås upp — därefter används koden.",
+      "dateiNachgeholt": "Sparat i appen, men filen är inte sparad än: {grund} – görs senare."
+    },
+    "browser": {
+      "wartet": "En webbläsare väntar på databasen.",
+      "entsperrt": "Upplåst från webbläsaren.",
+      "nichtGespeichert": "Ändringen från webbläsaren sparades inte: {grund}"
+    },
+    "fehler": {
+      "titel": "WKeePass kunde inte starta",
+      "neuLaden": "Läs in igen"
+    }
+  },
+  "daten": {
+    "import": {
+      "fehler": {
+        "leer": "Filen är tom.",
+        "jsonNichtLesbar": "JSON-filen kan inte läsas.",
+        "keineOtpauth": "Filen innehåller ingen otpauth-adress.",
+        "protonVerschluesselt": "Exporten från Proton Pass är krypterad. Exportera utan PGP.",
+        "bitwardenVerschluesselt": "Exporten från Bitwarden är krypterad. Exportera som ”.json” utan lösenordsskydd.",
+        "aegisVerschluesselt": "Exporten från Aegis är krypterad. Exportera utan kryptering.",
+        "zweifasVerschluesselt": "Exporten från 2FAS är krypterad. Exportera utan lösenord.",
+        "jsonUnbekannt": "Okänt JSON-format. Stöds: Bitwarden, Proton, Aegis, 2FAS, andOTP.",
+        "xmlNichtLesbar": "XML-filen kan inte läsas.",
+        "keineKeepassXml": "Det här är ingen KeePass-XML-fil.",
+        "zipBeschaedigt": "ZIP-filen är skadad.",
+        "zipKeinExport": "ZIP-filen innehåller ingen känd export.",
+        "exportVerschluesselt": "Exporten är krypterad. Exportera utan PGP.",
+        "zipKompression": "Den här ZIP-komprimeringen stöds inte — packa upp filen.",
+        "zipNichtUnterstuetzt": "ZIP stöds inte här — packa först upp filen.",
+        "csvLeer": "CSV-filen innehåller inga poster."
+      },
+      "quelle": {
+        "ohneNamen": "Utan namn",
+        "zweiFaListe": "2FA-lista",
+        "spalte": "Kolumn {n}"
+      },
+      "felder": {
+        "nichtUebernehmen": "Importera inte",
+        "name": "Namn",
+        "url": "Adress",
+        "username": "Användarnamn",
+        "email": "E-post",
+        "password": "Lösenord",
+        "totp": "2FA-nyckel",
+        "notes": "Anteckningar",
+        "folder": "Mapp",
+        "tags": "Taggar",
+        "extra": "Lägg till i anteckningar"
+      }
+    },
+    "anhaenge": {
+      "warnung": {
+        "titel": "Spara okrypterad?",
+        "text1": "<p>”{name}” ligger krypterad i databasen. Vid nedladdning skrivs filen <strong>okrypterad</strong> till disken.</p>",
+        "text2": "<p>Därefter kan vilket program som helst och alla med åtkomst till mappen läsa den, och en synkronisering kan ta med den. Ta bort kopian när du inte behöver den längre.</p>",
+        "bestaetigen": "Spara okrypterad"
+      },
+      "meldung": {
+        "gespeichert": "Sparad i {pfad}",
+        "fehler": "Det gick inte att spara: {fehler}"
+      }
+    },
+    "vorschau": {
+      "markdown": {
+        "details": "Detaljer",
+        "bild": "[Bild: {text}]"
+      },
+      "pdf": {
+        "hinweis": "Om den inbyggda visaren inte visar något kan du ladda ned filen med knappen uppe till höger."
+      },
+      "keineVorschau": "Det finns ingen förhandsvisning för den här filtypen.<br>Ladda ned den med knappen uppe till höger för att öppna den.",
+      "fehler": "Förhandsvisning inte möjlig: {fehler}"
+    },
+    "qr": {
+      "fehler": {
+        "scannerFehlt": "Den här miljön kan inte läsa QR-koder.",
+        "keinCodeBild": "Ingen QR-kod hittades i bilden.",
+        "keinCodeFoto": "Ingen QR-kod hittades i fotot.",
+        "keinBild": "Kameran ger ingen bild.",
+        "keinKamerazugriff": "Ingen åtkomst till kameran.",
+        "schwarzesBild": "ger bara en svart bild",
+        "keinKamerabild": "Ingen kamerabild. {probleme}. Använd i stället ”QR-kod från bild” med en skärmbild eller ett foto.",
+        "abgebrochen": "avbruten",
+        "auswertung": "Tolkningen misslyckades: {fehler}",
+        "keineDaten": "Koden innehåller inga data.",
+        "keineKonten": "Koden innehåller inga läsbara konton."
+      },
+      "kamera": {
+        "standard": "Standardkamera",
+        "rueck": "bakre kamera",
+        "k640": "Kamera 640×480",
+        "rueckHd": "bakre kamera (HD)",
+        "rueckWunsch": "bakre kamera (önskad)"
+      },
+      "konto": "Konto",
+      "wlan": {
+        "name": "Wi-Fi {name}",
+        "ohneName": "Wi-Fi",
+        "verschluesselung": "Kryptering: {art}"
+      }
+    },
+    "sicherheit": {
+      "staerke": {
+        "leer": "tomt",
+        "schwach0": "mycket svagt",
+        "schwach1": "svagt",
+        "mittel": "medelstarkt",
+        "stark": "starkt",
+        "sehrStark": "mycket starkt"
+      },
+      "hinweise": {
+        "keinPasswort": "Inget lösenord angivet.",
+        "haeufig": "Finns på listor över vanliga lösenord.",
+        "wort": "Innehåller det vanliga ordet ”{wort}”.",
+        "einZeichen": "Består bara av ett upprepat tecken.",
+        "wiederholt": "Innehåller upprepade tecken.",
+        "reihenfolge": "Innehåller en tangentbords- eller alfabetsföljd.",
+        "ziffern": "Består bara av siffror.",
+        "jahr": "Ser ut som ett årtal.",
+        "kurz": "Kortare än 8 tecken.",
+        "keineGross": "Inga versaler.",
+        "keineSonder": "Inga specialtecken."
+      },
+      "fehler": {
+        "ueberlastet": "Tjänsten är överbelastad, kontrollera igen senare"
+      }
+    }
+  },
+  "dialoge": {
+    "anlegen": {
+      "wahl": {
+        "titel": "Skapa ny",
+        "eintrag": {
+          "titel": "Skapa post",
+          "text": "Ange namn, användarnamn och lösenord själv"
+        },
+        "dateien": {
+          "titel": "Lägg till filer",
+          "text": "Förvara dokument krypterade i databasen"
+        },
+        "ordner": {
+          "titel": "Skapa mapp",
+          "text": "För att sortera posterna"
+        },
+        "import": {
+          "titel": "Importera",
+          "text": "Hämta lösenord och 2FA-koder från andra appar"
+        },
+        "kamera": {
+          "titel": "Skanna QR-kod",
+          "text": "Ställ in TOTP eller läs in en samlingsexport"
+        },
+        "bild": {
+          "titel": "QR-kod från bild",
+          "text": "Välj en skärmbild eller ett foto"
+        },
+        "nichtVerfuegbar": "Inte tillgängligt i den här webbläsaren"
+      },
+      "scan": {
+        "fehler": "Skanningen misslyckades: {fehler}",
+        "nichtLesbar": "Koden kan inte läsas: {fehler}",
+        "fido": "Det här är en inloggningskod för passkeys, inte överförbara inloggningsuppgifter. Passkeys skapas via systemdialogen på webbplatsen."
+      },
+      "totp": {
+        "keinSecret": "Koden innehåller ingen TOTP-hemlighet.",
+        "titel": "Lägg till TOTP",
+        "gefunden": "Hittade: {name}",
+        "konto": "Konto",
+        "neu": {
+          "titel": "Ny post",
+          "text": "Skapar en egen post för den"
+        },
+        "bestehend": {
+          "titel": "Till befintlig post",
+          "text": "Lägg till i en befintlig post",
+          "alleBelegt": "Alla poster har redan en TOTP"
+        },
+        "auswaehlen": "Välj post",
+        "uebernehmen": "Använd",
+        "nichtGefunden": "Posten hittades inte.",
+        "hinzugefuegt": "TOTP har lagts till i ”{name}”."
+      },
+      "sammel": {
+        "titel": "Samlingsexport hittad",
+        "text": "Koden innehåller <strong>{n}</strong> konton. Varje konto skapas som en egen post.",
+        "anlegen": "Skapa {n} poster",
+        "angelegt": "{n} poster har skapats.",
+        "angelegtUebersprungen": "{n} poster har skapats, {uebersprungen} hoppades över (ingen TOTP)."
+      },
+      "import": {
+        "erstEntsperren": "Lås först upp databasen.",
+        "nichtMoeglich": "Importen är inte möjlig: {fehler}",
+        "alleVorhanden": "Alla {n} poster från {quelle} finns redan.",
+        "leer": "Inga poster än — koppla minst lösenord, användarnamn, adress eller 2FA-nyckel till en kolumn nedan.",
+        "zusammenfassung": "<strong>{n}</strong> poster — {pw} med lösenord, {totp} med 2FA-kod. De hamnar i mappen {ordner}.",
+        "zusammenfassungDoppelt": "<strong>{n}</strong> poster — {pw} med lösenord, {totp} med 2FA-kod, {doppelt} finns redan och hoppas över. De hamnar i mappen {ordner}.",
+        "zweiFA": "2FA-kod",
+        "weitere": "… och {n} till",
+        "spalte": "Kolumn {n}",
+        "spaltenZuordnen": "Koppla kolumner",
+        "importieren": "Importera {n} poster",
+        "importierenKurz": "Importera",
+        "titel": "Import från {quelle}",
+        "klartext": "Exportfilen innehåller allt i klartext — ta helst bort den efteråt.",
+        "teilweise": "{n} importerade, {fehlt} importerades inte ({fehler}).",
+        "teilweiseMehr": "{n} importerade, {fehlt} importerades inte ({fehler} …).",
+        "fertig": "{n} poster importerade från {quelle}. Ta helst bort exportfilen nu."
+      }
+    },
+    "konflikte": {
+      "art": {
+        "geaendert": "ändrad",
+        "geloescht": "borttagen"
+      },
+      "seite": {
+        "geloescht": "Posten har tagits bort",
+        "feldGeaendert": "{name} ändrad",
+        "hier": "Ändrad här",
+        "datei": "Ändrad i filen"
+      },
+      "ohneTitel": "(utan titel)",
+      "gilt": {
+        "hier": "Just nu gäller versionen härifrån.",
+        "datei": "Just nu gäller versionen från filen."
+      },
+      "wahl": {
+        "behalten": "Behåll min",
+        "nehmen": "Ta från filen"
+      },
+      "titel": {
+        "eins": "En post har ändrats på båda sidor",
+        "mehrere": "{n} poster har ändrats på båda sidor"
+      },
+      "hinweis": "Sedan senaste synkroniseringen har de här posterna ändrats olika här och i filen. Vilken version ska gälla? Tills du bestämmer dig gäller den nyare.",
+      "spaeter": "Senare",
+      "entschieden": {
+        "hier": "Avgjort: din version.",
+        "datei": "Avgjort: versionen från filen."
+      },
+      "fehler": "Inte tillämpat: {fehler}"
+    },
+    "versionen": {
+      "herkunft": {
+        "extern": "från filen",
+        "hier": "här",
+        "beide": "här och i filen"
+      },
+      "art": {
+        "neu": {
+          "label": "Tillkommit",
+          "kurz": "ny"
+        },
+        "geloescht": {
+          "label": "Borttagen",
+          "kurz": "borttagen"
+        },
+        "geaendert": {
+          "label": "Ändrad",
+          "kurz": "ändrad"
+        }
+      },
+      "passiert": {
+        "papierkorb": "till papperskorgen",
+        "wiederhergestellt": "återställd",
+        "verschoben": "flyttad"
+      },
+      "kurz": {
+        "aeltester": "Äldsta sparade version",
+        "keine": "Inga poster ändrade"
+      },
+      "ohneTitel": "(utan titel)",
+      "liste": {
+        "fehler": "Versionerna kan inte läsas: {fehler}",
+        "leer": "Inga versioner än — den första skapas vid nästa öppning eller sparning.",
+        "titel": "Versioner",
+        "hinweis": "Filens senaste versioner, den nyaste överst. Under varje version står vad den ändrade — tryck för att se exakt vad och för att ångra.",
+        "aktuell": "aktuell version",
+        "nichtLesbar": "Kan inte läsas"
+      },
+      "stand": {
+        "vergleichFehler": "Versionen kunde inte jämföras: {fehler}",
+        "feldGeaendert": "{name} ändrad",
+        "zuruecknehmen": "Ångra",
+        "zuruecknehmenTitel": "Återställ posten som den var före den här versionen",
+        "aeltesterHinweis": "Det här är den äldsta sparade versionen — det går inte längre att se vad den ändrade jämfört med den förra.",
+        "nichtsGeaendert": "Den här versionen ändrade inga poster.",
+        "titel": "Version {zeit}",
+        "gegenueber": "Det här ändrade den här versionen jämfört med den förra.",
+        "liegtDa": "Så ser filen ut just nu.",
+        "ganzZurueckHinweis": "”Återgå helt till den här versionen” ställer alla poster som de var här — det som kom efteråt finns kvar bland versionerna.",
+        "ganzZurueck": "Återgå helt till den här versionen",
+        "zurueckgenommen": "Ångrad"
+      },
+      "zurueckholen": {
+        "eintrag": "Posten har återställts och sparats.",
+        "eintraege": {
+          "one": "{n} post har återställts och sparats.",
+          "other": "{n} poster har återställts och sparats."
+        },
+        "fehler": "Återställningen misslyckades: {fehler}"
+      }
+    },
+    "eintrag": {
+      "allgemein": {
+        "anzeigen": "Visa",
+        "verbergen": "Dölj",
+        "kopieren": "Kopiera"
+      },
+      "ansicht": {
+        "ariaLabel": "Vy",
+        "dateien": "Filer",
+        "alleFelder": "Alla fält"
+      },
+      "titel": {
+        "neueDateiablage": "Ny filsamling",
+        "neuerEintrag": "Ny post"
+      },
+      "felder": {
+        "name": "Namn",
+        "ordner": "Mapp",
+        "tags": "Taggar (kommaseparerade)",
+        "url": "URL"
+      },
+      "knoepfe": {
+        "speichern": "Spara",
+        "anlegen": "Skapa",
+        "ja": "Ja",
+        "nein": "Nej"
+      },
+      "passwort": {
+        "titel": "Lösenord",
+        "gesetzt": "angivet",
+        "leer": "tomt",
+        "benutzername": "Användarnamn",
+        "passwort": "Lösenord",
+        "platzhalter": "inget angivet än",
+        "neuErzeugen": "Generera nytt",
+        "staerke": "Styrka: {label}",
+        "bit": "{n} bitar",
+        "hinweis": "Det sparade lösenordet ligger i kärnan. Det hämtas först när du klickar i fältet eller väljer ”Visa” — och skrivs bara tillbaka om du faktiskt ändrar det.",
+        "ablaufdatum": "Utgångsdatum (valfritt)",
+        "ablaufEntfernen": "Ta bort utgångsdatum"
+      },
+      "totp": {
+        "titel": "TOTP",
+        "eingerichtet": "inställd",
+        "nichtEingerichtet": "inte inställd",
+        "secret": "Hemlighet (Base32) eller otpauth://-URI",
+        "scanKamera": "Skanna QR-kod",
+        "scanBild": "QR-kod från bild",
+        "stellen": "Siffror",
+        "intervall": "Intervall (s)",
+        "algorithmus": "Algoritm",
+        "qrCode": "QR-kod",
+        "kontoName": "Konto"
+      },
+      "passkey": {
+        "titel": "Passkey",
+        "hinterlegt": "sparad",
+        "keiner": "ingen",
+        "konto": "Konto: {name} · ",
+        "beschreibung": "Logga in utan lösenord — den hemliga nyckeln finns bara i den här databasen.",
+        "hinweis": "En passkey skapar du direkt hos tjänsten (”Skapa passkey”). Webbläsartillägget eller Android frågar då WKeePass, och den hamnar av sig själv i en post."
+      },
+      "anhaenge": {
+        "titel": "Bilagor",
+        "dateienTitel": "Filer",
+        "anhaengen": "Bifoga fil …",
+        "dateienHinzufuegen": "Lägg till filer …",
+        "neueDatei": "Ny fil …",
+        "keine": "Inga bilagor än.",
+        "zumAnzeigen": "{name} — klicka för att visa",
+        "entfernen": "Ta bort",
+        "herunterladen": "Ladda ned",
+        "leer": "(tom)",
+        "dateienKeine": "Inga filer än",
+        "dateienHinweis": "Dra filer till fönstret, välj dem nedan eller skapa en ny. De ligger sedan krypterade i databasen.",
+        "nochNichtGespeichert": "inte sparad än"
+      },
+      "notizen": "Anteckningar",
+      "qr": {
+        "titel": "QR-kod: {name}",
+        "wirdErzeugt": "Skapas …",
+        "hinweis": "Skanna med en autentiseringsapp. Koden innehåller hemligheten i klartext — dela den inte och låt ingen fotografera den."
+      },
+      "scan": {
+        "titel": "Skanna QR-kod",
+        "rahmen": "Håll koden inom ramen",
+        "foto": "Fungerar det inte? Ta ett foto",
+        "fotoWirdAusgewertet": "Fotot tolkas …",
+        "erkannt": "Igenkänd",
+        "kameraFehlt": "Kameran är inte tillgänglig: {fehler}",
+        "keineDekodierung": "QR-avkodning är inte tillgänglig. Klistra i stället in otpauth://-URI:n som text.",
+        "browserOhneQr": "Den här webbläsaren kan inte läsa QR-koder — i skrivbords- och appversionen sköter Rust det. Klistra in otpauth://-URI:n här som text."
+      },
+      "viewer": {
+        "umbenennen": "Byt namn",
+        "umbenennenTitel": "{name} — byt namn",
+        "dateiname": "Filnamn",
+        "bearbeiten": "Redigera",
+        "wirdGeladen": "Läser in …",
+        "aenderungenSpeichern": "Spara ändringar?",
+        "wurdeBearbeitet": "”{name}” har redigerats.",
+        "nameUngueltig": "Namnet får inte vara tomt och inte innehålla snedstreck.",
+        "speichernFehlgeschlagen": "Det gick inte att spara: {fehler}",
+        "umbenennenFehlgeschlagen": "Det gick inte att byta namn: {fehler}"
+      },
+      "neueDatei": {
+        "titel": "Ny fil",
+        "platzhalter": "Anteckning",
+        "art": "Typ",
+        "arten": {
+          "text": "Text (.txt)",
+          "tabelle": "Tabell (.csv)"
+        }
+      },
+      "meldungen": {
+        "gespeichert": "Posten har sparats.",
+        "leak": "Varning: Det här lösenordet förekommer {n} gånger i kända läckor.",
+        "passwortKopiert": "Lösenord kopierat",
+        "benutzernameKopiert": "Användarnamn kopierat",
+        "qrUebernommen": "QR-koden har lästs in.",
+        "scanFehlgeschlagen": "Skanningen misslyckades: {fehler}",
+        "keinSecret": "Ingen TOTP-hemlighet sparad.",
+        "anhaengenFehlgeschlagen": "Det gick inte att bifoga: {fehler}",
+        "schonAngehaengt": "”{name}” är redan bifogad till den här posten.",
+        "nameVergeben": "”{name}” finns redan i den här posten.",
+        "anlegenFehlgeschlagen": "Det gick inte att skapa: {fehler}"
+      }
+    },
+    "ordner": {
+      "titel": {
+        "anlegen": "Skapa mapp",
+        "bearbeiten": "Mappen ”{name}”"
+      },
+      "felder": {
+        "name": "Namn",
+        "uebergeordnet": "Överordnad mapp",
+        "obersteEbene": "— översta nivån —"
+      },
+      "knoepfe": {
+        "speichern": "Spara",
+        "anlegen": "Skapa"
+      },
+      "meldungen": {
+        "nameLeer": "Namnet får inte vara tomt.",
+        "schraegstrich": "Snedstreck är inte tillåtna i mappnamn.",
+        "gespeichert": "Mappen har sparats.",
+        "angelegt": "Mappen har skapats."
+      }
+    }
+  },
+  "sicherheit": {
+    "statistik": {
+      "leaked": "läckta lösenord",
+      "weak": "svaga lösenord",
+      "reused": "används flera gånger",
+      "expiring": "utgångna / går snart ut",
+      "mail": "e-postläckor",
+      "inactive": "inte använda på länge"
+    },
+    "gruppen": {
+      "leaked": "Läckta lösenord",
+      "weak": "Svaga lösenord",
+      "reused": "Lösenord som används flera gånger",
+      "expiring": "Utgångsdatum"
+    },
+    "pruefung": {
+      "laeuft": "Kontrollerar …",
+      "jetzt": "Kontrollera nu",
+      "zuletzt": "Senast: {zeit}",
+      "nochNicht": "Inte kontrollerad än"
+    },
+    "keineTreffer": "Inga träffar – inget att göra",
+    "leckDaten": {
+      "email": "E-postadress",
+      "passwort": "Lösenord",
+      "benutzername": "Användarnamn",
+      "name": "Namn",
+      "telefon": "Telefonnummer",
+      "postanschrift": "Postadress",
+      "geburtsdatum": "Födelsedatum",
+      "ip": "IP-adress",
+      "geschlecht": "Kön",
+      "wohnort": "Bostadsort",
+      "kreditkarte": "Kreditkort",
+      "kreditkarteTeil": "Delar av kreditkortet",
+      "kontonummer": "Kontonummer",
+      "sicherheitsfragen": "Säkerhetsfrågor",
+      "token": "Inloggningstoken",
+      "socialMedia": "Profil på sociala medier",
+      "nachrichten": "Privata meddelanden",
+      "browser": "Webbläsardata",
+      "einkaeufe": "Köp",
+      "beruf": "Yrke",
+      "arbeitgeber": "Arbetsgivare"
+    },
+    "mail": {
+      "titel": "Dataläckor via e-post",
+      "rat": {
+        "passwortSofort": "<strong>Byt lösenordet direkt</strong> — det låg i klartext eller var lätt att knäcka.",
+        "passwort": "Byt lösenordet — det låg krypterat, men det är ändå inte säkert.",
+        "mehrfach": "Du använder samma lösenord någon annanstans — byt det där också.",
+        "telefon": "Räkna med sms- och telefonbedrägerier i den här tjänstens namn.",
+        "anschrift": "Adress eller födelsedatum är kända — var skeptisk om någon frågar ”för bekräftelse”.",
+        "konto": "Kontrollera kontoutdrag och kreditkort efter okända transaktioner.",
+        "keinPasswort": "Inget lösenord berörs. Viktigast här: läs e-post i den här tjänstens namn med kritisk blick."
+      },
+      "abgeflossen": "Läckt: {daten}",
+      "oeffnen": "Öppna {name}",
+      "hilfe": {
+        "frage": "Vad betyder en träff — och vad ska jag göra?",
+        "einleitung": "Din adress fanns i data som stulits från en tjänst och publicerats. Det betyder inte att någon har varit i din inkorg. Adressen går inte att få tillbaka — det behövs inte heller. Det avgörande är <em>vad</em> som läckte tillsammans med den; efter det rättar sig rådet för varje enskild läcka nedan.",
+        "schritt1": "Byt lösenordet hos den drabbade tjänsten — och överallt där du använder samma.",
+        "schritt2": "Aktivera tvåfaktorsinloggning där det går. WKeePass kan hantera koderna också.",
+        "schritt3": "Räkna med nätfiske: angripare skriver målinriktat till läckta adresser, gärna i just den tjänstens namn.",
+        "schritt4": "Ta bort konton du inte längre behöver hos tjänsten — ett bortglömt konto är ett öppet konto.",
+        "schritt5": "Använd aliasadresser för nya registreringar om din e-postleverantör erbjuder det. Då drabbar en läcka bara en av dem.",
+        "abschluss": "När du har gjort allt, bocka av adressen. Nya läckor rapporteras vid nästa kontroll."
+      },
+      "lecks": {
+        "one": "en läcka",
+        "other": "{n} läckor"
+      },
+      "erledigt": "Klart",
+      "erledigtListe": "Klart: {adressen}"
+    },
+    "inaktiv": {
+      "vermerkt": "Noterat — posten räknas som använd igen.",
+      "aufwand": {
+        "easy": "går direkt på webbplatsen",
+        "medium": "några steg till",
+        "hard": "bara via supporten",
+        "impossible": "erbjuder ingen borttagning"
+      },
+      "titel": "Inte använda på länge",
+      "hinweis": "De här inloggningarna har du inte använt på över två år. Om du inte behöver en längre: ta först bort kontot hos tjänsten och sedan posten — ett bortglömt konto med gammalt lösenord är ett populärt mål. Behövs den fortfarande räcker det med ”Används fortfarande”.",
+      "zuletzt": "Senast använd: {monat}",
+      "kontoLoeschen": "Ta bort konto {aufwand}",
+      "oeffnen": "Öppna",
+      "nochInGebrauch": "Används fortfarande",
+      "kontoLoeschenKnopf": "Ta bort konto",
+      "zurSeite": "Till webbplatsen",
+      "eintragLoeschen": "Ta bort post"
+    },
+    "kontoFrage": {
+      "titel": "Kontot borttaget?",
+      "text": "Har du tagit bort kontot hos {name}? Då kan posten också försvinna.",
+      "papierkorb": "Den hamnar i databasens papperskorg om du ändå skulle behöva den.",
+      "loeschen": "Ta bort post",
+      "nochNicht": "Inte än",
+      "erledigt": "Kontot klart — posten har tagits bort."
+    },
+    "fehler": {
+      "passwort": "Lösenordskontroll: {fehler}",
+      "email": "E-postkontroll: {fehler}"
+    },
+    "benachrichtigung": {
+      "titel": "WKeePass: nya fynd i säkerhetskontrollen",
+      "passwoerter": {
+        "one": "{n} lösenord finns nu i en läcka.",
+        "other": "{n} lösenord finns nu i en läcka."
+      },
+      "lecks": {
+        "one": "{n} ny dataläcka för dina e-postadresser.",
+        "other": "{n} nya dataläckor för dina e-postadresser."
+      }
+    },
+    "ergebnis": {
+      "teilweise": "Kontrollen misslyckades delvis: {fehler}",
+      "funde": "{n} fynd i kontrollen.",
+      "keine": "Inga problem hittades."
+    }
+  },
+  "einstellungen": {
+    "darstellung": {
+      "titel": "Utseende",
+      "farbschema": "Färgschema",
+      "farbschemaHinweis": "System följer operativsystemets inställning",
+      "hell": "Ljust",
+      "dunkel": "Mörkt",
+      "system": "System",
+      "akzentfarbe": "Dekorfärg",
+      "akzentfarbeHinweis": "Varnings- och farofärger ändras inte, så att meddelanden fortsätter vara lätta att känna igen",
+      "sprache": "Språk",
+      "spracheHinweis": "Gränssnittet läses in på nytt",
+      "spracheAuto": "Automatiskt (enhetens språk)"
+    },
+    "datenbank": {
+      "titel": "Databas",
+      "entsperren": "Upplåsning av den här databasen",
+      "pin": "PIN-kod",
+      "fingerabdruck": "Fingeravtryck",
+      "und": " och ",
+      "nurMaster": "Endast med huvudlösenord",
+      "appMethoden": "Vad appen över huvud taget erbjuder: {link}",
+      "appMethodenLink": "Upplåsningsmetoder i appen",
+      "waehlen": "Välj …",
+      "warnen": "Varna före utgång",
+      "warnenHinweis": "Dagar i förväg",
+      "papierkorb": "Töm papperskorgen",
+      "papierkorbHinweis": "Tar bort de borttagna posterna permanent",
+      "papierkorbKnopf": "Töm …",
+      "name": "Databasens namn",
+      "nameInDatei": "Står i filen",
+      "namePlatzhalter": "Lösenord",
+      "nameGespeichert": "Namnet har sparats.",
+      "geaendert": "ändrad {datum}"
+    },
+    "allgemein": {
+      "wirdGeladen": "Läser in …",
+      "demo": "WKeePass · Demo i webbläsaren",
+      "weiter": "Fortsätt",
+      "spaeter": "Senare i inställningarna",
+      "nichtVerfuegbar": "Inte tillgängligt",
+      "uebernehmen": "Använd",
+      "nichtGespeichert": "Inte sparat: {fehler}",
+      "gespeichert": "Inställningen har sparats.",
+      "keineKonfiguration": "Ingen giltig konfiguration."
+    },
+    "sperren": {
+      "titel": "Låsning",
+      "automatisch": "Lås automatiskt",
+      "automatischHinweis": "Minuter utan aktivitet",
+      "zwischenablage": "Töm Urklipp",
+      "zwischenablageHinweis": "Sekunder efter kopiering"
+    },
+    "browser": {
+      "titel": "Webbläsartillägg",
+      "stufeNichts": "Länkade webbläsare fyller i utan att fråga.",
+      "stufeLegitimieren": "PIN-kod, huvudlösenord eller fingeravtryck före ifyllning.",
+      "verknuepft": "länkad",
+      "trennen": "Koppla bort",
+      "keinerVerknuepft": "Ingen webbläsare är länkad än.",
+      "keinerEingetragen": "Inte registrerad i någon webbläsare",
+      "stufeHinweis": "Vad som händer när en länkad webbläsare begär inloggningsuppgifter: ingenting, ett knapptryck eller ett bevis med PIN-kod, huvudlösenord eller fingeravtryck.",
+      "fristHinweis": "Den som nyss har bekräftat eller låst upp får vara i fred en stund — en inloggning med flera fält skulle annars fråga flera gånger. Därefter frågas det igen. Gäller inte för ”Ingenting”; låsning avslutar tiden direkt.",
+      "beimStart": "Lås upp när webbläsaren startar",
+      "beimStartHinweis": "Om databasen är låst när webbläsaren hör av sig öppnas det lilla fönstret direkt — PIN-kod, fingeravtryck eller huvudlösenord, och tillägget får sina data. Utan det låser du upp via tilläggets meny när du behöver något.",
+      "erweiterung": "Tillägg",
+      "erweiterungHinweis": "KeePassXC-Browser — WKeePass talar samma protokoll, därför finns inget eget tillägg.",
+      "eingetragen": "Registrerad i",
+      "eingetragenHinweis": "”Ställ in” lägger en fil per webbläsare som pekar på WKeePass — utan den får webbläsaren inte starta WKeePass.",
+      "einrichten": "Ställ in",
+      "entfernen": "Ta bort",
+      "kanal": "Kanal",
+      "nichtAktiv": "Inte aktiv",
+      "getrennt": "Länken har kopplats bort.",
+      "trennenFehler": "Det gick inte att koppla bort: {fehler}",
+      "eingerichtetMeldung": "Inställt: {liste}. Starta om webbläsaren.",
+      "entferntMeldung": "Borttaget: {liste}. Starta om webbläsaren.",
+      "keinGefunden": "Ingen inställd webbläsare hittades.",
+      "fehlgeschlagen": "misslyckades",
+      "einrichtenFehler": "Misslyckades: {fehler}"
+    },
+    "eintraege": {
+      "titel": "Poster och webbplatser",
+      "importieren": "Importera från andra appar",
+      "importierenHinweis": "Lösenord och 2FA-koder från Bitwarden, 1Password, LastPass, webbläsare, Aegis, 2FAS …",
+      "importierenKnopf": "Importera …",
+      "iconsLaden": "Hämta webbplatsernas ikoner",
+      "iconsLadenHinweis": "En gång direkt från respektive webbplats, utan mellanhand — helst när du loggar in och webbplatsen är nåbar. Därefter ligger ikonen i databasen och finns även offline och på alla enheter.",
+      "iconsNeu": "Hämta alla ikoner igen",
+      "iconsNeuHinweis": "Ersätter de sparade med nyhämtade",
+      "iconsNeuKnopf": "Hämta igen",
+      "namen": "Namn från webbplatsen",
+      "namenHinweis": "På: Om namnet bara är en adress får posten automatiskt tjänstens namn — till exempel ”GitHub” i stället för ”https://github.com/login”. Namn du själv har valt behålls.",
+      "namenPruefenHinweis": "”Kontrollera nu” går igenom alla poster med adress och ersätter, efter bekräftelse, även namn du själv har valt.",
+      "namenAutomatisch": "Ange namn automatiskt",
+      "namenPruefen": "Kontrollera nu",
+      "iconsAbruf": "Ikonerna hämtas igen — de visas så snart de finns.",
+      "keineUrl": "Ingen post har någon URL.",
+      "uebernehmenTitel": "Använd namn",
+      "uebernehmenText": "För {n} poster ersätts namnet med tjänstens namn.",
+      "uebernehmenBrowser": "I webbläsaren blockerar säkerhetspolicyn hämtning från andra webbplatser — där används värdnamnet i stället."
+    },
+    "pruefungen": {
+      "titel": "Kontroller",
+      "staerke": "Visa lösenordsstyrka",
+      "staerkeHinweis": "Beräkningen sker i kärnan",
+      "mehrfach": "Upptäck återanvändning",
+      "mehrfachHinweis": "Jämförelse inom databasen",
+      "vorwarn": "Förvarningstid före utgång",
+      "vorwarnHinweis": "Dagar före utgångsdatum",
+      "leaks": "Kontrollera lösenord mot läckor",
+      "leaksHinweis": "Have I Been Pwned — bara ett hash-prefix skickas, aldrig lösenordet",
+      "email": "Kontrollera e-postadresser",
+      "emailHinweis": "Via XposedOrNot",
+      "benachrichtigen": "Meddela vid nya fynd",
+      "benachrichtigenHinweis": "När en kontroll hittar en ny läcka — även vid den automatiska",
+      "automatisch": "Kontrollera automatiskt",
+      "automatischHinweis": "När appen öppnas, om den senaste kontrollen ligger längre tillbaka",
+      "zuletzt": " — senast den {datum}",
+      "taeglich": "Dagligen",
+      "woechentlich": "Varje vecka",
+      "aus": "Av"
+    },
+    "appEntsperren": {
+      "einleitung": "Vad den här enheten erbjuder för upplåsning. Vilka av dem en databas får använda bestämmer du per databas: Databas → Upplåsning av den här databasen.",
+      "biometrie": "Använd biometri",
+      "biometrieGeraet": "{geraet} — erbjuds vid öppning, ersätter PIN-kod och huvudlösenord",
+      "biometrieFinger": "Fingeravtryck eller ansiktsigenkänning",
+      "biometrieNicht": "Inte tillgängligt på den här enheten",
+      "pin": "Programmets PIN-kod",
+      "pinSchluesselbund": "Angiven — skyddad av PIN-koden och nyckelringen",
+      "pinOhne": "Angiven — utan nyckelring hänger allt på PIN-koden",
+      "pinKeine": "Ingen PIN-kod än. Gäller alla databaser.",
+      "aendern": "Ändra …",
+      "entfernen": "Ta bort",
+      "festlegen": "Ange …"
+    },
+    "export": {
+      "titel": "Exportera och importera",
+      "exportieren": "Exportera inställningar",
+      "exportierenHinweis": "Spara som settings.json",
+      "exportierenKnopf": "Exportera",
+      "importieren": "Importera inställningar",
+      "importierenHinweis": "Hämta från en settings.json",
+      "importierenKnopf": "Importera",
+      "zuruecksetzen": "Återställ till standard",
+      "zuruecksetzenHinweis": "Bara inställningarna — databaser, PIN-kod och webbläsarlänkar finns kvar",
+      "zuruecksetzenKnopf": "Återställ",
+      "konfiguration": "Aktuell konfiguration (settings.json)",
+      "exportiert": "settings.json har exporterats.",
+      "importiert": "Inställningarna har importerats.",
+      "nichtGelesen": "Filen kunde inte läsas: {fehler}",
+      "zuruecksetzenTitel": "Återställ inställningar",
+      "zuruecksetzenText1": "Utseende, upplåsning, kontroller, webbläsare och Android återgår till standardvärdena.",
+      "zuruecksetzenText2": "Kvar blir: själva databasen, listan över dina databaser med deras egna inställningar, appens PIN-kod och länkarna till webbläsaren.",
+      "zurueckgesetzt": "Återställt till standard."
+    },
+    "android": {
+      "passwortmanager": "Lösenordshanterare",
+      "passwortmanagerText": "Fyller i inloggningar i appar och i webbläsaren och erbjuder sig att spara nya inloggningar.",
+      "passwortmanagerAktion": "Använd som standard",
+      "passkeys": "Passkeys",
+      "passkeysText": "Logga in utan lösenord. Passkeys ligger i din databas, inte hos Google.",
+      "passkeysAktion": "Aktivera",
+      "passkeysFehlt": "Först från Android 14",
+      "kamera": "Kamera",
+      "kameraText": "Bara för QR-skannern: ställ in tvåfaktorskoder utan att skriva av hemligheten.",
+      "kameraAktion": "Tillåt",
+      "stufeHinweis": "Vad som händer när du trycker på en inloggning i listan: ingenting, ett knapptryck eller ett bevis med PIN-kod, huvudlösenord eller biometri.",
+      "fristHinweis": "Den som nyss har bekräftat eller låst upp får vara i fred en stund — ett formulär med namn och lösenord skulle annars fråga två gånger. Gäller inte för ”Ingenting”; låsning avslutar tiden direkt.",
+      "stufeNichts": "Inloggningar fylls i utan att fråga.",
+      "stufeLegitimieren": "PIN-kod, huvudlösenord eller biometri före ifyllning.",
+      "aktiv": "Aktiv",
+      "nichtVerfuegbar": "Inte tillgängligt",
+      "inAppErlauben": "Tillåt i appinställningarna"
+    },
+    "stufe": {
+      "nichts": "Ingenting",
+      "bestaetigen": "Bekräfta",
+      "legitimieren": "Verifiera",
+      "titel": "Före ifyllning",
+      "bestaetigenMeldung": "Ett knapptryck räcker — utan bevis."
+    },
+    "frist": {
+      "jedesMal": "Fråga varje gång",
+      "sek30": "30 sekunder",
+      "min1": "1 minut",
+      "min5": "5 minuter",
+      "min15": "15 minuter",
+      "titel": "Fråga inte igen efteråt"
+    },
+    "androidStart": {
+      "titel": "Tre behörigheter för vardagen",
+      "text": "För att WKeePass inte bara ska vara ett kassaskåp utan även hjälpa dig att logga in behövs Androids tillstånd. Inget av det skickar data någonstans — lösenorden stannar i din fil."
+    },
+    "verschluesselung": {
+      "stufeSchnell": "Snabb",
+      "hinweisSchnell": "Öppnas snabbt, även på äldre enheter",
+      "stufeZuegig": "Rask",
+      "hinweisZuegig": "Lite mer skydd, knappt långsammare",
+      "stufeStandard": "Standard",
+      "hinweisStandard": "Bra mellanväg, fungerar överallt — rekommenderas",
+      "stufeErhoeht": "Förhöjd",
+      "hinweisErhoeht": "Mer minne, svårare för grafikkort — på iPhone/iPad fungerar inte ifyllning via tangentbordet längre",
+      "stufeHoch": "Hög",
+      "hinweisHoch": "Ännu mer minne — på iPhone/iPad ingen ifyllning via tangentbordet",
+      "stufeStark": "Stark",
+      "hinweisStark": "Bästa möjliga skydd, märkbart längre öppningstid — på iPhone/iPad ingen ifyllning via tangentbordet",
+      "werte": "{it} iterationer · {mib} MiB · {faeden}",
+      "faeden": {
+        "one": "{n} tråd",
+        "other": "{n} trådar"
+      },
+      "titel": "Krypteringsstyrka",
+      "erklaerung": {
+        "einleitung": "Av huvudlösenordet härleds först en nyckel — avsiktligt långsamt, med Argon2. Varje gissning från en angripare måste göra samma arbete.",
+        "durchgaengeBegriff": "Iterationer",
+        "durchgaenge": "Hur många gånger Argon2 går igenom minnet. Dubbelt så många tar dubbelt så lång tid.",
+        "speicherBegriff": "Minne (MiB)",
+        "speicher": "Hur mycket arbetsminne varje försök upptar (1 MiB ≈ 1 MB). Det bromsar angrepp med grafikkort mest, eftersom minne är en bristvara där.",
+        "faedenBegriff": "Trådar",
+        "faeden": "Hur många processorkärnor som räknar samtidigt. Skyddet påverkas inte — det gör bara att databasen öppnas snabbare på din enhet.",
+        "eigenBegriff": "Egen inställning",
+        "eigen": "Andra appar och äldre filer har egna värden, till exempel 50 iterationer med bara 1 MiB. Appen visar då den närmaste nivån och låter värdena stå kvar tills du väljer en nivå."
+      },
+      "eigenHinweis": "Egen inställning, till exempel från en annan app — ligger ungefär vid ”{stufe}”. Att välja en nivå ersätter den.",
+      "werteFrage": "Vad betyder värdena?",
+      "hinweis": "Hur lång tid det tar att härleda nyckeln — för dig en gång vid öppning, för en angripare vid varje gissning",
+      "geaendert": "Krypteringen har ändrats — filen har skrivits om.",
+      "ersetzt": "Ersätter den egna inställningen med ”{stufe}”.",
+      "stufeHinweis": "{stufe}: {hinweis}",
+      "jetzt": "Nu: {werte}",
+      "danach": "Efter: {werte}"
+    },
+    "versionen": {
+      "titel": "Versioner",
+      "hinweis": "Den här filens senaste versioner — vid öppning, efter sparning, efter ändringar från en annan enhet och efter varje sammanslagning. Därifrån kan du återställa enstaka poster eller allt.",
+      "ansehen": "Visa versioner …",
+      "aufheben": "Spara versioner",
+      "aufhebenBereich": "30 till 100",
+      "aufhebenFrage": "Hur många versioner som sparas",
+      "aufgehoben": "{n} versioner sparas."
+    },
+    "browserStart": {
+      "titel": "Lösenord direkt i webbläsaren",
+      "text": "Med ett webbläsartillägg fyller WKeePass i inloggningar på webbplatser, erbjuder att spara nya inloggningar och loggar in dig med passkeys. Lösenorden stannar i din fil — webbläsaren frågar WKeePass varje gång. Det kräver alla tre stegen.",
+      "schritt1": "1. Registrera WKeePass i webbläsarna",
+      "schritt1Text": "Nödvändigt: En webbläsare får bara starta program som är registrerade hos den. Knappen lägger en liten fil per webbläsare som pekar på WKeePass — i själva webbläsaren ändras ingenting. Om KeePassXC är installerat pratar tillägget därefter med WKeePass i stället för med KeePassXC.",
+      "gefunden": "Hittade: {liste}",
+      "keinBrowser": "Ingen webbläsare hittades — efter att du installerat en går det att göra i inställningarna.",
+      "erledigt": "Klart",
+      "eintragen": "Registrera",
+      "schritt2": "2. Installera tillägget KeePassXC-Browser",
+      "schritt2Text": "Nödvändigt: Tillägget kommer från KeePassXC och är gratis. WKeePass talar samma språk, därför finns inget eget. Knappen öppnar sidan i din webbläsares butik.",
+      "schritt3": "3. Anslut i webbläsaren",
+      "schritt3Text": "En gång per webbläsare: starta om webbläsaren, klicka på tilläggets ikon och välj ”Anslut”. WKeePass frågar sedan efter ett namn för webbläsaren — först därefter fylls lösenord i."
+    }
+  },
+  "totp": {
+    "leer": "Inga TOTP-poster finns.",
+    "karte": {
+      "hinweis": "Klick kopierar, dubbelklick öppnar posten"
+    },
+    "kopiert": "Koden har kopierats",
+    "alsNaechstes": "nästa {code}"
+  },
+  "ui": {
+    "abgleich": {
+      "uebernommen": "Ändringar från en annan enhet har hämtats."
+    },
+    "zwischenablage": {
+      "fehler": "Det går inte att kopiera."
+    },
+    "kern": {
+      "fehler": "Kärnan rapporterar ett fel vid ”{befehl}”: {ursache}"
+    },
+    "formular": {
+      "pinMitSchluesselbund": "Nyckeln skapas av din PIN-kod <em>och</em> ett slumpvärde i systemets nyckelring. En angripare skulle behöva båda: PIN-koden och din inloggade session.",
+      "pinOhneSchluesselbund": "<strong>Ingen nyckelring är tillgänglig på den här enheten.</strong> Då hänger allt enbart på PIN-koden — välj den därefter lång.",
+      "sichtbarMachen": "Visa",
+      "verbergen": "Dölj"
+    }
+  },
+  "entsperren": {
+    "geraet": {
+      "biometrie": "Biometri"
+    },
+    "datenbank": {
+      "nochNichtGeoeffnet": "Inte öppnad än",
+      "keineDatei": "Ingen fil har valts."
+    },
+    "sperrbildschirm": {
+      "keineDatenbank": "Ingen databas vald än",
+      "mitGeraet": "Lås upp med {name}",
+      "mitPasswortOderPin": "Med lösenord eller PIN-kod …",
+      "entsperren": "Lås upp",
+      "datenbankWaehlen": "Välj databas …",
+      "neueDatenbank": "Skapa ny databas …",
+      "zuletztGenutzt": "Senast använda"
+    },
+    "dialog": {
+      "titel": "Lås upp",
+      "mitBiometrie": "Lås upp med biometri",
+      "appPin": "Appens PIN-kod",
+      "pinPlatzhalter": "PIN-kod",
+      "masterPasswort": "Huvudlösenord",
+      "masterPasswortFalls": "Huvudlösenord (om PIN-koden inte passar)",
+      "biometrieKuenftig": "Öppna med biometri i fortsättningen",
+      "biometrieGeraetHinweis": "Ersätter huvudlösenordet — nyckeln ligger i säkerhetschippet",
+      "biometrieSchluesselbundHinweis": "Fingret styrker vem du är, nyckeln ligger i nyckelringen",
+      "biometrieSchluesselbundHinweisPin": "Fingret styrker vem du är, nyckeln ligger i nyckelringen — en app-PIN anges för det",
+      "pinKuenftig": "Öppna även med PIN-kod i fortsättningen",
+      "pinKuenftigHinweis": "En app-PIN anges strax för det",
+      "bestaetigen": "Lås upp",
+      "eingabeFehlt": "Ange PIN-kod eller huvudlösenord."
+    },
+    "appPinAbfrage": {
+      "titel": "Bekräfta app-PIN",
+      "text": "För att låsa upp den här databasen behövs programmets PIN-kod.",
+      "platzhalter": "App-PIN",
+      "bestaetigen": "Bekräfta"
+    },
+    "herkunft": {
+      "downloads": "Nedladdningar",
+      "geraetespeicher": "Enhetslagring",
+      "medien": "Media"
+    },
+    "biometrieFehlt": {
+      "keinFinger": "Inget fingeravtryck eller ansikte registrerat — ställ in det i Androids inställningar.",
+      "nichtVerfuegbar": "Inte tillgängligt på enheten",
+      "ohneSchluesselbund": "Inte möjligt utan nyckelring"
+    },
+    "willkommen": {
+      "titel": "Välkommen till WKeePass",
+      "text": "För enklare användning av appen kan en <b>PIN-kod</b> och/eller <b>biometri</b> användas för att dekryptera data och bekräfta vid uttag. Efter inställningen kan den förenklade dekrypteringen och bekräftelsen ställas in individuellt per databas.",
+      "pinEinrichten": "Ställ in PIN-kod",
+      "pinPlatzhalter": "Minst fyra tecken",
+      "pinWiederholen": "Upprepa PIN-koden",
+      "sichtbar": "Visa",
+      "geraetNutzen": "Använd {name}",
+      "geraetHinweis": "Ersätter PIN-kod och huvudlösenord. Nyckeln ligger i den här enhetens säkerhetschip — en PIN-kod är då bara en reservväg.",
+      "biometrieNutzen": "Använd upplåsning med biometri",
+      "einrichten": "Ställ in",
+      "ohnePin": "Fortsätt utan PIN-kod",
+      "pinFehlt": "Ange en PIN-kod — eller välj ”Fortsätt utan PIN-kod”.",
+      "pinUngleich": "De två PIN-koderna stämmer inte överens.",
+      "pinFestgelegt": "PIN-koden har angetts.",
+      "geraetEinrichtung": "{name} ställs in vid första öppningen."
+    },
+    "trotzdemSperren": {
+      "titel": "Inte sparat",
+      "text": "Om du låser ändå går ändringarna sedan senaste sparningen förlorade.",
+      "bestaetigen": "Lås ändå"
+    },
+    "zugriffEntzogen": {
+      "titel": "Ingen åtkomst till filen längre",
+      "text1": "Android har tagit bort WKeePass åtkomst till den här filen. Det händer när ett annat program har tagit bort och skapat om den i stället för att skriva över den.",
+      "text2": "Offlinekopian är öppen — det går inte att spara så. Välj filen på nytt en gång, så gäller åtkomsten permanent igen.",
+      "neuWaehlen": "Välj filen igen",
+      "spaeter": "Senare"
+    },
+    "appPin": {
+      "titel": "Ange PIN-kod",
+      "text1": "Den här PIN-koden gäller för hela programmet. För varje databas bestämmer du sedan separat om den får öppnas med den.",
+      "text2": "Efter fem felaktiga försök förkastas PIN-koden. Det går inte att återställa den — då fortsätter du med huvudlösenorden.",
+      "neuePin": "Ny PIN-kod",
+      "platzhalter": "Minst fyra tecken",
+      "wiederholen": "Upprepa",
+      "wiederholenPlatzhalter": "Upprepa PIN-koden",
+      "festlegen": "Ange",
+      "eingeben": "Ange en PIN-kod.",
+      "ungleich": "De två PIN-koderna stämmer inte överens.",
+      "festgelegt": "PIN-koden har angetts."
+    },
+    "freigabe": {
+      "titel": "Aktivera den här databasen",
+      "offenNoetig": "Databasen måste vara öppen för det.",
+      "mitPin": "Öppna med PIN-kod",
+      "mitPinHinweis": "Huvudlösenordet sparas krypterat; för att öppna räcker sedan app-PIN.",
+      "mitFingerabdruck": "Öppna med fingeravtryck",
+      "fingerabdruckHinweis": "Fingeravtrycket är här <em>ingen nyckel</em>, utan beviset på att det är du — skyddet kommer enbart från nyckelringen. Därmed är den här vägen svagare än PIN-koden, eftersom en angripare bara behöver en sak i stället för två. På macOS och Windows tvingar hårdvaran fram kontrollen, under Linux det här programmet.",
+      "pinBestaetigen": "Ange app-PIN för att bekräfta:",
+      "pinPlatzhalter": "App-PIN",
+      "uebernehmen": "Använd",
+      "ohnePin": "Utan PIN-kod går det inte att bekräfta.",
+      "gespeichert": "Behörigheten har sparats.",
+      "mitGeraet": "Öppna med {name}",
+      "geraetHinweis": "Ersätter PIN-kod och huvudlösenord vid öppning. Huvudlösenordet förseglas med en nyckel som den här enhetens säkerhetschip först lämnar ut efter kontroll med {name} — en kopierad fil är värdelös utan den här enheten.",
+      "windowsZweimal": "Vid första inställningen kan Windows fråga två gånger.",
+      "rueckfall": "Reservväg om {name} inte fungerar just nu.",
+      "pinFreigabeOhnePin": "Utan PIN-kod går det inte att ändra PIN-behörigheten."
+    },
+    "pinEntfernen": {
+      "titel": "Ta bort PIN-kod",
+      "text": "PIN-koden och alla behörigheter förkastas. Därefter öppnar du varje databas med dess huvudlösenord igen.",
+      "bestaetigen": "Ta bort",
+      "entfernt": "PIN-koden har tagits bort."
+    },
+    "pinAendern": {
+      "titel": "Ändra PIN-kod",
+      "text1": "De aktiverade databaserna finns kvar — de krypteras om med den nya PIN-koden i bakgrunden. Du behöver alltså <strong>inte</strong> ange några huvudlösenord igen.",
+      "text2": "Har du glömt den nuvarande PIN-koden hjälper bara ”Ta bort” — då försvinner alla behörigheter och varje databas behöver sitt huvudlösenord igen.",
+      "bisherige": "Nuvarande PIN-kod",
+      "neue": "Ny PIN-kod",
+      "neueWiederholen": "Upprepa ny PIN-kod",
+      "bestaetigen": "Ändra",
+      "beideNoetig": "Ange båda PIN-koderna.",
+      "ungleich": "De två nya PIN-koderna stämmer inte överens.",
+      "geaendert": "PIN-koden har ändrats. Alla behörigheter gäller fortfarande."
+    },
+    "anlegen": {
+      "titel": "Skapa ny databas",
+      "name": "Databasens namn",
+      "standardName": "Lösenord",
+      "staerke": "Krypteringsstyrka",
+      "hinweis": "Huvudlösenordet är huvudnyckeln. Det går inte att återställa — försvinner det försvinner posterna.",
+      "passwort": "Huvudlösenord",
+      "passwortWiederholen": "Upprepa huvudlösenordet",
+      "weiter": "Vidare till lagringsplats",
+      "passwortFehlt": "Det går inte utan huvudlösenord.",
+      "passwortUngleich": "De två lösenorden stämmer inte överens.",
+      "keinOrt": "Ingen lagringsplats har valts.",
+      "angelegt": "Databasen har skapats.",
+      "fehlgeschlagen": "Det gick inte att skapa: {fehler}"
+    },
+    "entsperren": {
+      "laeuft": "Ett upplåsningsförsök pågår redan.",
+      "zuerstWaehlen": "Välj först en databas.",
+      "offlineKopie": "Filen är inte nåbar just nu — offlinekopian från {datum} är öppen. Det går inte att spara förrän filen är tillbaka.",
+      "nurLesen": "{format} kan bara läsas — ändringar kan inte sparas.",
+      "diesesFormat": "Det här formatet",
+      "freigabeGeraet": "Databasen är aktiverad för {name}.",
+      "freigabePin": "Databasen är aktiverad för PIN-koden.",
+      "fehlgeschlagen": "Upplåsningen misslyckades: {fehler}",
+      "entschluesselt": "Dekrypterar … det tar ett ögonblick."
+    },
+    "sperren": {
+      "gesperrt": "Låst — värdena har tagits bort från minnet.",
+      "banner": "Databasen är låst."
+    }
+  },
+  "anfrage": {
+    "nachweis": {
+      "pin": "PIN-kod",
+      "master": "Huvudlösenord",
+      "sichtbar": "Visa",
+      "biometrie": "Biometri",
+      "fingerabdruck": "Fingeravtryck",
+      "bioEntsperren": "Lås upp med {name}",
+      "bioBestaetigen": "Bekräfta med {name}",
+      "bioBestaetigenStandard": "Bekräfta med fingeravtryck",
+      "grund": "Åtkomst från webbläsaren"
+    },
+    "text": {
+      "unlock": "Databasen är låst. En webbläsare väntar på den.",
+      "logins": "Webbläsaren vill fylla i användarnamn och lösenord.",
+      "totp": "Webbläsaren vill hämta en engångskod.",
+      "create": "En ny post ska skapas.",
+      "update": "Lösenordet ska ändras.",
+      "delete": "En post ska flyttas till papperskorgen.",
+      "passkeyRegister": "En passkey ska skapas.",
+      "passkeyGet": "Inloggning ska ske med en passkey.",
+      "sonst": "Åtkomst till databasen."
+    },
+    "titel": {
+      "entsperren": "Lås upp databasen",
+      "anfrage": "Begäran från webbläsaren"
+    },
+    "warnung": "<strong>Varning:</strong> Formuläret skickas till {ziel} — inte till den besökta webbplatsen.",
+    "eintrag": {
+      "ohneName": "(utan namn)"
+    },
+    "knoepfe": {
+      "entsperren": "Lås upp",
+      "uebernehmen": "Använd",
+      "einMoment": "Ett ögonblick …"
+    },
+    "datenbank": {
+      "keineAusgewaehlt": "Ingen vald"
+    },
+    "fehler": {
+      "keineDatenbank": "Ingen databas är vald. Öppna den först i huvudfönstret.",
+      "nichtGeklappt": "Det gick inte.",
+      "nichtErreichbar": "Inte nåbar"
+    },
+    "einstellungen": {
+      "titel": "Inställningar",
+      "kopf": "Webbläsartillägg",
+      "unterkopf": "Före ifyllning",
+      "nichts": "Ingenting",
+      "bestaetigen": "Bekräfta",
+      "legitimieren": "Verifiera",
+      "notizNever": "Länkade webbläsare fyller i utan att fråga. Från nästa begäran — den här måste fortfarande besvaras.",
+      "notizConfirm": "Ett knapptryck räcker — Avbryt eller Använd, utan bevis.",
+      "notizIdentify": "PIN-kod, huvudlösenord eller fingeravtryck. Hur länge det sedan inte frågas igen anges i inställningarna."
+    }
+  }
+}

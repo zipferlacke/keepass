@@ -10,6 +10,7 @@
  */
 
 import * as vault from '../data/vault.js';
+import { t, gebiet } from './i18n.js';
 import * as settings from '../data/settings.js';
 import { state } from './state.js';
 import { zeichne } from './render.js';
@@ -121,7 +122,7 @@ export function markUsed(ids) {
 export function formatDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('de-DE');
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(gebiet());
 }
 
 /** „vor 5 Minuten", „gestern, 14:03" — knapp und ohne Rechnerei im Kopf. */
@@ -130,13 +131,13 @@ export function zeitLabel(iso) {
   if (Number.isNaN(zeit.getTime())) return '—';
 
   const minuten = Math.round((Date.now() - zeit.getTime()) / 60000);
-  if (minuten < 1) return 'gerade eben';
-  if (minuten < 60) return `vor ${minuten} Minute${minuten === 1 ? '' : 'n'}`;
+  if (minuten < 1) return t('allgemein.zeit.geradeEben');
+  if (minuten < 60) return t('allgemein.zeit.vorMinuten', { n: minuten });
 
   const heute = new Date().toDateString() === zeit.toDateString();
-  const uhr = zeit.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  if (heute) return `heute, ${uhr}`;
-  return `${zeit.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}, ${uhr}`;
+  const uhr = zeit.toLocaleTimeString(gebiet(), { hour: '2-digit', minute: '2-digit' });
+  if (heute) return t('allgemein.zeit.heute', { uhr });
+  return t('allgemein.zeit.tagUhr', { tag: zeit.toLocaleDateString(gebiet(), { day: '2-digit', month: '2-digit' }), uhr });
 }
 
 /** Wann ein Eintrag zuletzt benutzt wurde — das Neueste aus Datei und App. */

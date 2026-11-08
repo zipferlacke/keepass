@@ -1,0 +1,1316 @@
+{
+  "allgemein": {
+    "knoepfe": {
+      "schliessen": "Fermer",
+      "abbrechen": "Annuler",
+      "zurueck": "Retour"
+    },
+    "zeit": {
+      "geradeEben": "à l’instant",
+      "vorMinuten": {
+        "one": "il y a {n} minute",
+        "other": "il y a {n} minutes"
+      },
+      "heute": "aujourd’hui, {uhr}",
+      "tagUhr": "{tag}, {uhr}"
+    }
+  },
+  "navigation": {
+    "start": "Accueil",
+    "eintraege": "Entrées",
+    "totp": "TOTP",
+    "einstellungen": "Paramètres",
+    "neu": "Créer",
+    "kopf": {
+      "sperren": "Verrouiller la base de données"
+    },
+    "titel": {
+      "home": "Vue d’ensemble",
+      "passwords": "Entrées",
+      "totp": "Codes TOTP",
+      "security": "Contrôle de sécurité",
+      "settings": "Paramètres",
+      "dateien": "Fichiers"
+    }
+  },
+  "uebersicht": {
+    "kacheln": {
+      "eintraege": "Entrées",
+      "passkeys": "Passkeys",
+      "totp": "Codes TOTP",
+      "dateien": "Fichiers",
+      "sicherheit": "Contrôle de sécurité",
+      "anzahl": {
+        "one": "{n} entrée",
+        "other": "{n} entrées"
+      },
+      "codes": {
+        "one": "{n} code",
+        "other": "{n} codes"
+      },
+      "funde": {
+        "one": "{n} résultat",
+        "other": "{n} résultats"
+      },
+      "ungeprueft": "pas encore vérifié"
+    },
+    "zuletzt": {
+      "titel": "Utilisées récemment"
+    }
+  },
+  "eintraege": {
+    "liste": {
+      "suchen": "Rechercher …"
+    },
+    "loeschen": "Supprimer",
+    "leer": "Aucune entrée.",
+    "keineGefunden": "Aucune entrée trouvée.",
+    "iconNeuLaden": "L’icône est rechargée.",
+    "kopiert": {
+      "benutzername": "Nom d’utilisateur copié",
+      "passwort": "Mot de passe copié",
+      "totp": "TOTP copié"
+    },
+    "menue": {
+      "wiederherstellen": "Restaurer",
+      "endgueltigLoeschen": "Supprimer définitivement",
+      "papierkorbLeeren": "Vider la corbeille",
+      "ordnerBearbeiten": "Modifier le dossier",
+      "eintragBearbeiten": "Modifier l’entrée",
+      "benutzernameKopieren": "Copier le nom d’utilisateur",
+      "passwortKopieren": "Copier le mot de passe",
+      "totpKopieren": "Copier le TOTP",
+      "ausschneiden": "Couper",
+      "iconNeuLaden": "Recharger l’icône",
+      "namenUebernehmen": "Reprendre le nom du site web",
+      "einfuegen": "Coller",
+      "einfuegenAnzahl": "Coller ({n})",
+      "neuerEintrag": "Nouvelle entrée",
+      "neuerUnterordner": "Nouveau sous-dossier",
+      "neuerOrdner": "Nouveau dossier",
+      "eintragLoeschen": "Supprimer l’entrée",
+      "ordnerLoeschen": "Supprimer le dossier",
+      "wiederhergestellt": "Restaurée.",
+      "endgueltigGeloescht": "Supprimée définitivement."
+    },
+    "ordnerLoeschen": {
+      "titel": "Supprimer le dossier",
+      "text": "« {name} » va être supprimé. Un dossier contenant des entrées ne peut pas être supprimé.",
+      "nichtLeer": "Le dossier n’est pas vide.",
+      "geloescht": "Dossier supprimé."
+    },
+    "eintragLoeschen": {
+      "titel": "Supprimer l’entrée",
+      "text": "« {name} » va être supprimée de la base de données. Cette action est irréversible.",
+      "geloescht": "Entrée supprimée."
+    },
+    "ausschneiden": {
+      "eins": "« {name} » coupée — à coller dans le dossier de destination (Ctrl+V).",
+      "mehrere": "{n} entrées coupées — à coller dans le dossier de destination (Ctrl+V)."
+    },
+    "einfuegen": {
+      "nichts": "Rien n’a été coupé.",
+      "nichtHier": "Impossible de coller ici.",
+      "schonDa": "Déjà dans ce dossier.",
+      "verschobenEins": "Déplacée vers « {ordner} ».",
+      "verschobenMehrere": "{n} entrées déplacées vers « {ordner} »."
+    },
+    "titel": {
+      "keineGeaendert": "Aucun nom modifié.",
+      "uebernommen": {
+        "one": "{n} nom repris.",
+        "other": "{n} noms repris."
+      }
+    },
+    "spalten": {
+      "name": "Nom",
+      "benutzer": "Utilisateur",
+      "url": "URL",
+      "ordner": "Dossier",
+      "unterordner": "Sous-dossier",
+      "zustandPasswort": "État du mot de passe",
+      "totpHinterlegt": "TOTP enregistré",
+      "anhangVorhanden": "Pièce jointe présente",
+      "code": "Code",
+      "geaendert": "Modifié",
+      "endgueltigWeg": "Suppression définitive"
+    },
+    "ampel": {
+      "keins": "Aucun mot de passe enregistré",
+      "geleakt": "Mot de passe trouvé dans {n} fuites",
+      "staerke": "Mot de passe {staerke}",
+      "abgelaufen": "Mot de passe expiré",
+      "mehrfach": "Mot de passe utilisé plusieurs fois",
+      "laeuftAb": {
+        "one": "Le mot de passe expire dans {n} jour",
+        "other": "Le mot de passe expire dans {n} jours"
+      },
+      "unauffaellig": "Rien à signaler"
+    },
+    "artFilter": {
+      "passkeys": "Passkeys uniquement",
+      "dateien": "Fichiers",
+      "zurueck": "Retour à toutes les entrées",
+      "aufheben": "Supprimer le filtre"
+    },
+    "legende": {
+      "passwort": "Mot de passe :",
+      "gut": "Bon",
+      "achtung": "Attention",
+      "problem": "Problème",
+      "keins": "aucun",
+      "totp": "TOTP",
+      "anhang": "Pièce jointe"
+    },
+    "zeile": {
+      "passkey": "Passkey",
+      "anhaenge": {
+        "one": "{n} pièce jointe",
+        "other": "{n} pièces jointes"
+      },
+      "beimOeffnen": "à la prochaine ouverture",
+      "inTagen": {
+        "one": "dans {n} jour",
+        "other": "dans {n} jours"
+      },
+      "mehr": "Plus",
+      "imPapierkorb": "Se trouve dans la corbeille"
+    },
+    "papierkorb": {
+      "titel": "Corbeille",
+      "zusammenfassung": {
+        "one": "{n} entrée · supprimée définitivement après {tage} jours",
+        "other": "{n} entrées · supprimées définitivement après {tage} jours"
+      },
+      "leeren": "Vider",
+      "istLeer": "La corbeille est vide.",
+      "leerenText": {
+        "one": "{n} entrée va être supprimée définitivement. Cette action est irréversible.",
+        "other": "{n} entrées vont être supprimées définitivement. Cette action est irréversible."
+      },
+      "geleert": {
+        "one": "{n} entrée supprimée définitivement.",
+        "other": "{n} entrées supprimées définitivement."
+      }
+    },
+    "dateien": {
+      "eintragOeffnenLang": "Ouvrir l’entrée — nom, mot de passe, notes",
+      "eintragOeffnen": "Ouvrir l’entrée",
+      "keine": "Aucun fichier trouvé.",
+      "zumAnzeigen": "{name} — cliquer pour afficher",
+      "herunterladen": "Télécharger",
+      "datei": "Fichier",
+      "eintrag": "Entrée",
+      "nichtLesbar": "Le fichier n’a pas pu être lu."
+    },
+    "verschieben": {
+      "ordnerNicht": "Ce dossier ne peut pas être déplacé à cet endroit.",
+      "ordnerVerschoben": "Dossier déplacé.",
+      "reihenfolge": "Ordre modifié."
+    },
+    "auswahl": {
+      "anzahl": "{n} sélectionnée(s)",
+      "verschieben": "Déplacer …",
+      "aufheben": "Désélectionner",
+      "verschiebenTitel": {
+        "one": "Déplacer {n} entrée",
+        "other": "Déplacer {n} entrées"
+      },
+      "zielordner": "Dossier de destination",
+      "verschiebenKnopf": "Déplacer",
+      "verschoben": "{n} déplacée(s).",
+      "loeschenTitel": {
+        "one": "Supprimer {n} entrée",
+        "other": "Supprimer {n} entrées"
+      },
+      "loeschenImPapierkorb": "Ces entrées se trouvent déjà dans la corbeille et vont être supprimées définitivement. Cette action est irréversible.",
+      "loeschenText": "Les entrées sont placées dans la corbeille et peuvent en être restaurées.",
+      "inPapierkorb": "Mettre à la corbeille",
+      "geloescht": {
+        "one": "{n} entrée supprimée.",
+        "other": "{n} entrées supprimées."
+      }
+    }
+  },
+  "start": {
+    "meldungen": {
+      "untaetig": "Verrouillée pour cause d’inactivité.",
+      "autofillGespeichert": {
+        "one": "Un identifiant issu du remplissage automatique a été enregistré.",
+        "other": "{n} identifiants issus du remplissage automatique ont été enregistrés."
+      },
+      "nichtGespeichert": "Modification non enregistrée : {grund}",
+      "codeNachEntsperren": "Déverrouillez — le code sera ensuite repris.",
+      "dateiNachgeholt": "Enregistré dans l’app, mais pas encore dans le fichier : {grund} – sera refait ultérieurement."
+    },
+    "browser": {
+      "wartet": "Un navigateur attend la base de données.",
+      "entsperrt": "Déverrouillée depuis le navigateur.",
+      "nichtGespeichert": "Modification issue du navigateur non enregistrée : {grund}"
+    },
+    "fehler": {
+      "titel": "WKeePass n’a pas pu démarrer",
+      "neuLaden": "Recharger"
+    }
+  },
+  "daten": {
+    "import": {
+      "fehler": {
+        "leer": "Le fichier est vide.",
+        "jsonNichtLesbar": "Le fichier JSON est illisible.",
+        "keineOtpauth": "Le fichier ne contient aucune adresse otpauth.",
+        "protonVerschluesselt": "L’export Proton Pass est chiffré. Veuillez l’exporter sans PGP.",
+        "bitwardenVerschluesselt": "L’export Bitwarden est chiffré. Veuillez l’exporter au format « .json » sans protection par mot de passe.",
+        "aegisVerschluesselt": "L’export Aegis est chiffré. Veuillez l’exporter sans chiffrement.",
+        "zweifasVerschluesselt": "L’export 2FAS est chiffré. Veuillez l’exporter sans mot de passe.",
+        "jsonUnbekannt": "Ce format JSON est inconnu. Formats pris en charge : Bitwarden, Proton, Aegis, 2FAS, andOTP.",
+        "xmlNichtLesbar": "Le fichier XML est illisible.",
+        "keineKeepassXml": "Ce n’est pas un fichier XML KeePass.",
+        "zipBeschaedigt": "Le fichier ZIP est endommagé.",
+        "zipKeinExport": "Le fichier ZIP ne contient aucun export connu.",
+        "exportVerschluesselt": "L’export est chiffré. Veuillez l’exporter sans PGP.",
+        "zipKompression": "Cette compression ZIP n’est pas prise en charge — veuillez extraire le fichier.",
+        "zipNichtUnterstuetzt": "Le format ZIP n’est pas pris en charge ici — veuillez d’abord extraire le fichier.",
+        "csvLeer": "Le fichier CSV ne contient aucune entrée."
+      },
+      "quelle": {
+        "ohneNamen": "Sans nom",
+        "zweiFaListe": "Liste 2FA",
+        "spalte": "Colonne {n}"
+      },
+      "felder": {
+        "nichtUebernehmen": "Ne pas reprendre",
+        "name": "Nom",
+        "url": "Adresse",
+        "username": "Nom d’utilisateur",
+        "email": "E-mail",
+        "password": "Mot de passe",
+        "totp": "Clé 2FA",
+        "notes": "Notes",
+        "folder": "Dossier",
+        "tags": "Tags",
+        "extra": "Ajouter aux notes"
+      }
+    },
+    "anhaenge": {
+      "warnung": {
+        "titel": "Enregistrer sans chiffrement ?",
+        "text1": "<p>« {name} » est chiffré dans la base de données. Lors du téléchargement, le fichier est écrit <strong>sans chiffrement</strong> sur le disque.</p>",
+        "text2": "<p>Il peut alors être lu par n’importe quel programme et par toute personne ayant accès à ce dossier, et une synchronisation peut l’emporter avec elle. Supprimez la copie dès que vous n’en avez plus besoin.</p>",
+        "bestaetigen": "Enregistrer sans chiffrement"
+      },
+      "meldung": {
+        "gespeichert": "Enregistré sous {pfad}",
+        "fehler": "Échec de l’enregistrement : {fehler}"
+      }
+    },
+    "vorschau": {
+      "markdown": {
+        "details": "Détails",
+        "bild": "[Image : {text}]"
+      },
+      "pdf": {
+        "hinweis": "Si la visionneuse intégrée n’affiche rien, téléchargez le fichier avec le bouton en haut à droite."
+      },
+      "keineVorschau": "Aucun aperçu n’est disponible pour ce type de fichier.<br>Téléchargez-le avec le bouton en haut à droite pour l’ouvrir.",
+      "fehler": "Aperçu impossible : {fehler}"
+    },
+    "qr": {
+      "fehler": {
+        "scannerFehlt": "Cet environnement ne peut pas lire les codes QR.",
+        "keinCodeBild": "Aucun code QR trouvé dans l’image.",
+        "keinCodeFoto": "Aucun code QR trouvé dans la photo.",
+        "keinBild": "La caméra ne fournit aucune image.",
+        "keinKamerazugriff": "Accès à la caméra impossible.",
+        "schwarzesBild": "ne fournit qu’une image noire",
+        "keinKamerabild": "Aucune image de la caméra. {probleme}. Vous pouvez utiliser à la place « Code QR depuis une image » avec une capture d’écran ou une photo.",
+        "abgebrochen": "annulé",
+        "auswertung": "Échec de l’analyse : {fehler}",
+        "keineDaten": "Le code ne contient aucune donnée.",
+        "keineKonten": "Le code ne contient aucun compte lisible."
+      },
+      "kamera": {
+        "standard": "Caméra par défaut",
+        "rueck": "caméra arrière",
+        "k640": "Caméra 640×480",
+        "rueckHd": "caméra arrière (HD)",
+        "rueckWunsch": "caméra arrière (souhaitée)"
+      },
+      "konto": "Compte",
+      "wlan": {
+        "name": "Wi-Fi {name}",
+        "ohneName": "Wi-Fi",
+        "verschluesselung": "Chiffrement : {art}"
+      }
+    },
+    "sicherheit": {
+      "staerke": {
+        "leer": "vide",
+        "schwach0": "très faible",
+        "schwach1": "faible",
+        "mittel": "moyen",
+        "stark": "fort",
+        "sehrStark": "très fort"
+      },
+      "hinweise": {
+        "keinPasswort": "Aucun mot de passe défini.",
+        "haeufig": "Figure sur les listes de mots de passe courants.",
+        "wort": "Contient le mot courant « {wort} ».",
+        "einZeichen": "Se compose d’un seul caractère répété.",
+        "wiederholt": "Contient des caractères répétés plusieurs fois.",
+        "reihenfolge": "Contient une suite de touches du clavier ou de lettres de l’alphabet.",
+        "ziffern": "Se compose uniquement de chiffres.",
+        "jahr": "Ressemble à une année.",
+        "kurz": "Moins de 8 caractères.",
+        "keineGross": "Aucune majuscule.",
+        "keineSonder": "Aucun caractère spécial."
+      },
+      "fehler": {
+        "ueberlastet": "Service surchargé, veuillez réessayer plus tard"
+      }
+    }
+  },
+  "dialoge": {
+    "anlegen": {
+      "wahl": {
+        "titel": "Créer",
+        "eintrag": {
+          "titel": "Créer une entrée",
+          "text": "Saisir soi-même le nom, l’identifiant et le mot de passe"
+        },
+        "dateien": {
+          "titel": "Ajouter des fichiers",
+          "text": "Conserver des documents chiffrés dans la base de données"
+        },
+        "ordner": {
+          "titel": "Créer un dossier",
+          "text": "Pour trier les entrées"
+        },
+        "import": {
+          "titel": "Importer",
+          "text": "Reprendre les mots de passe et codes 2FA d’autres apps"
+        },
+        "kamera": {
+          "titel": "Scanner un code QR",
+          "text": "Configurer un TOTP ou lire un export groupé"
+        },
+        "bild": {
+          "titel": "Code QR depuis une image",
+          "text": "Choisir une capture d’écran ou une photo"
+        },
+        "nichtVerfuegbar": "Non disponible dans ce navigateur"
+      },
+      "scan": {
+        "fehler": "Échec du scan : {fehler}",
+        "nichtLesbar": "Code illisible : {fehler}",
+        "fido": "Il s’agit d’un code de connexion pour passkeys, pas d’identifiants transférables. Les passkeys sont créés par la boîte de dialogue système du site web."
+      },
+      "totp": {
+        "keinSecret": "Le code ne contient aucun secret TOTP.",
+        "titel": "Ajouter un TOTP",
+        "gefunden": "Trouvé : {name}",
+        "konto": "Compte",
+        "neu": {
+          "titel": "Nouvelle entrée",
+          "text": "Crée une entrée dédiée"
+        },
+        "bestehend": {
+          "titel": "Vers une entrée existante",
+          "text": "Ajouter à une entrée existante",
+          "alleBelegt": "Toutes les entrées ont déjà un TOTP"
+        },
+        "auswaehlen": "Choisir une entrée",
+        "uebernehmen": "Appliquer",
+        "nichtGefunden": "Entrée introuvable.",
+        "hinzugefuegt": "TOTP ajouté à « {name} »."
+      },
+      "sammel": {
+        "titel": "Export groupé détecté",
+        "text": "Le code contient <strong>{n}</strong> comptes. Chacun sera créé comme entrée distincte.",
+        "anlegen": "Créer {n} entrées",
+        "angelegt": "{n} entrées créées.",
+        "angelegtUebersprungen": "{n} entrées créées, {uebersprungen} ignorées (sans TOTP)."
+      },
+      "import": {
+        "erstEntsperren": "Déverrouillez d’abord la base de données.",
+        "nichtMoeglich": "Import impossible : {fehler}",
+        "alleVorhanden": "Les {n} entrées de {quelle} existent déjà.",
+        "leer": "Aucune entrée pour l’instant — associez ci-dessous à une colonne au moins le mot de passe, le nom d’utilisateur, l’adresse ou la clé 2FA.",
+        "zusammenfassung": "<strong>{n}</strong> entrées — {pw} avec mot de passe, {totp} avec code 2FA. Elles seront placées dans le dossier {ordner}.",
+        "zusammenfassungDoppelt": "<strong>{n}</strong> entrées — {pw} avec mot de passe, {totp} avec code 2FA, {doppelt} déjà présentes et ignorées. Elles seront placées dans le dossier {ordner}.",
+        "zweiFA": "Code 2FA",
+        "weitere": "… et {n} autres",
+        "spalte": "Colonne {n}",
+        "spaltenZuordnen": "Associer les colonnes",
+        "importieren": "Importer {n} entrées",
+        "importierenKurz": "Importer",
+        "titel": "Import depuis {quelle}",
+        "klartext": "Le fichier d’export contient tout en clair — le mieux est de le supprimer ensuite.",
+        "teilweise": "{n} importées, {fehlt} non reprises ({fehler}).",
+        "teilweiseMehr": "{n} importées, {fehlt} non reprises ({fehler} …).",
+        "fertig": "{n} entrées importées depuis {quelle}. Le mieux est de supprimer maintenant le fichier d’export."
+      }
+    },
+    "konflikte": {
+      "art": {
+        "geaendert": "modifiée",
+        "geloescht": "supprimée"
+      },
+      "seite": {
+        "geloescht": "Entrée supprimée",
+        "feldGeaendert": "{name} modifié",
+        "hier": "Modifiée ici",
+        "datei": "Modifiée dans le fichier"
+      },
+      "ohneTitel": "(sans titre)",
+      "gilt": {
+        "hier": "C’est actuellement la version d’ici qui s’applique.",
+        "datei": "C’est actuellement la version du fichier qui s’applique."
+      },
+      "wahl": {
+        "behalten": "Garder la mienne",
+        "nehmen": "Prendre celle du fichier"
+      },
+      "titel": {
+        "eins": "Une entrée a été modifiée des deux côtés",
+        "mehrere": "{n} entrées ont été modifiées des deux côtés"
+      },
+      "hinweis": "Depuis la dernière synchronisation, ces entrées ont été modifiées différemment ici et dans le fichier. Quelle version doit s’appliquer ? Tant que vous n’avez pas décidé, la plus récente s’applique.",
+      "spaeter": "Plus tard",
+      "entschieden": {
+        "hier": "Décidé : votre version.",
+        "datei": "Décidé : la version du fichier."
+      },
+      "fehler": "Non appliqué : {fehler}"
+    },
+    "versionen": {
+      "herkunft": {
+        "extern": "depuis le fichier",
+        "hier": "ici",
+        "beide": "ici et dans le fichier"
+      },
+      "art": {
+        "neu": {
+          "label": "Ajoutées",
+          "kurz": "nouvelle"
+        },
+        "geloescht": {
+          "label": "Supprimées",
+          "kurz": "supprimée"
+        },
+        "geaendert": {
+          "label": "Modifiées",
+          "kurz": "modifiée"
+        }
+      },
+      "passiert": {
+        "papierkorb": "mise à la corbeille",
+        "wiederhergestellt": "restaurée",
+        "verschoben": "déplacée"
+      },
+      "kurz": {
+        "aeltester": "Plus ancienne version conservée",
+        "keine": "Aucune entrée modifiée"
+      },
+      "ohneTitel": "(sans titre)",
+      "liste": {
+        "fehler": "Versions illisibles : {fehler}",
+        "leer": "Aucune version pour l’instant — la première sera créée à la prochaine ouverture ou au prochain enregistrement.",
+        "titel": "Versions",
+        "hinweis": "Les dernières versions du fichier, la plus récente en haut. Sous chacune figure ce qu’elle a modifié — appuyez dessus pour voir le détail et pouvoir l’annuler.",
+        "aktuell": "version actuelle",
+        "nichtLesbar": "Illisible"
+      },
+      "stand": {
+        "vergleichFehler": "La version n’a pas pu être comparée : {fehler}",
+        "feldGeaendert": "{name} modifié",
+        "zuruecknehmen": "Annuler",
+        "zuruecknehmenTitel": "Rétablir l’entrée telle qu’elle était avant cette version",
+        "aeltesterHinweis": "C’est la plus ancienne version conservée — il n’est plus possible de savoir ce qu’elle a modifié par rapport à la précédente.",
+        "nichtsGeaendert": "Cette version n’a modifié aucune entrée.",
+        "titel": "Version du {zeit}",
+        "gegenueber": "Voici ce que cette version a modifié par rapport à la précédente.",
+        "liegtDa": "C’est l’état actuel du fichier.",
+        "ganzZurueckHinweis": "« Revenir entièrement à cette version » remet toutes les entrées dans l’état où elles étaient alors — ce qui a suivi reste disponible dans les versions.",
+        "ganzZurueck": "Revenir entièrement à cette version",
+        "zurueckgenommen": "Annulée"
+      },
+      "zurueckholen": {
+        "eintrag": "Entrée rétablie et enregistrée.",
+        "eintraege": {
+          "one": "{n} entrée rétablie et enregistrée.",
+          "other": "{n} entrées rétablies et enregistrées."
+        },
+        "fehler": "Échec du rétablissement : {fehler}"
+      }
+    },
+    "eintrag": {
+      "allgemein": {
+        "anzeigen": "Afficher",
+        "verbergen": "Masquer",
+        "kopieren": "Copier"
+      },
+      "ansicht": {
+        "ariaLabel": "Affichage",
+        "dateien": "Fichiers",
+        "alleFelder": "Tous les champs"
+      },
+      "titel": {
+        "neueDateiablage": "Nouveau stockage de fichiers",
+        "neuerEintrag": "Nouvelle entrée"
+      },
+      "felder": {
+        "name": "Nom",
+        "ordner": "Dossier",
+        "tags": "Tags (séparés par des virgules)",
+        "url": "URL"
+      },
+      "knoepfe": {
+        "speichern": "Enregistrer",
+        "anlegen": "Créer",
+        "ja": "Oui",
+        "nein": "Non"
+      },
+      "passwort": {
+        "titel": "Mot de passe",
+        "gesetzt": "défini",
+        "leer": "vide",
+        "benutzername": "Nom d’utilisateur",
+        "passwort": "Mot de passe",
+        "platzhalter": "pas encore défini",
+        "neuErzeugen": "Régénérer",
+        "staerke": "Robustesse : {label}",
+        "bit": "{n} bits",
+        "hinweis": "Le mot de passe enregistré se trouve dans le noyau. Il n’est récupéré que si vous cliquez sur le champ ou sur « Afficher » — et n’est réécrit que si vous le modifiez vraiment.",
+        "ablaufdatum": "Date d’expiration (facultatif)",
+        "ablaufEntfernen": "Supprimer la date d’expiration"
+      },
+      "totp": {
+        "titel": "TOTP",
+        "eingerichtet": "configuré",
+        "nichtEingerichtet": "non configuré",
+        "secret": "Secret (Base32) ou URI otpauth://",
+        "scanKamera": "Scanner un code QR",
+        "scanBild": "Code QR depuis une image",
+        "stellen": "Chiffres",
+        "intervall": "Intervalle (s)",
+        "algorithmus": "Algorithme",
+        "qrCode": "Code QR",
+        "kontoName": "Compte"
+      },
+      "passkey": {
+        "titel": "Passkey",
+        "hinterlegt": "enregistré",
+        "keiner": "aucun",
+        "konto": "Compte : {name} · ",
+        "beschreibung": "Connexion sans mot de passe — la clé secrète se trouve uniquement dans cette base de données.",
+        "hinweis": "Vous créez un passkey directement auprès du service (« Créer un passkey »). L’extension de navigateur ou Android demande alors à WKeePass, et il atterrit automatiquement dans une entrée."
+      },
+      "anhaenge": {
+        "titel": "Pièces jointes",
+        "dateienTitel": "Fichiers",
+        "anhaengen": "Joindre un fichier …",
+        "dateienHinzufuegen": "Ajouter des fichiers …",
+        "neueDatei": "Nouveau fichier …",
+        "keine": "Aucune pièce jointe pour l’instant.",
+        "zumAnzeigen": "{name} — cliquer pour afficher",
+        "entfernen": "Retirer",
+        "herunterladen": "Télécharger",
+        "leer": "(vide)",
+        "dateienKeine": "Aucun fichier pour l’instant",
+        "dateienHinweis": "Faites glisser des fichiers dans la fenêtre, choisissez-les ci-dessous ou créez-en un nouveau. Ils seront ensuite stockés chiffrés dans la base de données.",
+        "nochNichtGespeichert": "pas encore enregistré"
+      },
+      "notizen": "Notes",
+      "qr": {
+        "titel": "Code QR : {name}",
+        "wirdErzeugt": "Génération en cours …",
+        "hinweis": "À scanner avec une app d’authentification. Le code contient le secret en clair — ne le partagez pas et ne le laissez pas prendre en photo."
+      },
+      "scan": {
+        "titel": "Scanner un code QR",
+        "rahmen": "Placez le code dans le cadre",
+        "foto": "Ça ne marche pas ? Prendre une photo",
+        "fotoWirdAusgewertet": "Analyse de la photo …",
+        "erkannt": "Reconnu",
+        "kameraFehlt": "Caméra non disponible : {fehler}",
+        "keineDekodierung": "Décodage de code QR non disponible. Collez plutôt l’URI otpauth:// sous forme de texte.",
+        "browserOhneQr": "Ce navigateur ne peut pas lire les codes QR — dans les versions bureau et app, c’est Rust qui s’en charge. Collez ici l’URI otpauth:// sous forme de texte."
+      },
+      "viewer": {
+        "umbenennen": "Renommer",
+        "umbenennenTitel": "{name} — renommer",
+        "dateiname": "Nom du fichier",
+        "bearbeiten": "Modifier",
+        "wirdGeladen": "Chargement …",
+        "aenderungenSpeichern": "Enregistrer les modifications ?",
+        "wurdeBearbeitet": "« {name} » a été modifié.",
+        "nameUngueltig": "Le nom ne peut pas être vide ni contenir de barre oblique.",
+        "speichernFehlgeschlagen": "Échec de l’enregistrement : {fehler}",
+        "umbenennenFehlgeschlagen": "Échec du renommage : {fehler}"
+      },
+      "neueDatei": {
+        "titel": "Nouveau fichier",
+        "platzhalter": "Note",
+        "art": "Type",
+        "arten": {
+          "text": "Texte (.txt)",
+          "tabelle": "Tableau (.csv)"
+        }
+      },
+      "meldungen": {
+        "gespeichert": "Entrée enregistrée.",
+        "leak": "Attention : ce mot de passe apparaît {n} fois dans des fuites connues.",
+        "passwortKopiert": "Mot de passe copié",
+        "benutzernameKopiert": "Nom d’utilisateur copié",
+        "qrUebernommen": "Code QR appliqué.",
+        "scanFehlgeschlagen": "Échec du scan : {fehler}",
+        "keinSecret": "Aucun secret TOTP enregistré.",
+        "anhaengenFehlgeschlagen": "Échec de l’ajout : {fehler}",
+        "schonAngehaengt": "« {name} » est déjà joint à cette entrée.",
+        "nameVergeben": "« {name} » existe déjà dans cette entrée.",
+        "anlegenFehlgeschlagen": "Échec de la création : {fehler}"
+      }
+    },
+    "ordner": {
+      "titel": {
+        "anlegen": "Créer un dossier",
+        "bearbeiten": "Dossier « {name} »"
+      },
+      "felder": {
+        "name": "Nom",
+        "uebergeordnet": "Dossier parent",
+        "obersteEbene": "— niveau supérieur —"
+      },
+      "knoepfe": {
+        "speichern": "Enregistrer",
+        "anlegen": "Créer"
+      },
+      "meldungen": {
+        "nameLeer": "Le nom ne peut pas être vide.",
+        "schraegstrich": "Les barres obliques ne sont pas autorisées dans le nom d’un dossier.",
+        "gespeichert": "Dossier enregistré.",
+        "angelegt": "Dossier créé."
+      }
+    }
+  },
+  "sicherheit": {
+    "statistik": {
+      "leaked": "mots de passe compromis",
+      "weak": "mots de passe faibles",
+      "reused": "utilisés plusieurs fois",
+      "expiring": "expirés / bientôt à renouveler",
+      "mail": "fuites d’e-mail",
+      "inactive": "inutilisés depuis longtemps"
+    },
+    "gruppen": {
+      "leaked": "Mots de passe compromis",
+      "weak": "Mots de passe faibles",
+      "reused": "Mots de passe utilisés plusieurs fois",
+      "expiring": "Dates d’expiration"
+    },
+    "pruefung": {
+      "laeuft": "Vérification …",
+      "jetzt": "Vérifier maintenant",
+      "zuletzt": "Dernière : {zeit}",
+      "nochNicht": "Pas encore vérifié"
+    },
+    "keineTreffer": "Aucun résultat – rien à faire",
+    "leckDaten": {
+      "email": "Adresse e-mail",
+      "passwort": "Mot de passe",
+      "benutzername": "Nom d’utilisateur",
+      "name": "Nom",
+      "telefon": "Numéro de téléphone",
+      "postanschrift": "Adresse postale",
+      "geburtsdatum": "Date de naissance",
+      "ip": "Adresse IP",
+      "geschlecht": "Sexe",
+      "wohnort": "Lieu de résidence",
+      "kreditkarte": "Carte bancaire",
+      "kreditkarteTeil": "Parties de la carte bancaire",
+      "kontonummer": "Numéro de compte",
+      "sicherheitsfragen": "Questions de sécurité",
+      "token": "Jeton de connexion",
+      "socialMedia": "Profil de réseau social",
+      "nachrichten": "Messages privés",
+      "browser": "Données du navigateur",
+      "einkaeufe": "Achats",
+      "beruf": "Profession",
+      "arbeitgeber": "Employeur"
+    },
+    "mail": {
+      "titel": "Fuites de données d’e-mail",
+      "rat": {
+        "passwortSofort": "<strong>Changez immédiatement le mot de passe</strong> — il était stocké en clair ou facile à casser.",
+        "passwort": "Changez le mot de passe — il était stocké chiffré, mais ce n’est pas pour autant sûr.",
+        "mehrfach": "Vous utilisez encore le même mot de passe ailleurs — changez-le là aussi.",
+        "telefon": "Attendez-vous à des arnaques par SMS et par appel au nom de ce service.",
+        "anschrift": "Votre adresse ou votre date de naissance sont connues — méfiez-vous des demandes « de confirmation ».",
+        "konto": "Vérifiez vos relevés de compte et de carte bancaire à la recherche de débits inconnus.",
+        "keinPasswort": "Aucun mot de passe concerné. L’essentiel ici : lisez avec méfiance les e-mails envoyés au nom de ce service."
+      },
+      "abgeflossen": "Données volées : {daten}",
+      "oeffnen": "Ouvrir {name}",
+      "hilfe": {
+        "frage": "Que signifie un résultat — et que faire ?",
+        "einleitung": "Votre adresse figurait dans des données volées chez un service, puis publiées. Cela ne signifie pas que quelqu’un a accédé à votre boîte mail. L’adresse ne peut pas être récupérée — et il n’est pas nécessaire de le faire. Ce qui compte, c’est <em>ce qui</em> a été volé avec elle ; les conseils pour chaque fuite ci-dessous en dépendent.",
+        "schritt1": "Changez le mot de passe auprès du service concerné — et partout où vous utilisez le même.",
+        "schritt2": "Activez si possible l’authentification à deux facteurs. WKeePass peut aussi gérer les codes.",
+        "schritt3": "Attendez-vous à du phishing : les pirates écrivent spécifiquement aux adresses compromises, souvent au nom de ce même service.",
+        "schritt4": "Supprimez auprès du service les comptes dont vous n’avez plus besoin — un compte oublié est un compte ouvert.",
+        "schritt5": "Pour vos nouvelles inscriptions, utilisez des adresses alias si votre fournisseur de messagerie le permet. Une fuite ne touchera alors qu’une seule d’entre elles.",
+        "abschluss": "Une fois tout fait, cochez l’adresse. La prochaine vérification signalera de nouveau les nouvelles fuites."
+      },
+      "lecks": {
+        "one": "une fuite",
+        "other": "{n} fuites"
+      },
+      "erledigt": "Traité",
+      "erledigtListe": "Traité : {adressen}"
+    },
+    "inaktiv": {
+      "vermerkt": "Noté — l’entrée est de nouveau considérée comme utilisée.",
+      "aufwand": {
+        "easy": "directement sur le site",
+        "medium": "quelques étapes de plus",
+        "hard": "uniquement via le support",
+        "impossible": "ne propose pas de suppression"
+      },
+      "titel": "Inutilisés depuis longtemps",
+      "hinweis": "Vous n’avez pas utilisé ces accès depuis plus de deux ans. Si vous n’en avez plus besoin, supprimez d’abord le compte auprès du service, puis l’entrée — un compte oublié avec un ancien mot de passe est une cible prisée. S’il est encore utilisé, « Encore utilisé » suffit.",
+      "zuletzt": "Dernière utilisation : {monat}",
+      "kontoLoeschen": "Supprimer le compte {aufwand}",
+      "oeffnen": "Ouvrir",
+      "nochInGebrauch": "Encore utilisé",
+      "kontoLoeschenKnopf": "Supprimer le compte",
+      "zurSeite": "Vers le site",
+      "eintragLoeschen": "Supprimer l’entrée"
+    },
+    "kontoFrage": {
+      "titel": "Compte supprimé ?",
+      "text": "Avez-vous supprimé le compte chez {name} ? Alors l’entrée peut disparaître aussi.",
+      "papierkorb": "Elle ira dans la corbeille de la base de données, au cas où vous en auriez encore besoin.",
+      "loeschen": "Supprimer l’entrée",
+      "nochNicht": "Pas encore",
+      "erledigt": "Compte traité — entrée supprimée."
+    },
+    "fehler": {
+      "passwort": "Vérification des mots de passe : {fehler}",
+      "email": "Vérification des e-mails : {fehler}"
+    },
+    "benachrichtigung": {
+      "titel": "WKeePass : nouveaux résultats du contrôle de sécurité",
+      "passwoerter": {
+        "one": "{n} mot de passe figure désormais dans une fuite.",
+        "other": "{n} mots de passe figurent désormais dans une fuite."
+      },
+      "lecks": {
+        "one": "{n} nouvelle fuite de données pour vos adresses e-mail.",
+        "other": "{n} nouvelles fuites de données pour vos adresses e-mail."
+      }
+    },
+    "ergebnis": {
+      "teilweise": "Vérification partiellement échouée : {fehler}",
+      "funde": "{n} résultats lors de la vérification.",
+      "keine": "Aucun problème trouvé."
+    }
+  },
+  "einstellungen": {
+    "darstellung": {
+      "titel": "Affichage",
+      "farbschema": "Thème de couleurs",
+      "farbschemaHinweis": "« Système » suit le réglage du système d’exploitation",
+      "hell": "Clair",
+      "dunkel": "Sombre",
+      "system": "Système",
+      "akzentfarbe": "Couleur d’accent",
+      "akzentfarbeHinweis": "Les couleurs d’avertissement et de danger restent inchangées afin que les alertes restent visibles",
+      "sprache": "Langue",
+      "spracheHinweis": "L’interface est alors rechargée",
+      "spracheAuto": "Automatique (langue de l’appareil)"
+    },
+    "datenbank": {
+      "titel": "Base de données",
+      "entsperren": "Déverrouillage de cette base de données",
+      "pin": "PIN",
+      "fingerabdruck": "Empreinte digitale",
+      "und": " et ",
+      "nurMaster": "Mot de passe principal uniquement",
+      "appMethoden": "Ce que l’app propose en tout : {link}",
+      "appMethodenLink": "Méthodes de déverrouillage de l’app",
+      "waehlen": "Choisir …",
+      "warnen": "Avertir avant l’expiration",
+      "warnenHinweis": "Jours à l’avance",
+      "papierkorb": "Vider la corbeille",
+      "papierkorbHinweis": "Supprime définitivement les entrées supprimées",
+      "papierkorbKnopf": "Vider …",
+      "name": "Nom de la base de données",
+      "nameInDatei": "Figure dans le fichier",
+      "namePlatzhalter": "Mots de passe",
+      "nameGespeichert": "Nom enregistré.",
+      "geaendert": "modifiée le {datum}"
+    },
+    "allgemein": {
+      "wirdGeladen": "Chargement …",
+      "demo": "WKeePass · Démo dans le navigateur",
+      "weiter": "Continuer",
+      "spaeter": "Plus tard dans les paramètres",
+      "nichtVerfuegbar": "Non disponible",
+      "uebernehmen": "Appliquer",
+      "nichtGespeichert": "Non enregistré : {fehler}",
+      "gespeichert": "Paramètre enregistré.",
+      "keineKonfiguration": "Configuration non valide."
+    },
+    "sperren": {
+      "titel": "Verrouillage",
+      "automatisch": "Verrouillage automatique",
+      "automatischHinweis": "Minutes sans activité",
+      "zwischenablage": "Vider le presse-papiers",
+      "zwischenablageHinweis": "Secondes après la copie"
+    },
+    "browser": {
+      "titel": "Extension de navigateur",
+      "stufeNichts": "Les navigateurs associés remplissent les champs sans demander.",
+      "stufeLegitimieren": "PIN, mot de passe principal ou empreinte digitale avant le remplissage.",
+      "verknuepft": "associé",
+      "trennen": "Dissocier",
+      "keinerVerknuepft": "Aucun navigateur associé pour l’instant.",
+      "keinerEingetragen": "Enregistré dans aucun navigateur",
+      "stufeHinweis": "Ce qui se passe quand un navigateur associé demande des identifiants : rien, un simple clic ou une preuve par PIN, mot de passe principal ou empreinte digitale.",
+      "fristHinweis": "Une personne qui vient de confirmer ou de déverrouiller n’est plus sollicitée pendant ce délai — une connexion avec plusieurs champs demanderait sinon plusieurs fois. Ensuite, la demande revient. Ne s’applique pas à « Rien » ; le verrouillage met fin au délai immédiatement.",
+      "beimStart": "Déverrouiller au démarrage du navigateur",
+      "beimStartHinweis": "Si la base de données est verrouillée quand le navigateur se manifeste, la petite fenêtre s’ouvre aussitôt — PIN, empreinte digitale ou mot de passe principal, et l’extension a ses données. Sans cette option, vous déverrouillez via le menu de l’extension quand vous en avez besoin.",
+      "erweiterung": "Extension",
+      "erweiterungHinweis": "KeePassXC-Browser — WKeePass parle le même protocole, c’est pourquoi il n’a pas d’extension propre.",
+      "eingetragen": "Enregistré dans",
+      "eingetragenHinweis": "« Configurer » crée pour chaque navigateur un fichier qui pointe vers WKeePass — sans lui, le navigateur n’a pas le droit de lancer WKeePass.",
+      "einrichten": "Configurer",
+      "entfernen": "Supprimer",
+      "kanal": "Canal",
+      "nichtAktiv": "Inactif",
+      "getrennt": "Association supprimée.",
+      "trennenFehler": "Échec de la dissociation : {fehler}",
+      "eingerichtetMeldung": "Configuré : {liste}. Redémarrez le navigateur.",
+      "entferntMeldung": "Supprimé : {liste}. Redémarrez le navigateur.",
+      "keinGefunden": "Aucun navigateur configuré trouvé.",
+      "fehlgeschlagen": "échec",
+      "einrichtenFehler": "Échec : {fehler}"
+    },
+    "eintraege": {
+      "titel": "Entrées et sites web",
+      "importieren": "Importer depuis d’autres apps",
+      "importierenHinweis": "Mots de passe et codes 2FA depuis Bitwarden, 1Password, LastPass, navigateurs, Aegis, 2FAS …",
+      "importierenKnopf": "Importer …",
+      "iconsLaden": "Charger les icônes des sites web",
+      "iconsLadenHinweis": "Une seule fois, directement depuis chaque site, sans service intermédiaire — idéalement lors de la connexion, quand le site est joignable. L’icône est ensuite stockée dans la base de données et disponible hors ligne et sur tous les appareils.",
+      "iconsNeu": "Récupérer à nouveau toutes les icônes",
+      "iconsNeuHinweis": "Remplace les icônes enregistrées par des icônes fraîchement chargées",
+      "iconsNeuKnopf": "Recharger",
+      "namen": "Noms depuis le site web",
+      "namenHinweis": "Activé : si le nom n’est qu’une adresse, l’entrée prend d’elle-même le nom du service — par exemple « GitHub » au lieu de « https://github.com/login ». Les noms que vous avez choisis sont conservés.",
+      "namenPruefenHinweis": "« Vérifier maintenant » compare toutes les entrées ayant une adresse et remplace, après confirmation, aussi les noms que vous avez choisis.",
+      "namenAutomatisch": "Définir les noms automatiquement",
+      "namenPruefen": "Vérifier maintenant",
+      "iconsAbruf": "Les icônes sont récupérées à nouveau — elles apparaîtront dès qu’elles seront prêtes.",
+      "keineUrl": "Aucune entrée n’a d’URL.",
+      "uebernehmenTitel": "Reprendre les noms",
+      "uebernehmenText": "Pour {n} entrées, le nom sera remplacé par celui du service.",
+      "uebernehmenBrowser": "Dans le navigateur, la politique de sécurité des sites tiers bloque la récupération — le nom d’hôte est utilisé à la place."
+    },
+    "pruefungen": {
+      "titel": "Vérifications",
+      "staerke": "Afficher la robustesse du mot de passe",
+      "staerkeHinweis": "Calcul effectué dans le noyau",
+      "mehrfach": "Détecter les mots de passe réutilisés",
+      "mehrfachHinweis": "Comparaison au sein de la base de données",
+      "vorwarn": "Délai d’alerte avant expiration",
+      "vorwarnHinweis": "Jours avant la date d’expiration",
+      "leaks": "Vérifier les fuites de mots de passe",
+      "leaksHinweis": "Have I Been Pwned — seul un préfixe de hachage est envoyé, jamais le mot de passe",
+      "email": "Vérifier les adresses e-mail",
+      "emailHinweis": "Via XposedOrNot",
+      "benachrichtigen": "Notifier en cas de nouveaux résultats",
+      "benachrichtigenHinweis": "Quand une vérification trouve une nouvelle fuite — y compris lors de la vérification automatique",
+      "automatisch": "Vérifier automatiquement",
+      "automatischHinweis": "À l’ouverture de l’app, si la dernière vérification est plus ancienne",
+      "zuletzt": " — dernière le {datum}",
+      "taeglich": "Tous les jours",
+      "woechentlich": "Toutes les semaines",
+      "aus": "Désactivé"
+    },
+    "appEntsperren": {
+      "einleitung": "Ce que cet appareil propose pour le déverrouillage. Vous choisissez pour chaque base de données lesquelles elle peut utiliser : Base de données → Déverrouillage de cette base de données.",
+      "biometrie": "Utiliser la biométrie",
+      "biometrieGeraet": "{geraet} — proposée à l’ouverture, remplace le PIN et le mot de passe principal",
+      "biometrieFinger": "Empreinte digitale ou reconnaissance faciale",
+      "biometrieNicht": "Non disponible sur cet appareil",
+      "pin": "PIN du programme",
+      "pinSchluesselbund": "Défini — protégé par le PIN et le trousseau",
+      "pinOhne": "Défini — sans trousseau, tout repose sur le PIN",
+      "pinKeine": "Pas encore de PIN. S’applique à toutes les bases de données.",
+      "aendern": "Modifier …",
+      "entfernen": "Supprimer",
+      "festlegen": "Définir …"
+    },
+    "export": {
+      "titel": "Exporter et importer",
+      "exportieren": "Exporter les paramètres",
+      "exportierenHinweis": "Sauvegarder en settings.json",
+      "exportierenKnopf": "Exporter",
+      "importieren": "Importer les paramètres",
+      "importierenHinweis": "Reprendre depuis un fichier settings.json",
+      "importierenKnopf": "Importer",
+      "zuruecksetzen": "Rétablir les valeurs par défaut",
+      "zuruecksetzenHinweis": "Uniquement les paramètres — bases de données, PIN et associations de navigateur sont conservés",
+      "zuruecksetzenKnopf": "Réinitialiser",
+      "konfiguration": "Configuration actuelle (settings.json)",
+      "exportiert": "settings.json exporté.",
+      "importiert": "Paramètres importés.",
+      "nichtGelesen": "Le fichier n’a pas pu être lu : {fehler}",
+      "zuruecksetzenTitel": "Réinitialiser les paramètres",
+      "zuruecksetzenText1": "L’affichage, le déverrouillage, les vérifications, le navigateur et Android reviennent aux valeurs par défaut.",
+      "zuruecksetzenText2": "Sont conservés : la base de données elle-même, la liste de vos bases de données avec leurs propres paramètres, le PIN de l’app et les associations avec le navigateur.",
+      "zurueckgesetzt": "Valeurs par défaut rétablies."
+    },
+    "android": {
+      "passwortmanager": "Gestionnaire de mots de passe",
+      "passwortmanagerText": "Remplit les identifiants dans les apps et le navigateur et propose d’enregistrer les nouveaux accès.",
+      "passwortmanagerAktion": "Définir par défaut",
+      "passkeys": "Passkeys",
+      "passkeysText": "Connexion sans mot de passe. Les passkeys sont stockés dans votre base de données, pas chez Google.",
+      "passkeysAktion": "Activer",
+      "passkeysFehlt": "À partir d’Android 14 seulement",
+      "kamera": "Caméra",
+      "kameraText": "Uniquement pour le scanner de code QR : configurer des codes à deux facteurs sans saisir le secret.",
+      "kameraAktion": "Autoriser",
+      "stufeHinweis": "Ce qui se passe quand vous touchez un accès dans la liste : rien, un simple appui ou une preuve par PIN, mot de passe principal ou biométrie.",
+      "fristHinweis": "Une personne qui vient de confirmer ou de déverrouiller n’est plus sollicitée pendant ce délai — un formulaire avec nom et mot de passe demanderait sinon deux fois. Ne s’applique pas à « Rien » ; le verrouillage met fin au délai immédiatement.",
+      "stufeNichts": "Les accès sont insérés sans demander.",
+      "stufeLegitimieren": "PIN, mot de passe principal ou biométrie avant l’insertion.",
+      "aktiv": "Actif",
+      "nichtVerfuegbar": "Non disponible",
+      "inAppErlauben": "Autoriser dans les paramètres de l’app"
+    },
+    "stufe": {
+      "nichts": "Rien",
+      "bestaetigen": "Confirmer",
+      "legitimieren": "S’authentifier",
+      "titel": "Avant le remplissage",
+      "bestaetigenMeldung": "Un simple appui suffit — sans preuve."
+    },
+    "frist": {
+      "jedesMal": "Demander à chaque fois",
+      "sek30": "30 secondes",
+      "min1": "1 minute",
+      "min5": "5 minutes",
+      "min15": "15 minutes",
+      "titel": "Ne plus redemander ensuite"
+    },
+    "androidStart": {
+      "titel": "Trois autorisations pour le quotidien",
+      "text": "Pour que WKeePass ne soit pas qu’un coffre-fort mais vous aide aussi à vous connecter, il a besoin de l’autorisation d’Android. Rien de cela n’envoie de données où que ce soit — les mots de passe restent dans votre fichier."
+    },
+    "verschluesselung": {
+      "stufeSchnell": "Rapide",
+      "hinweisSchnell": "S’ouvre vite, même sur les appareils plus anciens",
+      "stufeZuegig": "Soutenu",
+      "hinweisZuegig": "Un peu plus de protection, à peine plus lent",
+      "stufeStandard": "Standard",
+      "hinweisStandard": "Bon compromis, fonctionne partout — recommandé",
+      "stufeErhoeht": "Renforcé",
+      "hinweisErhoeht": "Plus de mémoire, plus difficile pour les cartes graphiques — sur iPhone/iPad, le remplissage via le clavier ne fonctionne plus",
+      "stufeHoch": "Élevé",
+      "hinweisHoch": "Encore plus de mémoire — pas de remplissage via le clavier sur iPhone/iPad",
+      "stufeStark": "Maximal",
+      "hinweisStark": "Protection maximale, ouverture nettement plus longue — pas de remplissage via le clavier sur iPhone/iPad",
+      "werte": "{it} itérations · {mib} Mio · {faeden}",
+      "faeden": {
+        "one": "{n} thread",
+        "other": "{n} threads"
+      },
+      "titel": "Niveau de chiffrement",
+      "erklaerung": {
+        "einleitung": "Le mot de passe principal sert d’abord à dériver une clé — volontairement lente, avec Argon2. Chaque tentative d’un attaquant doit effectuer exactement le même travail.",
+        "durchgaengeBegriff": "Itérations",
+        "durchgaenge": "Nombre de fois qu’Argon2 parcourt la mémoire. Deux fois plus d’itérations durent deux fois plus longtemps.",
+        "speicherBegriff": "Mémoire (Mio)",
+        "speicher": "Quantité de mémoire vive occupée par chaque tentative (1 Mio ≈ 1 Mo). C’est ce qui freine le plus les attaques par cartes graphiques, car la mémoire y est limitée.",
+        "faedenBegriff": "Threads",
+        "faeden": "Nombre de cœurs de processeur qui calculent en parallèle. Cela ne change rien à la protection — l’ouverture est simplement plus rapide sur votre appareil.",
+        "eigenBegriff": "Réglage personnalisé",
+        "eigen": "D’autres apps et d’anciens fichiers apportent leurs propres valeurs, par exemple 50 itérations avec seulement 1 Mio. L’app affiche alors le niveau le plus proche et conserve les valeurs jusqu’à ce que vous choisissiez un niveau."
+      },
+      "eigenHinweis": "Réglage personnalisé, par exemple issu d’une autre app — correspond approximativement à « {stufe} ». Choisir un niveau le remplace.",
+      "werteFrage": "Que signifient ces valeurs ?",
+      "hinweis": "Durée de la dérivation de la clé — pour vous, une fois à l’ouverture ; pour un attaquant, à chaque tentative",
+      "geaendert": "Chiffrement modifié — le fichier a été réécrit.",
+      "ersetzt": "Remplace le réglage personnalisé par « {stufe} ».",
+      "stufeHinweis": "{stufe} : {hinweis}",
+      "jetzt": "Actuel : {werte}",
+      "danach": "Ensuite : {werte}"
+    },
+    "versionen": {
+      "titel": "Versions",
+      "hinweis": "Les dernières versions de ce fichier — à l’ouverture, après l’enregistrement, après des modifications depuis un autre appareil et après chaque fusion. On peut y récupérer une partie ou la totalité.",
+      "ansehen": "Afficher les versions …",
+      "aufheben": "Versions à conserver",
+      "aufhebenBereich": "30 à 100",
+      "aufhebenFrage": "Combien de versions conserver",
+      "aufgehoben": "{n} versions seront conservées."
+    },
+    "browserStart": {
+      "titel": "Mots de passe directement dans le navigateur",
+      "text": "Avec une extension de navigateur, WKeePass remplit les identifiants sur les pages web, propose d’enregistrer les nouveaux accès et vous connecte avec des passkeys. Les mots de passe restent dans votre fichier — le navigateur interroge WKeePass à chaque fois. Les trois étapes sont nécessaires.",
+      "schritt1": "1. Enregistrer WKeePass auprès des navigateurs",
+      "schritt1Text": "Obligatoire : un navigateur ne peut lancer que les programmes enregistrés chez lui. Le bouton crée pour chaque navigateur un petit fichier qui pointe vers WKeePass — le navigateur lui-même n’est pas modifié. Si KeePassXC est installé, l’extension communique ensuite avec WKeePass au lieu de KeePassXC.",
+      "gefunden": "Trouvé : {liste}",
+      "keinBrowser": "Aucun navigateur trouvé — après l’installation d’un navigateur, cela se fait dans les paramètres.",
+      "erledigt": "Terminé",
+      "eintragen": "Enregistrer",
+      "schritt2": "2. Installer l’extension KeePassXC-Browser",
+      "schritt2Text": "Obligatoire : l’extension vient de KeePassXC et est gratuite. WKeePass parle le même langage, c’est pourquoi il n’a pas d’extension propre. Le bouton ouvre la page dans la boutique de votre navigateur.",
+      "schritt3": "3. Se connecter dans le navigateur",
+      "schritt3Text": "Une fois par navigateur : redémarrez le navigateur, cliquez sur l’icône de l’extension et choisissez « Connecter ». WKeePass vous demande alors un nom pour ce navigateur — ce n’est qu’ensuite que les mots de passe sont remplis."
+    }
+  },
+  "totp": {
+    "leer": "Aucune entrée TOTP.",
+    "karte": {
+      "hinweis": "Un clic copie, un double-clic ouvre l’entrée"
+    },
+    "kopiert": "Code copié",
+    "alsNaechstes": "ensuite {code}"
+  },
+  "ui": {
+    "abgleich": {
+      "uebernommen": "Modifications d’un autre appareil appliquées."
+    },
+    "zwischenablage": {
+      "fehler": "Copie impossible."
+    },
+    "kern": {
+      "fehler": "Le noyau signale une erreur pour « {befehl} » : {ursache}"
+    },
+    "formular": {
+      "pinMitSchluesselbund": "La clé est créée à partir de votre PIN <em>et</em> d’une valeur aléatoire stockée dans le trousseau du système. Un attaquant aurait besoin des deux : le PIN et votre session ouverte.",
+      "pinOhneSchluesselbund": "<strong>Aucun trousseau n’est accessible sur cet appareil.</strong> Tout repose alors uniquement sur le PIN — choisissez-le suffisamment long.",
+      "sichtbarMachen": "Afficher",
+      "verbergen": "Masquer"
+    }
+  },
+  "entsperren": {
+    "geraet": {
+      "biometrie": "Biométrie"
+    },
+    "datenbank": {
+      "nochNichtGeoeffnet": "Pas encore ouverte",
+      "keineDatei": "Aucun fichier n’a été sélectionné."
+    },
+    "sperrbildschirm": {
+      "keineDatenbank": "Aucune base de données sélectionnée",
+      "mitGeraet": "Déverrouiller avec {name}",
+      "mitPasswortOderPin": "Avec mot de passe ou PIN …",
+      "entsperren": "Déverrouiller",
+      "datenbankWaehlen": "Choisir une base de données …",
+      "neueDatenbank": "Créer une base de données …",
+      "zuletztGenutzt": "Utilisées récemment"
+    },
+    "dialog": {
+      "titel": "Déverrouiller",
+      "mitBiometrie": "Déverrouiller avec la biométrie",
+      "appPin": "PIN de l’app",
+      "pinPlatzhalter": "PIN",
+      "masterPasswort": "Mot de passe principal",
+      "masterPasswortFalls": "Mot de passe principal (si le PIN ne convient pas)",
+      "biometrieKuenftig": "Ouvrir à l’avenir avec la biométrie",
+      "biometrieGeraetHinweis": "Remplace le mot de passe principal — la clé est stockée dans la puce de sécurité",
+      "biometrieSchluesselbundHinweis": "Le doigt vous identifie, la clé est stockée dans le trousseau",
+      "biometrieSchluesselbundHinweisPin": "Le doigt vous identifie, la clé est stockée dans le trousseau — un PIN d’app sera défini pour cela",
+      "pinKuenftig": "Ouvrir aussi à l’avenir avec un PIN",
+      "pinKuenftigHinweis": "Un PIN d’app va être défini ensuite",
+      "bestaetigen": "Déverrouiller",
+      "eingabeFehlt": "Veuillez saisir le PIN ou le mot de passe principal."
+    },
+    "appPinAbfrage": {
+      "titel": "Confirmer le PIN de l’app",
+      "text": "Le PIN du programme est nécessaire pour activer cette base de données.",
+      "platzhalter": "PIN de l’app",
+      "bestaetigen": "Confirmer"
+    },
+    "herkunft": {
+      "downloads": "Téléchargements",
+      "geraetespeicher": "Stockage de l’appareil",
+      "medien": "Médias"
+    },
+    "biometrieFehlt": {
+      "keinFinger": "Aucune empreinte ni aucun visage enregistré — à configurer dans les paramètres d’Android.",
+      "nichtVerfuegbar": "Non disponible sur l’appareil",
+      "ohneSchluesselbund": "Impossible sans trousseau"
+    },
+    "willkommen": {
+      "titel": "Bienvenue dans WKeePass",
+      "text": "Pour faciliter l’utilisation de l’app, un <b>PIN</b> et/ou la <b>biométrie</b> peuvent servir à déchiffrer les données et à confirmer leur utilisation. Une fois la configuration faite, vous pouvez régler pour chaque base de données le déverrouillage et la confirmation simplifiés.",
+      "pinEinrichten": "Configurer un PIN",
+      "pinPlatzhalter": "Au moins quatre caractères",
+      "pinWiederholen": "Répéter le PIN",
+      "sichtbar": "Afficher",
+      "geraetNutzen": "Utiliser {name}",
+      "geraetHinweis": "Remplace le PIN et le mot de passe principal. La clé est stockée dans la puce de sécurité de cet appareil — le PIN ne sert alors plus que de solution de secours.",
+      "biometrieNutzen": "Utiliser le déverrouillage biométrique",
+      "einrichten": "Configurer",
+      "ohnePin": "Continuer sans PIN",
+      "pinFehlt": "Veuillez définir un PIN — ou choisir « Continuer sans PIN ».",
+      "pinUngleich": "Les deux PIN ne correspondent pas.",
+      "pinFestgelegt": "PIN défini.",
+      "geraetEinrichtung": "{name} sera configuré à la première ouverture."
+    },
+    "trotzdemSperren": {
+      "titel": "Non enregistré",
+      "text": "Si vous verrouillez quand même, les modifications depuis le dernier enregistrement seront perdues.",
+      "bestaetigen": "Verrouiller quand même"
+    },
+    "zugriffEntzogen": {
+      "titel": "Plus d’accès au fichier",
+      "text1": "Android a retiré à WKeePass l’accès à ce fichier. Cela arrive quand un autre programme l’a supprimé et recréé au lieu de l’écraser.",
+      "text2": "La copie hors ligne est ouverte — l’enregistrement n’est donc pas possible. Sélectionnez à nouveau le fichier une fois, et l’accès sera de nouveau permanent.",
+      "neuWaehlen": "Sélectionner à nouveau",
+      "spaeter": "Plus tard"
+    },
+    "appPin": {
+      "titel": "Définir le PIN",
+      "text1": "Ce PIN s’applique à tout le programme. Pour chaque base de données, vous décidez ensuite séparément si elle peut être ouverte avec lui.",
+      "text2": "Après cinq tentatives échouées, le PIN est supprimé. Il n’existe aucune récupération — vous continuez alors avec les mots de passe principaux.",
+      "neuePin": "Nouveau PIN",
+      "platzhalter": "Au moins quatre caractères",
+      "wiederholen": "Répéter",
+      "wiederholenPlatzhalter": "Répéter le PIN",
+      "festlegen": "Définir",
+      "eingeben": "Veuillez saisir un PIN.",
+      "ungleich": "Les deux PIN ne correspondent pas.",
+      "festgelegt": "PIN défini."
+    },
+    "freigabe": {
+      "titel": "Activer cette base de données",
+      "offenNoetig": "La base de données doit pour cela être ouverte.",
+      "mitPin": "Ouvrir avec un PIN",
+      "mitPinHinweis": "Le mot de passe principal est enregistré chiffré ; le PIN de l’app suffit ensuite pour ouvrir.",
+      "mitFingerabdruck": "Ouvrir avec l’empreinte digitale",
+      "fingerabdruckHinweis": "L’empreinte digitale n’est <em>pas une clé</em>, mais la preuve que c’est bien vous — la protection vient uniquement du trousseau. Cette méthode est donc plus faible que le PIN, car un attaquant n’a besoin que d’un élément au lieu de deux. Sous macOS et Windows, le matériel impose la vérification ; sous Linux, c’est ce programme.",
+      "pinBestaetigen": "Saisissez le PIN de l’app pour confirmer :",
+      "pinPlatzhalter": "PIN de l’app",
+      "uebernehmen": "Appliquer",
+      "ohnePin": "Sans PIN, cela ne peut pas être confirmé.",
+      "gespeichert": "Activation enregistrée.",
+      "mitGeraet": "Ouvrir avec {name}",
+      "geraetHinweis": "Remplace le PIN et le mot de passe principal à l’ouverture. Le mot de passe principal est scellé avec une clé que la puce de sécurité de cet appareil ne délivre qu’après vérification par {name} — un fichier copié ne sert à rien sans cet appareil.",
+      "windowsZweimal": "Lors de la première configuration, Windows peut demander deux fois.",
+      "rueckfall": "Solution de secours si {name} ne fonctionne pas.",
+      "pinFreigabeOhnePin": "Sans PIN, l’activation par PIN ne peut pas être modifiée."
+    },
+    "pinEntfernen": {
+      "titel": "Supprimer le PIN",
+      "text": "Le PIN et toutes les activations sont supprimés. Vous ouvrirez ensuite chaque base de données de nouveau avec son mot de passe principal.",
+      "bestaetigen": "Supprimer",
+      "entfernt": "PIN supprimé."
+    },
+    "pinAendern": {
+      "titel": "Modifier le PIN",
+      "text1": "Les bases de données activées sont conservées — elles sont rechiffrées avec le nouveau PIN en arrière-plan. Vous n’avez donc <strong>pas</strong> à ressaisir de mots de passe principaux.",
+      "text2": "Si vous avez oublié l’ancien PIN, seule l’option « Supprimer » aide — toutes les activations disparaissent alors et chaque base de données redemande son mot de passe principal.",
+      "bisherige": "PIN actuel",
+      "neue": "Nouveau PIN",
+      "neueWiederholen": "Répéter le nouveau PIN",
+      "bestaetigen": "Modifier",
+      "beideNoetig": "Veuillez saisir les deux PIN.",
+      "ungleich": "Les deux nouveaux PIN ne correspondent pas.",
+      "geaendert": "PIN modifié. Toutes les activations restent valables."
+    },
+    "anlegen": {
+      "titel": "Créer une base de données",
+      "name": "Nom de la base de données",
+      "standardName": "Mots de passe",
+      "staerke": "Niveau de chiffrement",
+      "hinweis": "Le mot de passe principal est la clé maîtresse. Il n’existe aucune récupération — s’il est perdu, les entrées le sont aussi.",
+      "passwort": "Mot de passe principal",
+      "passwortWiederholen": "Répéter le mot de passe principal",
+      "weiter": "Continuer vers l’emplacement",
+      "passwortFehlt": "Impossible sans mot de passe principal.",
+      "passwortUngleich": "Les deux mots de passe ne correspondent pas.",
+      "keinOrt": "Aucun emplacement n’a été sélectionné.",
+      "angelegt": "Base de données créée.",
+      "fehlgeschlagen": "Échec de la création : {fehler}"
+    },
+    "entsperren": {
+      "laeuft": "Une tentative de déverrouillage est déjà en cours.",
+      "zuerstWaehlen": "Veuillez d’abord sélectionner une base de données.",
+      "offlineKopie": "Le fichier est actuellement inaccessible — la copie hors ligne du {datum} est ouverte. L’enregistrement ne sera de nouveau possible que lorsque le fichier sera disponible.",
+      "nurLesen": "{format} ne peut être que lu — les modifications ne peuvent pas être enregistrées.",
+      "diesesFormat": "Ce format",
+      "freigabeGeraet": "Base de données activée pour {name}.",
+      "freigabePin": "Base de données activée pour le PIN.",
+      "fehlgeschlagen": "Échec du déverrouillage : {fehler}",
+      "entschluesselt": "Déchiffrement en cours … cela prend un instant."
+    },
+    "sperren": {
+      "gesperrt": "Verrouillée — les valeurs ont été effacées de la mémoire.",
+      "banner": "Base de données verrouillée."
+    }
+  },
+  "anfrage": {
+    "nachweis": {
+      "pin": "PIN",
+      "master": "Mot de passe principal",
+      "sichtbar": "Afficher",
+      "biometrie": "Biométrie",
+      "fingerabdruck": "Empreinte digitale",
+      "bioEntsperren": "Déverrouiller avec {name}",
+      "bioBestaetigen": "Confirmer avec {name}",
+      "bioBestaetigenStandard": "Confirmer avec l’empreinte digitale",
+      "grund": "Accès depuis le navigateur"
+    },
+    "text": {
+      "unlock": "La base de données est verrouillée. Un navigateur attend.",
+      "logins": "Le navigateur souhaite insérer le nom d’utilisateur et le mot de passe.",
+      "totp": "Le navigateur souhaite récupérer un code à usage unique.",
+      "create": "Une nouvelle entrée doit être créée.",
+      "update": "Le mot de passe doit être modifié.",
+      "delete": "Une entrée doit être mise à la corbeille.",
+      "passkeyRegister": "Un passkey doit être créé.",
+      "passkeyGet": "Une connexion avec un passkey est demandée.",
+      "sonst": "Accès à la base de données."
+    },
+    "titel": {
+      "entsperren": "Déverrouiller la base de données",
+      "anfrage": "Demande du navigateur"
+    },
+    "warnung": "<strong>Attention :</strong> le formulaire est envoyé à {ziel} — et non à la page visitée.",
+    "eintrag": {
+      "ohneName": "(sans nom)"
+    },
+    "knoepfe": {
+      "entsperren": "Déverrouiller",
+      "uebernehmen": "Appliquer",
+      "einMoment": "Un instant …"
+    },
+    "datenbank": {
+      "keineAusgewaehlt": "Aucune sélectionnée"
+    },
+    "fehler": {
+      "keineDatenbank": "Aucune base de données n’est sélectionnée. Veuillez d’abord l’ouvrir dans la fenêtre principale.",
+      "nichtGeklappt": "Cela n’a pas fonctionné.",
+      "nichtErreichbar": "Inaccessible"
+    },
+    "einstellungen": {
+      "titel": "Paramètres",
+      "kopf": "Extension de navigateur",
+      "unterkopf": "Avant le remplissage",
+      "nichts": "Rien",
+      "bestaetigen": "Confirmer",
+      "legitimieren": "S’authentifier",
+      "notizNever": "Les navigateurs associés remplissent les champs sans demander. À partir de la prochaine demande — celle-ci attend encore une réponse.",
+      "notizConfirm": "Un simple appui suffit — Annuler ou Appliquer, sans preuve.",
+      "notizIdentify": "PIN, mot de passe principal ou empreinte digitale. La durée pendant laquelle on ne redemande pas ensuite se règle dans les paramètres."
+    }
+  }
+}

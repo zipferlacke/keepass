@@ -28,6 +28,7 @@ import { aufdeckbar } from '../ui/aufdecken.js';
 import { markUsed, byId, isFileEntry, formatDate } from '../core/entries.js';
 import { zeichne, renderAll, refreshFromVault } from '../core/render.js';
 import { isTauri, listen } from '../core/platform.js';
+import { t, gebiet } from '../core/i18n.js';
 
 /* =========================================================
    Eintrags-Dialog
@@ -79,71 +80,71 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
   };
   const prefilled = { password: Boolean(prefill.password), totp: Boolean(prefill.totpSecret) };
 
-  const t = e.totpConfig ?? { digits: 6, period: 30, algorithm: 'SHA1' };
+  const tc = e.totpConfig ?? { digits: 6, period: 30, algorithm: 'SHA1' };
   const strength = e.id ? state.strength.get(e.id) : null;
 
   const content = `
-    <div class="mode-switch" role="tablist" aria-label="Ansicht">
-      <button type="button" role="tab" data-mode="files"><span class="msr">folder_zip</span>Dateien</button>
-      <button type="button" role="tab" data-mode="full"><span class="msr">key</span>Alle Felder</button>
+    <div class="mode-switch" role="tablist" aria-label="${t('dialoge.eintrag.ansicht.ariaLabel')}">
+      <button type="button" role="tab" data-mode="files"><span class="msr">folder_zip</span>${t('dialoge.eintrag.ansicht.dateien')}</button>
+      <button type="button" role="tab" data-mode="full"><span class="msr">key</span>${t('dialoge.eintrag.ansicht.alleFelder')}</button>
     </div>
 
     <div class="dlg-field">
-      <label for="fld-name">Name</label>
+      <label for="fld-name">${t('dialoge.eintrag.felder.name')}</label>
       <div class="dlg-input-row"><input id="fld-name" type="text" name="name" value="${esc(e.name)}" required></div>
     </div>
 
     <div class="dlg-grid">
       <div class="dlg-field">
-        <label for="fld-folder">Ordner</label>
+        <label for="fld-folder">${t('dialoge.eintrag.felder.ordner')}</label>
         <div class="dlg-input-row"><input id="fld-folder" type="text" name="folder" list="folder-options" value="${esc(e.folder)}"></div>
       </div>
       <div class="dlg-field">
-        <label for="fld-tags">Tags (Komma)</label>
+        <label for="fld-tags">${t('dialoge.eintrag.felder.tags')}</label>
         <div class="dlg-input-row"><input id="fld-tags" type="text" name="tags" value="${esc((e.tags ?? []).join(', '))}"></div>
       </div>
     </div>
 
     <div class="dlg-field" data-only="full">
-      <label for="fld-url">URL</label>
+      <label for="fld-url">${t('dialoge.eintrag.felder.url')}</label>
       <div class="dlg-input-row"><input id="fld-url" type="text" name="url" value="${esc(e.url)}"></div>
     </div>
 
     <!-- ===== Passwort ===== -->
     <details class="dlg-section" data-only="full" ${e.hasPassword || prefilled.password ? 'open' : ''}>
-      <summary><span class="msr">key</span>Passwort<span class="dlg-section-hint">${esc(e.username) || (e.hasPassword ? 'gesetzt' : 'leer')}</span></summary>
+      <summary><span class="msr">key</span>${t('dialoge.eintrag.passwort.titel')}<span class="dlg-section-hint">${esc(e.username) || (e.hasPassword ? t('dialoge.eintrag.passwort.gesetzt') : t('dialoge.eintrag.passwort.leer'))}</span></summary>
       <div class="dlg-section-body">
         <div class="dlg-field">
-          <label for="fld-username">Benutzername</label>
+          <label for="fld-username">${t('dialoge.eintrag.passwort.benutzername')}</label>
           <div class="dlg-input-row">
             <input id="fld-username" type="text" name="username" value="${esc(e.username)}">
-            <button type="button" class="button" data-shape="round" id="dlg-copy-user" title="Kopieren"><span class="msr">content_copy</span></button>
+            <button type="button" class="button" data-shape="round" id="dlg-copy-user" title="${t('dialoge.eintrag.allgemein.kopieren')}"><span class="msr">content_copy</span></button>
           </div>
         </div>
         <div class="dlg-field">
-          <label for="fld-password">Passwort</label>
+          <label for="fld-password">${t('dialoge.eintrag.passwort.passwort')}</label>
           <div class="dlg-input-row">
             <input id="fld-password" type="password" autocomplete="new-password"
                    value="${prefilled.password ? esc(prefill.password) : (e.hasPassword ? SECRET_MASK : '')}"
-                   placeholder="${e.hasPassword || prefilled.password ? '' : 'noch keins gesetzt'}">
-            <button type="button" class="button" data-shape="round" id="dlg-reveal-pw" title="Anzeigen" ${e.hasPassword ? '' : 'disabled'}><span class="msr">visibility</span></button>
-            <button type="button" class="button" data-shape="round" id="dlg-gen-pw" title="Neu erzeugen"><span class="msr">autorenew</span></button>
-            <button type="button" class="button" data-shape="round" id="dlg-copy-pw" title="Kopieren" ${e.hasPassword ? '' : 'disabled'}><span class="msr">content_copy</span></button>
+                   placeholder="${e.hasPassword || prefilled.password ? '' : t('dialoge.eintrag.passwort.platzhalter')}">
+            <button type="button" class="button" data-shape="round" id="dlg-reveal-pw" title="${t('dialoge.eintrag.allgemein.anzeigen')}" ${e.hasPassword ? '' : 'disabled'}><span class="msr">visibility</span></button>
+            <button type="button" class="button" data-shape="round" id="dlg-gen-pw" title="${t('dialoge.eintrag.passwort.neuErzeugen')}"><span class="msr">autorenew</span></button>
+            <button type="button" class="button" data-shape="round" id="dlg-copy-pw" title="${t('dialoge.eintrag.allgemein.kopieren')}" ${e.hasPassword ? '' : 'disabled'}><span class="msr">content_copy</span></button>
           </div>
           <div class="strength-meter" id="dlg-strength" data-score="${strength?.score ?? 0}">
             <div class="strength-bars"><span></span><span></span><span></span><span></span></div>
             <div class="strength-text">
-              <span id="dlg-strength-label">${strength ? `Stärke: ${esc(strength.label)}` : '—'}</span>
-              <span id="dlg-strength-extra">${strength ? `${strength.entropy} Bit` : ''}</span>
+              <span id="dlg-strength-label">${strength ? t('dialoge.eintrag.passwort.staerke', { label: esc(strength.label) }) : '—'}</span>
+              <span id="dlg-strength-extra">${strength ? t('dialoge.eintrag.passwort.bit', { n: strength.entropy }) : ''}</span>
             </div>
           </div>
-          <p class="dlg-note">Das gespeicherte Passwort liegt im Kern. Es wird erst geholt, wenn du das Feld anklickst oder auf „Anzeigen“ gehst — und nur dann, wenn du es wirklich änderst, auch geschrieben.</p>
+          <p class="dlg-note">${t('dialoge.eintrag.passwort.hinweis')}</p>
         </div>
         <div class="dlg-field">
-          <label for="fld-expires">Ablaufdatum (optional)</label>
+          <label for="fld-expires">${t('dialoge.eintrag.passwort.ablaufdatum')}</label>
           <div class="dlg-input-row">
             <input id="fld-expires" type="date" name="expires" value="${esc(e.expires ?? '')}">
-            <button type="button" class="button" data-shape="round" id="dlg-clear-expiry" title="Ablaufdatum entfernen"><span class="msr">event_busy</span></button>
+            <button type="button" class="button" data-shape="round" id="dlg-clear-expiry" title="${t('dialoge.eintrag.passwort.ablaufEntfernen')}"><span class="msr">event_busy</span></button>
           </div>
         </div>
       </div>
@@ -151,83 +152,82 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
 
     <!-- ===== TOTP ===== -->
     <details class="dlg-section" data-only="full" ${e.hasTotp || prefilled.totp ? 'open' : ''}>
-      <summary><span class="msr">timer</span>TOTP<span class="dlg-section-hint">${e.hasTotp ? 'eingerichtet' : 'nicht eingerichtet'}</span></summary>
+      <summary><span class="msr">timer</span>${t('dialoge.eintrag.totp.titel')}<span class="dlg-section-hint">${e.hasTotp ? t('dialoge.eintrag.totp.eingerichtet') : t('dialoge.eintrag.totp.nichtEingerichtet')}</span></summary>
       <div class="dlg-section-body">
         <div class="dlg-field">
-          <label for="fld-totp">Secret (Base32) oder otpauth://-URI</label>
+          <label for="fld-totp">${t('dialoge.eintrag.totp.secret')}</label>
           <div class="dlg-input-row">
             <input id="fld-totp" type="password" autocomplete="off"
                    value="${prefilled.totp ? esc(prefill.totpSecret) : (e.hasTotp ? SECRET_MASK : '')}"
                    placeholder="${e.hasTotp || prefilled.totp ? '' : 'JBSWY3DPEHPK3PXP'}">
-            <button type="button" class="button" data-shape="round" id="dlg-reveal-totp" title="Anzeigen" ${e.hasTotp ? '' : 'disabled'}><span class="msr">visibility</span></button>
-            <button type="button" class="button" data-shape="round" id="dlg-scan-cam" title="QR-Code scannen"><span class="msr">qr_code_scanner</span></button>
-            <button type="button" class="button" data-shape="round" id="dlg-scan-file" title="QR-Code aus Bild"><span class="msr">image_search</span></button>
+            <button type="button" class="button" data-shape="round" id="dlg-reveal-totp" title="${t('dialoge.eintrag.allgemein.anzeigen')}" ${e.hasTotp ? '' : 'disabled'}><span class="msr">visibility</span></button>
+            <button type="button" class="button" data-shape="round" id="dlg-scan-cam" title="${t('dialoge.eintrag.totp.scanKamera')}"><span class="msr">qr_code_scanner</span></button>
+            <button type="button" class="button" data-shape="round" id="dlg-scan-file" title="${t('dialoge.eintrag.totp.scanBild')}"><span class="msr">image_search</span></button>
           </div>
         </div>
         <div class="dlg-grid">
           <div class="dlg-field">
-            <label for="fld-digits">Stellen</label>
-            <div class="dlg-input-row"><input id="fld-digits" type="number" name="digits" min="6" max="8" value="${t.digits}"></div>
+            <label for="fld-digits">${t('dialoge.eintrag.totp.stellen')}</label>
+            <div class="dlg-input-row"><input id="fld-digits" type="number" name="digits" min="6" max="8" value="${tc.digits}"></div>
           </div>
           <div class="dlg-field">
-            <label for="fld-period">Intervall (Sek.)</label>
-            <div class="dlg-input-row"><input id="fld-period" type="number" name="period" min="10" max="120" value="${t.period}"></div>
+            <label for="fld-period">${t('dialoge.eintrag.totp.intervall')}</label>
+            <div class="dlg-input-row"><input id="fld-period" type="number" name="period" min="10" max="120" value="${tc.period}"></div>
           </div>
         </div>
         <div class="dlg-field">
-          <label for="fld-algorithm">Algorithmus</label>
+          <label for="fld-algorithm">${t('dialoge.eintrag.totp.algorithmus')}</label>
           <div class="dlg-input-row">
             <select id="fld-algorithm" name="algorithm" data-sp-picker data-sp-search="false">
-              ${['SHA1', 'SHA256', 'SHA512'].map(a => `<option value="${a}" ${t.algorithm === a ? 'selected' : ''}>${a}</option>`).join('')}
+              ${['SHA1', 'SHA256', 'SHA512'].map(a => `<option value="${a}" ${tc.algorithm === a ? 'selected' : ''}>${a}</option>`).join('')}
             </select>
           </div>
         </div>
-        <button type="button" class="button" data-shape="full" id="dlg-show-qr" ${e.hasTotp || prefilled.totp ? '' : 'disabled'}><span class="msr">qr_code_2</span>&nbsp;QR-Code</button>
+        <button type="button" class="button" data-shape="full" id="dlg-show-qr" ${e.hasTotp || prefilled.totp ? '' : 'disabled'}><span class="msr">qr_code_2</span>&nbsp;${t('dialoge.eintrag.totp.qrCode')}</button>
       </div>
     </details>
 
     <!-- ===== Passkey ===== -->
     <details class="dlg-section" data-only="full" ${e.passkey ? 'open' : ''}>
-      <summary><span class="msr">passkey</span>Passkey<span class="dlg-section-hint">${e.passkey ? 'hinterlegt' : 'keiner'}</span></summary>
+      <summary><span class="msr">passkey</span>${t('dialoge.eintrag.passkey.titel')}<span class="dlg-section-hint">${e.passkey ? t('dialoge.eintrag.passkey.hinterlegt') : t('dialoge.eintrag.passkey.keiner')}</span></summary>
       <div class="dlg-section-body">
         ${e.passkey ? `<div class="setting" style="padding:0;border:none">
-          <div class="setting-label"><strong>${esc(e.passkeySite || 'Passkey')}</strong>
-            <small>${e.passkeyUser ? `Konto: ${esc(e.passkeyUser)} · ` : ''}Anmelden ohne Passwort — der geheime Schlüssel liegt nur in dieser Datenbank.</small></div>
+          <div class="setting-label"><strong>${esc(e.passkeySite || t('dialoge.eintrag.passkey.titel'))}</strong>
+            <small>${e.passkeyUser ? t('dialoge.eintrag.passkey.konto', { name: esc(e.passkeyUser) }) : ''}${t('dialoge.eintrag.passkey.beschreibung')}</small></div>
         </div>`
-        : `<p class="dlg-note" style="margin:0">Einen Passkey legst du direkt beim Dienst an („Passkey erstellen“). Browser-Erweiterung oder Android
-            fragen dann WKeePass, und er landet von selbst in einem Eintrag.</p>`}
+        : `<p class="dlg-note" style="margin:0">${t('dialoge.eintrag.passkey.hinweis')}</p>`}
       </div>
     </details>
 
     <!-- ===== Anhänge — immer sichtbar ===== -->
     <div class="dlg-plain">
       <div class="dlg-plain-head">
-        <span class="msr">attach_file</span><span id="dlg-att-title">Anhänge</span>
+        <span class="msr">attach_file</span><span id="dlg-att-title">${t('dialoge.eintrag.anhaenge.titel')}</span>
         <span class="dlg-plain-hint" id="dlg-att-count">${(e.attachments ?? []).length}</span>
       </div>
       <div class="attachment-grid" id="dlg-attachments"></div>
       <div class="dlg-attach-actions">
         <button type="button" class="button" data-shape="full" id="btn-attach">
-          <span class="msr">upload_file</span>&nbsp;<span id="btn-attach-text">Datei anhängen …</span>
+          <span class="msr">upload_file</span>&nbsp;<span id="btn-attach-text">${t('dialoge.eintrag.anhaenge.anhaengen')}</span>
         </button>
         <button type="button" class="button" data-shape="full" id="btn-new-file" data-only="files">
-          <span class="msr">note_add</span>&nbsp;Neue Datei …
+          <span class="msr">note_add</span>&nbsp;${t('dialoge.eintrag.anhaenge.neueDatei')}
         </button>
       </div>
     </div>
 
     <div class="dlg-plain" id="dlg-notes-block">
-      <div class="dlg-plain-head"><span class="msr">notes</span>Notizen</div>
+      <div class="dlg-plain-head"><span class="msr">notes</span>${t('dialoge.eintrag.notizen')}</div>
       <textarea id="fld-notes" name="notes" rows="3">${esc(e.notes)}</textarea>
     </div>
 
     <datalist id="folder-options">${vault.folders().map(f => `<option value="${esc(f)}">`).join('')}</datalist>`;
 
   const result = await dialog({
-    title: e.id ? esc(e.name) : (initialMode === 'files' ? 'Neue Dateiablage' : 'Neuer Eintrag'),
+    title: e.id ? esc(e.name) : (initialMode === 'files' ? t('dialoge.eintrag.titel.neueDateiablage') : t('dialoge.eintrag.titel.neuerEintrag')),
     content,
-    confirmText: 'Speichern',
-    cancelText: 'Abbrechen',
+    confirmText: t('dialoge.eintrag.knoepfe.speichern'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onBack: zurueckZu(zurueck),
     onInsert: () => queueMicrotask(() => wireEntryDialog(e, prefilled, initialMode))
   });
@@ -284,7 +284,7 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
   state.secretEdits = null;
   await refreshFromVault();
   renderAll({ ohne: ['einstellungen'] });
-  banner('Eintrag gespeichert.', 'success');
+  banner(t('dialoge.eintrag.meldungen.gespeichert'), 'success');
 
   // Ein neu gesetztes Passwort wird sofort einzeln geprüft — nicht erst
   // beim nächsten Gesamtdurchlauf.
@@ -310,7 +310,7 @@ async function checkSingleEntry(id) {
   zeichne('übersicht');
 
   if (result.found) {
-    banner(`Achtung: Dieses Passwort taucht ${result.count.toLocaleString('de-DE')}× in bekannten Leaks auf.`, 'warning', 8000);
+    banner(t('dialoge.eintrag.meldungen.leak', { n: result.count.toLocaleString(gebiet()) }), 'warning', 8000);
   }
 }
 
@@ -341,8 +341,8 @@ function wireEntryDialog(entry, prefilled = {}, mode = 'full') {
   const updateStrength = () => {
     const s = localStrength(pw.value);
     meter.dataset.score = s.score;
-    label.textContent = `Stärke: ${s.label}`;
-    extra.textContent = `${s.entropy} Bit`;
+    label.textContent = t('dialoge.eintrag.passwort.staerke', { label: s.label });
+    extra.textContent = t('dialoge.eintrag.passwort.bit', { n: s.entropy });
   };
 
   // Anklicken lädt den Wert, damit man direkt darin tippen kann
@@ -363,7 +363,7 @@ function wireEntryDialog(entry, prefilled = {}, mode = 'full') {
     klar.zeigen(an);
     if (augePw) {
       augePw.querySelector('.msr').textContent = an ? 'visibility_off' : 'visibility';
-      augePw.title = an ? 'Verbergen' : 'Anzeigen';
+      augePw.title = an ? t('dialoge.eintrag.allgemein.verbergen') : t('dialoge.eintrag.allgemein.anzeigen');
     }
   };
 
@@ -384,14 +384,14 @@ function wireEntryDialog(entry, prefilled = {}, mode = 'full') {
     // Ungeladen: der Wert geht direkt aus dem Kern in die Zwischenablage
     if (!loaded) {
       const ok = await vault.copySecret(entry.passwordToken);
-      if (ok) { banner('Passwort kopiert', 'success', 1800); scheduleClipboardClear(); }
+      if (ok) { banner(t('dialoge.eintrag.meldungen.passwortKopiert'), 'success', 1800); scheduleClipboardClear(); }
       return;
     }
-    copyPlain(pw.value, 'Passwort kopiert');
+    copyPlain(pw.value, t('dialoge.eintrag.meldungen.passwortKopiert'));
   });
 
   document.getElementById('dlg-copy-user')?.addEventListener('click', () =>
-    copyPlain(document.getElementById('fld-username').value, 'Benutzername kopiert'));
+    copyPlain(document.getElementById('fld-username').value, t('dialoge.eintrag.meldungen.benutzernameKopiert')));
 
   document.getElementById('dlg-clear-expiry')?.addEventListener('click', () => {
     document.getElementById('fld-expires').value = '';
@@ -423,8 +423,8 @@ function setEntryMode(mode) {
   const notes = document.getElementById('fld-notes');
   document.getElementById('dlg-notes-block').hidden = files && !notes?.value.trim();
 
-  document.getElementById('dlg-att-title').textContent = files ? 'Dateien' : 'Anhänge';
-  document.getElementById('btn-attach-text').textContent = files ? 'Dateien hinzufügen …' : 'Datei anhängen …';
+  document.getElementById('dlg-att-title').textContent = files ? t('dialoge.eintrag.anhaenge.dateienTitel') : t('dialoge.eintrag.anhaenge.titel');
+  document.getElementById('btn-attach-text').textContent = files ? t('dialoge.eintrag.anhaenge.dateienHinzufuegen') : t('dialoge.eintrag.anhaenge.anhaengen');
   renderAttachments();
 }
 
@@ -455,7 +455,7 @@ function wireTotpControls(entry, prefilled = {}) {
     const an = !klar.sichtbar;
     klar.zeigen(an);
     auge.querySelector('.msr').textContent = an ? 'visibility_off' : 'visibility';
-    auge.title = an ? 'Verbergen' : 'Anzeigen';
+    auge.title = an ? t('dialoge.eintrag.allgemein.verbergen') : t('dialoge.eintrag.allgemein.anzeigen');
   });
 
   const applyUri = uri => {
@@ -477,9 +477,9 @@ function wireTotpControls(entry, prefilled = {}) {
     if (!qr.scannerAvailable()) { banner(scannerHint(), 'warning', 7000); return; }
     try {
       const uri = await scanWithCamera();
-      if (uri) { applyUri(uri); banner('QR-Code übernommen.', 'success'); }
+      if (uri) { applyUri(uri); banner(t('dialoge.eintrag.meldungen.qrUebernommen'), 'success'); }
     } catch (err) {
-      if (err.message !== 'abgebrochen') banner(`Scan fehlgeschlagen: ${err.message}`, 'error');
+      if (err.message !== 'abgebrochen') banner(t('dialoge.eintrag.meldungen.scanFehlgeschlagen', { fehler: err.message }), 'error');
     }
   });
 
@@ -493,7 +493,7 @@ function wireTotpControls(entry, prefilled = {}) {
       if (!file) return;
       try {
         applyUri(await qr.scanFile(file));
-        banner('QR-Code übernommen.', 'success');
+        banner(t('dialoge.eintrag.meldungen.qrUebernommen'), 'success');
       } catch (err) { banner(err.message, 'error'); }
     });
     input.click();
@@ -501,10 +501,10 @@ function wireTotpControls(entry, prefilled = {}) {
 
   document.getElementById('dlg-show-qr')?.addEventListener('click', async () => {
     const secret = loaded ? field.value.trim() : await vault.revealSecret(entry.totpToken);
-    if (!secret) { banner('Kein TOTP-Secret hinterlegt.', 'warning'); return; }
+    if (!secret) { banner(t('dialoge.eintrag.meldungen.keinSecret'), 'warning'); return; }
 
     const uri = secret.startsWith('otpauth://') ? secret : buildOtpauth({
-      name: document.getElementById('fld-name')?.value || 'Konto',
+      name: document.getElementById('fld-name')?.value || t('dialoge.eintrag.totp.kontoName'),
       issuer: document.getElementById('fld-url')?.value || '',
       secret,
       digits: Number(document.getElementById('fld-digits')?.value || 6),
@@ -519,15 +519,15 @@ function wireTotpControls(entry, prefilled = {}) {
 /** Zeigt einen QR-Code in einem eigenen Fenster — nur zum Ansehen. */
 export async function showQrDialog(uri, title) {
   await dialog({
-    title: `QR-Code: ${esc(title)}`,
+    title: t('dialoge.eintrag.qr.titel', { name: esc(title) }),
     content: `
-      <div class="qr-output" id="qr-export"><p class="empty-state">Wird erzeugt …</p></div>
-      <p class="dlg-note">Mit einer Authenticator-App abscannen. Der Code enthält das Secret im Klartext — nicht weitergeben und nicht abfotografieren lassen.</p>`,
+      <div class="qr-output" id="qr-export"><p class="empty-state">${t('dialoge.eintrag.qr.wirdErzeugt')}</p></div>
+      <p class="dlg-note">${t('dialoge.eintrag.qr.hinweis')}</p>`,
     // Nichts zu entscheiden, also keine Fußzeile.
     confirmText: null,
-    cancelText: 'Schließen',
+    cancelText: t('allgemein.knoepfe.schliessen'),
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), action: 'cancel' },
     onInsert: () => queueMicrotask(async () => {
       const out = document.getElementById('qr-export');
       if (!out) return;
@@ -543,8 +543,8 @@ export async function showQrDialog(uri, title) {
 
 function scannerHint() {
   return isTauri
-    ? 'QR-Dekodierung nicht verfügbar. Füge die otpauth://-URI stattdessen als Text ein.'
-    : 'Dieser Browser kann keine QR-Codes lesen — in der Desktop- und App-Version übernimmt das Rust. Füge die otpauth://-URI hier als Text ein.';
+    ? t('dialoge.eintrag.scan.keineDekodierung')
+    : t('dialoge.eintrag.scan.browserOhneQr');
 }
 
 /**
@@ -560,20 +560,20 @@ export async function scanWithCamera({ zurueck = null } = {}) {
   let resolved = null;
 
   await dialog({
-    title: 'QR-Code scannen',
+    title: t('dialoge.eintrag.scan.titel'),
     content: `<div class="qr-scanner">
         <div class="qr-frame">
           <video id="qr-video" muted playsinline></video>
           <div class="qr-sucher"></div>
           <div class="qr-check"><span class="msr">check</span></div>
         </div>
-        <p class="qr-hint" id="qr-hint">Code in den Rahmen halten</p>
-        <button type="button" class="button" id="qr-photo"><span class="msr">photo_camera</span>&nbsp;Klappt nicht? Foto aufnehmen</button>
+        <p class="qr-hint" id="qr-hint">${t('dialoge.eintrag.scan.rahmen')}</p>
+        <button type="button" class="button" id="qr-photo"><span class="msr">photo_camera</span>&nbsp;${t('dialoge.eintrag.scan.foto')}</button>
       </div>`,
     confirmText: null,
-    cancelText: 'Abbrechen',
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     // Ohne Fußzeile führt nur das Kreuz oben heraus.
-    barRight: { icon: '<span class="msr">close</span>', title: 'Abbrechen', action: 'cancel' },
+    barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.abbrechen'), action: 'cancel' },
     onBack: zurueckZu(zurueck),
     onInsert: () => queueMicrotask(async () => {
       const video = document.getElementById('qr-video');
@@ -592,7 +592,7 @@ export async function scanWithCamera({ zurueck = null } = {}) {
         input.addEventListener('change', async () => {
           const file = input.files?.[0];
           if (!file) return;
-          if (hint) hint.textContent = 'Foto wird ausgewertet …';
+          if (hint) hint.textContent = t('dialoge.eintrag.scan.fotoWirdAusgewertet');
           try {
             resolved = await qr.scanPhoto(file);
             controller?.stop();
@@ -612,14 +612,14 @@ export async function scanWithCamera({ zurueck = null } = {}) {
         const found = await controller.promise;
         if (resolved) return;          // schon über das Foto erkannt
         resolved = found;
-        if (hint) hint.textContent = 'Erkannt';
+        if (hint) hint.textContent = t('dialoge.eintrag.scan.erkannt');
         video.closest('.qr-scanner')?.classList.add('found');
         navigator.vibrate?.(40);
         // Das Aufleuchten kurz stehen lassen, dann von selbst weiter.
         await new Promise(r => setTimeout(r, 650));
         closeHostDialog(video, true);
       } catch (err) {
-        if (hint && err.message !== 'abgebrochen') hint.textContent = err.message.startsWith("Auswertung") ? err.message : `Kamera nicht verfügbar: ${err.message}`;
+        if (hint && err.message !== 'abgebrochen') hint.textContent = err.message.startsWith("Auswertung") ? err.message : t('dialoge.eintrag.scan.kameraFehlt', { fehler: err.message });
       }
     })
   });
@@ -653,7 +653,7 @@ function wireAttachments() {
       await addStagedAttachments(await vault.pickAttachments());
       renderAttachments();
     } catch (err) {
-      banner(`Anhängen fehlgeschlagen: ${err.message}`, 'error', 6000);
+      banner(t('dialoge.eintrag.meldungen.anhaengenFehlgeschlagen', { fehler: err.message }), 'error', 6000);
     } finally {
       button.disabled = false;
     }
@@ -670,7 +670,7 @@ export async function addStagedAttachments(picked = []) {
     // Der Name ist in KDBX der Schlüssel des Anhangs — doppelte
     // ersetzen einander stillschweigend. Lieber vorher fragen.
     if (state.dialogAttachments.some(a => a.name === att.name)) {
-      banner(`„${att.name}“ hängt bereits an diesem Eintrag.`, 'warning', 4000);
+      banner(t('dialoge.eintrag.meldungen.schonAngehaengt', { name: att.name }), 'warning', 4000);
       continue;
     }
     // Für die Vorschau im Dialog wird der Inhalt geholt — derselbe Weg
@@ -724,7 +724,7 @@ export function renderAttachments() {
   grid.removeAttribute('data-layout');
 
   if (!state.dialogAttachments.length) {
-    grid.innerHTML = `<p class="empty-state" style="grid-column:1/-1;padding:1rem">Noch keine Anhänge.</p>`;
+    grid.innerHTML = `<p class="empty-state" style="grid-column:1/-1;padding:1rem">${t('dialoge.eintrag.anhaenge.keine')}</p>`;
     return;
   }
 
@@ -737,13 +737,13 @@ export function renderAttachments() {
         : `<span class="msr">${preview.iconFor(a)}</span>`;
 
     return `
-      <div class="attachment" data-open-att="${i}" title="${esc(a.name)} — zum Anzeigen klicken">
+      <div class="attachment" data-open-att="${i}" title="${esc(t('dialoge.eintrag.anhaenge.zumAnzeigen', { name: a.name }))}">
         <div class="attachment-preview">${thumb}</div>
         <div class="attachment-meta">
           <span class="attachment-name">${esc(a.name)}</span>
           <span class="attachment-size">${formatBytes(a.size)}</span>
         </div>
-        <button type="button" class="attachment-remove" data-remove="${i}" title="Entfernen"><span class="msr">close</span></button>
+        <button type="button" class="attachment-remove" data-remove="${i}" title="${t('dialoge.eintrag.anhaenge.entfernen')}"><span class="msr">close</span></button>
       </div>`;
   }).join('');
 
@@ -759,7 +759,7 @@ export function renderAttachments() {
   // Textausschnitte nachladen, ohne das Rendern zu blockieren
   grid.querySelectorAll('[data-snippet]').forEach(async el => {
     const snippet = await preview.textSnippet(state.dialogAttachments[Number(el.dataset.snippet)], 120);
-    el.textContent = snippet || '(leer)';
+    el.textContent = snippet || t('dialoge.eintrag.anhaenge.leer');
   });
 }
 
@@ -775,21 +775,21 @@ function renderFileList(grid) {
   if (!state.dialogAttachments.length) {
     grid.innerHTML = `<div class="file-drop">
       <span class="msr">upload_file</span>
-      <strong>Noch keine Dateien</strong>
-      <small>Ziehe Dateien aufs Fenster, wähle sie unten aus oder lege eine neue an. Sie liegen danach verschlüsselt in der Datenbank.</small>
+      <strong>${t('dialoge.eintrag.anhaenge.dateienKeine')}</strong>
+      <small>${t('dialoge.eintrag.anhaenge.dateienHinweis')}</small>
     </div>`;
     return;
   }
 
   grid.innerHTML = state.dialogAttachments.map((a, i) => `
-    <div class="file-row" data-open-att="${i}" title="${esc(a.name)} — zum Anzeigen klicken">
+    <div class="file-row" data-open-att="${i}" title="${esc(t('dialoge.eintrag.anhaenge.zumAnzeigen', { name: a.name }))}">
       <span class="msr file-icon">${preview.iconFor(a)}</span>
       <span class="file-text">
         <strong>${esc(a.name)}</strong>
-        <small>${formatBytes(a.size ?? 0)}${String(a.ref).startsWith('staged:') ? ' · noch nicht gespeichert' : ''}</small>
+        <small>${formatBytes(a.size ?? 0)}${String(a.ref).startsWith('staged:') ? ` · ${t('dialoge.eintrag.anhaenge.nochNichtGespeichert')}` : ''}</small>
       </span>
-      <button type="button" class="button" data-shape="round no-background" data-save-att="${i}" title="Herunterladen" aria-label="Herunterladen"><span class="msr">download</span></button>
-      <button type="button" class="button" data-shape="round no-background" data-remove="${i}" title="Entfernen" aria-label="Entfernen"><span class="msr">delete</span></button>
+      <button type="button" class="button" data-shape="round no-background" data-save-att="${i}" title="${t('dialoge.eintrag.anhaenge.herunterladen')}" aria-label="${t('dialoge.eintrag.anhaenge.herunterladen')}"><span class="msr">download</span></button>
+      <button type="button" class="button" data-shape="round no-background" data-remove="${i}" title="${t('dialoge.eintrag.anhaenge.entfernen')}" aria-label="${t('dialoge.eintrag.anhaenge.entfernen')}"><span class="msr">delete</span></button>
     </div>`).join('');
 
   grid.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', ev => {
@@ -865,7 +865,7 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
 
   const showName = () => {
     $v('.file-viewer-name strong').textContent = att.name;
-    $v('.file-viewer-name').title = `${att.name} — umbenennen`;
+    $v('.file-viewer-name').title = t('dialoge.eintrag.viewer.umbenennenTitel', { name: att.name });
   };
 
   const showPreview = async () => {
@@ -873,7 +873,7 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
     cleanup = () => {};
     editor = null;
     showButtons();
-    body().innerHTML = '<p class="empty-state">Wird geladen …</p>';
+    body().innerHTML = `<p class="empty-state">${t('dialoge.eintrag.viewer.wirdGeladen')}</p>`;
     const release = await preview.renderPreview(body(), att, { nachbarn: state.dialogAttachments ?? [] });
     if (closed) release(); else cleanup = release;
   };
@@ -907,7 +907,7 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
       renderAttachments();
       return true;
     } catch (err) {
-      banner(`Speichern fehlgeschlagen: ${err.message}`, 'error', 6000);
+      banner(t('dialoge.eintrag.viewer.speichernFehlgeschlagen', { fehler: err.message }), 'error', 6000);
       return false;
     }
   };
@@ -920,10 +920,10 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
   const confirmLeave = async () => {
     if (!dirty()) return true;
     const res = await dialog({
-      title: 'Änderungen speichern?',
-      content: `„${esc(att.name)}“ wurde bearbeitet.`,
-      confirmText: 'Ja',
-      cancelText: 'Nein'
+      title: t('dialoge.eintrag.viewer.aenderungenSpeichern'),
+      content: t('dialoge.eintrag.viewer.wurdeBearbeitet', { name: esc(att.name) }),
+      confirmText: t('dialoge.eintrag.knoepfe.ja'),
+      cancelText: t('dialoge.eintrag.knoepfe.nein')
     });
     if (res?.submit) return saveEdit();
     original = editor.value;   // verworfen: nicht noch einmal fragen
@@ -959,11 +959,11 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
     if (!apply || next === att.name) return;
 
     if (!next || /[\\/]/.test(next)) {
-      banner('Der Name darf nicht leer sein und keinen Schrägstrich enthalten.', 'warning');
+      banner(t('dialoge.eintrag.viewer.nameUngueltig'), 'warning');
       return;
     }
     if (state.dialogAttachments.some(a => a !== att && a.name === next)) {
-      banner(`„${next}“ gibt es in diesem Eintrag schon.`, 'warning');
+      banner(t('dialoge.eintrag.meldungen.nameVergeben', { name: next }), 'warning');
       return;
     }
 
@@ -972,7 +972,7 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
     try {
       att.ref = await persistAttachment(next, att.ref, att.name);
     } catch (err) {
-      banner(`Umbenennen fehlgeschlagen: ${err.message}`, 'error', 6000);
+      banner(t('dialoge.eintrag.viewer.umbenennenFehlgeschlagen', { fehler: err.message }), 'error', 6000);
       return;
     }
     att.name = next;
@@ -989,19 +989,19 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
     position: { small: 'full', wide: 'right' },
     // Der Titel ist der Dateiname und zugleich der Knopf zum Umbenennen.
     title: `<span class="file-viewer-title">
-        <button type="button" class="file-viewer-name" data-viewer-rename title="Umbenennen"><strong></strong><span class="msr">edit</span></button>
-        <input type="text" class="file-viewer-rename" hidden aria-label="Dateiname">
+        <button type="button" class="file-viewer-name" data-viewer-rename title="${t('dialoge.eintrag.viewer.umbenennen')}"><strong></strong><span class="msr">edit</span></button>
+        <input type="text" class="file-viewer-rename" hidden aria-label="${t('dialoge.eintrag.viewer.dateiname')}">
       </span>`,
     content: `<div class="file-viewer-body"></div>`,
     confirmText: null,
-    cancelText: 'Schließen',
+    cancelText: t('allgemein.knoepfe.schliessen'),
     barLeft: [
-      { icon: '<span class="msr">edit_note</span>', title: 'Bearbeiten', onClick: showEditor },
-      { icon: '<span class="msr">visibility</span>', title: 'Anzeigen', onClick: async () => { if (await confirmLeave()) showPreview(); } },
-      { icon: '<span class="msr">check</span>', title: 'Speichern', onClick: saveEdit },
-      { icon: '<span class="msr">download</span>', title: 'Herunterladen', onClick: async () => { if (await confirmLeave()) downloadWithWarning(att); } }
+      { icon: '<span class="msr">edit_note</span>', title: t('dialoge.eintrag.viewer.bearbeiten'), onClick: showEditor },
+      { icon: '<span class="msr">visibility</span>', title: t('dialoge.eintrag.allgemein.anzeigen'), onClick: async () => { if (await confirmLeave()) showPreview(); } },
+      { icon: '<span class="msr">check</span>', title: t('dialoge.eintrag.knoepfe.speichern'), onClick: saveEdit },
+      { icon: '<span class="msr">download</span>', title: t('dialoge.eintrag.anhaenge.herunterladen'), onClick: async () => { if (await confirmLeave()) downloadWithWarning(att); } }
     ],
-    barRight: { icon: '<span class="msr">close</span>', title: 'Schließen', onClick: requestClose },
+    barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), onClick: requestClose },
     onInsert: id => {
       viewer = document.getElementById(String(id));
 
@@ -1031,14 +1031,16 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
 }
 
 /** Dateiarten für „Neue Datei" — Endung, Anzeige und was anfangs drinsteht. */
-const NEW_FILE_TYPES = [
-  { ext: 'md', label: 'Markdown (.md)', content: name => `# ${name}\n\n` },
-  { ext: 'txt', label: 'Text (.txt)', content: () => '' },
-  { ext: 'html', label: 'HTML (.html)', content: name => `<!DOCTYPE html>\n<html lang="de">\n<head>\n  <meta charset="utf-8">\n  <title>${name}</title>\n</head>\n<body>\n\n</body>\n</html>\n` },
-  { ext: 'json', label: 'JSON (.json)', content: () => '{\n  \n}\n' },
-  { ext: 'csv', label: 'Tabelle (.csv)', content: () => '' },
-  { ext: 'yml', label: 'YAML (.yml)', content: () => '' }
-];
+function neueDateiArten() {
+  return [
+    { ext: 'md', label: 'Markdown (.md)', content: name => `# ${name}\n\n` },
+    { ext: 'txt', label: t('dialoge.eintrag.neueDatei.arten.text'), content: () => '' },
+    { ext: 'html', label: 'HTML (.html)', content: name => `<!DOCTYPE html>\n<html lang="de">\n<head>\n  <meta charset="utf-8">\n  <title>${name}</title>\n</head>\n<body>\n\n</body>\n</html>\n` },
+    { ext: 'json', label: 'JSON (.json)', content: () => '{\n  \n}\n' },
+    { ext: 'csv', label: t('dialoge.eintrag.neueDatei.arten.tabelle'), content: () => '' },
+    { ext: 'yml', label: 'YAML (.yml)', content: () => '' }
+  ];
+}
 
 /**
  * Legt eine leere Textdatei im offenen Eintrag an und öffnet sie gleich
@@ -1048,29 +1050,30 @@ const NEW_FILE_TYPES = [
  * Auswahl ist nur die Vorgabe.
  */
 export async function createEmptyFile() {
+  const arten = neueDateiArten();
   const res = await dialog({
-    title: 'Neue Datei',
+    title: t('dialoge.eintrag.neueDatei.titel'),
     content: `
       <div class="dlg-field">
-        <label for="fld-new-file-name">Name</label>
-        <div class="dlg-input-row"><input id="fld-new-file-name" type="text" name="newFileName" placeholder="Notiz" required></div>
+        <label for="fld-new-file-name">${t('dialoge.eintrag.felder.name')}</label>
+        <div class="dlg-input-row"><input id="fld-new-file-name" type="text" name="newFileName" placeholder="${t('dialoge.eintrag.neueDatei.platzhalter')}" required></div>
       </div>
       <div class="dlg-field">
-        <label for="fld-new-file-type">Art</label>
+        <label for="fld-new-file-type">${t('dialoge.eintrag.neueDatei.art')}</label>
         <div class="dlg-input-row">
           <select id="fld-new-file-type" name="newFileType" data-sp-picker data-sp-search="false">
-            ${NEW_FILE_TYPES.map(t => `<option value="${t.ext}">${t.label}</option>`).join('')}
+            ${arten.map(a => `<option value="${a.ext}">${a.label}</option>`).join('')}
           </select>
         </div>
       </div>`,
-    confirmText: 'Anlegen',
-    cancelText: 'Abbrechen',
+    confirmText: t('dialoge.eintrag.knoepfe.anlegen'),
+    cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: () => queueMicrotask(() => document.getElementById('fld-new-file-name')?.focus())
   });
   if (!res?.submit) return;
 
   const base = String(res.data?.newFileName ?? '').trim();
-  const type = NEW_FILE_TYPES.find(t => t.ext === res.data?.newFileType) ?? NEW_FILE_TYPES[0];
+  const type = arten.find(a => a.ext === res.data?.newFileType) ?? arten[0];
   if (!base) return;
 
   const hasExtension = /\.[a-z0-9]{1,8}$/i.test(base);
@@ -1088,6 +1091,6 @@ export async function createEmptyFile() {
     renderAttachments();
     openAttachmentViewer(state.dialogAttachments.find(a => a.ref === staged.ref), { edit: true });
   } catch (err) {
-    banner(`Anlegen fehlgeschlagen: ${err.message}`, 'error', 6000);
+    banner(t('dialoge.eintrag.meldungen.anlegenFehlgeschlagen', { fehler: err.message }), 'error', 6000);
   }
 }

@@ -1,0 +1,1316 @@
+{
+  "allgemein": {
+    "knoepfe": {
+      "schliessen": "Lukk",
+      "abbrechen": "Avbryt",
+      "zurueck": "Tilbake"
+    },
+    "zeit": {
+      "geradeEben": "akkurat nå",
+      "vorMinuten": {
+        "one": "for {n} minutt siden",
+        "other": "for {n} minutter siden"
+      },
+      "heute": "i dag, {uhr}",
+      "tagUhr": "{tag}, {uhr}"
+    }
+  },
+  "navigation": {
+    "start": "Start",
+    "eintraege": "Oppføringer",
+    "totp": "TOTP",
+    "einstellungen": "Innstillinger",
+    "neu": "Opprett ny",
+    "kopf": {
+      "sperren": "Lås databasen"
+    },
+    "titel": {
+      "home": "Oversikt",
+      "passwords": "Oppføringer",
+      "totp": "TOTP-koder",
+      "security": "Sikkerhetssjekk",
+      "settings": "Innstillinger",
+      "dateien": "Filer"
+    }
+  },
+  "uebersicht": {
+    "kacheln": {
+      "eintraege": "Oppføringer",
+      "passkeys": "Passkeys",
+      "totp": "TOTP-koder",
+      "dateien": "Filer",
+      "sicherheit": "Sikkerhetssjekk",
+      "anzahl": {
+        "one": "{n} oppføring",
+        "other": "{n} oppføringer"
+      },
+      "codes": {
+        "one": "{n} kode",
+        "other": "{n} koder"
+      },
+      "funde": {
+        "one": "{n} funn",
+        "other": "{n} funn"
+      },
+      "ungeprueft": "ikke sjekket ennå"
+    },
+    "zuletzt": {
+      "titel": "Sist brukt"
+    }
+  },
+  "eintraege": {
+    "liste": {
+      "suchen": "Søk …"
+    },
+    "loeschen": "Slett",
+    "leer": "Ingen oppføringer.",
+    "keineGefunden": "Fant ingen oppføringer.",
+    "iconNeuLaden": "Ikonet lastes inn på nytt.",
+    "kopiert": {
+      "benutzername": "Brukernavn kopiert",
+      "passwort": "Passord kopiert",
+      "totp": "TOTP kopiert"
+    },
+    "menue": {
+      "wiederherstellen": "Gjenopprett",
+      "endgueltigLoeschen": "Slett for godt",
+      "papierkorbLeeren": "Tøm papirkurven",
+      "ordnerBearbeiten": "Rediger mappe",
+      "eintragBearbeiten": "Rediger oppføring",
+      "benutzernameKopieren": "Kopier brukernavn",
+      "passwortKopieren": "Kopier passord",
+      "totpKopieren": "Kopier TOTP",
+      "ausschneiden": "Klipp ut",
+      "iconNeuLaden": "Last inn ikon på nytt",
+      "namenUebernehmen": "Bruk navnet fra nettstedet",
+      "einfuegen": "Lim inn",
+      "einfuegenAnzahl": "Lim inn ({n})",
+      "neuerEintrag": "Ny oppføring",
+      "neuerUnterordner": "Ny undermappe",
+      "neuerOrdner": "Ny mappe",
+      "eintragLoeschen": "Slett oppføring",
+      "ordnerLoeschen": "Slett mappe",
+      "wiederhergestellt": "Gjenopprettet.",
+      "endgueltigGeloescht": "Slettet for godt."
+    },
+    "ordnerLoeschen": {
+      "titel": "Slett mappe",
+      "text": "«{name}» fjernes. Mapper som inneholder oppføringer, kan ikke slettes.",
+      "nichtLeer": "Mappen er ikke tom.",
+      "geloescht": "Mappen er slettet."
+    },
+    "eintragLoeschen": {
+      "titel": "Slett oppføring",
+      "text": "«{name}» fjernes fra databasen. Dette kan ikke angres.",
+      "geloescht": "Oppføringen er slettet."
+    },
+    "ausschneiden": {
+      "eins": "«{name}» er klippet ut – lim den inn i målmappen (Ctrl+V).",
+      "mehrere": "{n} oppføringer er klippet ut – lim dem inn i målmappen (Ctrl+V)."
+    },
+    "einfuegen": {
+      "nichts": "Ingenting er klippet ut.",
+      "nichtHier": "Her kan ingenting limes inn.",
+      "schonDa": "Ligger allerede i denne mappen.",
+      "verschobenEins": "Flyttet til «{ordner}».",
+      "verschobenMehrere": "{n} oppføringer flyttet til «{ordner}»."
+    },
+    "titel": {
+      "keineGeaendert": "Ingen navn er endret.",
+      "uebernommen": {
+        "one": "{n} navn er brukt.",
+        "other": "{n} navn er brukt."
+      }
+    },
+    "spalten": {
+      "name": "Navn",
+      "benutzer": "Bruker",
+      "url": "URL",
+      "ordner": "Mappe",
+      "unterordner": "Undermappe",
+      "zustandPasswort": "Passordets status",
+      "totpHinterlegt": "TOTP lagret",
+      "anhangVorhanden": "Har vedlegg",
+      "code": "Kode",
+      "geaendert": "Endret",
+      "endgueltigWeg": "Slettes for godt"
+    },
+    "ampel": {
+      "keins": "Ikke noe passord lagret",
+      "geleakt": "Passordet er funnet i {n} lekkasjer",
+      "staerke": "Passord: {staerke}",
+      "abgelaufen": "Passordet er utløpt",
+      "mehrfach": "Passordet brukes flere steder",
+      "laeuftAb": {
+        "one": "Passordet utløper om {n} dag",
+        "other": "Passordet utløper om {n} dager"
+      },
+      "unauffaellig": "Ingen merknader"
+    },
+    "artFilter": {
+      "passkeys": "Bare passkeys",
+      "dateien": "Filer",
+      "zurueck": "Tilbake til alle oppføringer",
+      "aufheben": "Fjern filter"
+    },
+    "legende": {
+      "passwort": "Passord:",
+      "gut": "Bra",
+      "achtung": "Obs",
+      "problem": "Problem",
+      "keins": "ingen",
+      "totp": "TOTP",
+      "anhang": "Vedlegg"
+    },
+    "zeile": {
+      "passkey": "Passkey",
+      "anhaenge": {
+        "one": "{n} vedlegg",
+        "other": "{n} vedlegg"
+      },
+      "beimOeffnen": "ved neste åpning",
+      "inTagen": {
+        "one": "om {n} dag",
+        "other": "om {n} dager"
+      },
+      "mehr": "Mer",
+      "imPapierkorb": "Ligger i papirkurven"
+    },
+    "papierkorb": {
+      "titel": "Papirkurv",
+      "zusammenfassung": {
+        "one": "{n} oppføring · slettes for godt etter {tage} dager",
+        "other": "{n} oppføringer · slettes for godt etter {tage} dager"
+      },
+      "leeren": "Tøm",
+      "istLeer": "Papirkurven er tom.",
+      "leerenText": {
+        "one": "{n} oppføring fjernes for godt. Dette kan ikke angres.",
+        "other": "{n} oppføringer fjernes for godt. Dette kan ikke angres."
+      },
+      "geleert": {
+        "one": "{n} oppføring slettet for godt.",
+        "other": "{n} oppføringer slettet for godt."
+      }
+    },
+    "dateien": {
+      "eintragOeffnenLang": "Åpne oppføring – navn, passord, notater",
+      "eintragOeffnen": "Åpne oppføring",
+      "keine": "Fant ingen filer.",
+      "zumAnzeigen": "{name} – klikk for å vise",
+      "herunterladen": "Last ned",
+      "datei": "Fil",
+      "eintrag": "Oppføring",
+      "nichtLesbar": "Filen kunne ikke leses."
+    },
+    "verschieben": {
+      "ordnerNicht": "Denne mappen kan ikke flyttes dit.",
+      "ordnerVerschoben": "Mappen er flyttet.",
+      "reihenfolge": "Rekkefølgen er endret."
+    },
+    "auswahl": {
+      "anzahl": "{n} valgt",
+      "verschieben": "Flytt …",
+      "aufheben": "Fjern utvalget",
+      "verschiebenTitel": {
+        "one": "Flytt {n} oppføring",
+        "other": "Flytt {n} oppføringer"
+      },
+      "zielordner": "Målmappe",
+      "verschiebenKnopf": "Flytt",
+      "verschoben": "{n} flyttet.",
+      "loeschenTitel": {
+        "one": "Slett {n} oppføring",
+        "other": "Slett {n} oppføringer"
+      },
+      "loeschenImPapierkorb": "Disse oppføringene ligger allerede i papirkurven og fjernes for godt. Dette kan ikke angres.",
+      "loeschenText": "Oppføringene flyttes til papirkurven og kan gjenopprettes derfra.",
+      "inPapierkorb": "Til papirkurven",
+      "geloescht": {
+        "one": "{n} oppføring slettet.",
+        "other": "{n} oppføringer slettet."
+      }
+    }
+  },
+  "start": {
+    "meldungen": {
+      "untaetig": "Låst på grunn av inaktivitet.",
+      "autofillGespeichert": {
+        "one": "Én pålogging fra autofyll ble lagret.",
+        "other": "{n} pålogginger fra autofyll ble lagret."
+      },
+      "nichtGespeichert": "Endringen ble ikke lagret: {grund}",
+      "codeNachEntsperren": "Lås opp – deretter brukes koden.",
+      "dateiNachgeholt": "Lagret i appen, men ikke i filen ennå: {grund} – lagres senere."
+    },
+    "browser": {
+      "wartet": "En nettleser venter på databasen.",
+      "entsperrt": "Låst opp fra nettleseren.",
+      "nichtGespeichert": "Endringen fra nettleseren ble ikke lagret: {grund}"
+    },
+    "fehler": {
+      "titel": "WKeePass kunne ikke starte",
+      "neuLaden": "Last inn på nytt"
+    }
+  },
+  "daten": {
+    "import": {
+      "fehler": {
+        "leer": "Filen er tom.",
+        "jsonNichtLesbar": "JSON-filen kan ikke leses.",
+        "keineOtpauth": "Filen inneholder ingen otpauth-adresse.",
+        "protonVerschluesselt": "Eksporten fra Proton Pass er kryptert. Eksporter uten PGP.",
+        "bitwardenVerschluesselt": "Eksporten fra Bitwarden er kryptert. Eksporter som «.json» uten passordbeskyttelse.",
+        "aegisVerschluesselt": "Eksporten fra Aegis er kryptert. Eksporter ukryptert.",
+        "zweifasVerschluesselt": "Eksporten fra 2FAS er kryptert. Eksporter uten passord.",
+        "jsonUnbekannt": "Ukjent JSON-format. Støttet: Bitwarden, Proton, Aegis, 2FAS, andOTP.",
+        "xmlNichtLesbar": "XML-filen kan ikke leses.",
+        "keineKeepassXml": "Dette er ikke en KeePass-XML-fil.",
+        "zipBeschaedigt": "ZIP-filen er skadet.",
+        "zipKeinExport": "ZIP-filen inneholder ingen kjent eksport.",
+        "exportVerschluesselt": "Eksporten er kryptert. Eksporter uten PGP.",
+        "zipKompression": "Denne ZIP-komprimeringen støttes ikke – pakk ut filen først.",
+        "zipNichtUnterstuetzt": "ZIP støttes ikke her – pakk ut filen først.",
+        "csvLeer": "CSV-filen inneholder ingen oppføringer."
+      },
+      "quelle": {
+        "ohneNamen": "Uten navn",
+        "zweiFaListe": "2FA-liste",
+        "spalte": "Kolonne {n}"
+      },
+      "felder": {
+        "nichtUebernehmen": "Ikke ta med",
+        "name": "Navn",
+        "url": "Adresse",
+        "username": "Brukernavn",
+        "email": "E-post",
+        "password": "Passord",
+        "totp": "2FA-nøkkel",
+        "notes": "Notater",
+        "folder": "Mappe",
+        "tags": "Etiketter",
+        "extra": "Legg til i notater"
+      }
+    },
+    "anhaenge": {
+      "warnung": {
+        "titel": "Lagre ukryptert?",
+        "text1": "<p>«{name}» ligger kryptert i databasen. Ved nedlasting skrives filen <strong>ukryptert</strong> til disken.</p>",
+        "text2": "<p>Deretter kan alle programmer og alle med tilgang til denne mappen lese den, og en synkronisering kan ta den med seg. Slett kopien når du ikke trenger den lenger.</p>",
+        "bestaetigen": "Lagre ukryptert"
+      },
+      "meldung": {
+        "gespeichert": "Lagret i {pfad}",
+        "fehler": "Lagring mislyktes: {fehler}"
+      }
+    },
+    "vorschau": {
+      "markdown": {
+        "details": "Detaljer",
+        "bild": "[Bilde: {text}]"
+      },
+      "pdf": {
+        "hinweis": "Hvis den innebygde visningen ikke viser noe, kan du laste ned filen med knappen øverst til høyre."
+      },
+      "keineVorschau": "Denne filtypen har ingen forhåndsvisning.<br>Last ned med knappen øverst til høyre for å åpne den.",
+      "fehler": "Forhåndsvisning er ikke mulig: {fehler}"
+    },
+    "qr": {
+      "fehler": {
+        "scannerFehlt": "Dette miljøet kan ikke lese QR-koder.",
+        "keinCodeBild": "Fant ingen QR-kode i bildet.",
+        "keinCodeFoto": "Fant ingen QR-kode på bildet.",
+        "keinBild": "Kameraet gir ikke noe bilde.",
+        "keinKamerazugriff": "Ingen tilgang til kameraet.",
+        "schwarzesBild": "gir bare et svart bilde",
+        "keinKamerabild": "Ingen kamerabilde. {probleme}. Du kan i stedet bruke «QR-kode fra bilde» med et skjermbilde eller et foto.",
+        "abgebrochen": "avbrutt",
+        "auswertung": "Analysen mislyktes: {fehler}",
+        "keineDaten": "Koden inneholder ingen data.",
+        "keineKonten": "Koden inneholder ingen lesbare kontoer."
+      },
+      "kamera": {
+        "standard": "Standardkamera",
+        "rueck": "bakre kamera",
+        "k640": "Kamera 640×480",
+        "rueckHd": "bakre kamera (HD)",
+        "rueckWunsch": "bakre kamera (ønsket)"
+      },
+      "konto": "Konto",
+      "wlan": {
+        "name": "Wi-Fi {name}",
+        "ohneName": "Wi-Fi",
+        "verschluesselung": "Kryptering: {art}"
+      }
+    },
+    "sicherheit": {
+      "staerke": {
+        "leer": "tomt",
+        "schwach0": "svært svakt",
+        "schwach1": "svakt",
+        "mittel": "middels",
+        "stark": "sterkt",
+        "sehrStark": "svært sterkt"
+      },
+      "hinweise": {
+        "keinPasswort": "Ikke noe passord er satt.",
+        "haeufig": "Står på lister over vanlige passord.",
+        "wort": "Inneholder det vanlige ordet «{wort}».",
+        "einZeichen": "Består bare av ett gjentatt tegn.",
+        "wiederholt": "Inneholder tegn som gjentas flere ganger.",
+        "reihenfolge": "Inneholder en tastatur- eller alfabetrekkefølge.",
+        "ziffern": "Består bare av sifre.",
+        "jahr": "Ser ut som et årstall.",
+        "kurz": "Kortere enn 8 tegn.",
+        "keineGross": "Ingen store bokstaver.",
+        "keineSonder": "Ingen spesialtegn."
+      },
+      "fehler": {
+        "ueberlastet": "Tjenesten er overbelastet, prøv igjen senere"
+      }
+    }
+  },
+  "dialoge": {
+    "anlegen": {
+      "wahl": {
+        "titel": "Opprett ny",
+        "eintrag": {
+          "titel": "Opprett oppføring",
+          "text": "Skriv inn navn, brukernavn og passord selv"
+        },
+        "dateien": {
+          "titel": "Legg inn filer",
+          "text": "Oppbevar dokumenter kryptert i databasen"
+        },
+        "ordner": {
+          "titel": "Opprett mappe",
+          "text": "For å sortere oppføringene"
+        },
+        "import": {
+          "titel": "Importer",
+          "text": "Ta med passord og 2FA-koder fra andre apper"
+        },
+        "kamera": {
+          "titel": "Skann QR-kode",
+          "text": "Sett opp TOTP eller les inn en samleeksport"
+        },
+        "bild": {
+          "titel": "QR-kode fra bilde",
+          "text": "Velg et skjermbilde eller foto"
+        },
+        "nichtVerfuegbar": "Ikke tilgjengelig i denne nettleseren"
+      },
+      "scan": {
+        "fehler": "Skanningen mislyktes: {fehler}",
+        "nichtLesbar": "Koden kan ikke leses: {fehler}",
+        "fido": "Dette er en påloggingskode for passkeys, ikke overførbar påloggingsinformasjon. Passkeys opprettes av systemdialogen til nettstedet."
+      },
+      "totp": {
+        "keinSecret": "Koden inneholder ingen TOTP-hemmelighet.",
+        "titel": "Legg til TOTP",
+        "gefunden": "Funnet: {name}",
+        "konto": "Konto",
+        "neu": {
+          "titel": "Ny oppføring",
+          "text": "Oppretter en egen oppføring for den"
+        },
+        "bestehend": {
+          "titel": "Til eksisterende oppføring",
+          "text": "Legg til i en oppføring som finnes fra før",
+          "alleBelegt": "Alle oppføringer har allerede TOTP"
+        },
+        "auswaehlen": "Velg oppføring",
+        "uebernehmen": "Bruk",
+        "nichtGefunden": "Fant ikke oppføringen.",
+        "hinzugefuegt": "TOTP lagt til i «{name}»."
+      },
+      "sammel": {
+        "titel": "Fant samleeksport",
+        "text": "Koden inneholder <strong>{n}</strong> kontoer. Hver av dem opprettes som egen oppføring.",
+        "anlegen": "Opprett {n} oppføringer",
+        "angelegt": "{n} oppføringer opprettet.",
+        "angelegtUebersprungen": "{n} oppføringer opprettet, {uebersprungen} hoppet over (ingen TOTP)."
+      },
+      "import": {
+        "erstEntsperren": "Lås opp databasen først.",
+        "nichtMoeglich": "Importen er ikke mulig: {fehler}",
+        "alleVorhanden": "Alle {n} oppføringer fra {quelle} finnes allerede.",
+        "leer": "Ingen oppføringer ennå – koble minst passord, brukernavn, adresse eller 2FA-nøkkel til en kolonne nedenfor.",
+        "zusammenfassung": "<strong>{n}</strong> oppføringer – {pw} med passord, {totp} med 2FA-kode. De havner i mappen {ordner}.",
+        "zusammenfassungDoppelt": "<strong>{n}</strong> oppføringer – {pw} med passord, {totp} med 2FA-kode, {doppelt} finnes allerede og utelates. De havner i mappen {ordner}.",
+        "zweiFA": "2FA-kode",
+        "weitere": "… og {n} til",
+        "spalte": "Kolonne {n}",
+        "spaltenZuordnen": "Koble kolonner",
+        "importieren": "Importer {n} oppføringer",
+        "importierenKurz": "Importer",
+        "titel": "Import fra {quelle}",
+        "klartext": "Eksportfilen inneholder alt i klartekst – slett den helst etterpå.",
+        "teilweise": "{n} importert, {fehlt} ikke tatt med ({fehler}).",
+        "teilweiseMehr": "{n} importert, {fehlt} ikke tatt med ({fehler} …).",
+        "fertig": "{n} oppføringer importert fra {quelle}. Slett eksportfilen helst nå."
+      }
+    },
+    "konflikte": {
+      "art": {
+        "geaendert": "endret",
+        "geloescht": "slettet"
+      },
+      "seite": {
+        "geloescht": "Oppføringen er slettet",
+        "feldGeaendert": "{name} endret",
+        "hier": "Endret her",
+        "datei": "Endret i filen"
+      },
+      "ohneTitel": "(uten tittel)",
+      "gilt": {
+        "hier": "Akkurat nå gjelder versjonen herfra.",
+        "datei": "Akkurat nå gjelder versjonen fra filen."
+      },
+      "wahl": {
+        "behalten": "Behold min",
+        "nehmen": "Bruk den fra filen"
+      },
+      "titel": {
+        "eins": "En oppføring er endret på begge sider",
+        "mehrere": "{n} oppføringer er endret på begge sider"
+      },
+      "hinweis": "Siden forrige synkronisering er disse oppføringene endret ulikt her og i filen. Hvilken versjon skal gjelde? Frem til du bestemmer deg, gjelder den nyeste.",
+      "spaeter": "Senere",
+      "entschieden": {
+        "hier": "Avgjort: din versjon.",
+        "datei": "Avgjort: versjonen fra filen."
+      },
+      "fehler": "Ikke tatt med: {fehler}"
+    },
+    "versionen": {
+      "herkunft": {
+        "extern": "fra filen",
+        "hier": "her",
+        "beide": "her og i filen"
+      },
+      "art": {
+        "neu": {
+          "label": "Lagt til",
+          "kurz": "ny"
+        },
+        "geloescht": {
+          "label": "Slettet",
+          "kurz": "slettet"
+        },
+        "geaendert": {
+          "label": "Endret",
+          "kurz": "endret"
+        }
+      },
+      "passiert": {
+        "papierkorb": "til papirkurven",
+        "wiederhergestellt": "gjenopprettet",
+        "verschoben": "flyttet"
+      },
+      "kurz": {
+        "aeltester": "Eldste lagrede versjon",
+        "keine": "Ingen oppføringer endret"
+      },
+      "ohneTitel": "(uten tittel)",
+      "liste": {
+        "fehler": "Versjonene kan ikke leses: {fehler}",
+        "leer": "Ingen versjoner ennå – den første opprettes neste gang filen åpnes eller lagres.",
+        "titel": "Versjoner",
+        "hinweis": "De siste versjonene av filen, den nyeste øverst. Under hver versjon står det hva den endret – trykk for å se detaljer og for å kunne angre.",
+        "aktuell": "gjeldende versjon",
+        "nichtLesbar": "Kan ikke leses"
+      },
+      "stand": {
+        "vergleichFehler": "Versjonen kunne ikke sammenlignes: {fehler}",
+        "feldGeaendert": "{name} endret",
+        "zuruecknehmen": "Angre",
+        "zuruecknehmenTitel": "Hent oppføringen tilbake slik den var før denne versjonen",
+        "aeltesterHinweis": "Dette er den eldste lagrede versjonen – hva den endret i forhold til den forrige, kan ikke lenger sies.",
+        "nichtsGeaendert": "Denne versjonen endret ingenting i oppføringene.",
+        "titel": "Versjon {zeit}",
+        "gegenueber": "Dette endret denne versjonen i forhold til den forrige.",
+        "liegtDa": "Slik ligger filen akkurat nå.",
+        "ganzZurueckHinweis": "«Gå helt tilbake til denne versjonen» setter alle oppføringer slik de var her – det som kom etterpå, beholdes i versjonene.",
+        "ganzZurueck": "Gå helt tilbake til denne versjonen",
+        "zurueckgenommen": "Angret"
+      },
+      "zurueckholen": {
+        "eintrag": "Oppføringen er hentet tilbake og lagret.",
+        "eintraege": {
+          "one": "{n} oppføring hentet tilbake og lagret.",
+          "other": "{n} oppføringer hentet tilbake og lagret."
+        },
+        "fehler": "Gjenoppretting mislyktes: {fehler}"
+      }
+    },
+    "eintrag": {
+      "allgemein": {
+        "anzeigen": "Vis",
+        "verbergen": "Skjul",
+        "kopieren": "Kopier"
+      },
+      "ansicht": {
+        "ariaLabel": "Visning",
+        "dateien": "Filer",
+        "alleFelder": "Alle felt"
+      },
+      "titel": {
+        "neueDateiablage": "Ny filmappe",
+        "neuerEintrag": "Ny oppføring"
+      },
+      "felder": {
+        "name": "Navn",
+        "ordner": "Mappe",
+        "tags": "Etiketter (kommaseparert)",
+        "url": "URL"
+      },
+      "knoepfe": {
+        "speichern": "Lagre",
+        "anlegen": "Opprett",
+        "ja": "Ja",
+        "nein": "Nei"
+      },
+      "passwort": {
+        "titel": "Passord",
+        "gesetzt": "satt",
+        "leer": "tomt",
+        "benutzername": "Brukernavn",
+        "passwort": "Passord",
+        "platzhalter": "ikke satt ennå",
+        "neuErzeugen": "Generer nytt",
+        "staerke": "Styrke: {label}",
+        "bit": "{n} bit",
+        "hinweis": "Det lagrede passordet ligger i kjernen. Det hentes først når du klikker på feltet eller velger «Vis» – og skrives bare hvis du faktisk endrer det.",
+        "ablaufdatum": "Utløpsdato (valgfritt)",
+        "ablaufEntfernen": "Fjern utløpsdato"
+      },
+      "totp": {
+        "titel": "TOTP",
+        "eingerichtet": "satt opp",
+        "nichtEingerichtet": "ikke satt opp",
+        "secret": "Secret (Base32) eller otpauth://-URI",
+        "scanKamera": "Skann QR-kode",
+        "scanBild": "QR-kode fra bilde",
+        "stellen": "Sifre",
+        "intervall": "Intervall (sek.)",
+        "algorithmus": "Algoritme",
+        "qrCode": "QR-kode",
+        "kontoName": "Konto"
+      },
+      "passkey": {
+        "titel": "Passkey",
+        "hinterlegt": "lagret",
+        "keiner": "ingen",
+        "konto": "Konto: {name} · ",
+        "beschreibung": "Logg inn uten passord – den hemmelige nøkkelen ligger bare i denne databasen.",
+        "hinweis": "Du oppretter en passkey direkte hos tjenesten («Opprett passkey»). Nettleserutvidelsen eller Android spør da WKeePass, og den havner automatisk i en oppføring."
+      },
+      "anhaenge": {
+        "titel": "Vedlegg",
+        "dateienTitel": "Filer",
+        "anhaengen": "Legg ved fil …",
+        "dateienHinzufuegen": "Legg til filer …",
+        "neueDatei": "Ny fil …",
+        "keine": "Ingen vedlegg ennå.",
+        "zumAnzeigen": "{name} – klikk for å vise",
+        "entfernen": "Fjern",
+        "herunterladen": "Last ned",
+        "leer": "(tom)",
+        "dateienKeine": "Ingen filer ennå",
+        "dateienHinweis": "Dra filer inn i vinduet, velg dem nedenfor eller opprett en ny. De ligger deretter kryptert i databasen.",
+        "nochNichtGespeichert": "ikke lagret ennå"
+      },
+      "notizen": "Notater",
+      "qr": {
+        "titel": "QR-kode: {name}",
+        "wirdErzeugt": "Genereres …",
+        "hinweis": "Skann med en autentiseringsapp. Koden inneholder hemmeligheten i klartekst – ikke del den og ikke la den bli fotografert."
+      },
+      "scan": {
+        "titel": "Skann QR-kode",
+        "rahmen": "Hold koden innenfor rammen",
+        "foto": "Virker ikke? Ta et bilde",
+        "fotoWirdAusgewertet": "Bildet analyseres …",
+        "erkannt": "Gjenkjent",
+        "kameraFehlt": "Kameraet er ikke tilgjengelig: {fehler}",
+        "keineDekodierung": "QR-dekoding er ikke tilgjengelig. Lim inn otpauth://-URI-en som tekst i stedet.",
+        "browserOhneQr": "Denne nettleseren kan ikke lese QR-koder – i skrivebords- og appversjonen tar Rust seg av det. Lim inn otpauth://-URI-en her som tekst."
+      },
+      "viewer": {
+        "umbenennen": "Gi nytt navn",
+        "umbenennenTitel": "{name} – gi nytt navn",
+        "dateiname": "Filnavn",
+        "bearbeiten": "Rediger",
+        "wirdGeladen": "Laster …",
+        "aenderungenSpeichern": "Lagre endringer?",
+        "wurdeBearbeitet": "«{name}» er redigert.",
+        "nameUngueltig": "Navnet kan ikke være tomt og kan ikke inneholde skråstrek.",
+        "speichernFehlgeschlagen": "Lagring mislyktes: {fehler}",
+        "umbenennenFehlgeschlagen": "Omdøping mislyktes: {fehler}"
+      },
+      "neueDatei": {
+        "titel": "Ny fil",
+        "platzhalter": "Notat",
+        "art": "Type",
+        "arten": {
+          "text": "Tekst (.txt)",
+          "tabelle": "Tabell (.csv)"
+        }
+      },
+      "meldungen": {
+        "gespeichert": "Oppføringen er lagret.",
+        "leak": "Obs: Dette passordet forekommer {n}× i kjente lekkasjer.",
+        "passwortKopiert": "Passord kopiert",
+        "benutzernameKopiert": "Brukernavn kopiert",
+        "qrUebernommen": "QR-koden er brukt.",
+        "scanFehlgeschlagen": "Skanningen mislyktes: {fehler}",
+        "keinSecret": "Ingen TOTP-hemmelighet er lagret.",
+        "anhaengenFehlgeschlagen": "Kunne ikke legge ved: {fehler}",
+        "schonAngehaengt": "«{name}» er allerede lagt ved denne oppføringen.",
+        "nameVergeben": "«{name}» finnes allerede i denne oppføringen.",
+        "anlegenFehlgeschlagen": "Oppretting mislyktes: {fehler}"
+      }
+    },
+    "ordner": {
+      "titel": {
+        "anlegen": "Opprett mappe",
+        "bearbeiten": "Mappen «{name}»"
+      },
+      "felder": {
+        "name": "Navn",
+        "uebergeordnet": "Overordnet mappe",
+        "obersteEbene": "— øverste nivå —"
+      },
+      "knoepfe": {
+        "speichern": "Lagre",
+        "anlegen": "Opprett"
+      },
+      "meldungen": {
+        "nameLeer": "Navnet kan ikke være tomt.",
+        "schraegstrich": "Skråstrek er ikke tillatt i mappenavn.",
+        "gespeichert": "Mappen er lagret.",
+        "angelegt": "Mappen er opprettet."
+      }
+    }
+  },
+  "sicherheit": {
+    "statistik": {
+      "leaked": "lekkede passord",
+      "weak": "svake passord",
+      "reused": "brukt flere steder",
+      "expiring": "utløpt / snart utløpt",
+      "mail": "e-postlekkasjer",
+      "inactive": "lenge siden sist brukt"
+    },
+    "gruppen": {
+      "leaked": "Lekkede passord",
+      "weak": "Svake passord",
+      "reused": "Passord brukt flere steder",
+      "expiring": "Utløpsdatoer"
+    },
+    "pruefung": {
+      "laeuft": "Sjekker …",
+      "jetzt": "Sjekk nå",
+      "zuletzt": "Sist: {zeit}",
+      "nochNicht": "Ikke sjekket ennå"
+    },
+    "keineTreffer": "Ingen treff – ingenting å gjøre",
+    "leckDaten": {
+      "email": "E-postadresse",
+      "passwort": "Passord",
+      "benutzername": "Brukernavn",
+      "name": "Navn",
+      "telefon": "Telefonnummer",
+      "postanschrift": "Postadresse",
+      "geburtsdatum": "Fødselsdato",
+      "ip": "IP-adresse",
+      "geschlecht": "Kjønn",
+      "wohnort": "Bosted",
+      "kreditkarte": "Kredittkort",
+      "kreditkarteTeil": "Deler av kredittkortet",
+      "kontonummer": "Kontonummer",
+      "sicherheitsfragen": "Sikkerhetsspørsmål",
+      "token": "Påloggingstoken",
+      "socialMedia": "Profil på sosiale medier",
+      "nachrichten": "Private meldinger",
+      "browser": "Nettleserdata",
+      "einkaeufe": "Kjøp",
+      "beruf": "Yrke",
+      "arbeitgeber": "Arbeidsgiver"
+    },
+    "mail": {
+      "titel": "Datalekkasjer for e-post",
+      "rat": {
+        "passwortSofort": "<strong>Bytt passordet med en gang</strong> – det var lagret i klartekst eller lett å knekke.",
+        "passwort": "Bytt passordet – det var lagret kryptert, men det er likevel ikke trygt.",
+        "mehrfach": "Du bruker det samme passordet andre steder – bytt det også der.",
+        "telefon": "Vær forberedt på SMS- og telefonsvindel i denne tjenestens navn.",
+        "anschrift": "Adresse eller fødselsdato er kjent – vær skeptisk når noen spør om «bekreftelse».",
+        "konto": "Sjekk kontoutskrifter og kredittkort for transaksjoner du ikke kjenner igjen.",
+        "keinPasswort": "Ingen passord er berørt. Det viktigste her er å lese e-post i denne tjenestens navn med kritisk blikk."
+      },
+      "abgeflossen": "Lekket: {daten}",
+      "oeffnen": "Åpne {name}",
+      "hilfe": {
+        "frage": "Hva betyr et treff – og hva bør du gjøre?",
+        "einleitung": "Adressen din sto i data som ble stjålet fra en tjeneste og publisert. Det betyr ikke at noen har vært i innboksen din. Adressen kan ikke hentes tilbake – det trenger du heller ikke. Det avgjørende er <em>hva</em> som ble lekket sammen med den; rådene for hver enkelt lekkasje nedenfor retter seg etter det.",
+        "schritt1": "Bytt passordet hos den berørte tjenesten – og overalt der du bruker det samme.",
+        "schritt2": "Slå på tofaktorpålogging der det er mulig. WKeePass kan administrere kodene også.",
+        "schritt3": "Vær forberedt på phishing: Angripere skriver målrettet til lekkede adresser, gjerne i navnet til akkurat denne tjenesten.",
+        "schritt4": "Slett kontoer du ikke trenger lenger hos tjenesten – en glemt konto er en åpen konto.",
+        "schritt5": "Bruk aliasadresser til nye registreringer hvis e-postleverandøren din støtter det. Da rammer en lekkasje bare én av dem.",
+        "abschluss": "Når du er ferdig, merker du adressen som utført. Nye lekkasjer varsles igjen ved neste sjekk."
+      },
+      "lecks": {
+        "one": "én lekkasje",
+        "other": "{n} lekkasjer"
+      },
+      "erledigt": "Utført",
+      "erledigtListe": "Utført: {adressen}"
+    },
+    "inaktiv": {
+      "vermerkt": "Notert – oppføringen regnes som i bruk igjen.",
+      "aufwand": {
+        "easy": "kan gjøres direkte på nettstedet",
+        "medium": "noen flere trinn",
+        "hard": "bare via kundestøtte",
+        "impossible": "tilbyr ikke sletting"
+      },
+      "titel": "Lenge siden sist brukt",
+      "hinweis": "Disse påloggingene har du ikke brukt på over to år. Trenger du en ikke lenger, sletter du først kontoen hos tjenesten og deretter oppføringen – en glemt konto med gammelt passord er et populært mål. Hvis den fortsatt trengs, holder det å velge «Fortsatt i bruk».",
+      "zuletzt": "Sist brukt: {monat}",
+      "kontoLoeschen": "Slett konto {aufwand}",
+      "oeffnen": "Åpne",
+      "nochInGebrauch": "Fortsatt i bruk",
+      "kontoLoeschenKnopf": "Slett konto",
+      "zurSeite": "Til nettstedet",
+      "eintragLoeschen": "Slett oppføring"
+    },
+    "kontoFrage": {
+      "titel": "Konto slettet?",
+      "text": "Har du slettet kontoen hos {name}? Da kan oppføringen også fjernes.",
+      "papierkorb": "Den havner i databasens papirkurv, i tilfelle du likevel trenger den.",
+      "loeschen": "Slett oppføring",
+      "nochNicht": "Ikke ennå",
+      "erledigt": "Konto utført – oppføringen er slettet."
+    },
+    "fehler": {
+      "passwort": "Passordsjekk: {fehler}",
+      "email": "E-postsjekk: {fehler}"
+    },
+    "benachrichtigung": {
+      "titel": "WKeePass: nye funn i sikkerhetssjekken",
+      "passwoerter": {
+        "one": "{n} passord er nytt i en lekkasje.",
+        "other": "{n} passord er nye i en lekkasje."
+      },
+      "lecks": {
+        "one": "{n} ny datalekkasje for e-postadressene dine.",
+        "other": "{n} nye datalekkasjer for e-postadressene dine."
+      }
+    },
+    "ergebnis": {
+      "teilweise": "Sjekken mislyktes delvis: {fehler}",
+      "funde": "{n} funn i sjekken.",
+      "keine": "Fant ingen problemer."
+    }
+  },
+  "einstellungen": {
+    "darstellung": {
+      "titel": "Utseende",
+      "farbschema": "Fargetema",
+      "farbschemaHinweis": "System følger innstillingen i operativsystemet",
+      "hell": "Lyst",
+      "dunkel": "Mørkt",
+      "system": "System",
+      "akzentfarbe": "Aksentfarge",
+      "akzentfarbeHinweis": "Advarsels- og farefarger forblir uendret, slik at varsler fortsatt er lette å se",
+      "sprache": "Språk",
+      "spracheHinweis": "Grensesnittet lastes inn på nytt",
+      "spracheAuto": "Automatisk (enhetens språk)"
+    },
+    "datenbank": {
+      "titel": "Database",
+      "entsperren": "Opplåsing av denne databasen",
+      "pin": "PIN",
+      "fingerabdruck": "Fingeravtrykk",
+      "und": " og ",
+      "nurMaster": "Bare med hovedpassord",
+      "appMethoden": "Hva appen tilbyr i det hele tatt: {link}",
+      "appMethodenLink": "Opplåsingsmetoder i appen",
+      "waehlen": "Velg …",
+      "warnen": "Varsle før utløp",
+      "warnenHinweis": "Dager i forveien",
+      "papierkorb": "Tøm papirkurven",
+      "papierkorbHinweis": "Fjerner de slettede oppføringene for godt",
+      "papierkorbKnopf": "Tøm …",
+      "name": "Databasens navn",
+      "nameInDatei": "Står i filen",
+      "namePlatzhalter": "Passord",
+      "nameGespeichert": "Navnet er lagret.",
+      "geaendert": "endret {datum}"
+    },
+    "allgemein": {
+      "wirdGeladen": "Laster …",
+      "demo": "WKeePass · Demo i nettleseren",
+      "weiter": "Fortsett",
+      "spaeter": "Senere i innstillingene",
+      "nichtVerfuegbar": "Ikke tilgjengelig",
+      "uebernehmen": "Bruk",
+      "nichtGespeichert": "Ikke lagret: {fehler}",
+      "gespeichert": "Innstillingen er lagret.",
+      "keineKonfiguration": "Ugyldig konfigurasjon."
+    },
+    "sperren": {
+      "titel": "Lås",
+      "automatisch": "Lås automatisk",
+      "automatischHinweis": "Minutter uten aktivitet",
+      "zwischenablage": "Tøm utklippstavlen",
+      "zwischenablageHinweis": "Sekunder etter kopiering"
+    },
+    "browser": {
+      "titel": "Nettleserutvidelse",
+      "stufeNichts": "Tilknyttede nettlesere fyller ut uten å spørre.",
+      "stufeLegitimieren": "PIN, hovedpassord eller fingeravtrykk før utfylling.",
+      "verknuepft": "tilknyttet",
+      "trennen": "Koble fra",
+      "keinerVerknuepft": "Ingen nettleser er tilknyttet ennå.",
+      "keinerEingetragen": "Ikke registrert i noen nettleser",
+      "stufeHinweis": "Hva som skjer når en tilknyttet nettleser ber om påloggingsinformasjon: ingenting, et knappetrykk eller bekreftelse med PIN, hovedpassord eller fingeravtrykk.",
+      "fristHinweis": "Den som nettopp har bekreftet eller låst opp, slipper å bli spurt en stund – en pålogging med flere felt ville ellers spurt flere ganger. Etterpå spørres det igjen. Gjelder ikke for «Ingenting»; låsing avslutter fristen med en gang.",
+      "beimStart": "Lås opp når nettleseren starter",
+      "beimStartHinweis": "Hvis databasen er lukket når nettleseren melder seg, åpnes det lille vinduet med en gang – PIN, fingeravtrykk eller hovedpassord, og utvidelsen har dataene sine. Uten dette låser du opp via menyen til utvidelsen når du trenger noe.",
+      "erweiterung": "Utvidelse",
+      "erweiterungHinweis": "KeePassXC-Browser – WKeePass snakker samme protokoll, derfor finnes det ingen egen utvidelse.",
+      "eingetragen": "Registrert i",
+      "eingetragenHinweis": "«Sett opp» legger en fil i hver nettleser som peker til WKeePass – uten den får ikke nettleseren starte WKeePass.",
+      "einrichten": "Sett opp",
+      "entfernen": "Fjern",
+      "kanal": "Kanal",
+      "nichtAktiv": "Ikke aktiv",
+      "getrennt": "Tilknytningen er fjernet.",
+      "trennenFehler": "Frakobling mislyktes: {fehler}",
+      "eingerichtetMeldung": "Satt opp: {liste}. Start nettleseren på nytt.",
+      "entferntMeldung": "Fjernet: {liste}. Start nettleseren på nytt.",
+      "keinGefunden": "Fant ingen nettleser som er satt opp.",
+      "fehlgeschlagen": "mislyktes",
+      "einrichtenFehler": "Mislyktes: {fehler}"
+    },
+    "eintraege": {
+      "titel": "Oppføringer og nettsteder",
+      "importieren": "Importer fra andre apper",
+      "importierenHinweis": "Passord og 2FA-koder fra Bitwarden, 1Password, LastPass, nettlesere, Aegis, 2FAS …",
+      "importierenKnopf": "Importer …",
+      "iconsLaden": "Last inn ikoner for nettsteder",
+      "iconsLadenHinweis": "Én gang, direkte fra det aktuelle nettstedet og uten mellomtjeneste – best ved pålogging, når nettstedet er tilgjengelig. Deretter ligger ikonet i databasen og er tilgjengelig også offline og på alle enheter.",
+      "iconsNeu": "Hent alle ikoner på nytt",
+      "iconsNeuHinweis": "Erstatter de lagrede med nylig hentede",
+      "iconsNeuKnopf": "Last inn på nytt",
+      "namen": "Navn fra nettstedet",
+      "namenHinweis": "På: Hvis navnet bare er en adresse, får oppføringen automatisk tjenestens navn – for eksempel «GitHub» i stedet for «https://github.com/login». Navn du har gitt selv, beholdes.",
+      "namenPruefenHinweis": "«Sjekk nå» går gjennom alle oppføringer med adresse og erstatter etter bekreftelse også navn du har gitt selv.",
+      "namenAutomatisch": "Sett navn automatisk",
+      "namenPruefen": "Sjekk nå",
+      "iconsAbruf": "Ikoner hentes på nytt – de vises så snart de er hentet.",
+      "keineUrl": "Ingen oppføring har en URL.",
+      "uebernehmenTitel": "Bruk navn",
+      "uebernehmenText": "For {n} oppføringer erstattes navnet med tjenestens navn.",
+      "uebernehmenBrowser": "I nettleseren blokkerer sikkerhetspolicyen til andre nettsteder henting – der brukes vertsnavnet i stedet."
+    },
+    "pruefungen": {
+      "titel": "Sjekker",
+      "staerke": "Vis passordstyrke",
+      "staerkeHinweis": "Beregningen skjer i kjernen",
+      "mehrfach": "Oppdag passord som brukes flere steder",
+      "mehrfachHinweis": "Sammenligning innenfor databasen",
+      "vorwarn": "Varseltid før utløp",
+      "vorwarnHinweis": "Dager før utløpsdatoen",
+      "leaks": "Sjekk passord mot lekkasjer",
+      "leaksHinweis": "Have I Been Pwned – bare et hasjprefiks sendes, aldri selve passordet",
+      "email": "Sjekk e-postadresser",
+      "emailHinweis": "Via XposedOrNot",
+      "benachrichtigen": "Varsle ved nye funn",
+      "benachrichtigenHinweis": "Når en sjekk finner en ny lekkasje – også ved den automatiske",
+      "automatisch": "Sjekk automatisk",
+      "automatischHinweis": "Når appen åpnes, hvis forrige sjekk er lenger siden",
+      "zuletzt": " – sist {datum}",
+      "taeglich": "Daglig",
+      "woechentlich": "Ukentlig",
+      "aus": "Av"
+    },
+    "appEntsperren": {
+      "einleitung": "Hva denne enheten tilbyr for opplåsing. Hvilke av dem en database kan bruke, bestemmer du for hver database: Database → Opplåsing av denne databasen.",
+      "biometrie": "Bruk biometri",
+      "biometrieGeraet": "{geraet} – tilbys ved åpning, erstatter PIN og hovedpassord",
+      "biometrieFinger": "Fingeravtrykk eller ansiktsgjenkjenning",
+      "biometrieNicht": "Ikke tilgjengelig på denne enheten",
+      "pin": "PIN for programmet",
+      "pinSchluesselbund": "Satt – beskyttet av PIN og nøkkelring",
+      "pinOhne": "Satt – uten nøkkelring henger alt på PIN-koden",
+      "pinKeine": "Ingen PIN ennå. Gjelder for alle databaser.",
+      "aendern": "Endre …",
+      "entfernen": "Fjern",
+      "festlegen": "Angi …"
+    },
+    "export": {
+      "titel": "Eksport og import",
+      "exportieren": "Eksporter innstillinger",
+      "exportierenHinweis": "Sikkerhetskopier som settings.json",
+      "exportierenKnopf": "Eksporter",
+      "importieren": "Importer innstillinger",
+      "importierenHinweis": "Hent fra en settings.json",
+      "importierenKnopf": "Importer",
+      "zuruecksetzen": "Tilbakestill til standard",
+      "zuruecksetzenHinweis": "Bare innstillingene – databaser, PIN og nettlesertilknytninger beholdes",
+      "zuruecksetzenKnopf": "Tilbakestill",
+      "konfiguration": "Gjeldende konfigurasjon (settings.json)",
+      "exportiert": "settings.json er eksportert.",
+      "importiert": "Innstillingene er importert.",
+      "nichtGelesen": "Filen kunne ikke leses: {fehler}",
+      "zuruecksetzenTitel": "Tilbakestill innstillinger",
+      "zuruecksetzenText1": "Utseende, opplåsing, sjekker, nettleser og Android går tilbake til standardverdiene.",
+      "zuruecksetzenText2": "Dette beholdes: selve databasen, listen over databasene dine med deres egne innstillinger, app-PIN og tilknytningene til nettleseren.",
+      "zurueckgesetzt": "Tilbakestilt til standard."
+    },
+    "android": {
+      "passwortmanager": "Passordbehandler",
+      "passwortmanagerText": "Fyller ut pålogginger i apper og i nettleseren og tilbyr å lagre nye pålogginger.",
+      "passwortmanagerAktion": "Angi som standard",
+      "passkeys": "Passkeys",
+      "passkeysText": "Logg inn uten passord. Passkeysene ligger i databasen din, ikke hos Google.",
+      "passkeysAktion": "Aktiver",
+      "passkeysFehlt": "Først fra Android 14",
+      "kamera": "Kamera",
+      "kameraText": "Bare for QR-skanneren: sett opp tofaktorkoder uten å skrive inn hemmeligheten.",
+      "kameraAktion": "Tillat",
+      "stufeHinweis": "Hva som skjer når du trykker på en pålogging i listen: ingenting, et knappetrykk eller bekreftelse med PIN, hovedpassord eller biometri.",
+      "fristHinweis": "Den som nettopp har bekreftet eller låst opp, slipper å bli spurt en stund – et skjema med navn og passord ville ellers spurt to ganger. Gjelder ikke for «Ingenting»; låsing avslutter fristen med en gang.",
+      "stufeNichts": "Pålogginger settes inn uten å spørre.",
+      "stufeLegitimieren": "PIN, hovedpassord eller biometri før innsetting.",
+      "aktiv": "Aktiv",
+      "nichtVerfuegbar": "Ikke tilgjengelig",
+      "inAppErlauben": "Tillat i appinnstillinger"
+    },
+    "stufe": {
+      "nichts": "Ingenting",
+      "bestaetigen": "Bekreft",
+      "legitimieren": "Identifiser",
+      "titel": "Før utfylling",
+      "bestaetigenMeldung": "Et knappetrykk holder – uten identifisering."
+    },
+    "frist": {
+      "jedesMal": "Spør hver gang",
+      "sek30": "30 sekunder",
+      "min1": "1 minutt",
+      "min5": "5 minutter",
+      "min15": "15 minutter",
+      "titel": "Ikke spør på nytt etterpå"
+    },
+    "androidStart": {
+      "titel": "Tre tillatelser for hverdagen",
+      "text": "For at WKeePass ikke bare skal være et hvelv, men også hjelpe deg med å logge inn, trengs det tillatelse fra Android. Ingenting av dette sender data noe sted – passordene blir i filen din."
+    },
+    "verschluesselung": {
+      "stufeSchnell": "Rask",
+      "hinweisSchnell": "Åpner raskt, også på eldre enheter",
+      "stufeZuegig": "Hurtig",
+      "hinweisZuegig": "Litt mer beskyttelse, knapt tregere",
+      "stufeStandard": "Standard",
+      "hinweisStandard": "Fin middelvei, fungerer overalt – anbefalt",
+      "stufeErhoeht": "Økt",
+      "hinweisErhoeht": "Mer minne, vanskeligere for grafikkort – på iPhone/iPad fungerer ikke utfylling via tastaturet lenger",
+      "stufeHoch": "Høy",
+      "hinweisHoch": "Enda mer minne – på iPhone/iPad ingen utfylling via tastaturet",
+      "stufeStark": "Sterk",
+      "hinweisStark": "Best mulig beskyttelse, merkbart lengre åpningstid – på iPhone/iPad ingen utfylling via tastaturet",
+      "werte": "{it} runder · {mib} MiB · {faeden}",
+      "faeden": {
+        "one": "{n} tråd",
+        "other": "{n} tråder"
+      },
+      "titel": "Krypteringsstyrke",
+      "erklaerung": {
+        "einleitung": "Fra hovedpassordet utledes først en nøkkel – med vilje langsomt, med Argon2. Hvert gjetteforsøk fra en angriper må gjøre akkurat det samme arbeidet.",
+        "durchgaengeBegriff": "Runder",
+        "durchgaenge": "Hvor mange ganger Argon2 regner over minnet. Dobbelt så mange tar dobbelt så lang tid.",
+        "speicherBegriff": "Minne (MiB)",
+        "speicher": "Hvor mye arbeidsminne hvert forsøk legger beslag på (1 MiB ≈ 1 MB). Dette bremser angrep med grafikkort mest, fordi minne er en knapphet der.",
+        "faedenBegriff": "Tråder",
+        "faeden": "Hvor mange prosessorkjerner som regner samtidig. Det endrer ikke beskyttelsen – det gjør bare åpningen raskere på enheten din.",
+        "eigenBegriff": "Egendefinert innstilling",
+        "eigen": "Andre apper og eldre filer har egne verdier, for eksempel 50 runder med bare 1 MiB. Appen viser da det nærmeste nivået og lar verdiene stå til du velger et nivå."
+      },
+      "eigenHinweis": "Egendefinert innstilling, for eksempel fra en annen app – ligger omtrent på «{stufe}». Hvis du velger et nivå, erstattes den.",
+      "werteFrage": "Hva betyr verdiene?",
+      "hinweis": "Hvor lang tid utledningen av nøkkelen tar – for deg én gang ved åpning, for en angriper ved hvert gjetteforsøk",
+      "geaendert": "Krypteringen er endret – filen er skrevet på nytt.",
+      "ersetzt": "Erstatter den egendefinerte innstillingen med «{stufe}».",
+      "stufeHinweis": "{stufe}: {hinweis}",
+      "jetzt": "Nå: {werte}",
+      "danach": "Etterpå: {werte}"
+    },
+    "versionen": {
+      "titel": "Versjoner",
+      "hinweis": "De siste versjonene av denne filen – ved åpning, etter lagring, etter endringer fra en annen enhet og etter hver sammenslåing. Her kan du hente tilbake enkeltting eller alt.",
+      "ansehen": "Vis versjoner …",
+      "aufheben": "Lagre versjoner",
+      "aufhebenBereich": "30 til 100",
+      "aufhebenFrage": "Hvor mange versjoner skal lagres",
+      "aufgehoben": "Det lagres {n} versjoner."
+    },
+    "browserStart": {
+      "titel": "Passord direkte i nettleseren",
+      "text": "Med en nettleserutvidelse fyller WKeePass ut pålogginger på nettsider, tilbyr å lagre nye pålogginger og logger deg inn med passkeys. Passordene blir i filen din – nettleseren spør WKeePass hver gang. Alle tre trinnene trengs.",
+      "schritt1": "1. Registrer WKeePass i nettleserne",
+      "schritt1Text": "Nødvendig: En nettleser kan bare starte programmer som er registrert hos den. Knappen legger en liten fil i hver nettleser som peker til WKeePass – selve nettleseren endres ikke. Hvis KeePassXC er installert, snakker utvidelsen deretter med WKeePass i stedet for KeePassXC.",
+      "gefunden": "Funnet: {liste}",
+      "keinBrowser": "Fant ingen nettleser – etter at du har installert en nettleser, kan dette gjøres i innstillingene.",
+      "erledigt": "Utført",
+      "eintragen": "Registrer",
+      "schritt2": "2. Installer utvidelsen KeePassXC-Browser",
+      "schritt2Text": "Nødvendig: Utvidelsen kommer fra KeePassXC og er gratis. WKeePass snakker samme språk, derfor finnes det ingen egen utvidelse. Knappen åpner siden i nettleserens butikk.",
+      "schritt3": "3. Koble til i nettleseren",
+      "schritt3Text": "Én gang per nettleser: Start nettleseren på nytt, klikk på utvidelsens ikon og velg «Koble til». WKeePass spør deretter om et navn for denne nettleseren – først etter det fylles passord ut."
+    }
+  },
+  "totp": {
+    "leer": "Ingen TOTP-oppføringer.",
+    "karte": {
+      "hinweis": "Klikk kopierer, dobbeltklikk åpner oppføringen"
+    },
+    "kopiert": "Kode kopiert",
+    "alsNaechstes": "neste {code}"
+  },
+  "ui": {
+    "abgleich": {
+      "uebernommen": "Endringer fra en annen enhet er hentet inn."
+    },
+    "zwischenablage": {
+      "fehler": "Kopiering er ikke mulig."
+    },
+    "kern": {
+      "fehler": "Kjernen melder en feil ved «{befehl}»: {ursache}"
+    },
+    "formular": {
+      "pinMitSchluesselbund": "Nøkkelen utledes fra PIN-koden din <em>og</em> en tilfeldig verdi i systemets nøkkelring. En angriper ville trengt begge deler: PIN-koden og den påloggede økten din.",
+      "pinOhneSchluesselbund": "<strong>Ingen nøkkelring er tilgjengelig på denne enheten.</strong> Da henger alt bare på PIN-koden – velg den tilsvarende lang.",
+      "sichtbarMachen": "Vis",
+      "verbergen": "Skjul"
+    }
+  },
+  "entsperren": {
+    "geraet": {
+      "biometrie": "Biometri"
+    },
+    "datenbank": {
+      "nochNichtGeoeffnet": "Ikke åpnet ennå",
+      "keineDatei": "Ingen fil er valgt."
+    },
+    "sperrbildschirm": {
+      "keineDatenbank": "Ingen database er valgt ennå",
+      "mitGeraet": "Lås opp med {name}",
+      "mitPasswortOderPin": "Med passord eller PIN …",
+      "entsperren": "Lås opp",
+      "datenbankWaehlen": "Velg database …",
+      "neueDatenbank": "Opprett ny database …",
+      "zuletztGenutzt": "Sist brukt"
+    },
+    "dialog": {
+      "titel": "Lås opp",
+      "mitBiometrie": "Lås opp med biometri",
+      "appPin": "App-PIN",
+      "pinPlatzhalter": "PIN",
+      "masterPasswort": "Hovedpassord",
+      "masterPasswortFalls": "Hovedpassord (hvis PIN-koden ikke passer)",
+      "biometrieKuenftig": "Åpne med biometri i fremtiden",
+      "biometrieGeraetHinweis": "Erstatter hovedpassordet – nøkkelen ligger i sikkerhetsbrikken",
+      "biometrieSchluesselbundHinweis": "Fingeren identifiserer deg, nøkkelen ligger i nøkkelringen",
+      "biometrieSchluesselbundHinweisPin": "Fingeren identifiserer deg, nøkkelen ligger i nøkkelringen – for dette settes det en app-PIN",
+      "pinKuenftig": "Åpne også med PIN i fremtiden",
+      "pinKuenftigHinweis": "For dette settes det straks en app-PIN",
+      "bestaetigen": "Lås opp",
+      "eingabeFehlt": "Skriv inn PIN eller hovedpassord."
+    },
+    "appPinAbfrage": {
+      "titel": "Bekreft app-PIN",
+      "text": "For å frigi denne databasen trengs PIN-koden til programmet.",
+      "platzhalter": "App-PIN",
+      "bestaetigen": "Bekreft"
+    },
+    "herkunft": {
+      "downloads": "Nedlastinger",
+      "geraetespeicher": "Enhetslagring",
+      "medien": "Medier"
+    },
+    "biometrieFehlt": {
+      "keinFinger": "Ingen fingeravtrykk eller ansikt er registrert – sett det opp i Android-innstillingene.",
+      "nichtVerfuegbar": "Ikke tilgjengelig på enheten",
+      "ohneSchluesselbund": "Ikke mulig uten nøkkelring"
+    },
+    "willkommen": {
+      "titel": "Velkommen til WKeePass",
+      "text": "For enklere bruk av appen kan en <b>PIN</b> og/eller <b>biometri</b> brukes til å dekryptere dataene og bekrefte uthenting. Etter oppsettet kan den forenklede dekrypteringen og bekreftelsen stilles inn individuelt for hver database.",
+      "pinEinrichten": "Sett opp PIN",
+      "pinPlatzhalter": "Minst fire tegn",
+      "pinWiederholen": "Gjenta PIN",
+      "sichtbar": "Vis",
+      "geraetNutzen": "Bruk {name}",
+      "geraetHinweis": "Erstatter PIN og hovedpassord. Nøkkelen ligger i sikkerhetsbrikken på denne enheten – en PIN er da bare en reserveløsning.",
+      "biometrieNutzen": "Bruk opplåsing med biometri",
+      "einrichten": "Sett opp",
+      "ohnePin": "Fortsett uten PIN",
+      "pinFehlt": "Angi en PIN – eller velg «Fortsett uten PIN».",
+      "pinUngleich": "De to PIN-kodene er ikke like.",
+      "pinFestgelegt": "PIN er satt.",
+      "geraetEinrichtung": "{name} settes opp ved første åpning."
+    },
+    "trotzdemSperren": {
+      "titel": "Ikke lagret",
+      "text": "Hvis du låser likevel, går endringene siden forrige lagring tapt.",
+      "bestaetigen": "Lås likevel"
+    },
+    "zugriffEntzogen": {
+      "titel": "Ingen tilgang til filen lenger",
+      "text1": "Android har trukket tilbake WKeePass sin tilgang til denne filen. Det skjer når et annet program har slettet den og opprettet den på nytt i stedet for å overskrive den.",
+      "text2": "Offline-kopien er åpnet – lagring er derfor ikke mulig. Velg filen på nytt én gang, så gjelder tilgangen varig igjen.",
+      "neuWaehlen": "Velg filen på nytt",
+      "spaeter": "Senere"
+    },
+    "appPin": {
+      "titel": "Angi PIN",
+      "text1": "Denne PIN-koden gjelder for hele programmet. For hver database bestemmer du deretter enkeltvis om den kan åpnes med den.",
+      "text2": "Etter fem feil forsøk forkastes PIN-koden. Det finnes ingen gjenoppretting – da går du videre med hovedpassordene.",
+      "neuePin": "Ny PIN",
+      "platzhalter": "Minst fire tegn",
+      "wiederholen": "Gjenta",
+      "wiederholenPlatzhalter": "Gjenta PIN",
+      "festlegen": "Angi",
+      "eingeben": "Skriv inn en PIN.",
+      "ungleich": "De to PIN-kodene er ikke like.",
+      "festgelegt": "PIN er satt."
+    },
+    "freigabe": {
+      "titel": "Frigi denne databasen",
+      "offenNoetig": "Databasen må være åpen for dette.",
+      "mitPin": "Åpne med PIN",
+      "mitPinHinweis": "Hovedpassordet lagres kryptert; for å åpne holder det da med app-PIN.",
+      "mitFingerabdruck": "Åpne med fingeravtrykk",
+      "fingerabdruckHinweis": "Fingeravtrykket er her <em>ikke en nøkkel</em>, men beviset på at det er deg – beskyttelsen kommer utelukkende fra nøkkelringen. Dermed er denne veien svakere enn PIN, for en angriper trenger bare én ting i stedet for to. På macOS og Windows håndhever maskinvaren kontrollen, under Linux gjør dette programmet det.",
+      "pinBestaetigen": "Skriv inn app-PIN for å bekrefte:",
+      "pinPlatzhalter": "App-PIN",
+      "uebernehmen": "Bruk",
+      "ohnePin": "Uten PIN kan dette ikke bekreftes.",
+      "gespeichert": "Frigivelsen er lagret.",
+      "mitGeraet": "Åpne med {name}",
+      "geraetHinweis": "Erstatter PIN og hovedpassord ved åpning. Hovedpassordet forsegles med en nøkkel som sikkerhetsbrikken på denne enheten først gir fra seg etter kontroll med {name} – en kopiert fil er ubrukelig uten denne enheten.",
+      "windowsZweimal": "Ved første oppsett kan Windows spørre to ganger.",
+      "rueckfall": "Reserveløsning hvis {name} ikke fungerer akkurat nå.",
+      "pinFreigabeOhnePin": "Uten PIN kan PIN-frigivelsen ikke endres."
+    },
+    "pinEntfernen": {
+      "titel": "Fjern PIN",
+      "text": "PIN-koden og alle frigivelser forkastes. Deretter åpner du hver database igjen med hovedpassordet sitt.",
+      "bestaetigen": "Fjern",
+      "entfernt": "PIN er fjernet."
+    },
+    "pinAendern": {
+      "titel": "Endre PIN",
+      "text1": "De frigitte databasene beholdes – de omkrypteres til den nye PIN-koden i bakgrunnen. Du trenger altså <strong>ikke</strong> skrive inn hovedpassordene på nytt.",
+      "text2": "Hvis du har glemt den gamle PIN-koden, hjelper bare «Fjern» – da er alle frigivelser borte og hver database trenger hovedpassordet sitt igjen.",
+      "bisherige": "Gjeldende PIN",
+      "neue": "Ny PIN",
+      "neueWiederholen": "Gjenta ny PIN",
+      "bestaetigen": "Endre",
+      "beideNoetig": "Skriv inn begge PIN-kodene.",
+      "ungleich": "De to nye PIN-kodene er ikke like.",
+      "geaendert": "PIN er endret. Alle frigivelser gjelder fortsatt."
+    },
+    "anlegen": {
+      "titel": "Opprett ny database",
+      "name": "Databasens navn",
+      "standardName": "Passord",
+      "staerke": "Krypteringsstyrke",
+      "hinweis": "Hovedpassordet er hovednøkkelen. Det finnes ingen gjenoppretting – er det borte, er oppføringene borte.",
+      "passwort": "Hovedpassord",
+      "passwortWiederholen": "Gjenta hovedpassord",
+      "weiter": "Videre til lagringssted",
+      "passwortFehlt": "Det går ikke uten hovedpassord.",
+      "passwortUngleich": "De to passordene er ikke like.",
+      "keinOrt": "Ingen lagringsplass er valgt.",
+      "angelegt": "Databasen er opprettet.",
+      "fehlgeschlagen": "Oppretting mislyktes: {fehler}"
+    },
+    "entsperren": {
+      "laeuft": "Et opplåsingsforsøk pågår allerede.",
+      "zuerstWaehlen": "Velg en database først.",
+      "offlineKopie": "Filen er ikke tilgjengelig akkurat nå – offline-kopien fra {datum} er åpnet. Lagring er først mulig igjen når filen er tilgjengelig.",
+      "nurLesen": "{format} kan bare leses – endringer kan ikke lagres.",
+      "diesesFormat": "Dette formatet",
+      "freigabeGeraet": "Databasen er frigitt for {name}.",
+      "freigabePin": "Databasen er frigitt for PIN.",
+      "fehlgeschlagen": "Opplåsing mislyktes: {fehler}",
+      "entschluesselt": "Dekrypterer … dette tar et øyeblikk."
+    },
+    "sperren": {
+      "gesperrt": "Låst – verdiene er fjernet fra minnet.",
+      "banner": "Databasen er låst."
+    }
+  },
+  "anfrage": {
+    "nachweis": {
+      "pin": "PIN",
+      "master": "Hovedpassord",
+      "sichtbar": "Vis",
+      "biometrie": "Biometri",
+      "fingerabdruck": "Fingeravtrykk",
+      "bioEntsperren": "Lås opp med {name}",
+      "bioBestaetigen": "Bekreft med {name}",
+      "bioBestaetigenStandard": "Bekreft med fingeravtrykk",
+      "grund": "Tilgang fra nettleseren"
+    },
+    "text": {
+      "unlock": "Databasen er låst. En nettleser venter på den.",
+      "logins": "Nettleseren vil sette inn brukernavn og passord.",
+      "totp": "Nettleseren vil hente en engangskode.",
+      "create": "En ny oppføring skal opprettes.",
+      "update": "Passordet skal endres.",
+      "delete": "En oppføring skal flyttes til papirkurven.",
+      "passkeyRegister": "En passkey skal opprettes.",
+      "passkeyGet": "Det skal logges inn med en passkey.",
+      "sonst": "Tilgang til databasen."
+    },
+    "titel": {
+      "entsperren": "Lås opp databasen",
+      "anfrage": "Forespørsel fra nettleseren"
+    },
+    "warnung": "<strong>Obs:</strong> Skjemaet sendes til {ziel} – ikke til nettstedet du besøker.",
+    "eintrag": {
+      "ohneName": "(uten navn)"
+    },
+    "knoepfe": {
+      "entsperren": "Lås opp",
+      "uebernehmen": "Bruk",
+      "einMoment": "Et øyeblikk …"
+    },
+    "datenbank": {
+      "keineAusgewaehlt": "Ingen valgt"
+    },
+    "fehler": {
+      "keineDatenbank": "Ingen database er valgt. Åpne den først i hovedvinduet.",
+      "nichtGeklappt": "Det gikk ikke.",
+      "nichtErreichbar": "Ikke tilgjengelig"
+    },
+    "einstellungen": {
+      "titel": "Innstillinger",
+      "kopf": "Nettleserutvidelse",
+      "unterkopf": "Før utfylling",
+      "nichts": "Ingenting",
+      "bestaetigen": "Bekreft",
+      "legitimieren": "Identifiser",
+      "notizNever": "Tilknyttede nettlesere fyller ut uten å spørre. Fra neste forespørsel – denne må fortsatt besvares.",
+      "notizConfirm": "Et knappetrykk holder – Avbryt eller Bruk, uten identifisering.",
+      "notizIdentify": "PIN, hovedpassord eller fingeravtrykk. Hvor lenge det går før det spørres på nytt, står i innstillingene."
+    }
+  }
+}
