@@ -1,48 +1,40 @@
 <de-DE>
-• Neu in 7 Sprachen: Deutsch, Englisch, Französisch, Dänisch, Norwegisch, Polnisch, Schwedisch
-• Was darf ins Netz? Beim Start wählst du, welche Online-Funktionen laufen
-• E-Mail-Prüfung und Löschanleitungen ab Werk aus
-• Sicherheitscheck: „Löschseite öffnen“ statt „Konto löschen“ – klarer, was passiert
+• Konflikte: Die App fragt nur noch, wenn es wirklich etwas zu entscheiden gibt – verschiedene Felder führt sie selbst zusammen
+• Im Konfliktdialog wählst du je Feld, welcher Wert gelten soll
+• Fix: Der Abgleich blieb hängen, wenn ein Ordner auf zwei Geräten verschieden gespeichert war
 </de-DE>
 <en-GB>
-• Now in 7 languages: English, German, French, Danish, Norwegian, Polish, Swedish
-• What may go online? On first start you choose which online features run
-• E-mail check and deletion guides for old accounts are off by default
-• Security check: “Open deletion page” instead of “Delete account” – clearer what happens
+• Conflicts: the app only asks when there is really something to decide – different fields are merged automatically
+• In the conflict dialog you choose for each field which value applies
+• Fix: syncing got stuck when a folder was saved differently on two devices
 </en-GB>
 <en-US>
-• Now in 7 languages: English, German, French, Danish, Norwegian, Polish, Swedish
-• What may go online? On first start you choose which online features run
-• E-mail check and deletion guides for old accounts are off by default
-• Security check: “Open deletion page” instead of “Delete account” – clearer what happens
+• Conflicts: the app only asks when there is really something to decide – different fields are merged automatically
+• In the conflict dialog you choose for each field which value applies
+• Fix: syncing got stuck when a folder was saved differently on two devices
 </en-US>
 <fr-FR>
-• Désormais en 7 langues : français, allemand, anglais, danois, norvégien, polonais, suédois
-• Qu’est-ce qui peut aller sur le réseau ? Au démarrage, vous choisissez les fonctions en ligne
-• Vérification des e-mails et guides de suppression désactivés par défaut
-• Contrôle de sécurité : « Ouvrir la page de suppression » au lieu de « Supprimer le compte »
+• Conflits : l’app ne demande plus que s’il y a vraiment un choix à faire – les champs différents sont fusionnés automatiquement
+• Dans la fenêtre de conflit, vous choisissez la valeur à conserver pour chaque champ
+• Correctif : la synchronisation restait bloquée quand un dossier était enregistré différemment sur deux appareils
 </fr-FR>
 <da-DK>
-• Nu på 7 sprog: dansk, tysk, engelsk, fransk, norsk, polsk, svensk
-• Hvad må gå på nettet? Ved start vælger du, hvilke onlinefunktioner der kører
-• Tjek af e-mails og sletningsvejledninger er slået fra som standard
-• Sikkerhedstjek: »Åbn sletningssiden« i stedet for »Slet konto« – tydeligere, hvad der sker
+• Konflikter: Appen spørger kun, når der virkelig er noget at vælge – forskellige felter flettes automatisk
+• I konfliktdialogen vælger du for hvert felt, hvilken værdi der gælder
+• Rettelse: Synkroniseringen gik i stå, når en mappe var gemt forskelligt på to enheder
 </da-DK>
 <no-NO>
-• Nå på 7 språk: norsk, tysk, engelsk, fransk, dansk, polsk, svensk
-• Hva får gå ut på nettet? Ved oppstart velger du hvilke nettfunksjoner som kjører
-• Sjekk av e-post og slettveiledninger er slått av som standard
-• Sikkerhetssjekk: «Åpne slettesiden» i stedet for «Slett konto» – tydeligere hva som skjer
+• Konflikter: Appen spør bare når det virkelig er noe å avgjøre – ulike felt flettes automatisk
+• I konfliktdialogen velger du for hvert felt hvilken verdi som gjelder
+• Rettelse: Synkroniseringen stoppet opp når en mappe var lagret forskjellig på to enheter
 </no-NO>
 <pl-PL>
-• Teraz w 7 językach: polski, niemiecki, angielski, francuski, duński, norweski, szwedzki
-• Co może łączyć się z siecią? Przy starcie wybierasz, które funkcje online działają
-• Sprawdzanie e-maili i instrukcje usuwania domyślnie wyłączone
-• Kontrola bezpieczeństwa: „Otwórz stronę usuwania” zamiast „Usuń konto”
+• Konflikty: aplikacja pyta tylko wtedy, gdy naprawdę trzeba coś rozstrzygnąć – różne pola łączy sama
+• W oknie konfliktu wybierasz dla każdego pola, która wartość obowiązuje
+• Poprawka: synchronizacja zawieszała się, gdy folder był zapisany inaczej na dwóch urządzeniach
 </pl-PL>
 <sv-SE>
-• Nu på 7 språk: svenska, tyska, engelska, franska, danska, norska, polska
-• Vad får gå ut på nätet? Vid start väljer du vilka onlinefunktioner som körs
-• Kontroll av e-post och anvisningar för att ta bort gamla konton är avstängda som standard
-• Säkerhetskontroll: ”Öppna borttagningssidan” i stället för ”Radera konto” – tydligare vad som händer
+• Konflikter: appen frågar bara när det verkligen finns något att avgöra – olika fält slås ihop automatiskt
+• I konfliktdialogen väljer du för varje fält vilket värde som gäller
+• Rättning: synkroniseringen fastnade när en mapp hade sparats olika på två enheter
 </sv-SE>
