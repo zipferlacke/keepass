@@ -8,7 +8,7 @@
  * es den Eintrag auf beiden Seiten noch, steht darunter jedes Feld, in dem
  * sich die Fassungen unterscheiden, mit beiden Werten zur Wahl; vorgewählt
  * ist die Seite, die das Feld geändert hat. Die Konflikte selbst führt der
- * Kern (konflikt.rs).
+ * Kern (konflikt.rs); was er ohne Rückfrage lösen kann, kommt hier nicht an.
  */
 
 import * as vault from '../data/vault.js';

@@ -29,6 +29,14 @@
 //! Feld, in dem sich die Fassungen unterscheiden ([`felder`]), und wer es
 //! seit der Basis geändert hat. Die Wahl `felder` setzt den Eintrag aus
 //! beiden Fassungen zusammen: je Feld die Seite, die der Nutzer nennt.
+//!
+//! # Ohne Rückfrage
+//!
+//! Hat jedes verschiedene Feld nur eine Seite geändert, gibt es nichts zu
+//! entscheiden: [`selbst_loesen`] setzt den Eintrag aus beiden Fassungen
+//! zusammen, und der Konflikt bleibt nicht offen. Zur Wahl stehen nur
+//! Einträge, bei denen beide Seiten dasselbe Feld verschieden geändert
+//! haben, eine Seite gelöscht hat oder die Anhänge verschieden sind.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -234,6 +242,30 @@ fn gemischt(o: &Offen, wahl: &HashMap<String, String>) -> Result<Database, Strin
         }
     }
     Ok(misch)
+}
+
+fn anhaenge_von(e: &EntryRef<'_>) -> Vec<(String, Vec<u8>)> {
+    let mut out: Vec<(String, Vec<u8>)> =
+        e.attachments_named().map(|(name, a)| (name.to_string(), a.data.get().clone())).collect();
+    out.sort();
+    out
+}
+
+/// Lässt sich der Konflikt ohne Rückfrage lösen? Ja, wenn es den Eintrag
+/// auf beiden Seiten gibt, die Anhänge gleich sind und jedes verschiedene
+/// Feld nur von einer Seite geändert wurde.
+fn loesbar(o: &Offen) -> bool {
+    let (Some(h), Some(d)) = (eintrag(&o.hier, &o.info.id), eintrag(&o.datei, &o.info.id)) else { return false };
+    !o.info.fields.is_empty()
+        && o.info.fields.iter().all(|f| f.changed != "beide")
+        && anhaenge_von(&h) == anhaenge_von(&d)
+}
+
+/// Löst die offenen Konflikte, die keine Entscheidung brauchen: Jedes Feld
+/// bekommt den Wert der Seite, die es geändert hat. Zurück: wie viele.
+pub fn selbst_loesen(jetzt: &mut Database, offen: &mut Vec<Offen>) -> usize {
+    let ids: Vec<String> = offen.iter().filter(|o| loesbar(o)).map(|o| o.info.id.clone()).collect();
+    ids.iter().filter(|id| entscheiden(jetzt, offen, id, "felder", &HashMap::new()).is_ok()).count()
 }
 
 /// Übernimmt neue Konflikte in die offenen. Einer zu demselben Eintrag
@@ -466,5 +498,34 @@ mod tests {
         // Der zusammengeführte Stand lässt sich danach ohne Abbruch abgleichen.
         let mut wieder = jetzt.clone();
         crate::database::merge(&mut wieder, &datei).unwrap();
+    }
+
+    /// Hier der Benutzername, in der Datei die Adresse: gelöst ohne
+    /// Rückfrage. Ändern beide den Titel, bleibt der Konflikt offen.
+    #[test]
+    fn verschiedene_felder_loesen_sich_selbst() {
+        let mut basis = Database::new();
+        let a = eintrag(&mut basis, "A");
+        let mut datei = basis.clone();
+        setzen_um(&mut datei, &a, "URL", "https://extern", 10);
+        let mut hier = basis.clone();
+        setzen_um(&mut hier, &a, "UserName", "hier", 20);
+
+        let mut jetzt = hier.clone();
+        crate::database::merge(&mut jetzt, &datei).unwrap();
+        let mut offen = Vec::new();
+        merken(&mut offen, finden(&basis, &hier, &datei, &jetzt), hier.clone(), datei.clone());
+        assert_eq!(selbst_loesen(&mut jetzt, &mut offen), 1);
+        assert!(offen.is_empty());
+        assert_eq!(feld(&jetzt, &a, "UserName").as_deref(), Some("hier"));
+        assert_eq!(feld(&jetzt, &a, "URL").as_deref(), Some("https://extern"));
+
+        setzen_um(&mut datei, &a, "Title", "A extern", 10);
+        setzen_um(&mut hier, &a, "Title", "A hier", 20);
+        let mut jetzt = hier.clone();
+        crate::database::merge(&mut jetzt, &datei).unwrap();
+        merken(&mut offen, finden(&basis, &hier, &datei, &jetzt), hier, datei);
+        assert_eq!(selbst_loesen(&mut jetzt, &mut offen), 0);
+        assert_eq!(offen.len(), 1);
     }
 }

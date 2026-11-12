@@ -1144,7 +1144,7 @@ pub fn abgleichen(app: &tauri::AppHandle, state: &Vault) -> Result<bool, String>
             einstellungen_uebernehmen(vault.database_mut()?, &theirs, gesehen.as_ref());
             let vorher = vault.database()?.clone();
             merged = merge(vault.database_mut()?, &theirs)?.0;
-            konflikte = konflikte_merken(&mut vault, basis.as_ref(), vorher, theirs)?;
+            konflikte = konflikte_merken(&mut vault, basis.as_ref(), vorher, theirs)?.0;
         }
     }
 
@@ -1170,19 +1170,25 @@ fn basis_lesen(app: &tauri::AppHandle, ziel: &str, vault: &crate::state::VaultSt
 }
 
 /// Sucht nach dem Zusammenführen die Einträge, die beide Seiten verschieden
-/// geändert haben, und hält sie zur Entscheidung bereit. Zurück: wie viele
-/// jetzt offen sind.
+/// geändert haben. Was sich ohne Rückfrage lösen lässt, wird gleich gelöst
+/// (`konflikt::selbst_loesen`); der Rest bleibt zur Entscheidung offen.
+/// Zurück: wie viele jetzt offen sind (0, wenn keiner dazukam) und ob
+/// dabei Einträge geändert wurden.
 fn konflikte_merken(
     vault: &mut crate::state::VaultState,
     basis: Option<&Database>,
     hier: Database,
     datei: Database,
-) -> Result<usize, String> {
-    let Some(basis) = basis else { return Ok(vault.konflikte.len()) };
+) -> Result<(usize, bool), String> {
+    let Some(basis) = basis else { return Ok((vault.konflikte.len(), false)) };
     let neu = crate::konflikt::finden(basis, &hier, &datei, vault.database()?);
     let gefunden = neu.len();
-    crate::konflikt::merken(&mut vault.konflikte, neu, hier, datei);
-    Ok(if gefunden > 0 { vault.konflikte.len() } else { 0 })
+    let mut offen = std::mem::take(&mut vault.konflikte);
+    crate::konflikt::merken(&mut offen, neu, hier, datei);
+    let geloest = vault.database_mut().map(|db| crate::konflikt::selbst_loesen(db, &mut offen));
+    vault.konflikte = offen;
+    let geloest = geloest?;
+    Ok((if gefunden > geloest { vault.konflikte.len() } else { 0 }, geloest > 0))
 }
 
 /// Die offenen Konflikte — für den Dialog.
@@ -1349,7 +1355,9 @@ fn einmischen(
     einstellungen_uebernehmen(vault.database_mut()?, &theirs, gesehen.as_ref());
     let vorher = vault.database()?.clone();
     let (changed, ours_ahead) = merge(vault.database_mut()?, &theirs)?;
-    let neue_konflikte = konflikte_merken(&mut vault, basis.as_ref(), vorher, theirs.clone())?;
+    let (neue_konflikte, geloest) = konflikte_merken(&mut vault, basis.as_ref(), vorher, theirs.clone())?;
+    // Ein selbst gelöster Konflikt hat Einträge geändert, die der Datei fehlen.
+    let (changed, ours_ahead) = (changed || geloest, ours_ahead || geloest);
     if neue_konflikte > 0 {
         use tauri::Emitter;
         let _ = app.emit("vault-conflicts", neue_konflikte);
@@ -2110,7 +2118,7 @@ mod ablauf {
         assert_eq!(feld(&lesen(&datei), &a, "URL").as_deref(), Some("https://erst"));
 
         // 2. Das Beispiel: extern zwei neue Einträge und A geändert, hier
-        //    einer neu und A anders geändert.
+        //    einer neu und dasselbe Feld von A anders geändert.
         let mut fremd = lesen(&datei);
         neu(&mut fremd, "Extern 1");
         neu(&mut fremd, "Extern 2");
@@ -2121,7 +2129,7 @@ mod ablauf {
             let mut v = state.lock().unwrap();
             let db = v.database_mut().unwrap();
             neu(db, "Hier");
-            setzen(db, &a, "Notes", "hier", 30);
+            setzen(db, &a, "UserName", "hier", 30);
         }
         commit(&h, &h.state::<Vault>()).unwrap();
         warten(&h, |v| !v.ausstehend);
@@ -2149,8 +2157,7 @@ mod ablauf {
         commit(&h, &h.state::<Vault>()).unwrap();
         warten(&h, |v| !v.ausstehend);
         let jetzt = lesen(&datei);
-        assert_eq!(feld(&jetzt, &a, "Notes").as_deref(), Some("hier"));
-        assert_eq!(feld(&jetzt, &a, "UserName").as_deref(), Some(""));
+        assert_eq!(feld(&jetzt, &a, "UserName").as_deref(), Some("hier"));
         assert!(vault_conflicts(h.state::<Vault>()).unwrap().is_empty());
 
         // 4. Sperren, die Datei ändert sich von außen, wieder öffnen: sofort
