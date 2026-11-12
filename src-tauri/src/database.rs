@@ -1192,15 +1192,22 @@ pub fn vault_conflicts(state: tauri::State<'_, Vault>) -> Result<Vec<dto::Confli
     Ok(vault.konflikte.iter().map(|o| o.info.clone()).collect())
 }
 
-/// Entscheidet einen Konflikt: `choice` ist `hier` (die Fassung der App)
-/// oder `extern` (die aus der Datei). Gespeichert wird danach wie bei jeder
+/// Entscheidet einen Konflikt: `choice` ist `hier` (die Fassung der App),
+/// `extern` (die aus der Datei) oder `felder` — dann nennt `fields` je Feld
+/// (`ConflictField::key`) die Seite. Gespeichert wird danach wie bei jeder
 /// Änderung (`vault_commit`).
 #[tauri::command]
-pub fn vault_conflict_resolve(state: tauri::State<'_, Vault>, id: String, choice: String) -> Result<bool, String> {
+pub fn vault_conflict_resolve(
+    state: tauri::State<'_, Vault>,
+    id: String,
+    choice: String,
+    fields: Option<std::collections::HashMap<String, String>>,
+) -> Result<bool, String> {
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
     vault.touch();
     let mut offen = std::mem::take(&mut vault.konflikte);
-    let ergebnis = crate::konflikt::entscheiden(vault.database_mut()?, &mut offen, &id, &choice);
+    let ergebnis =
+        crate::konflikt::entscheiden(vault.database_mut()?, &mut offen, &id, &choice, &fields.unwrap_or_default());
     vault.konflikte = offen;
     ergebnis.map(|_| true)
 }
@@ -1472,16 +1479,23 @@ fn einstellungen_uebernehmen(ours: &mut Database, theirs: &Database, gesehen: Op
 /// `ours.merge(theirs)`, mit einem Ausweg für denselben Zeitpunkt.
 ///
 /// Die Bibliothek entscheidet nach der Änderungszeit auf die Sekunde und
-/// bricht ab, wenn beide Seiten denselben Eintrag in derselben Sekunde
-/// verschieden geändert haben. Dann gilt die Fassung der App (eine Sekunde
-/// jünger gemacht); die Konfliktsuche meldet danach, dass beide Seiten ihn
-/// geändert haben.
+/// bricht ab, wenn beide Seiten denselben Eintrag oder Ordner mit derselben
+/// Änderungszeit, aber verschiedenem Inhalt führen. Dann gilt die Fassung
+/// der App (eine Sekunde jünger gemacht). Bei Einträgen meldet die
+/// Konfliktsuche danach, dass beide Seiten ihn geändert haben. Bei Ordnern
+/// betrifft das Angaben, die andere Programme ohne neue Änderungszeit
+/// schreiben, etwa ob der Ordner aufgeklappt ist.
 ///
 /// Zusammengeführt wird auf einer Kopie, damit ein Abbruch keine
 /// Teiländerungen im Stand der App hinterlässt.
 fn zusammenfuehren(ours: &mut Database, theirs: &Database) -> Result<keepass::db::merge::MergeLog, String> {
     use keepass::db::merge::MergeError;
-    for _ in 0..64 {
+    let juenger = |zeit: Option<chrono::NaiveDateTime>| {
+        Some(zeit.unwrap_or_else(keepass::db::Times::now) + chrono::Duration::seconds(1))
+    };
+    // Jeder Durchlauf räumt einen Eintrag oder Ordner aus dem Weg.
+    let versuche = ours.iter_all_entries().count() + ours.iter_all_groups().count() + 1;
+    for _ in 0..versuche {
         let mut probe = ours.clone();
         match probe.merge(theirs) {
             Ok(log) => {
@@ -1490,8 +1504,11 @@ fn zusammenfuehren(ours: &mut Database, theirs: &Database) -> Result<keepass::db
             }
             Err(MergeError::EntryModificationTimeNotUpdated(id)) => {
                 let mut eintrag = ours.entry_mut(id).ok_or_else(|| merge_error(MergeError::EntryModificationTimeNotUpdated(id)))?;
-                let zeit = eintrag.times.last_modification.unwrap_or_else(keepass::db::Times::now);
-                eintrag.times.last_modification = Some(zeit + chrono::Duration::seconds(1));
+                eintrag.times.last_modification = juenger(eintrag.times.last_modification);
+            }
+            Err(MergeError::GroupModificationTimeNotUpdated(id)) => {
+                let mut ordner = ours.group_mut(id).ok_or_else(|| merge_error(MergeError::GroupModificationTimeNotUpdated(id)))?;
+                ordner.times.last_modification = juenger(ordner.times.last_modification);
             }
             Err(e) => return Err(merge_error(e)),
         }
@@ -2128,7 +2145,7 @@ mod ablauf {
         assert_eq!(herkunft("A").as_deref(), Some("extern"));
 
         // 3. Konflikt entscheiden: meine Fassung von A.
-        vault_conflict_resolve(h.state::<Vault>(), a.clone(), "hier".into()).unwrap();
+        vault_conflict_resolve(h.state::<Vault>(), a.clone(), "hier".into(), None).unwrap();
         commit(&h, &h.state::<Vault>()).unwrap();
         warten(&h, |v| !v.ausstehend);
         let jetzt = lesen(&datei);

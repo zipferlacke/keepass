@@ -326,7 +326,7 @@ pub fn lesen(app: &tauri::AppHandle, pfad: &str, id: &str) -> Result<Vec<u8>, St
 
 /// Verglichene Felder: Name für die Oberfläche, Schlüssel im Eintrag. Das
 /// Passwort gehört nicht dazu.
-const FELDER: [(&str, &str); 4] = [
+pub(crate) const FELDER: [(&str, &str); 4] = [
     ("Titel", "Title"),
     ("Benutzername", "UserName"),
     ("Adresse", "URL"),

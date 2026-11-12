@@ -303,6 +303,29 @@ pub struct Conflict {
     pub file: Vec<VersionField>,
     /// Welche Fassung gerade gilt: `hier` oder `extern`.
     pub winner: String,
+    /// Worin sich die beiden Fassungen unterscheiden, zur Wahl je Feld. Leer,
+    /// wenn eine Seite den Eintrag gelöscht hat oder nur die Anhänge
+    /// verschieden sind.
+    pub fields: Vec<ConflictField>,
+}
+
+/// Ein Feld, das in den beiden Fassungen verschieden ist. Bei Geheimnissen
+/// bleiben die Werte leer.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictField {
+    /// Kennung für die Wahl: `feld:<Schlüssel>`, `ordner` oder `tags`.
+    pub key: String,
+    pub name: String,
+    pub secret: bool,
+    pub here: Option<String>,
+    pub file: Option<String>,
+    /// Wer das Feld seit dem gemeinsamen Stand geändert hat: `hier`,
+    /// `extern` oder `beide`.
+    pub changed: String,
+    /// Vorschlag: die Seite, die das Feld geändert hat; haben es beide
+    /// geändert, die gerade geltende Fassung.
+    pub pick: String,
 }
 
 /// Ein einzelnes geändertes Feld. Bei Geheimnissen bleiben die Werte leer —

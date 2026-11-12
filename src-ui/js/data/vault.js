@@ -189,8 +189,11 @@ export async function versionRestore(id, entries = null) {
 
 export const conflicts = () => invoke('vault_conflicts');
 
-/** `choice`: `hier` (Fassung der App) oder `extern` (aus der Datei). */
-export const resolveConflict = (id, choice) => mutate('vault_conflict_resolve', { id, choice });
+/**
+ * `choice`: `hier` (Fassung der App), `extern` (aus der Datei) oder `felder`
+ * — dann nennt `fields` je Feld (`key` aus dem Konflikt) `hier` oder `extern`.
+ */
+export const resolveConflict = (id, choice, fields = null) => mutate('vault_conflict_resolve', { id, choice, fields });
 
 /** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
 export const security = () => invoke('vault_security');

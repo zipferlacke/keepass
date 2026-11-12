@@ -469,19 +469,26 @@
       },
       "wahl": {
         "behalten": "Garder la mienne",
-        "nehmen": "Prendre celle du fichier"
+        "nehmen": "Prendre celle du fichier",
+        "auswahl": "Appliquer la sélection"
       },
       "titel": {
         "eins": "Une entrée a été modifiée des deux côtés",
         "mehrere": "{n} entrées ont été modifiées des deux côtés"
       },
-      "hinweis": "Depuis la dernière synchronisation, ces entrées ont été modifiées différemment ici et dans le fichier. Quelle version doit s’appliquer ? Tant que vous n’avez pas décidé, la plus récente s’applique.",
+      "hinweis": "Depuis la dernière synchronisation, ces entrées ont été modifiées différemment ici et dans le fichier. Choisissez pour chaque champ la valeur à conserver, ou prenez une version en entier. Tant que vous n’avez pas décidé, la plus récente s’applique.",
       "spaeter": "Plus tard",
       "entschieden": {
         "hier": "Décidé : votre version.",
-        "datei": "Décidé : la version du fichier."
+        "datei": "Décidé : la version du fichier.",
+        "felder": "Décidé : votre sélection champ par champ."
       },
-      "fehler": "Non appliqué : {fehler}"
+      "fehler": "Non appliqué : {fehler}",
+      "feld": {
+        "hier": "Ici",
+        "datei": "Dans le fichier",
+        "geaendert": "modifié"
+      }
     },
     "versionen": {
       "herkunft": {

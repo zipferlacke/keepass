@@ -469,19 +469,26 @@
       },
       "wahl": {
         "behalten": "Behold min",
-        "nehmen": "Brug filens"
+        "nehmen": "Brug filens",
+        "auswahl": "Anvend valg"
       },
       "titel": {
         "eins": "En post er ændret begge steder",
         "mehrere": "{n} poster er ændret begge steder"
       },
-      "hinweis": "Siden sidste synkronisering er disse poster ændret forskelligt her og i filen. Hvilken version skal gælde? Indtil du vælger, gælder den nyeste.",
+      "hinweis": "Siden sidste synkronisering er disse poster ændret forskelligt her og i filen. Vælg for hvert felt, hvilken værdi der skal gælde, eller brug én version helt. Indtil du vælger, gælder den nyeste.",
       "spaeter": "Senere",
       "entschieden": {
         "hier": "Valgt: din version.",
-        "datei": "Valgt: versionen fra filen."
+        "datei": "Valgt: versionen fra filen.",
+        "felder": "Valgt: dit valg pr. felt."
       },
-      "fehler": "Ikke overtaget: {fehler}"
+      "fehler": "Ikke overtaget: {fehler}",
+      "feld": {
+        "hier": "Her",
+        "datei": "I filen",
+        "geaendert": "ændret"
+      }
     },
     "versionen": {
       "herkunft": {

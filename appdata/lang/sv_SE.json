@@ -469,19 +469,26 @@
       },
       "wahl": {
         "behalten": "Behåll min",
-        "nehmen": "Ta från filen"
+        "nehmen": "Ta från filen",
+        "auswahl": "Använd urvalet"
       },
       "titel": {
         "eins": "En post har ändrats på båda sidor",
         "mehrere": "{n} poster har ändrats på båda sidor"
       },
-      "hinweis": "Sedan senaste synkroniseringen har de här posterna ändrats olika här och i filen. Vilken version ska gälla? Tills du bestämmer dig gäller den nyare.",
+      "hinweis": "Sedan den senaste synkroniseringen har dessa poster ändrats olika här och i filen. Välj för varje fält vilket värde som ska gälla, eller ta en version helt. Tills du bestämmer dig gäller den nyaste.",
       "spaeter": "Senare",
       "entschieden": {
         "hier": "Avgjort: din version.",
-        "datei": "Avgjort: versionen från filen."
+        "datei": "Avgjort: versionen från filen.",
+        "felder": "Avgjort: ditt val per fält."
       },
-      "fehler": "Inte tillämpat: {fehler}"
+      "fehler": "Inte tillämpat: {fehler}",
+      "feld": {
+        "hier": "Här",
+        "datei": "I filen",
+        "geaendert": "ändrad"
+      }
     },
     "versionen": {
       "herkunft": {

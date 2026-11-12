@@ -469,19 +469,26 @@
       },
       "wahl": {
         "behalten": "Behold min",
-        "nehmen": "Bruk den fra filen"
+        "nehmen": "Bruk den fra filen",
+        "auswahl": "Bruk utvalget"
       },
       "titel": {
         "eins": "En oppføring er endret på begge sider",
         "mehrere": "{n} oppføringer er endret på begge sider"
       },
-      "hinweis": "Siden forrige synkronisering er disse oppføringene endret ulikt her og i filen. Hvilken versjon skal gjelde? Frem til du bestemmer deg, gjelder den nyeste.",
+      "hinweis": "Siden forrige synkronisering er disse oppføringene endret forskjellig her og i filen. Velg for hvert felt hvilken verdi som skal gjelde, eller bruk én versjon helt. Inntil du bestemmer deg, gjelder den nyeste.",
       "spaeter": "Senere",
       "entschieden": {
         "hier": "Avgjort: din versjon.",
-        "datei": "Avgjort: versjonen fra filen."
+        "datei": "Avgjort: versjonen fra filen.",
+        "felder": "Avgjort: ditt valg per felt."
       },
-      "fehler": "Ikke tatt med: {fehler}"
+      "fehler": "Ikke tatt med: {fehler}",
+      "feld": {
+        "hier": "Her",
+        "datei": "I filen",
+        "geaendert": "endret"
+      }
     },
     "versionen": {
       "herkunft": {

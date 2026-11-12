@@ -469,19 +469,26 @@
       },
       "wahl": {
         "behalten": "Keep mine",
-        "nehmen": "Take from file"
+        "nehmen": "Take from file",
+        "auswahl": "Apply selection"
       },
       "titel": {
         "eins": "An entry was changed on both sides",
         "mehrere": "{n} entries were changed on both sides"
       },
-      "hinweis": "Since the last sync, these entries were changed differently here and in the file. Which version should apply? Until you decide, the newer one applies.",
+      "hinweis": "Since the last sync, these entries were changed differently here and in the file. Choose for each field which value should apply, or take one version as a whole. Until you decide, the newer one applies.",
       "spaeter": "Later",
       "entschieden": {
         "hier": "Decided: your version.",
-        "datei": "Decided: the version from the file."
+        "datei": "Decided: the version from the file.",
+        "felder": "Decided: your selection per field."
       },
-      "fehler": "Not applied: {fehler}"
+      "fehler": "Not applied: {fehler}",
+      "feld": {
+        "hier": "Here",
+        "datei": "In the file",
+        "geaendert": "changed"
+      }
     },
     "versionen": {
       "herkunft": {

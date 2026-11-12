@@ -469,19 +469,26 @@
       },
       "wahl": {
         "behalten": "Meine behalten",
-        "nehmen": "Aus der Datei nehmen"
+        "nehmen": "Aus der Datei nehmen",
+        "auswahl": "Auswahl übernehmen"
       },
       "titel": {
         "eins": "Ein Eintrag wurde auf beiden Seiten geändert",
         "mehrere": "{n} Einträge wurden auf beiden Seiten geändert"
       },
-      "hinweis": "Seit dem letzten Abgleich wurden diese Einträge hier und in der Datei verschieden geändert. Welche Fassung soll gelten? Bis du entscheidest, gilt die jüngere.",
+      "hinweis": "Seit dem letzten Abgleich wurden diese Einträge hier und in der Datei verschieden geändert. Wähle je Feld, welcher Wert gelten soll, oder nimm eine Fassung ganz. Bis du entscheidest, gilt die jüngere.",
       "spaeter": "Später",
       "entschieden": {
         "hier": "Entschieden: deine Fassung.",
-        "datei": "Entschieden: die Fassung aus der Datei."
+        "datei": "Entschieden: die Fassung aus der Datei.",
+        "felder": "Entschieden: deine Auswahl je Feld."
       },
-      "fehler": "Nicht übernommen: {fehler}"
+      "fehler": "Nicht übernommen: {fehler}",
+      "feld": {
+        "hier": "Hier",
+        "datei": "In der Datei",
+        "geaendert": "geändert"
+      }
     },
     "versionen": {
       "herkunft": {
