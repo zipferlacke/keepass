@@ -14,6 +14,7 @@
                 "Konflikte: Die App fragt nur noch, wenn es wirklich etwas zu entscheiden gibt. Wurde hier ein Feld geändert und auf einem anderen Gerät ein anderes, führt sie beides von selbst zusammen",
                 "Konflikte: Im Dialog wählst du je Feld, welcher Wert gelten soll – beide Werte stehen nebeneinander, Passwörter und Einmalcodes lassen sich zum Vergleichen aufdecken",
                 "Konflikte: Auch Anhänge stehen je Datei zur Wahl, ebenso Ordner, die auf zwei Geräten verschieden umbenannt wurden",
+                "Ordner: Löscht ein Gerät einen Ordner endgültig und ein anderes legt danach darin etwas an oder ändert etwas, bleibt der Ordner mit allen Einträgen erhalten",
                 "Fix: Der Abgleich blieb mit „lässt sich nicht mit diesem Stand zusammenführen“ hängen, wenn ein Ordner auf zwei Geräten verschieden gespeichert war – er läuft jetzt durch"
             ]
         },

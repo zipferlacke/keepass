@@ -38,6 +38,10 @@
 //! Einträge, bei denen beide Seiten dasselbe Feld oder denselben Anhang
 //! verschieden geändert haben oder eine Seite gelöscht hat.
 //!
+//! Hat eine Seite einen Eintrag mitsamt seinem Ordner gelöscht und die
+//! andere danach in diesem Ordner weitergearbeitet, bleibt der Ordner mit
+//! allem Inhalt (`database::ordner_wiederbeleben`); das ist kein Konflikt.
+//!
 //! # Ordner
 //!
 //! Für Ordner gilt dasselbe mit Name und Notizen ([`finden_ordner`]).
@@ -92,6 +96,18 @@ pub fn finden(basis: &Database, hier: &Database, datei: &Database, ergebnis: &Da
             continue;
         }
         if eigen.kind == "geloescht" && aus_datei.kind == "geloescht" {
+            continue;
+        }
+        // Gelöscht mit seinem ganzen Ordner, und der Ordner ist nach dem
+        // Zusammenführen wieder da (`database::ordner_wiederbeleben`): Der
+        // Eintrag bleibt, wie die andere Seite ihn hat.
+        let mit_ordner_geloescht = |weg: &Database, da: &Database| {
+            eintrag(da, &eigen.id).is_some_and(|e| weg.group(e.parent().id()).is_none())
+                && eintrag(ergebnis, &eigen.id).is_some()
+        };
+        if (eigen.kind == "geloescht" && mit_ordner_geloescht(hier, datei))
+            || (aus_datei.kind == "geloescht" && mit_ordner_geloescht(datei, hier))
+        {
             continue;
         }
         // Beide Seiten haben dasselbe daraus gemacht.
@@ -830,5 +846,63 @@ mod tests {
         merken(&mut offen, finden(&basis, &hier, &datei, &jetzt), hier, datei);
         assert_eq!(aufdecken(&offen, &a, "feld:Password", "hier").unwrap(), "hier-geheim");
         assert_eq!(aufdecken(&offen, &a, "feld:Password", "extern").unwrap(), "extern-geheim");
+    }
+
+    /// Eine Seite löscht einen Ordner endgültig, die andere legt danach
+    /// einen Eintrag darin an und ändert einen: Der Ordner bleibt mit allen
+    /// Einträgen und den Änderungen, ohne Konflikt — gleich, welche Seite
+    /// die App ist. Ohne spätere Arbeit darin bleibt er gelöscht.
+    #[test]
+    fn geloeschter_ordner_bleibt_wenn_danach_darin_gearbeitet_wurde() {
+        let mut basis = Database::new();
+        let g = ensure_group(&mut basis, "Bank");
+        let in_bank = |db: &mut Database, titel: &str| {
+            let mut gruppe = db.group_mut(g).unwrap();
+            let mut e = gruppe.add_entry();
+            e.set_unprotected("Title", titel);
+            e.id().uuid().to_string()
+        };
+        let a = in_bank(&mut basis, "A");
+        let b = in_bank(&mut basis, "B");
+        let alt = keepass::db::Times::now() - chrono::Duration::seconds(100);
+        for id in basis.iter_all_entries().map(|e| e.id()).collect::<Vec<_>>() {
+            basis.entry_mut(id).unwrap().times.last_modification = Some(alt);
+            basis.entry_mut(id).unwrap().times.creation = Some(alt);
+        }
+        basis.group_mut(g).unwrap().times.last_modification = Some(alt);
+        basis.group_mut(g).unwrap().times.creation = Some(alt);
+
+        let mut loescher = basis.clone();
+        loescher.group_mut(g).unwrap().track_changes().remove().unwrap();
+        let titel = |db: &Database| {
+            let mut t: Vec<String> = db.iter_all_entries().map(|e| e.get_title().unwrap_or_default().to_string()).collect();
+            t.sort();
+            t
+        };
+
+        // Niemand arbeitet danach im Ordner: Er bleibt gelöscht.
+        let mut jetzt = basis.clone();
+        crate::database::merge(&mut jetzt, &loescher).unwrap();
+        assert!(titel(&jetzt).is_empty());
+
+        let mut arbeiter = basis.clone();
+        in_bank(&mut arbeiter, "Neu");
+        setzen_um(&mut arbeiter, &a, "URL", "https://danach", 10);
+
+        for app_loescht in [true, false] {
+            let (hier, datei) = if app_loescht { (&loescher, &arbeiter) } else { (&arbeiter, &loescher) };
+            let mut jetzt = hier.clone();
+            let (_, hier_voraus) = crate::database::merge(&mut jetzt, datei).unwrap();
+            assert_eq!(titel(&jetzt), vec!["A", "B", "Neu"], "App löscht: {app_loescht}");
+            assert_eq!(feld(&jetzt, &a, "URL").as_deref(), Some("https://danach"));
+            assert!(feld(&jetzt, &b, "Title").is_some());
+            assert!(finden(&basis, hier, datei, &jetzt).is_empty(), "kein Konflikt");
+            assert!(hier_voraus || app_loescht, "die Datei des Löschers wird neu geschrieben");
+
+            // Ein drittes Gerät mit den alten Löschvermerken löscht nichts mehr.
+            let mut drittes = loescher.clone();
+            crate::database::merge(&mut drittes, &jetzt).unwrap();
+            assert_eq!(titel(&drittes), vec!["A", "B", "Neu"]);
+        }
     }
 }

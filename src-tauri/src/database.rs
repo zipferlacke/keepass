@@ -1403,9 +1403,18 @@ fn unveraendert_laut_datum(ziel: &str, modified: Option<i64>, seen: Option<i64>)
 /// landet im Verlauf; Löschvermerke werden beachtet. Das ist derselbe
 /// Abgleich, den KeePassXC beim Zusammenführen macht.
 ///
+/// Vorher holt [`ordner_wiederbeleben`] Ordner zurück, die eine Seite
+/// endgültig gelöscht hat, während die andere danach darin weitergearbeitet
+/// hat.
+///
 /// Zurück kommt, ob sich `ours` geändert hat, ob also `theirs` etwas von
 /// `ours` nicht enthält.
 pub(crate) fn merge(ours: &mut Database, theirs: &Database) -> Result<(bool, bool), String> {
+    let mut theirs = theirs.clone();
+    ordner_wiederbeleben(ours, &mut theirs);
+    ordner_wiederbeleben(&mut theirs, ours);
+    let theirs = &theirs;
+
     // Erst die Zusatzangaben, dann die Einträge: Die Bibliothek führt
     // `meta.custom_data` nicht mit, darin steht unter anderem die
     // Verknüpfung mit dem Browser.
@@ -1419,6 +1428,60 @@ pub(crate) fn merge(ours: &mut Database, theirs: &Database) -> Result<(bool, boo
     let back = zusammenfuehren(&mut probe, ours)?;
 
     Ok((!log.events.is_empty() || custom, !back.events.is_empty() || custom_back))
+}
+
+/// Ein Ordner, den `geloescht` endgültig gelöscht hat und in dem `andere`
+/// nach dem Löschen etwas angelegt oder geändert hat (Ordner, Unterordner
+/// oder Eintrag darin), bleibt vollständig erhalten: Die Löschvermerke des
+/// Ordners und seines ganzen Inhalts entfallen, und der Inhalt bekommt in
+/// `andere` die jetzige Änderungszeit, mindestens eine Sekunde nach dem
+/// Löschen. Damit ist er jünger als die Löschvermerke, die weitere Geräte
+/// noch führen.
+fn ordner_wiederbeleben(geloescht: &mut Database, andere: &mut Database) {
+    use keepass::db::{EntryId, GroupId};
+
+    fn inhalt(db: &Database, wurzel: GroupId, ordner: &mut Vec<GroupId>, eintraege: &mut Vec<EntryId>) {
+        let Some(g) = db.group(wurzel) else { return };
+        ordner.push(wurzel);
+        eintraege.extend(g.entries().map(|e| e.id()));
+        for kind in g.groups().map(|k| k.id()).collect::<Vec<_>>() {
+            inhalt(db, kind, ordner, eintraege);
+        }
+    }
+
+    let kandidaten: Vec<(GroupId, Option<chrono::NaiveDateTime>)> = andere
+        .iter_all_groups()
+        .filter(|g| geloescht.group(g.id()).is_none())
+        .filter_map(|g| geloescht.deleted_objects.get(&g.id().uuid()).map(|zeit| (g.id(), *zeit)))
+        .collect();
+
+    let jetzt = keepass::db::Times::now();
+    for (wurzel, zeit) in kandidaten {
+        let (mut ordner, mut eintraege) = (Vec::new(), Vec::new());
+        inhalt(andere, wurzel, &mut ordner, &mut eintraege);
+
+        // Ohne Löschzeit gilt das Löschen als älter.
+        let danach = |t: &keepass::db::Times| zeit.is_none_or(|z| t.last_modification.max(t.creation).is_some_and(|m| m > z));
+        let weitergearbeitet = ordner.iter().any(|id| andere.group(*id).is_some_and(|g| danach(&g.times)))
+            || eintraege.iter().any(|id| andere.entry(*id).is_some_and(|e| danach(&e.times)));
+        if !weitergearbeitet {
+            continue;
+        }
+
+        let neu = Some(zeit.map_or(jetzt, |z| jetzt.max(z + chrono::Duration::seconds(1))));
+        for id in &ordner {
+            geloescht.deleted_objects.remove(&id.uuid());
+            if let Some(mut g) = andere.group_mut(*id) {
+                g.times.last_modification = g.times.last_modification.max(neu);
+            }
+        }
+        for id in &eintraege {
+            geloescht.deleted_objects.remove(&id.uuid());
+            if let Some(mut e) = andere.entry_mut(*id) {
+                e.times.last_modification = e.times.last_modification.max(neu);
+            }
+        }
+    }
 }
 
 /// Führt `meta.custom_data` von `quelle` nach `ziel`: Es gilt der jüngere
