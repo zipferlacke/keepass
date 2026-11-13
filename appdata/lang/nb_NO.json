@@ -473,10 +473,10 @@
         "auswahl": "Bruk utvalget"
       },
       "titel": {
-        "eins": "En oppføring er endret på begge sider",
-        "mehrere": "{n} oppføringer er endret på begge sider"
+        "eins": "Én konflikt trenger din avgjørelse",
+        "mehrere": "{n} konflikter trenger din avgjørelse"
       },
-      "hinweis": "Siden forrige synkronisering er disse oppføringene endret forskjellig her og i filen. Velg for hvert felt hvilken verdi som skal gjelde, eller bruk én versjon helt. Inntil du bestemmer deg, gjelder den nyeste.",
+      "hinweis": "Disse oppføringene eller mappene er endret forskjellig på samme sted her og i filen. Velg for hvert felt hvilken verdi som skal gjelde, eller bruk én versjon helt. Inntil du bestemmer deg, gjelder den nyeste.",
       "spaeter": "Senere",
       "entschieden": {
         "hier": "Avgjort: din versjon.",
@@ -487,7 +487,8 @@
       "feld": {
         "hier": "Her",
         "datei": "I filen",
-        "geaendert": "endret"
+        "geaendert": "endret",
+        "zeigen": "Vis verdi"
       }
     },
     "versionen": {

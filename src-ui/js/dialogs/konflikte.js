@@ -7,8 +7,10 @@
  * Änderungen hier und in der Datei sowie die gerade geltende Fassung. Gibt
  * es den Eintrag auf beiden Seiten noch, steht darunter jedes Feld, in dem
  * sich die Fassungen unterscheiden, mit beiden Werten zur Wahl; vorgewählt
- * ist die Seite, die das Feld geändert hat. Die Konflikte selbst führt der
- * Kern (konflikt.rs); was er ohne Rückfrage lösen kann, kommt hier nicht an.
+ * ist die Seite, die das Feld geändert hat. Geheimnisse stehen verdeckt da
+ * und lassen sich je Seite aufdecken. Ordner erscheinen wie Einträge, mit
+ * Name und Notizen. Die Konflikte selbst führt der Kern (konflikt.rs); was
+ * er ohne Rückfrage lösen kann, kommt hier nicht an.
  */
 
 import * as vault from '../data/vault.js';
@@ -29,10 +31,12 @@ function seite(titel, art, felder) {
   return `<div class="konflikt-seite"><strong>${titel}</strong><ul>${zeilen || `<li>${art === 'geaendert' ? t('dialoge.konflikte.art.geaendert') : art === 'geloescht' ? t('dialoge.konflikte.art.geloescht') : art}</li>`}</ul></div>`;
 }
 
-/** Ein Wert zur Wahl. Geheimnisse ohne Wert, nur mit dem Hinweis, ob diese Seite sie geändert hat. */
+const VERDECKT = '••••••';
+
+/** Ein Wert zur Wahl. Geheimnisse verdeckt, mit einem Knopf zum Aufdecken. */
 function wert(k, i, f, seite) {
   const geaendert = f.changed === 'beide' || f.changed === seite;
-  const text = f.secret ? '••••••' : (seite === 'hier' ? f.here : f.file);
+  const text = f.secret ? VERDECKT : (seite === 'hier' ? f.here : f.file);
   return `
     <label class="konflikt-wert">
       <input type="radio" name="k-${esc(k.id)}-${i}" value="${seite}" ${f.pick === seite ? 'checked' : ''}>
@@ -40,6 +44,7 @@ function wert(k, i, f, seite) {
         <small>${seite === 'hier' ? t('dialoge.konflikte.feld.hier') : t('dialoge.konflikte.feld.datei')}${geaendert ? ` · ${t('dialoge.konflikte.feld.geaendert')}` : ''}</small>
         <span class="konflikt-text">${esc(text || '—')}</span>
       </span>
+      ${f.secret ? `<button type="button" class="konflikt-auge" data-zeigen="${seite}" title="${esc(t('dialoge.konflikte.feld.zeigen'))}" aria-label="${esc(t('dialoge.konflikte.feld.zeigen'))}"><span class="msr">visibility</span></button>` : ''}
     </label>`;
 }
 
@@ -63,14 +68,15 @@ function karte(k) {
   return `
     <div class="konflikt" data-konflikt="${esc(k.id)}">
       <div class="konflikt-kopf">
-        <span class="msr">call_split</span>
+        <span class="msr">${k.kind === 'ordner' ? 'folder' : 'call_split'}</span>
         <strong>${esc(k.name || t('dialoge.konflikte.ohneTitel'))}</strong>
         ${k.folder ? `<small>${esc(k.folder)}</small>` : ''}
       </div>
+      ${k.kind === 'ordner' ? '' : `
       <div class="konflikt-seiten">
         ${seite(t('dialoge.konflikte.seite.hier'), k.hereKind, k.here)}
         ${seite(t('dialoge.konflikte.seite.datei'), k.fileKind, k.file)}
-      </div>
+      </div>`}
       ${felder(k)}
       <small class="konflikt-gilt">${gilt}</small>
       <div class="konflikt-wahl">
@@ -79,6 +85,27 @@ function karte(k) {
         <button type="button" class="button ${!jeFeld && k.winner === 'extern' ? 'hightlight' : ''}" data-wahl="extern">${t('dialoge.konflikte.wahl.nehmen')}</button>
       </div>
     </div>`;
+}
+
+/** Deckt den Wert einer Seite auf; ein zweiter Klick verdeckt ihn wieder. */
+async function zeigen(btn) {
+  const text = btn.closest('.konflikt-wert').querySelector('.konflikt-text');
+  const symbol = btn.querySelector('.msr');
+  if (btn.dataset.offen) {
+    text.textContent = VERDECKT;
+    symbol.textContent = 'visibility';
+    delete btn.dataset.offen;
+    return;
+  }
+  try {
+    const wert = await vault.revealConflict(
+      btn.closest('[data-konflikt]').dataset.konflikt, btn.closest('[data-feld]').dataset.feld, btn.dataset.zeigen);
+    text.textContent = wert || '—';
+    symbol.textContent = 'visibility_off';
+    btn.dataset.offen = '1';
+  } catch (err) {
+    banner(t('dialoge.konflikte.fehler', { fehler: err.message }), 'error', 6000);
+  }
 }
 
 /** Die im Dialog gewählte Seite je Feld. */
@@ -114,6 +141,10 @@ export async function openKonflikte() {
       cancelText: t('dialoge.konflikte.spaeter'),
       onInsert: id => {
         const host = document.getElementById(String(id));
+        host?.querySelectorAll('[data-zeigen]').forEach(btn => btn.addEventListener('click', e => {
+          e.preventDefault();
+          zeigen(btn);
+        }));
         host?.querySelectorAll('[data-wahl]').forEach(btn => btn.addEventListener('click', async () => {
           const box = btn.closest('[data-konflikt]');
           const wahl = btn.dataset.wahl;

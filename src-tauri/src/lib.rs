@@ -296,6 +296,7 @@ pub fn run() {
             database::vault_version_restore,
             database::vault_conflicts,
             database::vault_conflict_resolve,
+            database::vault_conflict_reveal,
             database::vault_security,
             database::vault_set_security,
             database::vault_lock,

@@ -195,6 +195,9 @@ export const conflicts = () => invoke('vault_conflicts');
  */
 export const resolveConflict = (id, choice, fields = null) => mutate('vault_conflict_resolve', { id, choice, fields });
 
+/** Klartext eines Feldes in einer der beiden Fassungen: `side` ist `hier` oder `extern`. */
+export const revealConflict = (id, key, side) => invoke('vault_conflict_reveal', { id, key, side });
+
 /** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
 export const security = () => invoke('vault_security');
 

@@ -293,6 +293,8 @@ pub struct VersionChange {
 #[serde(rename_all = "camelCase")]
 pub struct Conflict {
     pub id: String,
+    /// `eintrag` oder `ordner`.
+    pub kind: String,
     pub name: String,
     pub folder: String,
     /// Was die App geändert hat (`geaendert` oder `geloescht`).
@@ -304,8 +306,7 @@ pub struct Conflict {
     /// Welche Fassung gerade gilt: `hier` oder `extern`.
     pub winner: String,
     /// Worin sich die beiden Fassungen unterscheiden, zur Wahl je Feld. Leer,
-    /// wenn eine Seite den Eintrag gelöscht hat oder nur die Anhänge
-    /// verschieden sind.
+    /// wenn eine Seite den Eintrag gelöscht hat.
     pub fields: Vec<ConflictField>,
 }
 
@@ -314,7 +315,8 @@ pub struct Conflict {
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictField {
-    /// Kennung für die Wahl: `feld:<Schlüssel>`, `ordner` oder `tags`.
+    /// Kennung für die Wahl: `feld:<Schlüssel>`, `anhang:<Name>`, `ordner`
+    /// oder `tags`.
     pub key: String,
     pub name: String,
     pub secret: bool,

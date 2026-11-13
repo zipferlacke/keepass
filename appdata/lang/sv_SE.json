@@ -473,10 +473,10 @@
         "auswahl": "Använd urvalet"
       },
       "titel": {
-        "eins": "En post har ändrats på båda sidor",
-        "mehrere": "{n} poster har ändrats på båda sidor"
+        "eins": "En konflikt behöver ditt beslut",
+        "mehrere": "{n} konflikter behöver ditt beslut"
       },
-      "hinweis": "Sedan den senaste synkroniseringen har dessa poster ändrats olika här och i filen. Välj för varje fält vilket värde som ska gälla, eller ta en version helt. Tills du bestämmer dig gäller den nyaste.",
+      "hinweis": "De här posterna eller mapparna har ändrats olika på samma ställe här och i filen. Välj för varje fält vilket värde som ska gälla, eller ta en version helt. Tills du bestämmer dig gäller den nyaste.",
       "spaeter": "Senare",
       "entschieden": {
         "hier": "Avgjort: din version.",
@@ -487,7 +487,8 @@
       "feld": {
         "hier": "Här",
         "datei": "I filen",
-        "geaendert": "ändrad"
+        "geaendert": "ändrad",
+        "zeigen": "Visa värde"
       }
     },
     "versionen": {

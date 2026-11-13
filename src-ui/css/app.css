@@ -3308,9 +3308,20 @@
 
     &:has(input:checked) { border-color: var(--clr-primary-600); }
     input { margin-top: 0.2rem; flex: none; }
-    > span { display: flex; flex-direction: column; min-width: 0; }
+    > span { display: flex; flex-direction: column; min-width: 0; flex: 1; }
     small { color: var(--text-hover); font-size: var(--fs-100); }
     .konflikt-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+  }
+
+  .konflikt-auge {
+    flex: none;
+    padding: 0.15rem;
+    border: 0;
+    background: none;
+    color: var(--text-hover);
+    cursor: pointer;
+
+    .msr { font-size: 1.2em; }
   }
 
   .konflikt-gilt { display: block; color: var(--text-hover); font-size: var(--fs-100); }

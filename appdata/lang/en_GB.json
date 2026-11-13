@@ -473,10 +473,10 @@
         "auswahl": "Apply selection"
       },
       "titel": {
-        "eins": "An entry was changed on both sides",
-        "mehrere": "{n} entries were changed on both sides"
+        "eins": "One conflict needs your decision",
+        "mehrere": "{n} conflicts need your decision"
       },
-      "hinweis": "Since the last sync, these entries were changed differently here and in the file. Choose for each field which value should apply, or take one version as a whole. Until you decide, the newer one applies.",
+      "hinweis": "These entries or folders were changed differently in the same place here and in the file. Choose for each field which value should apply, or take one version as a whole. Until you decide, the newer one applies.",
       "spaeter": "Later",
       "entschieden": {
         "hier": "Decided: your version.",
@@ -487,7 +487,8 @@
       "feld": {
         "hier": "Here",
         "datei": "In the file",
-        "geaendert": "changed"
+        "geaendert": "changed",
+        "zeigen": "Show value"
       }
     },
     "versionen": {

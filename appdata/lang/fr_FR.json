@@ -473,10 +473,10 @@
         "auswahl": "Appliquer la sélection"
       },
       "titel": {
-        "eins": "Une entrée a été modifiée des deux côtés",
-        "mehrere": "{n} entrées ont été modifiées des deux côtés"
+        "eins": "Un conflit attend votre décision",
+        "mehrere": "{n} conflits attendent votre décision"
       },
-      "hinweis": "Depuis la dernière synchronisation, ces entrées ont été modifiées différemment ici et dans le fichier. Choisissez pour chaque champ la valeur à conserver, ou prenez une version en entier. Tant que vous n’avez pas décidé, la plus récente s’applique.",
+      "hinweis": "Ces entrées ou dossiers ont été modifiés différemment au même endroit ici et dans le fichier. Choisissez pour chaque champ la valeur à conserver, ou prenez une version en entier. Tant que vous n’avez pas décidé, la plus récente s’applique.",
       "spaeter": "Plus tard",
       "entschieden": {
         "hier": "Décidé : votre version.",
@@ -487,7 +487,8 @@
       "feld": {
         "hier": "Ici",
         "datei": "Dans le fichier",
-        "geaendert": "modifié"
+        "geaendert": "modifié",
+        "zeigen": "Afficher la valeur"
       }
     },
     "versionen": {

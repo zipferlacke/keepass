@@ -1218,6 +1218,16 @@ pub fn vault_conflict_resolve(
     ergebnis.map(|_| true)
 }
 
+/// Der Klartext eines Feldes in einer der beiden Fassungen eines offenen
+/// Konflikts: `side` ist `hier` oder `extern`. Auf ausdrückliche
+/// Anforderung im Konfliktdialog, wie `vault_reveal_secret`.
+#[tauri::command]
+pub fn vault_conflict_reveal(state: tauri::State<'_, Vault>, id: String, key: String, side: String) -> Result<String, String> {
+    let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
+    vault.touch();
+    crate::konflikt::aufdecken(&vault.konflikte, &id, &key, &side)
+}
+
 /// Holt Änderungen, die ein anderes Gerät in die Datei geschrieben hat.
 ///
 /// Die Oberfläche ruft das, wenn die App wieder in den Vordergrund kommt,
@@ -1488,11 +1498,11 @@ fn einstellungen_uebernehmen(ours: &mut Database, theirs: &Database, gesehen: Op
 ///
 /// Die Bibliothek entscheidet nach der Änderungszeit auf die Sekunde und
 /// bricht ab, wenn beide Seiten denselben Eintrag oder Ordner mit derselben
-/// Änderungszeit, aber verschiedenem Inhalt führen. Dann gilt die Fassung
-/// der App (eine Sekunde jünger gemacht). Bei Einträgen meldet die
-/// Konfliktsuche danach, dass beide Seiten ihn geändert haben. Bei Ordnern
-/// betrifft das Angaben, die andere Programme ohne neue Änderungszeit
-/// schreiben, etwa ob der Ordner aufgeklappt ist.
+/// Änderungszeit, aber verschiedenem Inhalt führen. Dann gilt zunächst die
+/// Fassung der App (eine Sekunde jünger gemacht); die Konfliktsuche meldet
+/// danach, was beide Seiten geändert haben. Bei Ordnern sind das Name und
+/// Notizen; Angaben, die andere Programme ohne neue Änderungszeit
+/// schreiben, etwa ob der Ordner aufgeklappt ist, bleiben die der App.
 ///
 /// Zusammengeführt wird auf einer Kopie, damit ein Abbruch keine
 /// Teiländerungen im Stand der App hinterlässt.

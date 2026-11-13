@@ -473,10 +473,10 @@
         "auswahl": "Auswahl übernehmen"
       },
       "titel": {
-        "eins": "Ein Eintrag wurde auf beiden Seiten geändert",
-        "mehrere": "{n} Einträge wurden auf beiden Seiten geändert"
+        "eins": "Ein Konflikt braucht deine Entscheidung",
+        "mehrere": "{n} Konflikte brauchen deine Entscheidung"
       },
-      "hinweis": "Seit dem letzten Abgleich wurden diese Einträge hier und in der Datei verschieden geändert. Wähle je Feld, welcher Wert gelten soll, oder nimm eine Fassung ganz. Bis du entscheidest, gilt die jüngere.",
+      "hinweis": "Diese Einträge oder Ordner wurden hier und in der Datei an derselben Stelle verschieden geändert. Wähle je Feld, welcher Wert gelten soll, oder nimm eine Fassung ganz. Bis du entscheidest, gilt die jüngere.",
       "spaeter": "Später",
       "entschieden": {
         "hier": "Entschieden: deine Fassung.",
@@ -487,7 +487,8 @@
       "feld": {
         "hier": "Hier",
         "datei": "In der Datei",
-        "geaendert": "geändert"
+        "geaendert": "geändert",
+        "zeigen": "Wert anzeigen"
       }
     },
     "versionen": {

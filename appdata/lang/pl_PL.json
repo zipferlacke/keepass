@@ -503,10 +503,10 @@
         "auswahl": "Zastosuj wybór"
       },
       "titel": {
-        "eins": "Wpis zmieniono po obu stronach",
-        "mehrere": "Wpisy zmienione po obu stronach: {n}"
+        "eins": "Jeden konflikt wymaga twojej decyzji",
+        "mehrere": "Konflikty wymagające twojej decyzji: {n}"
       },
-      "hinweis": "Od ostatniej synchronizacji te wpisy zostały zmienione inaczej tutaj i w pliku. Wybierz dla każdego pola, która wartość ma obowiązywać, albo weź jedną wersję w całości. Dopóki nie zdecydujesz, obowiązuje nowsza.",
+      "hinweis": "Te wpisy lub foldery zostały zmienione inaczej w tym samym miejscu tutaj i w pliku. Wybierz dla każdego pola, która wartość ma obowiązywać, albo weź jedną wersję w całości. Dopóki nie zdecydujesz, obowiązuje nowsza.",
       "spaeter": "Później",
       "entschieden": {
         "hier": "Zdecydowano: twoja wersja.",
@@ -517,7 +517,8 @@
       "feld": {
         "hier": "Tutaj",
         "datei": "W pliku",
-        "geaendert": "zmieniono"
+        "geaendert": "zmieniono",
+        "zeigen": "Pokaż wartość"
       }
     },
     "versionen": {

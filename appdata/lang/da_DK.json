@@ -473,10 +473,10 @@
         "auswahl": "Anvend valg"
       },
       "titel": {
-        "eins": "En post er ændret begge steder",
-        "mehrere": "{n} poster er ændret begge steder"
+        "eins": "En konflikt kræver dit valg",
+        "mehrere": "{n} konflikter kræver dit valg"
       },
-      "hinweis": "Siden sidste synkronisering er disse poster ændret forskelligt her og i filen. Vælg for hvert felt, hvilken værdi der skal gælde, eller brug én version helt. Indtil du vælger, gælder den nyeste.",
+      "hinweis": "Disse poster eller mapper er ændret forskelligt samme sted her og i filen. Vælg for hvert felt, hvilken værdi der skal gælde, eller brug én version helt. Indtil du vælger, gælder den nyeste.",
       "spaeter": "Senere",
       "entschieden": {
         "hier": "Valgt: din version.",
@@ -487,7 +487,8 @@
       "feld": {
         "hier": "Her",
         "datei": "I filen",
-        "geaendert": "ændret"
+        "geaendert": "ændret",
+        "zeigen": "Vis værdi"
       }
     },
     "versionen": {

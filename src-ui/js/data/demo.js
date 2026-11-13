@@ -358,6 +358,10 @@ const commands = {
     return false;
   },
 
+  async vault_conflict_reveal() {
+    return '';
+  },
+
   async vault_lock() {
     data = null;
     loading = null;
