@@ -349,17 +349,22 @@ const commands = {
     return 0;
   },
 
-  /** Die Demo hat nur eine Seite — Konflikte gibt es hier nicht. */
+  /** Die Demo hat nur eine Seite; Beispielkonflikte gibt es mit `?konflikte` in der Adresse. */
   async vault_conflicts() {
-    return [];
+    await ensureLoaded();
+    if (!demoKonflikte) {
+      demoKonflikte = new URLSearchParams(location.search).has('konflikte') ? beispielKonflikte(data.entries) : [];
+    }
+    return demoKonflikte;
   },
 
-  async vault_conflict_resolve() {
-    return false;
+  async vault_conflict_resolve({ id }) {
+    demoKonflikte = (demoKonflikte || []).filter(k => k.id !== id);
+    return true;
   },
 
-  async vault_conflict_reveal() {
-    return '';
+  async vault_conflict_reveal({ side }) {
+    return side === 'hier' ? 'Sommer-Regen-42!' : 'kJ7#pQ2x-wolke';
   },
 
   async vault_lock() {
@@ -705,6 +710,33 @@ const commands = {
   async decode_qr_rgba() { return null; },
   async decode_qr_path() { return null; }
 };
+
+/** Die offenen Beispielkonflikte; `null`, solange noch nicht gefragt wurde. */
+let demoKonflikte = null;
+
+/** Ein Eintrag, ein Ordner und ein Eintrag, den eine Seite gelöscht hat. */
+function beispielKonflikte([a, b]) {
+  const feld = (key, name, here, file, changed, pick, secret = false) =>
+    ({ key, name, secret, here: secret ? null : here, file: secret ? null : file, changed, pick });
+  return [
+    { id: String(a.id), kind: 'eintrag', name: a.name, folder: a.folder, winner: 'extern',
+      hereKind: 'geaendert', fileKind: 'geaendert',
+      here: [{ name: 'Benutzername', before: 'alt@example.com', after: a.username }, { name: 'Passwort', before: null, after: null }],
+      file: [{ name: 'Benutzername', before: 'alt@example.com', after: 'f.beispiel@example.com' }, { name: 'Passwort', before: null, after: null }],
+      fields: [
+        feld('feld:UserName', 'Benutzername', a.username, 'f.beispiel@example.com', 'beide', 'extern'),
+        feld('feld:Password', 'Passwort', null, null, 'beide', 'extern', true),
+        feld('anhang:vertrag.pdf', 'Anhang: vertrag.pdf', '182.4 kB', '201.7 kB', 'beide', 'extern')
+      ] },
+    { id: 'demo-ordner', kind: 'ordner', name: 'Finanzen', folder: '', winner: 'hier',
+      hereKind: 'geaendert', fileKind: 'geaendert', here: [], file: [],
+      fields: [feld('feld:name', 'Name', 'Finanzen', 'Bank & Geld', 'beide', 'hier')] },
+    { id: String(b.id), kind: 'eintrag', name: b.name, folder: b.folder, winner: 'hier',
+      hereKind: 'geaendert', fileKind: 'geloescht',
+      here: [{ name: 'Adresse', before: 'https://alt.example.com', after: 'https://neu.example.com' }], file: [],
+      fields: [] }
+  ];
+}
 
 /* =========================================================
    Einstiegspunkt für platform.js

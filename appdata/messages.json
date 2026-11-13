@@ -11,7 +11,7 @@
             "version":"1.3.1",
             "date":"2026-11-13",
             "changes":[
-                "Verbesserte Synchronisation: Wurde derselbe Eintrag auf zwei Geräten an verschiedenen Stellen geändert, etwa hier das Passwort und dort die Adresse, übernimmt die App jetzt beides ohne Rückfrage. Sie fragt nur noch, wenn dieselbe Stelle verschieden geändert wurde – dann wählst du je Feld, Anhang oder Ordnername statt nur zwischen zwei ganzen Fassungen und kannst Passwörter zum Vergleichen aufdecken",
+                "Verbesserte Synchronisation: neue Oberfläche zum Zusammenführen – bei einem Konflikt wählst du je Feld, Anhang oder Ordnername, welcher Wert gilt, siehst beide Werte nebeneinander und kannst Passwörter zum Vergleichen aufdecken",
                 "Fix: Die Synchronisation schlug fehl, wenn ein Ordner auf zwei Geräten unterschiedlich gespeichert war",
                 "Fix, Rechner: Die Browser-Erweiterung meldete, KeePassXC sei veraltet"
             ]

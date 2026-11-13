@@ -6,6 +6,7 @@
 #   tests/oberflaeche/lauf.sh "#wc-skip,#online-ok,#lock-pick" [bild.png] [breite] [hoehe]
 #
 # Ein Schritt mit „:::" schreibt in ein Feld, alles andere wird geklickt.
+# ZUSATZ hängt etwas an die Adresse der Seite, z. B. ZUSATZ='?konflikte'.
 # Ohne Tauri antwortet js/data/demo.js aus config/demo.json — es gibt
 # keine echte Datei und nichts, was gespeichert würde.
 set -euo pipefail
@@ -57,4 +58,4 @@ PY
 trap 'rm -f src-ui/_test.html' EXIT
 
 schritte=$(awk -F, '{print NF}' <<<"$klicks")
-tests/lib/lauf.sh src-ui/_test.html "$(( 3 + schritte ))" "$bild" "$breite" "$hoehe"
+tests/lib/lauf.sh "src-ui/_test.html${ZUSATZ:-}" "$(( 3 + schritte ))" "$bild" "$breite" "$hoehe"
