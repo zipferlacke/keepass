@@ -1,39 +1,36 @@
-//! Die Gegenstelle: was über den Kanal gesprochen wird.
+//! Die Gegenstelle der Browser-Erweiterung: beantwortet die Nachrichten, die
+//! sonst KeePassXC beantwortet. Manifest, Kanalpfad und Vermittlungsprozess
+//! stehen in `route`.
 //!
-//! Hier steht das, was sonst KeePassXC beantwortet. Der Weg dorthin —
-//! Manifest, Kanalpfad, Sprachrohr — steht nebenan in `route`.
-//!
-//! # Der Ablauf einer Sitzung
+//! # Ablauf einer Sitzung
 //!
 //! ```text
-//! Erweiterung                          wir
+//! Erweiterung                          Kern
 //!     │  change-public-keys  (unverschlüsselt)
 //!     │ ─────────────────────────────────▶
-//!     │ ◀─────────────────────────────────  unser öffentlicher Schlüssel
+//!     │ ◀─────────────────────────────────  öffentlicher Schlüssel des Kerns
 //!     │
 //!     │  ab jetzt ist alles verschlüsselt
 //!     │
 //!     │  associate / test-associate       Wiedererkennung
 //!     │  get-databasehash                 welche Datenbank ist offen?
-//!     │  get-logins                       Zugangsdaten — mit Rückfrage
+//!     │  get-logins                       Zugangsdaten, mit Rückfrage
 //! ```
 //!
-//! # Zwei Schlüsselpaare, die nicht zu verwechseln sind
+//! # Schlüsselpaare
 //!
 //! **Sitzungsschlüssel** entstehen bei jeder Verbindung neu und
 //! verschlüsseln den Verkehr. Sie sind nach dem Schließen wertlos.
 //!
 //! **Verknüpfungsschlüssel** entstehen einmal beim erstmaligen Verbinden und
-//! landen dauerhaft in der Datenbank. Sie verschlüsseln nichts — sie belegen
-//! nur, dass dieser Browser schon einmal zugelassen wurde. Wer sie
-//! verwechselt, baut eine Anbindung, die nach jedem Neustart nach
-//! Bestätigung fragt oder, schlimmer, gar keine mehr verlangt.
+//! werden dauerhaft in der Datenbank gespeichert. Sie verschlüsseln nichts,
+//! sondern belegen, dass dieser Browser bereits zugelassen wurde.
 //!
-//! # Was hier bewusst *nicht* passiert
+//! # Entsperren
 //!
-//! Entsperrt wird nie über diesen Kanal. Das Master-Passwort wanderte sonst
-//! durch Code, den eine Website beeinflussen kann. Ist die Datenbank zu,
-//! wartet die Anfrage und das eigene Fenster fragt.
+//! Über diesen Kanal wird nicht entsperrt; das Master-Passwort durchläuft
+//! keinen Code, den eine Website beeinflussen kann. Ist die Datenbank
+//! gesperrt, wartet die Anfrage, und das eigene Fenster fragt.
 
 use crate::secrets::current_totp;
 use crate::matching::{entry_urls, host_of, match_score, split_url};
@@ -50,38 +47,29 @@ use crate::Vault;
 
 /// Der Schlüssel, unter dem eine Verknüpfung in der Datenbank steht.
 ///
-/// Dieselbe Form wie bei KeePassXC, damit dieselbe Datei in beiden
-/// Programmen dieselben Browser wiedererkennt.
+/// Dieselbe Form wie bei KeePassXC, damit beide Programme dieselben Browser
+/// wiedererkennen.
 const ASSOCIATION_PREFIX: &str = "KPXC_BROWSER_";
 
-/// Der Protokollstand, den wir sprechen — **nicht** unsere eigene Fassung.
+/// Der gemeldete KeePassXC-Protokollstand (nicht die eigene Programmversion).
 ///
-/// Die Erweiterung liest dieses Feld als Angabe darüber, welchen Umfang die
-/// Gegenstelle beherrscht, und wertet es an zwei Stellen aus:
+/// Die Erweiterung wertet das Feld an zwei Stellen aus:
 ///
-///   * `keepass.requiredKeePassXC = '2.6.0'` — alles darunter wird
-///     abgewiesen. Mit unserer eigenen `0.1.0` hieß es „alte Version",
-///     obwohl gar nichts fehlte.
-///   * `keePassXCUpdateAvailable()` vergleicht zusätzlich mit der neuesten
-///     KeePassXC-Ausgabe, die sie sich von GitHub holt. Liegt unsere Zahl
-///     darunter, erscheint der Hinweis zum Herunterladen.
+///   * `keepass.requiredKeePassXC = '2.6.0'`: niedrigere Versionen werden
+///     abgewiesen.
+///   * `keePassXCUpdateAvailable()` vergleicht mit der neuesten
+///     KeePassXC-Ausgabe von GitHub und zeigt bei einer niedrigeren Zahl
+///     einen Update-Hinweis.
 ///
-/// Deshalb steht hier die zum Zeitpunkt des Schreibens neueste Ausgabe.
-/// Erscheint dort eine neuere, kehrt der Hinweis zurück — abschalten lässt
-/// er sich in den Einstellungen der Erweiterung unter „Nach Updates suchen".
-/// Eine absurd hohe Zahl wäre die Alternative, aber sie stünde dem Nutzer
-/// dann sichtbar als Unsinn in der Erweiterung.
-const PROTOCOL_VERSION: &str = "2.7.12";
+/// Der Wert entspricht daher einer aktuellen KeePassXC-Ausgabe. Der Hinweis
+/// lässt sich in der Erweiterung unter „Nach Updates suchen" abschalten.
+const PROTOCOL_VERSION: &str = "2.8.0";
 
 /// Die Fehlercodes der Erweiterung.
 ///
-/// Sie sind keine Nummerierung nach Gutdünken: `handleResponse` verzweigt
-/// danach, und `kpErrors.getError(code)` schlägt daraus den Text nach, den
-/// der Nutzer zu sehen bekommt. Ein Code außerhalb der Tabelle lässt die
-/// Erweiterung über `errorMessages[code].msg` stolpern — dann steht dort
-/// „Fehler festgestellt:" und nichts dahinter.
-///
-/// Übernommen aus `background/client.js` der Erweiterung.
+/// `handleResponse` verzweigt nach dem Code, `kpErrors.getError(code)`
+/// liefert daraus den angezeigten Text; Codes außerhalb der Tabelle sind
+/// nicht zulässig. Übernommen aus `background/client.js` der Erweiterung.
 mod code {
     pub const DATABASE_NOT_OPENED: u16 = 1;
     pub const CANNOT_DECRYPT_MESSAGE: u16 = 4;
@@ -104,10 +92,9 @@ mod code {
 
 /// Hängt den Kanal ein und nimmt Verbindungen an.
 ///
-/// Läuft in einem eigenen Faden; jede Verbindung bekommt nochmal einen.
-/// Das ist vertretbar, weil es um eine Handvoll Browser geht und nicht um
-/// Tausende Verbindungen — und weil eine Anfrage auf die Rückfrage beim
-/// Nutzer wartet, also lange stillsteht.
+/// Läuft in einem eigenen Thread; jede Verbindung bekommt einen weiteren.
+/// Das genügt für eine Handvoll Browser und für Anfragen, die lange auf die
+/// Rückfrage beim Nutzer warten.
 pub fn start(app: tauri::AppHandle) {
     #[cfg(not(windows))]
     std::thread::spawn(move || {
@@ -171,7 +158,7 @@ fn unregister(id: u64) {
     let _ = leer;
 }
 
-/// Ist gerade ein Browser verbunden?
+/// Ob gerade ein Browser verbunden ist.
 #[cfg(desktop)]
 fn browser_verbunden() -> bool {
     listeners().lock().map(|map| !map.is_empty()).unwrap_or(true)
@@ -194,20 +181,20 @@ fn browser_verbunden() -> bool {
 
 /// Wie lange nach dem letzten Browser noch gewartet wird.
 ///
-/// Die Erweiterung trennt und verbindet sich auch ohne dass der Browser
-/// geht — beim Neuladen oder nach einem Fehler. Das soll WKeePass nicht
-/// jedes Mal beenden und gleich wieder starten.
+/// Die Erweiterung trennt und verbindet sich auch bei laufendem Browser (beim
+/// Neuladen, nach Fehlern); die Frist verhindert ein Beenden und Neustarten
+/// der Anwendung in diesen Fällen.
 #[cfg(desktop)]
 const NACHLAUF: std::time::Duration = std::time::Duration::from_secs(10);
 
-/// So lange darf der Browser nach einem Start im Hintergrund brauchen, bis
-/// er sich meldet. Kommt er nie — etwa weil der Kanal nicht belegbar war —,
-/// stünde sonst eine unsichtbare Anwendung herum, die niemand beendet.
+/// Wartezeit, bis sich der Browser nach einem Start im Hintergrund meldet.
+/// Danach beendet sich die Anwendung, damit keine unsichtbare Instanz
+/// zurückbleibt.
 #[cfg(desktop)]
 const ERSTER_BROWSER: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// Nach `warten`: Ist kein Browser verbunden und kein Hauptfenster offen,
-/// gehen wir.
+/// Beendet die Anwendung nach `warten`, wenn kein Browser verbunden und kein
+/// Hauptfenster offen ist.
 #[cfg(desktop)]
 fn ohne_browser_beenden(warten: std::time::Duration) {
     std::thread::spawn(move || {
@@ -225,11 +212,9 @@ fn ohne_browser_beenden(warten: std::time::Duration) {
     });
 }
 
-/// Start im Hintergrund: Das Hauptfenster wird gar nicht erst gebraucht.
-///
-/// Es kostet als ganze Browser-Engine gut 100 MB, auch unsichtbar.
-/// Rückfragen und Entsperren laufen über das kleine Fenster; das
-/// Hauptfenster entsteht erst, wenn man WKeePass öffnet
+/// Start im Hintergrund ohne Hauptfenster (das als Webansicht gut 100 MB
+/// belegt). Rückfragen und Entsperren laufen über das kleine Fenster; das
+/// Hauptfenster entsteht erst beim Öffnen von WKeePass
 /// ([`crate::hauptfenster_zeigen`]).
 #[cfg(desktop)]
 pub fn hintergrund_start(window: tauri::WebviewWindow) {
@@ -237,11 +222,11 @@ pub fn hintergrund_start(window: tauri::WebviewWindow) {
     ohne_browser_beenden(ERSTER_BROWSER);
 }
 
-/// Darf die Anwendung gehen, wenn ihr letztes Fenster zugeht?
+/// Ob die Anwendung beim Schließen des letzten Fensters enden darf.
 ///
-/// Nicht, solange ein Browser verbunden ist — dann läuft sie ohne Fenster
-/// weiter, bis er geht. Und nicht kurz nach einem Start im Hintergrund, bevor
-/// sich der Browser gemeldet hat ([`ohne_browser_beenden`] räumt dann auf).
+/// Das ist nicht der Fall, solange ein Browser verbunden ist, und kurz nach
+/// einem Start im Hintergrund, bevor sich der Browser gemeldet hat
+/// ([`ohne_browser_beenden`] räumt dann auf).
 #[cfg(desktop)]
 pub fn ohne_fenster_weiter() -> bool {
     browser_verbunden() || route::im_hintergrund()
@@ -249,10 +234,9 @@ pub fn ohne_fenster_weiter() -> bool {
 
 /// Schließen des Hauptfensters.
 ///
-/// Ist ein Browser verbunden, geht nur das Fenster — samt seiner
-/// Browser-Engine, statt versteckt weiter Speicher zu belegen. Sonst endet
-/// die Anwendung, auch wenn noch ein verstecktes Rückfragefenster existiert
-/// (das hielte sie sonst unsichtbar am Leben).
+/// Ist ein Browser verbunden, wird nur das Fenster samt Webansicht
+/// geschlossen. Sonst endet die Anwendung, auch wenn noch ein verstecktes
+/// Rückfragefenster existiert.
 #[cfg(desktop)]
 pub fn hauptfenster(window: &tauri::WebviewWindow) {
     let app = window.app_handle().clone();
@@ -267,14 +251,9 @@ pub fn hauptfenster(window: &tauri::WebviewWindow) {
 
 /// Sagt allen verbundenen Browsern, dass die Datenbank zu oder offen ist.
 ///
-/// Beim Sperren endet zugleich die Schonfrist: Ein gesperrter Rechner soll
-/// nicht noch eine Minute lang ohne Nachfrage herausgeben.
-///
-/// Beim Entsperren beginnt sie: Wer eben Master-Passwort, PIN oder Finger
-/// vorgezeigt hat, hat sich ausgewiesen — stärker, als es die Rückfrage je
-/// verlangt. Ohne das kam direkt nach dem Entsperren im Hauptfenster beim
-/// ersten Abruf aus dem Browser dieselbe Frage noch einmal. Wie lange die
-/// Frist gilt, sagt `browser.graceSeconds`; steht dort 0, wird weiterhin
+/// Beim Sperren endet die Schonfrist. Beim Entsperren beginnt sie, da
+/// Master-Passwort, PIN oder Fingerabdruck einen stärkeren Nachweis darstellen
+/// als die Rückfrage. Die Dauer steht in `browser.graceSeconds`; bei 0 wird
 /// jedes Mal gefragt.
 pub fn announce(locked: bool) {
     if let Ok(mut at) = last_identified().lock() {
@@ -283,10 +262,10 @@ pub fn announce(locked: bool) {
     if let Ok(mut at) = last_confirmed().lock() {
         *at = None;
     }
-    // Beim Sperren bleibt der Stand stehen — siehe [`stand_fuer_erweiterung`].
+    // Beim Sperren bleibt der Stand erhalten, siehe [`stand_fuer_erweiterung`].
     if !locked {
-        // Gleich nach dem Entsperren fragt die Erweiterung nach — und dann
-        // wird oft schon gespeichert. Den Stand jetzt lesen, solange es geht.
+        // Stand beim Entsperren lesen, da die Erweiterung unmittelbar danach
+        // anfragt.
         std::thread::spawn(|| {
             let Some(app) = crate::app_handle() else { return };
             if let Ok(vault) = app.state::<Vault>().lock() {
@@ -304,8 +283,8 @@ pub fn announce(locked: bool) {
     }
 }
 
-/// Hängt der Kanal gerade? Unter Windows lässt sich das nicht am Pfad
-/// ablesen: Wer `\\.\pipe\…` nachschlägt, verbindet sich damit.
+/// Ob der Kanal eingehängt ist. Unter Windows lässt sich das nicht am Pfad
+/// prüfen, da das Nachschlagen von `\\.\pipe\…` eine Verbindung aufbaut.
 static LISTENING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /* ---------------------------------------------------------
@@ -328,15 +307,14 @@ mod pipe {
 
     type Writer = Arc<tokio::sync::Mutex<WriteHalf<NamedPipeServer>>>;
 
-    /// Eine Pipe-Instanz je Verbindung. Die nächste wird angelegt, **bevor**
-    /// die verbundene weitergegeben wird — sonst gäbe es einen Augenblick
-    /// ohne Instanz, und ein Browser bekäme „nicht gefunden".
+    /// Eine Pipe-Instanz je Verbindung. Die nächste wird angelegt, bevor die
+    /// verbundene weitergegeben wird, damit durchgehend eine Instanz besteht.
     fn create(first: bool) -> std::io::Result<NamedPipeServer> {
         ServerOptions::new()
-            // Legt jemand anderes die Pipe zuerst an, gehört sie ihm — dann
-            // lieber nicht lauschen, als ihm Anfragen abzunehmen.
+            // Existiert die Pipe bereits (anderer Besitzer), wird nicht
+            // gelauscht.
             .first_pipe_instance(first)
-            // Nur dieser Rechner. Über das Netz spricht niemand mit uns.
+            // Nur lokale Verbindungen.
             .reject_remote_clients(true)
             .create(route::socket_path())
     }
@@ -350,8 +328,8 @@ mod pipe {
 
         loop {
             if server.connect().await.is_err() {
-                // Der Browser war schneller wieder weg, als wir annehmen
-                // konnten. Instanz neu anlegen und weiter.
+                // Der Browser hat sich vor der Annahme getrennt; Instanz neu
+                // anlegen.
                 server = create(false).map_err(|e| e.to_string())?;
                 continue;
             }
@@ -360,7 +338,7 @@ mod pipe {
         }
     }
 
-    /// Wie `serve` für den Unix-Socket — die Begründungen stehen dort.
+    /// Wie `serve`, für den Unix-Socket.
     async fn serve(app: tauri::AppHandle, pipe: NamedPipeServer) {
         let (mut reader, writer) = tokio::io::split(pipe);
         let writer: Writer = Arc::new(tokio::sync::Mutex::new(writer));
@@ -405,8 +383,8 @@ mod pipe {
                 let connection = Arc::clone(&connection);
                 let writer = Arc::clone(&writer);
                 tauri::async_runtime::spawn(async move {
-                    // Die Bearbeitung wartet womöglich lange auf den Nutzer —
-                    // das gehört nicht auf einen Faden der Laufzeit.
+                    // Die Bearbeitung kann lange auf den Nutzer warten und
+                    // läuft daher nicht auf einem Thread der Laufzeit.
                     let answer = tauri::async_runtime::spawn_blocking(move || {
                         Connection::process(&connection, &app, &message)
                     })
@@ -441,16 +419,10 @@ fn listen(app: tauri::AppHandle) -> Result<(), String> {
             .map_err(|e| format!("Verzeichnis {} nicht anlegbar: {e}", parent.display()))?;
     }
 
-    // Ein Socket überlebt einen Absturz als Datei, und ohne Aufräumen
-    // scheiterte jeder weitere Start mit „Adresse bereits vergeben".
-    //
-    // Aber nicht blind wegräumen: Läuft noch eine andere Ausgabe der
-    // Anwendung, nähmen wir ihr den Kanal ab. Die Erweiterung landete dann
-    // bei uns — und wir haben keine Datenbank offen, während die andere sie
-    // hat. Der Nutzer sähe „Datenbank ist zu" vor einem offenen Fenster.
-    //
-    // Der Unterschied zwischen „verwaist" und „belegt" ist genau eine
-    // Verbindungsaufnahme: Antwortet jemand, lassen wir die Finger davon.
+    // Ein Socket bleibt nach einem Absturz als Datei bestehen und wird vor
+    // dem Anlegen entfernt. Ob er verwaist oder belegt ist, zeigt ein
+    // Verbindungsversuch: Antwortet jemand, gehört der Socket einer anderen
+    // laufenden Instanz und bleibt unangetastet.
     if path.exists() {
         if std::os::unix::net::UnixStream::connect(&path).is_ok() {
             return Err(format!(
@@ -465,8 +437,7 @@ fn listen(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|e| format!("Kanal {} nicht belegbar: {e}", path.display()))?;
     LISTENING.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    // Nur der Benutzer selbst. Ohne das dürfte jeder andere Benutzer des
-    // Rechners Zugangsdaten anfragen.
+    // Zugriff nur für den Benutzer selbst.
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
@@ -486,7 +457,7 @@ fn listen(app: tauri::AppHandle) -> Result<(), String> {
 fn serve(app: tauri::AppHandle, stream: std::os::unix::net::UnixStream) {
     use std::sync::Arc;
 
-    // Der Zustand der Verbindung wird geteilt, die Schreibseite auch.
+    // Verbindungszustand und Schreibseite werden geteilt.
     let connection = Arc::new(Mutex::new(Connection::new()));
     let writer = Arc::new(Mutex::new(match stream.try_clone() {
         Ok(clone) => clone,
@@ -509,18 +480,13 @@ fn serve(app: tauri::AppHandle, stream: std::os::unix::net::UnixStream) {
             break;
         }
 
-        // Auf dem Kanal liegt nacktes JSON ohne Längenangabe — genau wie bei
-        // KeePassXC. Eine Portion kann deshalb zwei Nachrichten enthalten
-        // oder eine halbe; `JsonStream` sortiert das.
+        // Auf dem Kanal folgt JSON ohne Längenangabe (wie bei KeePassXC);
+        // `JsonStream` trennt die Nachrichten.
         for message in incoming.push(&buffer[..read]) {
             trace("→", &message);
 
-            // Der Schlüsseltausch bleibt hier, im Lesefaden.
-            //
-            // Er dauert Mikrosekunden, und alles Weitere hängt an ihm: Wer
-            // ihn nebenläufig behandelte, riskierte, dass die nächste
-            // Nachricht schon entschlüsselt werden soll, bevor der Schlüssel
-            // steht.
+            // Der Schlüsseltausch läuft im Lese-Thread, da alle folgenden
+            // Nachrichten von ihm abhängen.
             let action = message.get("action").and_then(Value::as_str).unwrap_or_default();
             if action == "change-public-keys" {
                 let answer = connection.lock().map(|mut c| c.change_public_keys(&message));
@@ -531,18 +497,10 @@ fn serve(app: tauri::AppHandle, stream: std::os::unix::net::UnixStream) {
                 continue;
             }
 
-            // Alles andere in einen eigenen Faden.
-            //
-            // Der Grund ist eine Zahl aus der Erweiterung:
-            //
-            //     keepassClient.messageTimeout = 500;   // Millisekunden
-            //
-            // Über **eine** Verbindung laufen alle Anfragen. Wartet
-            // `get-logins` auf eine Bestätigung des Nutzers, stünde jede
-            // weitere Nachricht dahinter — auch die, die nach einer halben
-            // Sekunde aufgibt. Der Nutzer sähe dann dauerhaft „Verbindung
-            // nicht möglich", obwohl alles läuft und nur jemand auf ihn
-            // wartet.
+            // Alle weiteren Nachrichten laufen in eigenen Threads. Die
+            // Erweiterung bricht nach `keepassClient.messageTimeout = 500` ms
+            // ab; eine auf Bestätigung wartende Anfrage (`get-logins`) darf
+            // die übrigen Nachrichten derselben Verbindung nicht aufhalten.
             let app = app.clone();
             let connection = Arc::clone(&connection);
             let writer = Arc::clone(&writer);
@@ -558,8 +516,8 @@ fn serve(app: tauri::AppHandle, stream: std::os::unix::net::UnixStream) {
     unregister(angemeldet);
 }
 
-/// Schreibt eine Antwort — als Ganzes, damit sich zwei Fäden nicht ins
-/// Gehege kommen.
+/// Schreibt eine Antwort in einem Stück, damit sich parallele Threads nicht
+/// überlagern.
 #[cfg(not(windows))]
 fn send(
     writer: &std::sync::Arc<Mutex<std::os::unix::net::UnixStream>>,
@@ -576,22 +534,16 @@ fn send(
     stream.flush()
 }
 
-/// Schreibt mit, was über den Kanal geht — nur mit `WKEEPASS_BROWSER_LOG=1`.
+/// Ziel des Protokolls der Browser-Anbindung, oder `None`, wenn es aus ist.
 ///
-/// Absichtlich **ohne Inhalte**: Nur Aktion, Feldnamen und Längen. Was
-/// verschlüsselt ankommt, bleibt verschlüsselt; ein Klartextwert darf hier
-/// unter keinen Umständen landen, auch nicht versehentlich beim Suchen
-/// eines Fehlers.
+/// Protokolliert wird nur Aktion, Feldnamen und Längen, keine Inhalte;
+/// Klartextwerte gelangen nicht ins Protokoll. Das genügt, um die Reihenfolge
+/// der Aktionen, ausbleibende Antworten und fehlende Felder zu erkennen.
 ///
-/// Das reicht trotzdem für fast jede Diagnose: Man sieht die Reihenfolge der
-/// Aktionen, ob eine Antwort ausbleibt, und ob ein Feld fehlt.
-/// Wohin das Protokoll der Browser-Anbindung geht — oder `None`, wenn aus.
-///
-/// `WKEEPASS_BROWSER_LOG=1` (bzw. `2`) schreibt auf stderr. Startet der Browser
-/// WKeePass, hängt aber keine Konsole dran und Umgebungsvariablen kommen
-/// nicht an; dann zählt eine vorhandene Datei
-/// `$XDG_RUNTIME_DIR/wkeepass-browser.log`: Wer sie anlegt, schaltet das
-/// Protokoll ein, wer sie löscht, aus (ab dem nächsten Start).
+/// `WKEEPASS_BROWSER_LOG=1` (bzw. `2`) schreibt auf stderr. Ohne Konsole oder
+/// Umgebungsvariablen (Start durch den Browser) schaltet eine vorhandene
+/// Datei `$XDG_RUNTIME_DIR/wkeepass-browser.log` das Protokoll ein (ab dem
+/// nächsten Start).
 fn protokoll() -> Option<&'static Mutex<Box<dyn std::io::Write + Send>>> {
     static ZIEL: std::sync::OnceLock<Option<Mutex<Box<dyn std::io::Write + Send>>>> = std::sync::OnceLock::new();
     ZIEL.get_or_init(|| {
@@ -611,10 +563,9 @@ fn protokoll() -> Option<&'static Mutex<Box<dyn std::io::Write + Send>>> {
     .as_ref()
 }
 
-/// Eine Zeile ins Protokoll, mit Uhrzeit (Millisekunden zählen hier: Die
-/// Erweiterung gibt nach 500 ms auf).
+/// Schreibt eine Zeile mit Uhrzeit (auf Millisekunden genau) ins Protokoll.
 pub(crate) fn protokolliere(zeile: &str) {
-    // Hier eingebunden: Oben gilt der Import nur außerhalb von Windows.
+    // Lokaler Import, da der obere nur außerhalb von Windows gilt.
     use std::io::Write as _;
     let Some(ziel) = protokoll() else { return };
     let jetzt = std::time::SystemTime::now()
@@ -639,16 +590,14 @@ fn trace(richtung: &str, message: &Value) {
             o.iter()
                 .filter(|(name, _)| name.as_str() != "action")
                 .map(|(name, value)| match value.as_str() {
-                    // Base64-Felder werden mitgeprüft. Ein ungültiges Zeichen
-                    // oder eine krumme Länge lässt die Erweiterung mit
-                    // „invalid encoding" scheitern, ohne zu sagen welches Feld.
+                    // Base64-Felder werden auf Gültigkeit geprüft (ungültige
+                    // Zeichen oder Länge führen in der Erweiterung zu
+                    // „invalid encoding").
                     Some(text) if matches!(name.as_str(), "message" | "nonce" | "publicKey") => {
                         format!("{name}[{}{}]", text.len(), if ist_base64(text) { "" } else { " UNGÜLTIG" })
                     }
-                    // Fehler werden im Klartext gezeigt. Sie stammen aus
-                    // unserer eigenen Tabelle und enthalten nichts aus der
-                    // Datenbank — und ohne sie ist ein Log kaum zu deuten:
-                    // „errorCode[1]" heißt nur, dass die Zahl einstellig war.
+                    // Fehler stehen im Klartext; sie stammen aus der eigenen
+                    // Tabelle und enthalten nichts aus der Datenbank.
                     Some(text) if matches!(name.as_str(), "error" | "errorCode") => {
                         format!("{name}={text}")
                     }
@@ -661,14 +610,14 @@ fn trace(richtung: &str, message: &Value) {
 
     protokolliere(&format!("{richtung} {action}  {}", felder.join(" ")));
 
-    // Stufe 2 zeigt den Umschlag im Klartext. Der Inhalt bleibt verschlüsselt —
-    // was hier steht, ist Schlüsseltext und Nonce, kein Geheimnis.
+    // Stufe 2 zeigt den Umschlag im Klartext (Schlüsseltext und Nonce); der
+    // Inhalt bleibt verschlüsselt.
     if std::env::var("WKEEPASS_BROWSER_LOG").is_ok_and(|v| v == "2") {
         protokolliere(&format!("  {}", serde_json::to_string(message).unwrap_or_default()));
     }
 }
 
-/// Genau die Prüfung, die `nacl.util.decodeBase64` anstellt.
+/// Prüft wie `nacl.util.decodeBase64`.
 fn ist_base64(text: &str) -> bool {
     if text.is_empty() || text.len() % 4 != 0 {
         return false;
@@ -690,8 +639,8 @@ struct Connection {
     session: Option<Session>,
     /// Der Name, unter dem sich dieser Browser verknüpft hat.
     client_id: Option<String>,
-    /// Wurde auf dieser Verbindung schon von selbst ums Entsperren gebeten?
-    /// Siehe [`Connection::beim_start_entsperren`].
+    /// Ob auf dieser Verbindung bereits selbständig ums Entsperren gebeten
+    /// wurde, siehe [`Connection::beim_start_entsperren`].
     entsperren_angeboten: bool,
 }
 
@@ -700,21 +649,18 @@ impl Connection {
         Self { keys: KeyPair::generate(), session: None, client_id: None, entsperren_angeboten: false }
     }
 
-    /// Fragt einmal je Verbindung von selbst nach dem Entsperren.
+    /// Bittet einmal je Verbindung von selbst ums Entsperren.
     ///
-    /// Die Erweiterung fragt beim Start des Browsers nach der Datenbank
-    /// (`get-databasehash`). War sie hier noch nie offen, merkt sie sich „zu“ und fragt nicht
-    /// weiter — Felder bleiben leer, im Menü steht „keine Daten“, bis man
-    /// dort „Verbinden“ drückt (das schickt `triggerUnlock`). Wer den Browser
-    /// öffnet, will meist gleich an seine Zugänge: Also geht das kleine
-    /// Fenster beim ersten Mal von selbst auf. Nach dem Entsperren meldet
-    /// [`announce`] es der Erweiterung, und sie holt sich die Daten.
+    /// Die Erweiterung fragt beim Browserstart per `get-databasehash` nach der
+    /// Datenbank. Ist sie gesperrt, merkt sie sich „zu“ und fragt nicht weiter,
+    /// bis im Menü „Verbinden“ gedrückt wird (`triggerUnlock`). Deshalb öffnet
+    /// sich beim ersten Mal das kleine Fenster; nach dem Entsperren meldet
+    /// [`announce`] es der Erweiterung, die dann die Daten abruft.
     ///
-    /// Nur einmal je Verbindung, damit ein „Abbrechen“ gilt und eine später
-    /// (etwa nach Untätigkeit) gesperrte Datenbank nicht bei jedem Tab-Wechsel
-    /// ein Fenster aufreißt. Einschaltbar über `browser.unlockOnConnect` —
-    /// Voreinstellung aus: Ein Fenster bei jedem Browserstart, auch wenn man
-    /// gar nichts anmelden will, stört mehr, als es hilft.
+    /// Es geschieht nur einmal je Verbindung, damit ein „Abbrechen“ gilt und
+    /// eine später gesperrte Datenbank nicht bei jedem Tab-Wechsel ein Fenster
+    /// öffnet. Einschaltbar über `browser.unlockOnConnect` (Voreinstellung:
+    /// aus).
     fn beim_start_entsperren(shared: &std::sync::Arc<Mutex<Self>>, app: &tauri::AppHandle) {
         if offen_schnell(app) {
             return;
@@ -737,10 +683,9 @@ impl Connection {
 
     /// Nimmt eine Nachricht entgegen und liefert die Antwort.
     ///
-    /// Läuft in einem eigenen Faden. Die Sperre auf der Verbindung wird
-    /// deshalb nur kurz gehalten — zum Entschlüsseln und zum Verpacken.
-    /// Dazwischen kann die Bearbeitung beliebig lange dauern, ohne andere
-    /// Nachrichten derselben Verbindung aufzuhalten.
+    /// Läuft in einem eigenen Thread. Die Sperre auf der Verbindung wird nur
+    /// zum Entschlüsseln und zum Verpacken gehalten; die Bearbeitung dazwischen
+    /// blockiert andere Nachrichten derselben Verbindung nicht.
     fn process(
         shared: &std::sync::Arc<Mutex<Self>>,
         app: &tauri::AppHandle,
@@ -748,16 +693,14 @@ impl Connection {
     ) -> Value {
         let action = message.get("action").and_then(Value::as_str).unwrap_or_default();
 
-        // `triggerUnlock` steht **außen** an der Nachricht, nicht im
-        // verschlüsselten Teil. Die Erweiterung setzt es, wenn der Nutzer
-        // etwas angestoßen hat — etwa „Datenbank entsperren" in ihrem Menü.
+        // `triggerUnlock` steht außen an der Nachricht, nicht im verschlüsselten
+        // Teil. Die Erweiterung setzt es auf Anstoß des Nutzers, etwa über
+        // „Datenbank entsperren" im Menü.
         //
-        // Hier darf **nicht gewartet** werden. Die Erweiterung hat für
-        // `get-databasehash` eine kurze Frist; wer sie verstreichen lässt,
-        // bekommt „5: Verbindung nicht möglich", und die verspätete Antwort
-        // findet später keine Anfrage mehr. Deshalb geht die Anmeldemaske in
-        // einem eigenen Faden auf, und diese Nachricht wird sofort
-        // beantwortet.
+        // Hier wird nicht gewartet, da `get-databasehash` in der Erweiterung
+        // eine kurze Frist hat (sonst „5: Verbindung nicht möglich"). Die
+        // Anmeldemaske öffnet in einem eigenen Thread, die Nachricht wird
+        // sofort beantwortet.
         if message.get("triggerUnlock").and_then(Value::as_str) == Some("true") && !offen_schnell(app) {
             entsperren_erbeten_merken();
             let app = app.clone();
@@ -766,7 +709,7 @@ impl Connection {
             });
         }
 
-        // --- kurz sperren: entschlüsseln ---
+        // Kurz sperren: entschlüsseln.
         let inner = {
             let Ok(conn) = shared.lock() else {
                 return error(action, code::CANNOT_DECRYPT_MESSAGE, "Verbindung blockiert.");
@@ -802,17 +745,17 @@ impl Connection {
         };
         let (inner, nonce) = inner;
 
-        // --- ohne Sperre: die eigentliche Arbeit, die warten darf ---
+        // Ohne Sperre: die eigentliche Bearbeitung, die warten darf.
         let begonnen = std::time::Instant::now();
         let result = Self::dispatch(shared, app, action, &inner);
-        // Was drinnen geschah — im Umschlag steht es nur verschlüsselt. Nur
-        // Aktion, Dauer und unser eigener Fehlertext, nichts aus der Datenbank.
+        // Protokolliert werden nur Aktion, Dauer und der eigene Fehlertext,
+        // nichts aus der Datenbank.
         protokolliere(&match &result {
             Ok(_) => format!("= {action} ok ({} ms)", begonnen.elapsed().as_millis()),
             Err(Failure(code, text)) => format!("= {action} Fehler {code}: {text} ({} ms)", begonnen.elapsed().as_millis()),
         });
 
-        // --- kurz sperren: verpacken ---
+        // Kurz sperren: verpacken.
         let Ok(conn) = shared.lock() else {
             return error(action, code::CANNOT_DECRYPT_MESSAGE, "Verbindung blockiert.");
         };
@@ -828,11 +771,8 @@ impl Connection {
         }
     }
 
-    /// Verpackt eine Antwort — mit dem **erhöhten** Nonce.
-    ///
-    /// Nicht dasselbe wie in der Anfrage: Die Erweiterung zählt selbst hoch
-    /// und vergleicht. Wer hier das gleiche Nonce zurückgibt, bekommt keinen
-    /// Fehler zu sehen — die Erweiterung schweigt einfach.
+    /// Verpackt eine Antwort mit dem erhöhten Nonce der Anfrage; die
+    /// Erweiterung zählt selbst hoch und vergleicht.
     fn wrap(&self, action: &str, answer: &Value, request_nonce: &Nonce) -> Value {
         let Some(session) = self.session.as_ref() else {
             return error(action, code::CANNOT_DECRYPT_MESSAGE, "Kein Schlüsselaustausch erfolgt.");
@@ -841,8 +781,8 @@ impl Connection {
         let reply_nonce = protocol::increment_nonce(request_nonce);
         let reply_nonce_b64 = protocol::encode(&reply_nonce);
 
-        // Das Nonce gehört **auch in den verschlüsselten Inhalt**, nicht nur
-        // auf den Umschlag. Die Erweiterung prüft es dort nämlich noch einmal:
+        // Das Nonce steht auch im verschlüsselten Inhalt, da die Erweiterung
+        // es dort erneut prüft:
         //
         //     verifyDatabaseResponse(response, nonce) {
         //         if (!checkNonceLength(response.nonce)) …
@@ -851,13 +791,7 @@ impl Connection {
         //     checkNonceLength(nonce) {
         //         return nacl.util.decodeBase64(nonce).length === 24;
         //
-        // Fehlt es innen, bekommt `decodeBase64` ein `undefined`, macht daraus
-        // die Zeichenkette „undefined" — und die ist kein Base64. Heraus kommt
-        // „TypeError: invalid encoding", ohne jeden Hinweis auf das fehlende
-        // Feld. Fehlerantworten fielen nicht auf, weil sie nie entschlüsselt
-        // werden.
-        //
-        // Innen und außen muss dasselbe stehen; die Erweiterung vergleicht.
+        // Innen und außen muss dasselbe Nonce stehen.
         let mut answer = answer.clone();
         answer["nonce"] = json!(reply_nonce_b64);
 
@@ -880,14 +814,10 @@ impl Connection {
             return error("change-public-keys", code::CANNOT_DECRYPT_MESSAGE, "Kein öffentlicher Schlüssel.");
         };
 
-        // Auch hier gilt schon das **erhöhte** Nonce, obwohl noch nichts
-        // verschlüsselt ist. Die Erweiterung prüft in `verifyKeyResponse`
-        // gegen `incrementedNonce`:
+        // Auch ohne Verschlüsselung gilt das erhöhte Nonce; die Erweiterung
+        // prüft in `verifyKeyResponse` gegen `incrementedNonce`:
         //
         //     const reply = (response.nonce === nonce);
-        //
-        // Wer das Nonce der Anfrage zurückspiegelt, bekommt „Schlüsselaustausch
-        // war nicht erfolgreich" — ohne Hinweis worauf.
         let Some(nonce_text) = message.get("nonce").and_then(Value::as_str) else {
             return error("change-public-keys", code::CANNOT_DECRYPT_MESSAGE, "Kein Nonce.");
         };
@@ -919,40 +849,38 @@ impl Connection {
         inner: &Value,
     ) -> Result<Value, Failure> {
         match action {
-            // Ohne offene Datenbank beantwortbar
+            // Ohne offene Datenbank beantwortbar:
             "get-databasehash" => {
                 Self::beim_start_entsperren(shared, app);
                 Ok(json!({ "hash": database_hash(app)? }))
             }
             "generate-password" => Ok(json!({
                 "password": generate_password(),
-                // Ältere Fassungen der Erweiterung lesen es aus `entries`.
+                // Ältere Fassungen der Erweiterung lesen aus `entries`.
                 "entries": [{ "login": "", "password": generate_password() }],
             })),
 
-            // Wiedererkennung. Verknüpfen schreibt in die Datenbank — die
-            // Erweiterung schickt es auch bei gesperrter, seit wir ihr dann
-            // den gemerkten Stand nennen.
+            // Wiedererkennung. Das Verknüpfen schreibt in die Datenbank; bei
+            // gesperrter Datenbank wird der gemerkte Stand genannt.
             "associate" => {
                 await_unlocked(app)?;
                 Self::associate(shared, app, inner)
             }
             "test-associate" => Self::test_associate(shared, app, inner),
 
-            // Gesperrt ist schon gesperrt — dafür kein Entsperrfenster.
+            // Kein Entsperrfenster für eine bereits gesperrte Datenbank.
             "lock-database" if !offen_schnell(app) => Ok(json!({})),
 
-            // Beim Laden einer Seite mit Anmeldeformular fragt die
-            // Erweiterung von selbst. Ist die Datenbank zu, kein Fenster
-            // dafür, nur wenn sie ums Entsperren gebeten hat — siehe
+            // Die Erweiterung fragt beim Laden einer Seite mit Anmeldeformular
+            // selbständig an. Bei gesperrter Datenbank öffnet sich ein Fenster
+            // nur, wenn sie ums Entsperren gebeten hat, siehe
             // [`stand_fuer_erweiterung`].
             "get-logins" if !offen_schnell(app) && !entsperren_erbeten() => {
                 Err(Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))
             }
 
-            // Alles Weitere setzt eine offene Datenbank voraus. Ist sie zu,
-            // wird gewartet statt abgewiesen — sonst gibt die Erweiterung auf
-            // und die Seite müsste neu geladen werden.
+            // Alles Weitere setzt eine offene Datenbank voraus. Ist sie
+            // gesperrt, wird gewartet statt abgewiesen.
             _ => {
                 await_unlocked(app)?;
 
@@ -976,19 +904,17 @@ impl Connection {
 
     /// Sucht passende Einträge — **nach Rückfrage beim Nutzer**.
     ///
-    /// Ohne diese Rückfrage könnte jede beliebige Website über die
-    /// Erweiterung sämtliche Zugangsdaten abfragen. Der Dialog wird bewusst
-    /// vom eigenen Fenster gezeichnet: Was der Browser zeichnet, kann eine
-    /// Seite beeinflussen.
+    /// Die Rückfrage verhindert, dass beliebige Websites über die Erweiterung
+    /// Zugangsdaten abrufen. Der Dialog wird vom eigenen Fenster gezeichnet,
+    /// da eine Seite die Darstellung im Browser beeinflussen könnte.
     fn get_logins(shared: &std::sync::Arc<Mutex<Self>>, app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
         let url = inner
             .get("url")
             .and_then(Value::as_str)
             .ok_or_else(|| Failure(code::NO_URL_PROVIDED, "Keine Adresse angegeben.".into()))?;
 
-        // Wohin das Formular abgeschickt wird. Weicht es von der besuchten
-        // Adresse ab, gehört das in die Rückfrage — es ist das klassische
-        // Merkmal einer untergeschobenen Anmeldemaske.
+        // Ziel des Formulars; weicht es von der besuchten Adresse ab, wird es
+        // in der Rückfrage angezeigt.
         let submit = inner.get("submitUrl").and_then(Value::as_str);
 
         let (host, path) = split_url(url)
@@ -1000,10 +926,8 @@ impl Connection {
             return Ok(json!({ "count": 0, "entries": [] }));
         }
 
-        // Ein ausdrückliches Nein am Eintrag bleibt ein Nein. Solche
-        // Vermerke legen wir selbst nicht mehr an — sie stammen aus
-        // KeePassXC, und dort getroffene Entscheidungen zu übergehen wäre
-        // dreist.
+        // Ein ausdrückliches Nein am Eintrag gilt. Solche Vermerke stammen aus
+        // KeePassXC und werden hier nicht mehr angelegt.
         let offen: Vec<&Candidate> = candidates.iter().filter(|c| c.decision != Some(false)).collect();
         if offen.is_empty() {
             return Ok(json!({ "count": 0, "entries": [] }));
@@ -1031,10 +955,10 @@ impl Connection {
             return Err(Failure(code::ACTION_CANCELLED_OR_DENIED, "Zugriff abgelehnt.".into()));
         }
 
-        // Für „Zuletzt genutzt": Die Oberfläche zählt mit, der Kern meldet
-        // nur, welche Einträge herausgegangen sind.
+        // Für „Zuletzt genutzt": Der Kern meldet die herausgegebenen Einträge,
+        // die Oberfläche zählt.
         let _ = app.emit("entries-used", offen.iter().map(|c| c.uuid.clone()).collect::<Vec<_>>());
-        // Jetzt ist die Seite sicher erreichbar — ein guter Moment für ihr Icon.
+        // Die Seite ist erreichbar; ihr Icon wird abgerufen.
         crate::favicon::im_hintergrund(app, offen.iter().map(|c| c.uuid.clone()).collect(), false);
 
         let entries: Vec<Value> = offen
@@ -1067,9 +991,8 @@ impl Connection {
             .get("publicKey")
             .ok_or_else(|| Failure(code::PASSKEYS_EMPTY_PUBLIC_KEY, "Keine Angaben zum Passkey.".into()))?;
 
-        // Fehlt `rp.id`, gilt nach WebAuthn der Rechner der Seite — nicht
-        // `rp.name`: Das ist der Anzeigename („GitHub“), und ein Passkey für
-        // „GitHub“ weist jede Seite ab, weil der Hash nicht passt.
+        // Fehlt `rp.id`, gilt nach WebAuthn der Rechnername der Seite, nicht
+        // `rp.name` (der Anzeigename).
         let rp_id = options
             .get("rp")
             .and_then(|rp| rp.get("id"))
@@ -1156,12 +1079,9 @@ impl Connection {
             return Err(Failure(code::PASSKEYS_REQUEST_CANCELED, "Anmeldung abgelehnt.".into()));
         }
 
-        // Die Seite darf mehrere Kennungen anbieten — etwa einen Schlüssel
-        // vom Telefon und einen vom Rechner. Nur die erste zu probieren
-        // hieße: Steht unserer an zweiter Stelle, findet ihn niemand.
-        //
-        // Eine leere Liste heißt „nimm was du hast" — dann suchen wir allein
-        // über die Gegenstelle.
+        // Die Seite kann mehrere Kennungen anbieten (etwa Telefon und Rechner);
+        // es werden alle geprüft. Eine leere Liste bedeutet „beliebiger
+        // Schlüssel“; dann wird allein über die Gegenstelle gesucht.
         let angeboten: Vec<String> = options
             .get("allowCredentials")
             .and_then(Value::as_array)
@@ -1221,16 +1141,16 @@ impl Connection {
 
     /// Merkt sich diesen Browser dauerhaft in der Datenbank.
     ///
-    /// Der Schlüssel, der hier ankommt, ist **nicht** der Sitzungsschlüssel:
-    /// Er dient allein der Wiedererkennung beim nächsten Mal.
+    /// Der übergebene Schlüssel ist nicht der Sitzungsschlüssel, sondern dient
+    /// der Wiedererkennung.
     fn associate(shared: &std::sync::Arc<Mutex<Self>>, app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
         let key = inner
             .get("idKey")
             .and_then(Value::as_str)
             .ok_or_else(|| Failure(code::ASSOCIATION_FAILED, "Kein Verknüpfungsschlüssel.".into()))?;
 
-        // Den Namen vergibt der Nutzer; bis dahin nehmen wir einen sprechenden
-        // Vorschlag. Eine Rückfrage gehört hier hin — noch offen.
+        // Vorläufiger Name; eine Rückfrage zur Namensvergabe ist nicht
+        // implementiert.
         let name = inner
             .get("key")
             .and_then(Value::as_str)
@@ -1241,9 +1161,8 @@ impl Connection {
         let mut vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
         let db = vault.database_mut().map_err(|_| Failure(code::DATABASE_NOT_OPENED, "Datenbank ist zu.".into()))?;
 
-        // Kennt die Datenbank diesen Schlüssel schon, bleibt es bei der
-        // vorhandenen Verknüpfung — sonst stünde derselbe Browser nach jedem
-        // erneuten „Verbinden" ein weiteres Mal in der Liste.
+        // Ist der Schlüssel bekannt, bleibt die vorhandene Verknüpfung
+        // bestehen.
         if let Some(bekannt) = association_with_key(db, key) {
             protokolliere(&format!("associate: Schlüssel schon bekannt als „{bekannt}“"));
             if let Ok(mut conn) = shared.lock() {
@@ -1256,8 +1175,7 @@ impl Connection {
             format!("{ASSOCIATION_PREFIX}{name}"),
             keepass::db::CustomDataItem {
                 value: Some(keepass::db::CustomDataValue::String(key.to_string())),
-                // Mit Zeitpunkt: Beim Zusammenführen gilt die jüngere
-                // Fassung, und ohne ihn gäbe es nichts zu vergleichen.
+                // Mit Zeitpunkt; beim Zusammenführen gilt die jüngere Fassung.
                 last_modification_time: Some(keepass::db::Times::now()),
             },
         );
@@ -1282,11 +1200,11 @@ impl Connection {
             return Err(Failure(code::ASSOCIATION_FAILED, "Angaben unvollständig.".into()));
         };
 
-        // Nicht auf einen beschäftigten Tresor warten — siehe [`stand`].
+        // Nicht auf einen beschäftigten Tresor warten, siehe [`stand`].
         let stand = stand_fuer_erweiterung(app)?;
 
         if stand.schluessel.get(id).map(String::as_str) != Some(key) {
-            // Fürs Protokoll nur Namen, keine Schlüssel.
+            // Ins Protokoll nur Namen, keine Schlüssel.
             let mut bekannt: Vec<&str> = stand.schluessel.keys().map(String::as_str).collect();
             bekannt.sort_unstable();
             protokolliere(&format!(
@@ -1313,13 +1231,10 @@ fn association_with_key(db: &keepass::Database, key: &str) -> Option<String> {
 
 /// Der Wert einer Zusatzangabe als Text.
 ///
-/// Die Bibliothek rät beim Einlesen: Was sich als Base64 lesen lässt, wird
-/// `Binary` — die Schlüssel der Erweiterung sind aber immer Base64, und
-/// „true“ ist es auch. Im laufenden Programm stand dort noch `String`, nach
-/// einem Neustart `Binary`, und die Verknüpfung galt als unbekannt: Bei
-/// jedem Start des Browsers kam „nicht konfiguriert … Verbinden“.
-/// Zurückkodiert ergibt das genau den gespeicherten Text — die Bibliothek
-/// nimmt nur Base64 in seiner einzigen gültigen Schreibweise als `Binary`.
+/// Die Bibliothek liest Werte, die sich als Base64 lesen lassen (auch
+/// „true“), beim Einlesen als `Binary`. Zurückkodiert ergibt das den
+/// gespeicherten Text, da nur Base64 in seiner einzigen gültigen Schreibweise
+/// als `Binary` gilt.
 fn als_text(wert: &keepass::db::CustomDataValue) -> std::borrow::Cow<'_, str> {
     use base64::Engine as _;
     match wert {
@@ -1330,7 +1245,7 @@ fn als_text(wert: &keepass::db::CustomDataValue) -> std::borrow::Cow<'_, str> {
 
 /// Baut die Hülle, die die Erweiterung um einen Passkey erwartet.
 ///
-/// Der Weg durch die Erweiterung, Stück für Stück:
+/// Ablauf in der Erweiterung:
 ///
 /// ```javascript
 /// sendPasskeysResponse(ret.response, …)          // passkeys-inject.js
@@ -1338,11 +1253,8 @@ fn als_text(wert: &keepass::db::CustomDataValue) -> std::borrow::Cow<'_, str> {
 /// createPublicKeyCredential(response.publicKey)  // passkeys.js
 /// ```
 ///
-/// Die mittlere Zeile ist der Haken: Die Erweiterung **legt die Hülle
-/// `publicKey` selbst an**. Ihr Parameter heißt zwar so, ist aber schon der
-/// fertige Ausweis. Wer sich vom Namen leiten lässt und die Hülle
-/// mitliefert, schickt sie doppelt — die Seite bekommt dann einen Ausweis,
-/// der nur ein Feld `publicKey` hat und keins der erwarteten:
+/// Die Erweiterung legt die Hülle `publicKey` selbst an; der Parameter ist
+/// bereits der fertige Ausweis. Die Antwort enthält daher genau eine Stufe:
 ///
 /// ```text
 /// { "response": {                    ← liest passkeys-inject.js als ret.response
@@ -1351,13 +1263,9 @@ fn als_text(wert: &keepass::db::CustomDataValue) -> std::borrow::Cow<'_, str> {
 ///   } }
 /// ```
 ///
-/// Eine Stufe zu viel oder zu wenig endet gleich: `undefined` und
-/// „Authentication failed", ohne einen Hinweis worauf.
-///
-/// `rawId` bleibt weg — die Erweiterung rechnet es sich aus `id` aus. Und
-/// `authenticatorAttachment: "platform"` heißt: Der Schlüssel liegt auf
-/// diesem Gerät, nicht auf einem angesteckten Stick. Das trifft zu, er liegt
-/// in der Datenbank.
+/// `rawId` entfällt, die Erweiterung berechnet es aus `id`.
+/// `authenticatorAttachment: "platform"` kennzeichnet einen Schlüssel auf
+/// diesem Gerät (hier: in der Datenbank).
 fn credential(id: &str, response: Value) -> Value {
     json!({
         "id": id,
@@ -1373,18 +1281,13 @@ fn credential(id: &str, response: Value) -> Value {
 
 /// Schreibt die Datenbank zurück, nachdem die Erweiterung etwas geändert hat.
 ///
-/// Ohne das steht die Änderung nur im Arbeitsspeicher. Beim Verknüpfen fällt
-/// das sofort auf: Der Browser gilt nach jedem Neustart wieder als
-/// unbekannt, weil `test-associate` in einer frisch geladenen Datei nichts
-/// findet — man müsste bei jedem Start erneut auf „Verbinden" drücken.
+/// Läuft in einem eigenen Thread: Zum Speichern wird der Schlüssel neu aus
+/// dem Master-Passwort abgeleitet, was mit Argon2 knapp eine Sekunde dauert,
+/// die Erweiterung aber nach 500 ms abbricht. Die Antwort erfolgt daher vor
+/// dem Speichern.
 ///
-/// Läuft in einem eigenen Faden, und zwar aus einem harten Grund: Zum
-/// Speichern wird der Schlüssel neu aus dem Master-Passwort abgeleitet, und
-/// Argon2 braucht dafür eine knappe Sekunde. Die Erweiterung wartet aber nur
-/// **500 ms** auf die Antwort. Erst antworten, dann speichern.
-///
-/// Der Faden nimmt sich das Schloss selbst; er wartet dabei, bis der
-/// Aufrufer seins losgelassen hat.
+/// Der Thread nimmt die Sperre selbst und wartet, bis der Aufrufer seine
+/// freigegeben hat.
 fn persist(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
@@ -1394,14 +1297,13 @@ fn persist(app: &tauri::AppHandle) {
             Err(err) => format!("NICHT gespeichert: {err}"),
         });
         match ergebnis {
-            // Das Hauptfenster zeichnet neu — sonst erschien ein Passkey
-            // oder Eintrag aus dem Browser erst nach einem Neustart der App.
+            // Das Hauptfenster aktualisiert seine Anzeige.
             Ok(_) => {
                 let _ = app.emit("browser-saved", ());
             }
             Err(err) => {
-                // Das ist kein Diagnosekram, sondern verlorene Arbeit — deshalb
-                // unabhängig von `WKEEPASS_BROWSER_LOG`.
+                // Der Fehler bedeutet verlorene Änderungen und wird daher
+                // unabhängig von `WKEEPASS_BROWSER_LOG` ausgegeben.
                 eprintln!("[Browser] Nicht gespeichert: {err}");
                 let _ = app.emit("browser-save-failed", err);
             }
@@ -1434,41 +1336,36 @@ fn error(action: &str, code: u16, text: &str) -> Value {
     })
 }
 
-/// Ein kurzer, lesbarer Anfang eines Schlüssels — für Anzeigenamen.
+/// Ein kurzer, lesbarer Anfang eines Schlüssels für Anzeigenamen.
 fn short(key: &str) -> String {
     key.chars().filter(|c| c.is_alphanumeric()).take(6).collect()
 }
 
 /// Kennzeichnet die offene Datenbank.
 ///
-/// Die Erweiterung merkt daran, ob noch dieselbe Datei offen ist wie beim
-/// letzten Mal. Der Wert muss nur stabil sein und sich zwischen Datenbanken
-/// unterscheiden — geprüft wird er nirgends gegen.
+/// Die Erweiterung erkennt daran, ob dieselbe Datei offen ist wie zuvor. Der
+/// Wert muss stabil sein und sich zwischen Datenbanken unterscheiden.
 fn database_hash(app: &tauri::AppHandle) -> Result<String, Failure> {
     stand_fuer_erweiterung(app).map(|stand| stand.hash)
 }
 
-/// Was die Erweiterung zur Wiedererkennung bekommt — offen, beschäftigt
-/// oder gesperrt.
+/// Liefert der Erweiterung den Stand zur Wiedererkennung (offen, beschäftigt
+/// oder gesperrt).
 ///
-/// **Gesperrt** antworten wir aus dem zuletzt gesehenen Stand, als wäre die
-/// Datenbank offen. Der Grund steht in der Erweiterung: Vor einem Passkey
-/// fragt sie `get-databasehash` **ohne** `triggerUnlock`
-/// (`testAssociation(tab, [ false ])` in `passkeysGet`/`passkeysRegister`).
-/// Hieß die Antwort „zu“, gab sie auf, und die Seite meldete „Anfrage nicht
-/// möglich“ — `passkeys-get` kam nie bei uns an, das Warten aufs Entsperren
-/// in [`Connection::dispatch`] griff nie. Jetzt kommt die Anfrage an, das
-/// kleine Fenster bittet ums Entsperren, und danach geht es mit dem Passkey
-/// weiter.
+/// Bei gesperrter Datenbank antwortet die Funktion aus dem zuletzt gesehenen
+/// Stand, als wäre die Datenbank offen. Die Erweiterung fragt vor einem
+/// Passkey `get-databasehash` ohne `triggerUnlock`
+/// (`testAssociation(tab, [ false ])` in `passkeysGet`/`passkeysRegister`)
+/// und bricht bei der Antwort „zu“ ab. So erreicht `passkeys-get` den Kern,
+/// und das kleine Fenster bittet in [`Connection::dispatch`] ums Entsperren.
 ///
-/// Damit nicht jede Seite mit Anmeldeformular das Fenster aufreißt, gibt
-/// `get-logins` bei gesperrter Datenbank sofort „zu“ zurück — außer, die
+/// Damit nicht jede Seite mit Anmeldeformular das Fenster öffnet, gibt
+/// `get-logins` bei gesperrter Datenbank sofort „zu“ zurück, außer die
 /// Erweiterung hat ums Entsperren gebeten (Klick aufs Symbol im Feld,
 /// Tastenkürzel), siehe [`entsperren_erbeten`].
 ///
-/// Herausgegeben wird dabei nichts, was nicht ohnehin über die Leitung
-/// ginge: die Kennung der Datenbank und ein Ja/Nein zum Schlüssel, den der
-/// Browser selbst mitbringt.
+/// Preisgegeben werden nur die Kennung der Datenbank und ein Ja/Nein zum
+/// Schlüssel, den der Browser selbst mitbringt.
 fn stand_fuer_erweiterung(app: &tauri::AppHandle) -> Result<Stand, Failure> {
     if let Some(vault) = tresor_kurz(app) {
         if let Ok(db) = vault.database() {
@@ -1537,9 +1434,8 @@ fn stand_merken(db: &keepass::Database) -> Stand {
     neu
 }
 
-/// Der zuletzt gesehene Stand — auch nach dem Sperren und, aus der Datei,
-/// nach einem Neustart, bei dem noch nicht entsperrt wurde. Siehe
-/// [`stand_fuer_erweiterung`].
+/// Der zuletzt gesehene Stand, auch nach dem Sperren und (aus der Datei) nach
+/// einem Neustart ohne Entsperren, siehe [`stand_fuer_erweiterung`].
 fn stand_zuletzt() -> Option<Stand> {
     let mut s = stand().lock().ok()?;
     if s.is_none() {
@@ -1550,9 +1446,8 @@ fn stand_zuletzt() -> Option<Stand> {
 
 /// Wo der Stand zwischen zwei Starts liegt: neben `settings.json`.
 ///
-/// Darin stehen nur die Kennung der Datenbank und die Schlüssel, mit denen
-/// sich Browser wiedererkennen lassen — öffentliche Schlüssel der
-/// Erweiterung, kein Passwort aus der Datenbank.
+/// Enthalten sind nur die Kennung der Datenbank und die öffentlichen
+/// Schlüssel der Erweiterung zur Wiedererkennung, keine Passwörter.
 fn stand_datei() -> Option<std::path::PathBuf> {
     let app = crate::app_handle()?;
     Some(app.path().app_config_dir().ok()?.join("browser-stand.json"))
@@ -1573,7 +1468,7 @@ fn stand_laden() -> Option<Stand> {
     serde_json::from_slice(&std::fs::read(stand_datei()?).ok()?).ok()
 }
 
-/// Vergisst den Stand — nur für die Tests.
+/// Verwirft den Stand (nur für Tests).
 #[cfg(test)]
 fn stand_vergessen() {
     if let Ok(mut s) = stand().lock() {
@@ -1581,11 +1476,11 @@ fn stand_vergessen() {
     }
 }
 
-/// So lange wird höchstens auf einen beschäftigten Tresor gewartet — mit
-/// Luft zur Frist der Erweiterung (500 ms) für Ver- und Entschlüsseln.
+/// Höchste Wartezeit auf einen beschäftigten Tresor; lässt Spielraum zur
+/// Frist der Erweiterung (500 ms) für Ver- und Entschlüsseln.
 const KURZ: std::time::Duration = std::time::Duration::from_millis(300);
 
-/// Der Tresor, wenn er binnen [`KURZ`] frei wird — sonst `None`.
+/// Der Tresor, wenn er binnen [`KURZ`] frei wird, sonst `None`.
 fn tresor_kurz(app: &tauri::AppHandle) -> Option<std::sync::MutexGuard<'_, crate::state::VaultState>> {
     let tresor: &Vault = app.state::<Vault>().inner();
     let bis = std::time::Instant::now() + KURZ;
@@ -1602,12 +1497,9 @@ fn tresor_kurz(app: &tauri::AppHandle) -> Option<std::sync::MutexGuard<'_, crate
 
 /// Woran die Erweiterung diese Datenbank wiedererkennt.
 ///
-/// Nur aus der Kennung des obersten Ordners — die ändert sich nie. Früher
-/// ging auch der Name der Datenbank ein. Wer ihn in den Einstellungen
-/// änderte (oder bekam ihn beim Zusammenführen von einem anderen Gerät),
-/// hatte für die Erweiterung plötzlich eine neue Datenbank: Sie bat erneut
-/// um „Verbinden" und führte danach denselben Browser mehrfach in ihrer
-/// Liste. KeePassXC rechnet den Wert ebenfalls nur aus festen Kennungen.
+/// Berechnet aus der Kennung des obersten Ordners, die unveränderlich ist
+/// (wie bei KeePassXC). Der Name der Datenbank geht nicht ein, damit eine
+/// Umbenennung die Verknüpfungen nicht ungültig macht.
 fn database_hash_locked(db: &keepass::Database) -> String {
     use sha2::{Digest, Sha256};
 
@@ -1635,14 +1527,12 @@ const CONSENT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120)
 
 /// Wie lange eine Legitimation nachwirkt, wenn nichts eingestellt ist.
 ///
-/// Wer sich gerade ausgewiesen hat, soll nicht drei Formulare später erneut
-/// gefragt werden. Eine Minute ist kurz genug, dass ein unbeaufsichtigter
-/// Rechner nicht zum Selbstbedienungsladen wird, und lang genug für einen
-/// zusammenhängenden Vorgang. Einstellbar über `browser.graceSeconds`
+/// Eine Minute: lang genug für einen zusammenhängenden Vorgang, kurz genug für
+/// einen unbeaufsichtigten Rechner. Einstellbar über `browser.graceSeconds`
 /// (0 = jedes Mal fragen); Sperren beendet die Frist sofort.
 const IDENTIFY_GRACE_SECS: u64 = 60;
 
-/// Die eingestellte Frist — höchstens eine Stunde, was auch im Einstellungsfeld steht.
+/// Die eingestellte Frist, höchstens eine Stunde (wie im Einstellungsfeld).
 fn identify_grace(app: &tauri::AppHandle) -> std::time::Duration {
     let secs = crate::settings::value(app, "browser.graceSeconds")
         .and_then(|v| v.as_u64())
@@ -1667,9 +1557,9 @@ pub fn browser_identified() -> Result<bool, String> {
 
 /// Wann zuletzt nur per Knopfdruck bestätigt wurde (Stufe „Bestätigen“).
 ///
-/// Getrennt vom Nachweis: Ein Klick zeigt, dass jemand am Rechner sitzt,
-/// aber nicht, wer. Für Abfragen der Stufe „Bestätigen“ genügt das in der
-/// Schonfrist; ein Passkey verlangt einen echten Nachweis.
+/// Getrennt vom Nachweis: Ein Klick belegt Anwesenheit, nicht Identität. Für
+/// die Stufe „Bestätigen“ genügt das in der Schonfrist; ein Passkey verlangt
+/// einen Nachweis.
 fn last_confirmed() -> &'static Mutex<Option<std::time::Instant>> {
     static LAST: Mutex<Option<std::time::Instant>> = Mutex::new(None);
     &LAST
@@ -1679,8 +1569,8 @@ fn frisch(zeit: &Mutex<Option<std::time::Instant>>, frist: std::time::Duration) 
     zeit.lock().ok().and_then(|at| *at).is_some_and(|at| at.elapsed() < frist)
 }
 
-/// Ist die letzte Legitimation noch frisch genug? Bei `Identify` zählt nur
-/// ein Nachweis, sonst auch ein Knopfdruck.
+/// Ob die letzte Legitimation noch gültig ist. Bei `Identify` zählt nur ein
+/// Nachweis, sonst auch ein Knopfdruck.
 fn within_grace(app: &tauri::AppHandle, mode: Guard) -> bool {
     let frist = identify_grace(app);
     frisch(last_identified(), frist) || (mode != Guard::Identify && frisch(last_confirmed(), frist))
@@ -1707,35 +1597,28 @@ fn pending() -> &'static Mutex<Pending> {
     PENDING.get_or_init(|| Mutex::new(Pending::new()))
 }
 
-/// Parkt die Anfrage und wartet auf die Antwort aus dem Fenster — so streng,
-/// wie unter `browser.guard` eingestellt.
+/// Parkt die Anfrage und wartet auf die Antwort aus dem Fenster, mit der
+/// unter `browser.guard` eingestellten Strenge.
 fn ask_user(app: &tauri::AppHandle, details: Value) -> Result<Decision, Failure> {
     ask_user_mindestens(app, details, Guard::Never)
 }
 
-/// Wie [`ask_user`], aber mindestens mit der Stufe `mindestens` — egal, was
-/// eingestellt ist.
+/// Wie [`ask_user`], aber mindestens mit der Stufe `mindestens`,
+/// unabhängig von der Einstellung.
 ///
-/// Passkeys verlangen immer einen Nachweis: Sie melden der Seite „Nutzer
-/// geprüft“ (UV), und das wäre bei „Nichts“ oder einem bloßen Knopfdruck
-/// gelogen. Die Schonfrist gilt trotzdem — wer sich eben ausgewiesen hat,
-/// ist geprüft.
+/// Passkeys verlangen immer einen Nachweis, da sie der Seite „Nutzer
+/// geprüft“ (UV) melden. Die Schonfrist gilt dennoch.
 fn ask_user_mindestens(app: &tauri::AppHandle, mut details: Value, mindestens: Guard) -> Result<Decision, Failure> {
     let mode = guard(app).max(mindestens);
 
-    // „Nichts" heißt nichts — kein Fenster, keine Frist, keine Verzögerung.
+    // Stufe „Nichts": kein Fenster, keine Frist, keine Verzögerung.
     if mode == Guard::Never {
         return Ok(Decision { allow: true });
     }
 
-    // Gerade erst bestätigt? Dann nicht schon wieder fragen.
-    //
-    // Gilt für beide Stufen: Wer eben zugestimmt hat, sitzt noch am Rechner.
-    // Ohne diese Frist wäre eine Anmeldemaske mit drei Feldern eine Tortur.
-    //
-    // Muss **vor** dem Eintragen stehen: Ein Eintrag, der nie beantwortet
-    // wird, bliebe sonst in der Liste liegen und hielte das Rückfragefenster
-    // offen.
+    // Innerhalb der Schonfrist wird nicht erneut gefragt (beide Stufen).
+    // Die Prüfung erfolgt vor dem Eintragen, damit kein unbeantworteter
+    // Eintrag in der Liste bleibt und das Rückfragefenster offen hält.
     if within_grace(app, mode) {
         return Ok(Decision { allow: true });
     }
@@ -1744,8 +1627,8 @@ fn ask_user_mindestens(app: &tauri::AppHandle, mut details: Value, mindestens: G
     let (tx, rx) = std::sync::mpsc::channel();
 
     details["id"] = json!(id);
-    // `Never` ist oben schon weg — hier bleiben nur die beiden Stufen, die
-    // das Fenster überhaupt zeichnen kann.
+    // `Never` ist bereits behandelt; es bleiben die beiden Stufen, die das
+    // Fenster darstellt.
     details["guard"] = json!(match mode {
         Guard::Identify => "identify",
         _ => "confirm",
@@ -1758,22 +1641,22 @@ fn ask_user_mindestens(app: &tauri::AppHandle, mut details: Value, mindestens: G
 
     open_request_window(app, ASK_HEIGHT);
 
-    // Das Ereignis ist nur der schnelle Weg — es geht ins Leere, wenn das
-    // Fenster seine Zuhörer noch nicht eingehängt hat. Verlassen wird sich
-    // darauf nicht: Die Seite fragt beim Start selbst nach (`browser_pending`).
+    // Das Ereignis erreicht das Fenster nur, wenn es seine Listener bereits
+    // registriert hat; zusätzlich fragt die Seite beim Start selbst nach
+    // (`browser_pending`).
     let _ = app.emit("browser-request", details);
 
     let answer = rx.recv_timeout(CONSENT_TIMEOUT);
 
-    // In jedem Fall aufräumen — sonst wüchse die Liste mit jeder Zeitüberschreitung.
+    // Eintrag in jedem Fall entfernen, auch nach Zeitüberschreitung.
     unpark(app, &id);
 
-    // Keine Antwort heißt Nein. Alles andere wäre die falsche Voreinstellung.
+    // Keine Antwort gilt als Nein.
     Ok(answer.unwrap_or(Decision { allow: false }))
 }
 
-/// Kennung einer geparkten Anfrage. Nur die Uhrzeit reichte nicht: Zwei
-/// Anfragen in derselben Millisekunde hätten einander überschrieben.
+/// Kennung einer geparkten Anfrage (Uhrzeit plus Zähler, damit Anfragen in
+/// derselben Millisekunde unterscheidbar bleiben).
 fn neue_id() -> String {
     static ZAEHLER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     format!("br{}-{}", now_millis(), ZAEHLER.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
@@ -1782,12 +1665,11 @@ fn neue_id() -> String {
 /// Beantwortet eine geparkte Anfrage. Wird von der Oberfläche aufgerufen.
 ///
 /// Die Antwort gilt für alle wartenden Anfragen derselben Art von derselben
-/// Seite: Ein Formular mit mehreren Feldern fragt oft zweimal kurz
-/// hintereinander. Nach „Übernehmen“ stand dann dieselbe Frage noch einmal
-/// da — es sah aus, als schlösse das Fenster nicht.
+/// Seite, da ein Formular mit mehreren Feldern oft mehrfach kurz nacheinander
+/// anfragt.
 ///
-/// Ein „Übernehmen“ ohne Nachweis (Stufe `confirm`) setzt die Schonfrist
-/// wie ein Nachweis: Wer eben geklickt hat, sitzt noch am Rechner.
+/// Ein „Übernehmen“ ohne Nachweis (Stufe `confirm`) setzt die Schonfrist wie
+/// ein Nachweis.
 #[tauri::command]
 pub fn browser_answer(id: String, allow: bool) -> Result<bool, String> {
     let Ok(mut map) = pending().lock() else {
@@ -1795,7 +1677,7 @@ pub fn browser_answer(id: String, allow: bool) -> Result<bool, String> {
     };
 
     let Some(parked) = map.remove(&id) else {
-        // Schon abgelaufen oder doppelt beantwortet — kein Fehler.
+        // Bereits abgelaufen oder doppelt beantwortet; kein Fehler.
         return Ok(false);
     };
 
@@ -1822,33 +1704,27 @@ pub fn browser_answer(id: String, allow: bool) -> Result<bool, String> {
 
 /// Was gerade auf eine Antwort wartet.
 ///
-/// Das Rückfragefenster ruft das beim Start ab. Sich allein auf das Ereignis
-/// zu verlassen wäre ein Wettlauf: Ein frisch gebautes Fenster lädt erst
-/// seine Module, und was vorher gesendet wurde, ist verloren.
+/// Das Rückfragefenster ruft das beim Start ab, da Ereignisse vor dem Laden
+/// seiner Module verloren gehen.
 #[tauri::command]
 pub fn browser_pending() -> Result<Option<Value>, String> {
     let map = pending().lock().map_err(|_| "Rückfrage blockiert.".to_string())?;
 
-    // Die älteste zuerst — die wartet am längsten.
+    // Die älteste zuerst.
     Ok(map.values().map(|p| p.details.clone()).next())
 }
 
 /// Wartet, bis die Datenbank offen ist, und bittet darum.
 ///
-/// Ein sofortiger Fehler wäre unbrauchbar: Die Erweiterung gäbe auf, und man
-/// müsste die Seite neu laden, nachdem man entsperrt hat.
+/// Statt eines sofortigen Fehlers wird gewartet, da die Erweiterung sonst
+/// abbricht und die Seite neu geladen werden müsste.
 ///
-/// Gefragt wird im **kleinen Fenster**, nicht im Hauptfenster. Wer im
-/// Browser vor einem Anmeldeformular steht, will nicht die ganze Anwendung
-/// aufgehen sehen — und muss sie dafür auch nicht offen halten.
-///
-/// Entsperrt wird trotzdem in *unserem* Fenster; das ist der Punkt, an dem
-/// nicht gerüttelt wird. Das Master-Passwort darf nicht durch Code wandern,
+/// Gefragt wird im kleinen Fenster, nicht im Hauptfenster. Entsperrt wird in
+/// jedem Fall im eigenen Fenster; das Master-Passwort durchläuft keinen Code,
 /// den eine Website beeinflusst.
 ///
-/// Wer hier entsperrt, hat sich damit ausgewiesen: Die Oberfläche meldet das
-/// als Legitimation, und die Rückfrage, die gleich darauf folgt, fällt in
-/// die Schonfrist. Ein Vorgang, ein Dialog — nicht zweimal dasselbe.
+/// Das Entsperren zählt als Nachweis: Die Oberfläche meldet es als
+/// Legitimation, und die folgende Rückfrage fällt in die Schonfrist.
 /// Wann die Erweiterung zuletzt ums Entsperren gebeten hat (`triggerUnlock`).
 fn entsperren_erbeten_um() -> &'static Mutex<Option<std::time::Instant>> {
     static UM: Mutex<Option<std::time::Instant>> = Mutex::new(None);
@@ -1861,12 +1737,12 @@ fn entsperren_erbeten_merken() {
     }
 }
 
-/// Darf eine Anfrage, die von selbst kommt, aufs Entsperren warten?
+/// Ob eine selbständig eintreffende Anfrage aufs Entsperren warten darf.
 ///
-/// Ja, wenn schon ums Entsperren gefragt wird, oder die Erweiterung eben
-/// darum gebeten hat. Das Fenster öffnet ein eigener Faden; die Anfrage
-/// danach kann schneller sein als er — daher die kurze Frist statt nur des
-/// Blicks auf die offene Rückfrage.
+/// Das ist der Fall, wenn bereits ums Entsperren gefragt wird oder die
+/// Erweiterung eben darum gebeten hat. Das Fenster öffnet in einem eigenen
+/// Thread, den die Folgeanfrage überholen kann; daher gilt eine kurze Frist
+/// statt nur der Prüfung auf eine offene Rückfrage.
 fn entsperren_erbeten() -> bool {
     let eben = entsperren_erbeten_um()
         .lock()
@@ -1884,9 +1760,8 @@ fn await_unlocked(app: &tauri::AppHandle) -> Result<(), Failure> {
         return Ok(());
     }
 
-    // Fragt schon jemand? Dann nicht ein zweites Mal — zwei Anmeldemasken
-    // übereinander für dieselbe Datei sind sinnlos. Ein Formular mit mehreren
-    // Feldern löst leicht mehrere Anfragen zugleich aus.
+    // Wird bereits gefragt, öffnet sich keine zweite Anmeldemaske (ein
+    // Formular mit mehreren Feldern löst oft mehrere Anfragen aus).
     let laeuft_schon = pending()
         .lock()
         .map(|m| m.values().any(|p| p.details.get("kind").and_then(Value::as_str) == Some("unlock")))
@@ -1906,9 +1781,8 @@ fn await_unlocked(app: &tauri::AppHandle) -> Result<(), Failure> {
         open_request_window(app, UNLOCK_HEIGHT);
         let _ = app.emit("browser-request", details);
 
-        // Steht das Hauptfenster ohnehin offen, soll es auch dort sichtbar
-        // sein. Doppelt gefragt wird nicht: Wer dort entsperrt, beendet das
-        // Warten unten genauso.
+        // Ist das Hauptfenster offen, wird dort ebenfalls entsperrt; das
+        // beendet das Warten unten genauso.
         let _ = app.emit("browser-needs-unlock", json!({}));
     }
 
@@ -1917,7 +1791,7 @@ fn await_unlocked(app: &tauri::AppHandle) -> Result<(), Failure> {
 
     while std::time::Instant::now() < deadline {
         match rx.recv_timeout(std::time::Duration::from_millis(200)) {
-            // Das kleine Fenster meldet sich, wenn es fertig ist.
+            // Das kleine Fenster meldet sich nach dem Entsperren.
             Ok(entscheidung) => {
                 ergebnis = match entscheidung.allow && is_open(app) {
                     true => Ok(()),
@@ -1925,8 +1799,8 @@ fn await_unlocked(app: &tauri::AppHandle) -> Result<(), Failure> {
                 };
                 break;
             }
-            // Kein Ton — dann selbst nachsehen. So endet das Warten auch,
-            // wenn im Hauptfenster entsperrt wurde.
+            // Ohne Meldung wird der Zustand selbst geprüft; so endet das Warten
+            // auch nach dem Entsperren im Hauptfenster.
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 if is_open(app) {
                     ergebnis = Ok(());
@@ -1951,14 +1825,9 @@ fn unpark(app: &tauri::AppHandle, id: &str) {
     }
 
     // Steht noch eine andere Anfrage an, bleibt das Fenster stehen und zeigt
-    // die nächste.
-    //
-    // Versteckt, nicht geschlossen: Schließen läuft verzögert ab. Kam die
-    // nächste Anfrage kurz danach, fand `open_request_window` das sterbende
-    // Fenster noch, holte es nach vorn — und dann verschwand es. Die
-    // Anfrage wartete ohne sichtbare Maske. Ein verstecktes Fenster lässt
-    // sich dagegen jederzeit zuverlässig wieder zeigen, und schneller ist es
-    // auch.
+    // die nächste. Sonst wird es versteckt statt geschlossen, da das
+    // Schließen verzögert abläuft und ein verstecktes Fenster sich
+    // zuverlässig und schneller wieder zeigen lässt.
     let leer = pending().lock().map(|m| m.is_empty()).unwrap_or(true);
     if leer {
         if let Some(window) = app.get_webview_window(REQUEST_WINDOW) {
@@ -1968,23 +1837,22 @@ fn unpark(app: &tauri::AppHandle, id: &str) {
     }
 }
 
-/// Wie lange das versteckte Rückfragefenster bereitsteht, bevor es abgebaut
-/// wird. Kommen mehrere Rückfragen kurz hintereinander (ein Formular, mehrere
-/// Felder), steht es sofort wieder da; danach gibt es seinen Speicher frei.
+/// Bereitschaftsdauer des versteckten Rückfragefensters, bevor es abgebaut
+/// wird und seinen Speicher freigibt.
 const BEREIT: std::time::Duration = std::time::Duration::from_secs(15);
 
-/// Wird das Rückfragefenster gerade abgebaut? Dann darf es niemand mehr
-/// zeigen — siehe [`open_request_window`].
+/// Ob das Rückfragefenster gerade abgebaut wird und nicht mehr gezeigt werden
+/// darf, siehe [`open_request_window`].
 static ABBAU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Hält Abbau und Öffnen auseinander.
+/// Serialisiert Abbau und Öffnen.
 fn fenster_riegel() -> &'static Mutex<()> {
     static RIEGEL: Mutex<()> = Mutex::new(());
     &RIEGEL
 }
 
-/// Baut das versteckte Rückfragefenster nach [`BEREIT`] ab, wenn es dann
-/// noch unbenutzt ist.
+/// Baut das versteckte Rückfragefenster nach [`BEREIT`] ab, wenn es dann noch
+/// unbenutzt ist.
 fn spaeter_abbauen(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
@@ -2001,7 +1869,7 @@ fn spaeter_abbauen(app: &tauri::AppHandle) {
     });
 }
 
-/// Lehnt alles ab, was gerade wartet — das Fenster wurde geschlossen.
+/// Lehnt alle wartenden Anfragen ab (das Fenster wurde geschlossen).
 fn deny_all_pending() {
     if let Ok(mut map) = pending().lock() {
         for (_, parked) in map.drain() {
@@ -2014,41 +1882,28 @@ fn is_open(app: &tauri::AppHandle) -> bool {
     app.state::<Vault>().lock().is_ok_and(|v| v.db.is_some())
 }
 
-/// Wie [`is_open`], aber ohne auf einen beschäftigten Tresor zu warten —
-/// für Antworten mit Frist. Beschäftigt ist er nur beim Arbeiten an einer
-/// offenen Datenbank; dann gilt sie als offen.
+/// Wie [`is_open`], aber ohne auf einen beschäftigten Tresor zu warten, für
+/// Antworten mit Frist. Ein beschäftigter Tresor gilt als offen.
 fn offen_schnell(app: &tauri::AppHandle) -> bool {
     tresor_kurz(app).map_or(true, |v| v.db.is_some())
 }
 
-/// Öffnet das kleine Fenster für eine Rückfrage — über allem anderen.
-///
-/// Bewusst **nicht** das Hauptfenster: Wer im Browser ein Anmeldeformular
-/// ausfüllt, will nicht in eine ganze Anwendung geworfen werden. Ein
-/// eigenes, kleines Fenster mittig über dem Browser stört am wenigsten und
-/// ist zugleich unmissverständlich unseres.
-///
-/// Dass es *unser* Fenster ist und nicht etwas, das die Website zeichnet,
-/// ist der eigentliche Punkt: Eine Bestätigung, die im Browser entstünde,
-/// könnte eine Seite nachbauen.
+/// Öffnet das kleine Rückfragefenster über allen anderen Fenstern, mittig
+/// über dem Browser. Es ist ein eigenes Fenster der Anwendung und kein
+/// Browserinhalt, den eine Seite nachbauen könnte.
 fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
     let _riegel = fenster_riegel().lock();
 
-    // Wird es gerade abgebaut, erst das Ende abwarten: Ein sterbendes
-    // Fenster nach vorn zu holen hieße, dass es gleich darauf verschwindet
-    // und die Anfrage ohne sichtbare Maske wartet.
+    // Wird das Fenster gerade abgebaut, wird das Ende abgewartet.
     let bis = std::time::Instant::now() + std::time::Duration::from_secs(2);
     while ABBAU.load(std::sync::atomic::Ordering::SeqCst) && std::time::Instant::now() < bis {
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     ABBAU.store(false, std::sync::atomic::Ordering::SeqCst);
 
-    // Schon offen? Dann nur nach vorn holen — sonst stapeln sich Fenster,
-    // wenn eine Seite mehrere Formulare hat.
+    // Ist es bereits offen, wird es nur nach vorn geholt.
     if let Some(window) = app.get_webview_window(REQUEST_WINDOW) {
-        // Die Höhe passt sich an: Eine Anmeldemaske braucht mehr Platz als
-        // ein Ja/Nein. Ein Fenster, das für beides reicht, ist für das eine
-        // zu leer und für das andere zu eng.
+        // Die Höhe richtet sich nach dem Inhalt (Anmeldemaske oder Ja/Nein).
         let _ = window.set_size(tauri::LogicalSize::new(WINDOW_WIDTH, hoehe));
         let _ = window.unminimize();
         let _ = window.show();
@@ -2070,15 +1925,12 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
     .skip_taskbar(true)
     .build();
 
-    // Obenauf *und* mit dem Eingabezeiger: Ein Fenster, das zwar oben liegt,
-    // aber die Tastatur nicht bekommt, zwingt zu einem Klick, bevor man
-    // tippen kann.
+    // Das Fenster liegt oben und erhält den Tastaturfokus.
     if let Ok(window) = &built {
         tastatur_hinein(window);
 
-        // Das Kreuz der Fensterleiste heißt „Abbrechen". Ohne das zerstörte
-        // es nur das Fenster: Die Anfrage wartete unbeantwortet weiter, der
-        // Browser auch, und die nächste Rückfrage fand kein Fenster vor.
+        // Das Schließen über die Fensterleiste gilt als „Abbrechen“ und lehnt
+        // die wartenden Anfragen ab.
         let fenster = window.clone();
         let handle = app.clone();
         window.on_window_event(move |event| match event {
@@ -2093,8 +1945,8 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
         });
     }
 
-    // Klappt das nicht — etwa weil kein Fenstersystem da ist —, bleibt das
-    // Hauptfenster als Rückfallweg.
+    // Rückfallweg ist das Hauptfenster, etwa wenn kein Fenstersystem
+    // verfügbar ist.
     if built.is_err() {
         #[cfg(desktop)]
         crate::hauptfenster_zeigen(app);
@@ -2103,15 +1955,14 @@ fn open_request_window(app: &tauri::AppHandle, hoehe: f64) {
 
 /// Holt das Fenster nach vorn **und** gibt der Seite darin die Tastatur.
 ///
-/// `set_focus` am Fenster allein reicht unter Linux nicht: Das Fenster ist
-/// vorn, aber die Webansicht darin hat den Tastaturfokus nicht — wer gleich
-/// seine PIN tippt, tippt ins Leere und muss erst ins Feld klicken.
+/// Unter Linux setzt `set_focus` am Fenster den Tastaturfokus nicht in die
+/// Webansicht; dieser wird daher zusätzlich dort gesetzt.
 pub fn tastatur_hinein(window: &tauri::WebviewWindow) {
     let _ = window.set_focus();
     let _ = AsRef::<tauri::Webview>::as_ref(window).set_focus();
 }
 
-/// Der Name des Rückfragefensters.
+/// Name des Rückfragefensters.
 const REQUEST_WINDOW: &str = "browser-request";
 
 const WINDOW_WIDTH: f64 = 440.0;
@@ -2156,8 +2007,7 @@ struct Candidate {
 
 /// Der Schlüssel, unter dem eine Entscheidung am Eintrag hängt.
 ///
-/// Dieselbe Form wie bei KeePassXC — wer die Datei dort öffnet, findet
-/// dieselben Freigaben wieder.
+/// Dieselbe Form wie bei KeePassXC, damit dort dieselben Freigaben gelten.
 const DECISION_PREFIX: &str = "KP_BROWSER_";
 
 /// Wie `host_of`, aber für Stellen, die einen geliehenen Wert brauchen.
@@ -2183,24 +2033,20 @@ fn matching_entries(
     let mut out = Vec::new();
 
     for entry in db.iter_all_entries() {
-        // Was im Papierkorb liegt, wird nicht mehr angeboten.
+        // Einträge im Papierkorb werden nicht angeboten.
         if bin.is_some_and(|b| entry.parent().id() == b) {
             continue;
         }
 
-        // Passkeys gehören nicht in die Passwortauswahl.
-        //
-        // Sie tragen zwar Adresse und Benutzernamen und passen damit auf die
-        // Anfrage, haben aber gar kein Passwort. In der Liste der Erweiterung
-        // stünden sie als Wahlmöglichkeit, die beim Anklicken ein leeres Feld
-        // hinterlässt. Ihr Weg ist `passkeys-get`, nicht `get-logins`.
+        // Passkeys haben kein Passwort und erscheinen nicht in der
+        // Passwortauswahl; ihr Weg ist `passkeys-get`.
         if entry.get(crate::passkey::F_ID).is_some() {
             continue;
         }
 
         let urls = entry_urls(&entry);
 
-        // Der beste Treffer unter allen Adressen des Eintrags zählt.
+        // Es zählt der beste Treffer unter allen Adressen des Eintrags.
         let Some(score) = urls.iter().filter_map(|u| match_score(u, host, path)).max() else {
             continue;
         };
@@ -2211,7 +2057,7 @@ fn matching_entries(
             .and_then(|item| item.value.as_ref())
             .map(|value| als_text(value) == "true");
 
-        // Ein ausdrückliches Nein bleibt ein Nein — nicht erneut fragen.
+        // Ein ausdrückliches Nein gilt; es wird nicht erneut gefragt.
         if decision == Some(false) {
             continue;
         }
@@ -2231,8 +2077,8 @@ fn matching_entries(
         });
     }
 
-    // Genauester zuerst. Die Erweiterung zeigt die Liste in dieser
-    // Reihenfolge an, und oben steht dann, was am ehesten gemeint ist.
+    // Genauester Treffer zuerst; die Erweiterung zeigt die Liste in dieser
+    // Reihenfolge.
     out.sort_by(|a, b| b.score.cmp(&a.score));
 
     Ok(out)
@@ -2302,28 +2148,24 @@ fn set_login(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure> {
     let hash = database_hash_locked(db);
     persist(app);
     crate::favicon::im_hintergrund(app, vec![id.uuid().to_string()], false);
-    // So wie KeePassXC antwortet. Auf `error: ""` kommt es an: Die
-    // Erweiterung meldet nur dann „gespeichert", sonst „ging nicht" — auch
-    // wenn der Eintrag längst in der Datenbank steht.
+    // Antwort im Format von KeePassXC; die Erweiterung meldet „gespeichert“
+    // nur bei `error: ""`.
     Ok(json!({ "count": null, "entries": null, "error": "", "hash": hash }))
 }
 
 /// Der gerade gültige TOTP-Code eines Eintrags.
 ///
-/// Nur nach Rückfrage, wie beim Abruf der Zugangsdaten. Der Code ist der
-/// zweite Faktor — ihn ohne Nachfrage herauszugeben, hieße, jeder
-/// verknüpfte Browser bekäme ihn auch einzeln, ohne dass jemand zustimmt.
-/// Kam er schon mit `get-logins` (dort gefragt), fällt diese Frage in die
-/// Schonfrist.
+/// Nur nach Rückfrage, wie beim Abruf der Zugangsdaten, da der Code der
+/// zweite Faktor ist. Wurde bereits für `get-logins` gefragt, fällt diese
+/// Frage in die Schonfrist.
 fn get_totp(app: &tauri::AppHandle, inner: &Value, client: String) -> Result<Value, Failure> {
     let uuid = inner
         .get("uuid")
         .and_then(Value::as_str)
         .ok_or_else(|| Failure(code::NO_VALID_UUID_PROVIDED, "Kein Eintrag angegeben.".into()))?;
 
-    // Erst nachsehen, ob es den Eintrag und einen Code gibt — sonst fragte
-    // das Fenster nach etwas, das gar nicht da ist. Den Tresor nicht über
-    // die Rückfrage hinweg halten.
+    // Zuerst wird geprüft, ob Eintrag und Code existieren. Der Tresor wird
+    // nicht über die Rückfrage hinweg gehalten.
     let (titel, hat_code) = {
         let state = app.state::<Vault>();
         let vault = state.lock().map_err(|_| Failure(0, "Kern blockiert.".into()))?;
@@ -2438,7 +2280,7 @@ fn delete_entry(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure>
     }
 
     // Über das vorhandene Kommando, damit dieselben Regeln gelten wie im
-    // Fenster: erst in den Papierkorb, endgültig erst beim zweiten Mal.
+    // Fenster: zuerst in den Papierkorb, endgültig erst beim zweiten Mal.
     crate::entries::vault_delete_entry(app.state::<Vault>(), uuid)
         .map_err(|e| Failure(code::PASSKEYS_UNKNOWN_ERROR, e))?;
 
@@ -2452,9 +2294,8 @@ fn delete_entry(app: &tauri::AppHandle, inner: &Value) -> Result<Value, Failure>
 
 /// Ein zufälliges Passwort für die Erweiterung.
 ///
-/// Zeichen, die sich beim Abschreiben verwechseln lassen, bleiben draußen —
-/// null und O, eins und l. Ein Passwort aus dem Manager wird zwar meist
-/// eingefügt, aber eben nicht immer.
+/// Leicht verwechselbare Zeichen (null und O, eins und l) werden
+/// ausgelassen.
 fn generate_password() -> String {
     use rand_core::RngCore;
 
@@ -2465,9 +2306,8 @@ fn generate_password() -> String {
     let mut raw = [0u8; LENGTH];
     rand_core::OsRng.fill_bytes(&mut raw);
 
-    // Der Rest der Division verzerrt die Verteilung leicht, weil 256 kein
-    // Vielfaches der Alphabetlänge ist. Bei dieser Größe ist der Unterschied
-    // verschwindend; wer es genau will, verwürfe die überzähligen Werte.
+    // Der Divisionsrest verzerrt die Verteilung geringfügig, da 256 kein
+    // Vielfaches der Alphabetlänge ist.
     raw.iter().map(|b| ALPHABET[*b as usize % ALPHABET.len()] as char).collect()
 }
 
@@ -2500,8 +2340,8 @@ pub fn browser_status(state: tauri::State<'_, Vault>) -> Result<Status, String> 
     let mut available = Vec::new();
 
     for target in route::targets().into_iter().filter(route::Target::installed) {
-        // „Von uns eingetragen" heißt: Das Manifest zeigt auf unser Programm.
-        // Zeigt es woandershin, gehört es KeePassXC.
+        // „Eingetragen“ bedeutet: Das Manifest zeigt auf dieses Programm;
+        // andernfalls gehört es KeePassXC.
         let ours = program.as_ref().is_some_and(|p| target.is_ours(p));
 
         if ours { installed.push(target.name.to_string()) } else { available.push(target.name.to_string()) }
@@ -2545,8 +2385,8 @@ pub fn browser_uninstall() -> Result<Vec<route::Outcome>, String> {
 
 /// Löst die Verknüpfung eines Browsers.
 ///
-/// Danach fragt er beim nächsten Mal wieder um Erlaubnis. Die einzelnen
-/// Freigaben je Eintrag bleiben davon unberührt — die hängen am Eintrag.
+/// Der Browser fragt danach erneut um Erlaubnis. Die Freigaben je Eintrag
+/// bleiben bestehen, da sie am Eintrag hängen.
 #[tauri::command]
 pub fn browser_forget(state: tauri::State<'_, Vault>, name: String) -> Result<bool, String> {
     let mut vault = state.lock().map_err(|_| "Kern blockiert.".to_string())?;
@@ -2559,8 +2399,8 @@ pub fn browser_forget(state: tauri::State<'_, Vault>, name: String) -> Result<bo
 mod tests {
     use super::*;
 
-    /// Ein Formular fragt zweimal: Eine Antwort beantwortet beide — eine
-    /// Anfrage von einer anderen Seite wartet weiter.
+    /// Eine Antwort beantwortet beide Anfragen eines Formulars; eine Anfrage
+    /// einer anderen Seite bleibt offen.
     #[test]
     fn eine_antwort_fuer_dieselbe_frage() {
         let parken = |kind: &str, host: &str| {
@@ -2587,8 +2427,6 @@ mod tests {
     use crate::keepass_extension::protocol::{self, KeyPair};
 
     /// Entsperren zählt als Ausweisen, Sperren beendet die Frist sofort.
-    /// Vorher begann die Frist erst mit der Rückfrage — wer gerade das
-    /// Master-Passwort eingegeben hatte, wurde gleich noch einmal gefragt.
     #[test]
     fn entsperren_beginnt_die_schonfrist() {
         let stand = || *last_identified().lock().unwrap();
@@ -2604,7 +2442,7 @@ mod tests {
         assert!(stand().is_none(), "wieder gesperrt: Frist vorbei");
     }
 
-    /// Genau die Prüfung aus `nacl-util.min.js` der Erweiterung.
+    /// Entspricht der Prüfung aus `nacl-util.min.js` der Erweiterung.
     fn ist_gueltiges_base64(s: &str) -> bool {
         let gueltig = |c: char| c.is_ascii_alphanumeric() || c == '+' || c == '/';
 
@@ -2621,8 +2459,7 @@ mod tests {
             }
     }
 
-    /// Baut eine Verbindung mit fertigem Schlüsseltausch — wie nach dem
-    /// ersten Kontakt mit der Erweiterung.
+    /// Baut eine Verbindung mit abgeschlossenem Schlüsseltausch.
     fn verbindung() -> (Connection, KeyPair, Value) {
         let client = KeyPair::generate();
         let mut conn = Connection::new();
@@ -2665,14 +2502,14 @@ mod tests {
         let message = verpackt["message"].as_str().expect("kein message-Feld");
         let nonce = verpackt["nonce"].as_str().expect("kein nonce-Feld");
 
-        // … und beide Felder müssen ihre Base64-Prüfung bestehen.
+        // … beide Felder bestehen die Base64-Prüfung.
         assert!(ist_gueltiges_base64(message), "message: {message}");
         assert!(ist_gueltiges_base64(nonce), "nonce: {nonce}");
 
-        // Das Nonce muss das erhöhte sein.
+        // Das Nonce ist das erhöhte.
         assert_eq!(nonce, protocol::encode(&protocol::increment_nonce(&anfrage_nonce)));
 
-        // Und die Gegenstelle muss es aufbekommen.
+        // Die Gegenstelle kann die Antwort entschlüsseln.
         let gegenstelle = protocol::Session::new(&client, &conn.keys.public_base64()).unwrap();
         let klartext = gegenstelle
             .open(message, &protocol::decode_nonce(nonce).unwrap())
@@ -2689,9 +2526,8 @@ mod tests {
         match_score(eintrag, &host, &path)
     }
 
-    /// Genau **eine** Hülle um den Ausweis — die zweite legt die Erweiterung
-    /// selbst an (`sendPasskeysResponse` in passkeys-utils.js). Eine Stufe zu
-    /// viel oder zu wenig endet gleich: „Authentication failed".
+    /// Genau eine Hülle um den Ausweis; die zweite legt die Erweiterung selbst
+    /// an (`sendPasskeysResponse` in passkeys-utils.js).
     #[test]
     fn passkey_antwort_hat_die_huelle_der_erweiterung() {
         let antwort = json!({ "response": credential("abc", json!({
@@ -2701,7 +2537,7 @@ mod tests {
             "userHandle": Value::Null,
         })) });
 
-        // Das hier ist, was `createPublicKeyCredential` zu sehen bekommt.
+        // Das erhält `createPublicKeyCredential`.
         let key = &antwort["response"];
         assert!(key.get("publicKey").is_none(), "eine Hülle zu viel");
         assert_eq!(key["id"], "abc");
@@ -2733,8 +2569,7 @@ mod tests {
         let url = "https://example.com/login";
 
         assert!(treffer("https://notexample.com", url).is_none());
-        // Umgekehrt gilt nicht: Ein Eintrag für die Unterdomain zählt nicht
-        // für die Hauptdomain — sonst käme man von example.com an alles.
+        // Ein Eintrag für die Unterdomain gilt nicht für die Hauptdomain.
         assert!(treffer("https://shop.example.com", url).is_none());
     }
 
@@ -2770,10 +2605,9 @@ mod tests {
         assert!(nah > fern, "{nah} > {fern}");
     }
 
-    /// `verifyDatabaseResponse` prüft das Nonce **im Inhalt**, nicht nur auf
-    /// dem Umschlag. Fehlt es dort, scheitert die Erweiterung mit
-    /// „invalid encoding" — an einer Stelle, die nichts mit Kodierung zu tun
-    /// hat. Der Test hält genau das fest.
+    /// `verifyDatabaseResponse` prüft das Nonce im Inhalt, nicht nur auf dem
+    /// Umschlag; fehlt es dort, scheitert die Erweiterung mit „invalid
+    /// encoding“.
     #[test]
     fn das_nonce_steht_auch_im_verschluesselten_inhalt() {
         let (conn, client, _) = verbindung();
@@ -2790,11 +2624,11 @@ mod tests {
 
         let inhalt: Value = serde_json::from_slice(&klartext).unwrap();
 
-        // checkNonceLength(response.nonce) — 24 Bytes, sonst Ausnahme
+        // checkNonceLength(response.nonce): 24 Bytes erforderlich
         let innen = inhalt["nonce"].as_str().expect("kein nonce im Inhalt");
         assert_eq!(protocol::decode(innen).unwrap().len(), protocol::NONCE_LEN);
 
-        // response.nonce !== nonce — innen und außen müssen gleich sein
+        // response.nonce !== nonce: innen und außen müssen gleich sein
         assert_eq!(innen, erwartet);
         assert_eq!(verpackt["nonce"].as_str().unwrap(), erwartet);
     }
@@ -2821,8 +2655,7 @@ mod tests {
         assert_eq!(association_with_key(&db, "anderer"), None);
     }
 
-    /// Eine Verknüpfung muss Speichern und Wiedereinlesen überstehen — sonst
-    /// heißt es nach jedem Neustart von WKeePass „nicht konfiguriert“.
+    /// Eine Verknüpfung übersteht Speichern und Wiedereinlesen.
     #[test]
     fn verknuepfung_uebersteht_speichern() {
         const KEY: &str = "lRnhOlGs4yUfqJAhd1Rv1ClXbrEOEhq3HKJFfNG0rFk=";
@@ -2830,8 +2663,8 @@ mod tests {
         db.meta.custom_data.insert(
             format!("{ASSOCIATION_PREFIX}WKeePass abc"),
             keepass::db::CustomDataItem {
-                // Wie von der Erweiterung: Base64. Mit „schluessel“ fiel
-                // nicht auf, dass er nach dem Einlesen `Binary` ist.
+                // Base64 wie von der Erweiterung; wird nach dem Einlesen zu
+                // `Binary`.
                 value: Some(keepass::db::CustomDataValue::String(KEY.into())),
                 last_modification_time: Some(keepass::db::Times::now()),
             },
@@ -2844,8 +2677,8 @@ mod tests {
         stand_vergessen();
     }
 
-    /// Passkeys verlangen mindestens einen Nachweis — auch wenn „Nichts“
-    /// oder „Bestätigen“ eingestellt ist; strenger wird es nie lockerer.
+    /// Passkeys verlangen mindestens einen Nachweis, auch bei den Stufen
+    /// „Nichts“ oder „Bestätigen“.
     #[test]
     fn untergrenze_der_rueckfrage() {
         assert_eq!(Guard::Never.max(Guard::Identify), Guard::Identify);
@@ -2876,8 +2709,8 @@ mod tests {
     }
 
     /// Ist der Tresor beim Speichern beschäftigt, antworten `get-databasehash`
-    /// und `test-associate` aus dem gemerkten Stand — der muss dieselbe
-    /// Kennung und dieselben Schlüssel kennen und beim Sperren verfallen.
+    /// und `test-associate` aus dem gemerkten Stand; dieser enthält dieselbe
+    /// Kennung und dieselben Schlüssel und verfällt beim Sperren.
     #[test]
     fn gemerkter_stand_kennt_verknuepfungen() {
         let mut db = keepass::Database::new();
@@ -2920,13 +2753,9 @@ mod tests {
 pub enum Guard {
     /// Gar nichts. Der verknüpfte Browser bekommt, was er anfragt.
     ///
-    /// Wer alleine an seinem Rechner sitzt, will nicht bei jedem
-    /// Anmeldeformular etwas wegklicken. Der Browser hat sich mit seinem
-    /// Schlüssel ausgewiesen, und die Datenbank ist offen — beides hat der
-    /// Nutzer selbst so eingerichtet.
-    ///
-    /// Nur eben nicht als Voreinstellung: Der Schlüssel liegt auf demselben
-    /// Rechner, an dem auch jemand anderes sitzen könnte.
+    /// Der Browser hat sich mit seinem Schlüssel ausgewiesen und die
+    /// Datenbank ist offen. Keine Voreinstellung, da der Schlüssel auf
+    /// demselben Rechner liegt, an dem auch andere Personen sitzen können.
     Never,
     /// Nur ein Knopfdruck: Abbrechen oder Übernehmen. Kein Nachweis.
     Confirm,
@@ -2936,9 +2765,7 @@ pub enum Guard {
 
 /// Liest die Einstellung `browser.guard`.
 ///
-/// Fehlt sie oder ist sie unlesbar, gilt `Identify` — im Zweifel das
-/// Strengere. Eine unlesbare Datei darf nicht dazu führen, dass Passwörter
-/// leichter herausgehen als vorgesehen.
+/// Fehlt sie oder ist sie unlesbar, gilt die strengere Stufe `Identify`.
 fn guard(app: &tauri::AppHandle) -> Guard {
     match crate::settings::value(app, "browser.guard").as_ref().and_then(Value::as_str) {
         Some("never") => Guard::Never,

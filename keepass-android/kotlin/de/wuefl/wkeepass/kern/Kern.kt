@@ -10,19 +10,18 @@ import de.wuefl.wkeepass.R
 import org.json.JSONObject
 
 /**
- * Die Tür zum Rust-Kern für alles, was **ohne** Webview läuft: Autofill und
+ * Zugang zum Rust-Kern für alles, was ohne Webview läuft: Autofill und
  * Passkeys.
  *
  * Gegenstück: `src-tauri/src/android_services.rs`. Jede Funktion gibt JSON
  * zurück; ein Fehler steht unter `fehler`, ein Zustand wie „Datenbank zu"
  * unter `status`. Ausnahmen gibt es über diese Grenze nicht.
  *
- * ## Warum die Bibliothek hier geladen wird
+ * ## Laden der Bibliothek
  *
- * Android kann unseren Dienst starten, ohne dass die App je lief. Dann ist
- * die Rust-Bibliothek noch nicht im Prozess, und der erste Aufruf endete
- * mit `UnsatisfiedLinkError`. Laden ist harmlos, wenn sie schon da ist.
- * Der Kern antwortet dann mit `status: "aus"`, und
+ * Android kann den Dienst starten, ohne dass die App lief; dann ist die
+ * Rust-Bibliothek noch nicht im Prozess (`UnsatisfiedLinkError`). Deshalb
+ * wird sie hier geladen. Der Kern antwortet dann mit `status: "aus"`, und
  * [de.wuefl.wkeepass.system.Kaltstart] startet die App kurz.
  */
 object Kern {
@@ -57,13 +56,11 @@ object Kern {
     }
 
     /**
-     * Fragt den Kern auf einem Arbeitsfaden und liefert die Antwort zurück
-     * auf den Hauptfaden.
+     * Fragt den Kern auf einem Arbeitsfaden und liefert die Antwort auf dem
+     * Hauptfaden zurück.
      *
-     * Der Kern kann warten müssen: Beim Speichern rechnet er Argon2, und so
-     * lange kommt niemand an die Datenbank. Auf dem Hauptfaden gefragt,
-     * stünde währenddessen die Anzeige — das Blatt hinge, ohne dass etwas
-     * kaputt wäre. Also nie von dort.
+     * Der Kern kann warten müssen (Argon2 beim Speichern); auf dem Hauptfaden
+     * stünde währenddessen die Anzeige. Deshalb nicht von dort aufrufen.
      */
     fun imHintergrund(aufruf: () -> String, dann: (JSONObject) -> Unit) {
         val haupt = Handler(Looper.getMainLooper())
@@ -74,11 +71,10 @@ object Kern {
     }
 
     /**
-     * Meldet die sichtbare Activity an — beim Verlassen mit `null` wieder ab.
+     * Meldet die sichtbare Activity an, beim Verlassen mit `null` wieder ab.
      *
-     * Systemdialoge (Fingerabdruck) gehören zu einer Activity, die auch
-     * wirklich vorn steht. Ohne das suchte der Kern das Hauptfenster, das es
-     * hier gar nicht gibt.
+     * Systemdialoge (Fingerabdruck) gehören zu einer Activity, die vorn steht.
+     * Ohne Anmeldung suchte der Kern das Hauptfenster, das es hier nicht gibt.
      */
     fun vordergrund(activity: Activity?) {
         if (!geladen) return
@@ -118,11 +114,9 @@ object Kern {
     /**
      * Wie die App hier heißt.
      *
-     * Die Debug-Fassung liegt neben der echten und heißt „WKeePass-Debug"
-     * (`src/debug/res/values/strings.xml`). Überall, wo wir uns in einer
-     * fremden App oder in den Android-Einstellungen vorstellen, muss das
-     * auch dort stehen — sonst sieht man zwei Mal dasselbe und weiß nicht,
-     * welche gerade antwortet.
+     * Die Debug-Fassung heißt „WKeePass-Debug" (`src/debug/res/values/strings.xml`)
+     * und tritt in fremden Apps und den Android-Einstellungen unter diesem Namen
+     * auf, damit sie sich von der Release-Fassung unterscheiden lässt.
      */
     fun name(context: Context): String = context.getString(R.string.app_name)
 }

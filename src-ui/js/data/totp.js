@@ -49,13 +49,11 @@ export function secondsRemaining(period = 30, at = Date.now()) {
   return period - Math.floor(at / 1000) % period;
 }
 
-/** Parst otpauth://totp/... URIs (QR-Code-Import). */
 /**
  * Zerlegt `otpauth://totp/Aussteller:Konto?secret=…&issuer=…`.
  *
- * Bewusst ohne `new URL()`: Für ein fremdes Schema wie `otpauth:` liefern
- * die Webviews Unterschiedliches — mal steht `totp` im Rechnernamen, mal im
- * Pfad. Von Hand zerlegt ist es überall gleich.
+ * Ohne `new URL()`, da Webviews das fremde Schema `otpauth:` unterschiedlich
+ * zerlegen (`totp` steht mal im Rechnernamen, mal im Pfad).
  */
 export function parseOtpauth(uri) {
   const m = /^otpauth:\/\/(totp|hotp)\/([^?#]*)(?:\?([^#]*))?/i.exec(String(uri ?? '').trim());

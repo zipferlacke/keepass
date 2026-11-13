@@ -1,14 +1,13 @@
 /**
  * clipboard.js — kopieren, und danach wieder aufräumen.
  *
- * Alles, was in der Zwischenablage landet, verschwindet nach einer Weile
- * von selbst wieder: Ein Passwort, das dort liegen bleibt, liest jede
- * andere Anwendung mit. Wie lange, steht in den Einstellungen; `0` heißt
- * „gar nicht löschen".
+ * Der kopierte Inhalt wird nach einer Frist aus der Zwischenablage gelöscht,
+ * da andere Anwendungen sie lesen können. Die Frist steht in den
+ * Einstellungen; `0` löscht nie.
  *
- * Für Geheimnisse gibt es `vault.copySecret` — der Wert wandert dort gar
- * nicht erst durch die Oberfläche. Hier geht nur, was ohnehin offen
- * dasteht: Benutzername, Adresse, Notiz.
+ * Geheimnisse kopiert `vault.copySecret`, ohne den Wert durch die
+ * Oberfläche zu leiten. Dieses Modul kopiert nur offen sichtbare Werte:
+ * Benutzername, Adresse, Notiz.
  */
 
 import * as settings from '../data/settings.js';

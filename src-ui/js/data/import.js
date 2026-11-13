@@ -204,7 +204,7 @@ function fromKeePassXml(text) {
   const root = doc.querySelector('KeePassFile > Root > Group');
   if (!root) throw new Error(t('daten.import.fehler.keineKeepassXml'));
 
-  // Der Papierkorb kommt nicht mit.
+  // Papierkorb auslassen.
   const recycleBin = doc.querySelector('Meta > RecycleBinUUID')?.textContent;
   const items = [];
 
@@ -241,7 +241,7 @@ function fromKeePassXml(text) {
 
 async function textFromZip(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  // Das Inhaltsverzeichnis steht am Ende
+  // Das zentrale Verzeichnis (End of Central Directory) steht am Dateiende.
   let eocd = -1;
   for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
     if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
@@ -428,10 +428,9 @@ export function csvFelder() {
 }
 
 /**
- * CSV wird nicht nur gelesen, sondern bleibt samt Zuordnung im Ergebnis
- * (`csv`): Erkennt die Spaltennamen niemand — ein Export aus Excel, ein
- * eigenes Programm —, legt man im Dialog selbst fest, welche Spalte was ist,
- * und `itemsFromCsv` baut die Einträge neu.
+ * Das Ergebnis enthält die CSV samt Spaltenzuordnung (`csv`). Werden die
+ * Spaltennamen nicht erkannt (z. B. Excel-Export), legt der Nutzer im Dialog
+ * die Zuordnung fest, und `itemsFromCsv` baut die Einträge neu.
  */
 function fromCsv(text, fileName) {
   const rows = parseCsv(text);
@@ -463,7 +462,7 @@ export function itemsFromCsv(csv, mapping) {
     });
     const first = k => values[k]?.[0] ?? '';
 
-    // KeePassXC: Gruppe beginnt mit dem Namen der Wurzel — die fällt weg
+    // KeePassXC: der Gruppenpfad beginnt mit dem Namen der Wurzel, der entfällt
     const folder = first('folder').replace(/^Root\/?/i, '');
     const notes = [...(values.notes ?? []), ...extra].join('\n');
 

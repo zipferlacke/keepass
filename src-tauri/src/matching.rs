@@ -4,10 +4,9 @@
 //! Android: Beide stellen dieselbe Frage, nur kommt die Adresse einmal von
 //! der Erweiterung und einmal von Android selbst.
 //!
-//! Auf Android ist es oft gar keine Webadresse, sondern ein Paketname. Den
-//! schreiben wir wie KeePassDX und Keepass2Android als
-//! `androidapp://com.beispiel.app` an den Eintrag — dann greift hier
-//! dieselbe Rechnung, der Paketname ist der „Rechner".
+//! Auf Android ist die Kennung oft ein Paketname statt einer Webadresse. Er wird wie
+//! bei KeePassDX und Keepass2Android als `androidapp://com.beispiel.app` am Eintrag
+//! abgelegt und dann wie ein Rechnername behandelt.
 
 use keepass::db::EntryRef;
 
@@ -60,7 +59,7 @@ pub fn split_url(url: &str) -> Option<(String, Vec<String>)> {
 ///
 /// `None` heißt: gar nicht. Sonst gilt: je größer, desto genauer.
 ///
-/// # Die Reihenfolge, in der gesucht wird
+/// # Stufen
 ///
 /// Zuerst die genaue Adresse, dann Stück für Stück gröber:
 ///
@@ -73,13 +72,11 @@ pub fn split_url(url: &str) -> Option<(String, Vec<String>)> {
 ///   example.com                      eine Ebene höher    90
 /// ```
 ///
-/// Ein Eintrag mit abweichendem Pfad — etwa `/impressum` — fällt nicht
-/// heraus, sondern nur ans Ende. Sonst käme man an einen Eintrag, den man
-/// für die Domain angelegt hat, auf einer Unterseite nicht mehr heran.
+/// Ein Eintrag mit abweichendem Pfad (etwa `/impressum`) wird nicht ausgeschlossen,
+/// sondern ans Ende sortiert, damit ein für die Domain angelegter Eintrag auch auf
+/// Unterseiten erreichbar bleibt.
 ///
-/// Zurückgegeben wird alles Passende, nach Genauigkeit sortiert. Die
-/// Auswahl trifft der Nutzer danach in der Liste, die die Erweiterung
-/// selbst in die Seite zeichnet.
+/// Zurückgegeben wird alles Passende, nach Genauigkeit sortiert.
 pub fn match_score(entry_url: &str, wanted_host: &str, wanted_path: &[String]) -> Option<u32> {
     let (host, path) = split_url(entry_url)?;
 

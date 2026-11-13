@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Setzt unsere Android-Teile in das von Tauri erzeugte Projekt ein.
 
-`src-tauri/gen/android` ist Wegwerfware: Tauri erzeugt es neu, und es steht
-nicht im Repository. Was Android über Tauri hinaus verlangt, liegt deshalb
-unter `keepass-android/` und kommt bei jedem Bauen hier hinein:
+`src-tauri/gen/android` wird von Tauri erzeugt und steht nicht im Repository.
+Die Android-Teile von WKeePass liegen unter `keepass-android/` und werden bei
+jedem Bauen eingesetzt:
 
   appdata/icons/android/  → app/src/main/res/ (App-Symbol, bei jedem Bauen)
   kotlin/                 → app/src/main/java/
@@ -40,14 +40,13 @@ APP = PROJEKT / "src-tauri/gen/android/app"
 ANFANG = "<!-- wkeepass:anfang -->"
 ENDE = "<!-- wkeepass:ende -->"
 
-# Passkeys über den Credential Manager. Die Klassen für Anbieter stecken im
-# Hauptpaket; die Fassung muss Android 14 kennen (ab 1.2).
+# Passkeys über den Credential Manager. Die Klassen für Anbieter liegen im
+# Hauptpaket; ab Version 1.2 kennt es Android 14.
 ABHAENGIGKEIT = 'implementation("androidx.credentials:credentials:1.5.0")'
 
-# Berechtigungen außerhalb von <application>. Die Kamera für den QR-Scanner
-# (TOTP einrichten): Den Webview fragt Tauri selbst um Erlaubnis, aber nur
-# für Berechtigungen, die im Manifest stehen — sonst hieß es sofort
-# „Berechtigung fehlt". `required="false"`: Ohne Kamera läuft die App auch.
+# Berechtigungen außerhalb von <application>. Die Kamera dient dem QR-Scanner
+# (TOTP einrichten); Tauri fragt für den Webview nur Berechtigungen ab, die im
+# Manifest stehen. `required="false"`: Die App läuft auch ohne Kamera.
 BERECHTIGUNGEN = [
     '<uses-permission android:name="android.permission.CAMERA" />',
     '<uses-feature android:name="android.hardware.camera" android:required="false" />',
@@ -55,8 +54,7 @@ BERECHTIGUNGEN = [
 
 
 def kopieren() -> None:
-    # Früher nur beim Anlegen des Projekts kopiert — ein geändertes Symbol
-    # kam dann nie auf dem Handy an.
+    # App-Symbole bei jedem Bauen kopieren, nicht nur beim Anlegen des Projekts.
     shutil.copytree(PROJEKT / "appdata/icons/android", APP / "src/main/res", dirs_exist_ok=True)
     shutil.copytree(QUELLE / "kotlin", APP / "src/main/java", dirs_exist_ok=True)
     shutil.copytree(QUELLE / "res", APP / "src/main/res", dirs_exist_ok=True)
@@ -68,8 +66,7 @@ def manifest() -> None:
     text = datei.read_text(encoding="utf-8")
 
     block = (QUELLE / "manifest.xml").read_text(encoding="utf-8")
-    # Der erste Kommentar erklärt nur die Datei selbst — der gehört nicht
-    # ins Manifest.
+    # Der einleitende Kommentar der Quelldatei wird nicht ins Manifest übernommen.
     block = re.sub(r"^\s*<!--.*?-->\s*", "", block, count=1, flags=re.S)
     einsatz = f"{ANFANG}\n{block.strip()}\n        {ENDE}\n"
 
@@ -111,7 +108,7 @@ def signatur() -> None:
     """
     datei = APP / "build.gradle.kts"
     text = datei.read_text(encoding="utf-8")
-    # Alte Einträge weg – so bleibt das Skript beliebig oft aufrufbar
+    # Frühere Einträge entfernen, damit das Skript wiederholt aufrufbar ist
     text = re.sub(r"[ \t]*" + re.escape(SIG_ANFANG) + r".*?" + re.escape(SIG_ENDE) + r"\n?", "", text, flags=re.S)
     if not SIGNATUR.is_file():
         datei.write_text(text, encoding="utf-8")
@@ -140,10 +137,10 @@ DEBUG_NAME = "WKeePass-Debug"
 def debug_name() -> None:
     """Die Debug-Fassung heißt anders.
 
-    Sie liegt neben der echten App (``debugApplicationIdSuffix`` in
-    tauri.conf.json) — hießen beide „WKeePass", wüsste man im Starter und im
-    Autofill-Dienst nicht, welche man gerade vor sich hat. Ressourcen unter
-    ``src/debug`` gelten nur für diese Fassung.
+    Sie liegt neben der Release-App (``debugApplicationIdSuffix`` in
+    tauri.conf.json) und trägt einen eigenen Namen, damit beide im Starter und
+    im Autofill-Dienst unterscheidbar sind. Ressourcen unter ``src/debug``
+    gelten nur für diese Fassung.
     """
     ziel = APP / "src/debug/res/values"
     ziel.mkdir(parents=True, exist_ok=True)

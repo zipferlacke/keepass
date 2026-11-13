@@ -1,19 +1,15 @@
 //! Abrufe aus dem Netz: Website-Icons und -Titel.
 //!
-//! Aus dem Webview geht das nicht — fremde Seiten sperren das Auslesen
-//! ihrer Antworten per CORS. Hier im Kern gibt es diese Grenze nicht.
-//!
-//! Was dabei **nicht** mitgeht: Cookies, Anmeldedaten, irgendetwas aus der
-//! Datenbank. Nur eine nackte GET-Anfrage an die Adresse des Eintrags, wie
-//! sie jeder Besucher der Seite stellt.
+//! Der Abruf läuft im Kern, da fremde Seiten das Auslesen ihrer Antworten aus dem
+//! Webview per CORS sperren. Gesendet wird nur eine einfache GET-Anfrage an die
+//! Adresse des Eintrags, ohne Cookies, Anmeldedaten oder Datenbankinhalte.
 //!
 //! # Zertifikate
 //!
-//! Geprüft wird nicht. Viele der Dienste, um die es hier geht, stehen im
-//! Heimnetz — Router, NAS, Drucker — und haben ein selbst ausgestelltes
-//! Zertifikat. Mit Prüfung gäbe es genau dort nie ein Icon. Das ist
-//! vertretbar, weil nichts gesendet wird: Wer die Verbindung fälscht,
-//! könnte höchstens ein falsches Bildchen unterschieben.
+//! Zertifikate werden nicht geprüft: Viele Ziele (Router, NAS, Drucker) stehen im
+//! Heimnetz und haben selbst ausgestellte Zertifikate. Da nichts Vertrauliches
+//! gesendet wird, könnte eine gefälschte Verbindung höchstens ein falsches Icon
+//! liefern.
 
 use std::time::Duration;
 
@@ -51,8 +47,8 @@ fn agent() -> ureq::Agent {
         .timeout_global(Some(Duration::from_secs(8)))
         .max_redirects(5)
         .http_status_as_error(false)
-        // Ein gewöhnlicher Browser — manche Seiten liefern einem
-        // unbekannten Abrufer sonst eine Fehlerseite statt ihres Icons.
+        // Als gewöhnlicher Browser; manche Seiten liefern unbekannten Abrufern eine
+        // Fehlerseite statt des Icons.
         .user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0")
         .tls_config(TlsConfig::builder().disable_verification(true).build())
         .build()
@@ -198,9 +194,8 @@ pub fn title(html: &str) -> Option<String> {
 
 /// Der Name des Dienstes — für den Namen eines Eintrags.
 ///
-/// Der Seitentitel allein taugt selten: „Anmelden – Amazon.de“ oder
-/// „GitHub · Build and ship software on a single, collaborative platform“.
-/// Deshalb der Reihe nach:
+/// Der Seitentitel enthält oft Zusätze („Anmelden – Amazon.de“). Gewählt wird der
+/// Reihe nach:
 ///
 /// 1. was die Seite selbst als ihren Namen angibt (`og:site_name`,
 ///    `application-name`, `apple-mobile-web-app-title`),

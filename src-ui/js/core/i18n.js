@@ -8,13 +8,12 @@
  *
  *     t('einstellungen.darstellung.titel')
  *
- * Deutsch ist die Grundlage: Fehlt ein Text in einer anderen Sprache, steht
- * der deutsche da — nie ein leerer Knopf. Fehlt er auch dort, steht der
- * Schlüssel da, damit es auffällt.
+ * Deutsch ist die Grundlage: Fehlt ein Text in einer anderen Sprache, wird
+ * der deutsche verwendet, fehlt er auch dort, der Schlüssel.
  *
  * Platzhalter in geschweiften Klammern: `t('…', { name: 'GitHub' })` setzt
- * `{name}` ein. Werte werden **nicht** entschärft — wer etwas aus der
- * Datenbank einsetzt, gibt es wie bisher durch `esc()`.
+ * `{name}` ein. Werte werden nicht maskiert; Inhalte aus der Datenbank
+ * müssen vorher durch `esc()` laufen.
  *
  * Einzahl und Mehrzahl: Ist der Text ein Objekt (`{ "one": …, "other": … }`,
  * dazu nach Bedarf `"zero"`), wählt `{ n }` die passende Form.

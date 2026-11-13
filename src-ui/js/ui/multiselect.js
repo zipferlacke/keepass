@@ -8,16 +8,14 @@
  *   langes Drücken  auf jedem Gerät, auch mit der Maus
  *
  * Sobald etwas ausgewählt ist, erscheinen links Kästchen, und ein
- * gewöhnlicher Klick schaltet um statt zu öffnen. So kommt man ohne
- * getrennten „Auswahlmodus" aus.
+ * gewöhnlicher Klick schaltet um statt zu öffnen; einen eigenen
+ * Auswahlmodus gibt es nicht.
  *
  * # Nur innerhalb eines Ordners
  *
- * Eine Auswahl gilt immer für genau einen Ordner. Wer in einem anderen
- * anfängt, beginnt eine neue — alles andere führt zu Auswahlen, die man
- * nirgends mehr im Zusammenhang sieht, und zu Verschiebungen, die halb
- * gelingen. Der Bereich bei Umschalt-Klick richtet sich nach der
- * **angezeigten** Reihenfolge, damit er nach dem Sortieren stimmt.
+ * Eine Auswahl gilt für genau einen Ordner; ein Klick in einem anderen
+ * Ordner beginnt eine neue Auswahl. Der Bereich bei Umschalt-Klick folgt der
+ * angezeigten Reihenfolge, auch nach dem Sortieren.
  */
 
 const LONG_PRESS_MS = 450;
@@ -43,7 +41,7 @@ export function clearSelection() {
   onChange();
 }
 
-/** Wird gerufen, wenn sich die Auswahl ändert — die Oberfläche zeichnet neu. */
+/** Wird bei geänderter Auswahl aufgerufen; die Oberfläche zeichnet neu. */
 export function onSelectionChange(fn) {
   onChange = fn;
 }
@@ -89,8 +87,8 @@ function stop(ev) {
 /**
  * Langes Drücken — auf allen Zeigergeräten, auch mit der Maus.
  *
- * Wandert der Zeiger, wird abgebrochen: Sonst löste jedes Ziehen und jedes
- * Scrollen mit dem Finger eine Auswahl aus.
+ * Bewegt sich der Zeiger, wird abgebrochen, damit Ziehen und Scrollen
+ * keine Auswahl auslösen.
  */
 function bindLongPress(element, action) {
   let timer = null;
@@ -119,7 +117,7 @@ function bindLongPress(element, action) {
     element.addEventListener(name, cancel);
   }
 
-  // Nach langem Drücken darf der folgende Klick nicht auch noch wirken.
+  // Der Klick nach einem langen Drücken wird unterdrückt.
   element.addEventListener('click', ev => {
     if (start === null && timer === null) return;
     stop(ev);
@@ -127,7 +125,7 @@ function bindLongPress(element, action) {
 }
 
 function toggle(id, home) {
-  // Anderer Ordner: Das ist eine neue Auswahl, keine Erweiterung.
+  // Anderer Ordner: neue Auswahl statt Erweiterung.
   if (selected.size && home !== folder) {
     selected.clear();
     anchor = null;
@@ -147,7 +145,7 @@ function selectRange(from, to, order, folderOf) {
   if (a === -1 || b === -1) return;
 
   for (const id of order.slice(Math.min(a, b), Math.max(a, b) + 1)) {
-    // Der Bereich kann über Ordnergrenzen laufen — dann nur der eigene.
+    // Bereiche über Ordnergrenzen werden auf den eigenen Ordner begrenzt.
     if (folderOf(id) === folder) selected.add(id);
   }
   onChange();

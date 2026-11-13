@@ -17,22 +17,18 @@ import de.wuefl.wkeepass.R
 import de.wuefl.wkeepass.kern.Kern
 
 /**
- * Unsere Seite des Autofill-Anschlusses von Android.
+ * Autofill-Dienst von WKeePass.
  *
- * Das System erzeugt diese Klasse selbst und ruft sie an, während der Nutzer
- * in einer **fremden** App vor einem Anmeldefeld steht.
+ * Das System erzeugt die Klasse und ruft sie auf, wenn der Nutzer in einer
+ * fremden App vor einem Anmeldefeld steht.
  *
- * ## Warum hier kein Passwort steht
+ * ## Kein Passwort in der Antwort
  *
  * Die anfragende App sieht die Antwort. Ein `Dataset` mit Klartextwerten
- * ginge durch ihre Hände, bevor der Nutzer überhaupt etwas ausgewählt hat —
- * eine App, die ein Anmeldefeld nachbaut, bekäme so jedes passende Passwort
- * geschenkt.
- *
- * Deshalb der eingeführte Weg: Die Antwort trägt nur eine Zeile und eine
- * **Authentifizierung**. Tippt der Nutzer darauf, startet Android unsere
- * [AusfuellActivity]. Dort, in unserem Prozess, entsteht das Dataset mit
- * den echten Werten — und nur mit denen des gewählten Eintrags.
+ * ginge durch ihre Hände, bevor der Nutzer etwas ausgewählt hat. Die Antwort
+ * enthält deshalb nur eine Zeile und eine **Authentifizierung**: Beim
+ * Antippen startet Android die [AusfuellActivity], die im eigenen Prozess
+ * das Dataset mit den Werten des gewählten Eintrags erzeugt.
  */
 class WKeePassAutofillService : AutofillService() {
 
@@ -41,8 +37,8 @@ class WKeePassAutofillService : AutofillService() {
         cancellationSignal: CancellationSignal,
         callback: FillCallback
     ) {
-        // Der letzte Zustand ist der aktuelle. Frühere Einträge in der Liste
-        // stammen aus vorherigen Runden derselben Ansicht.
+        // Der letzte Zustand ist der aktuelle; frühere Einträge stammen aus
+        // vorherigen Runden derselben Ansicht.
         val struktur = request.fillContexts.lastOrNull()?.structure
         if (struktur == null) {
             callback.onSuccess(null)
@@ -51,8 +47,8 @@ class WKeePassAutofillService : AutofillService() {
 
         val felder = FeldFinder.suche(struktur)
 
-        // `null` heißt „für dieses Formular haben wir nichts". Android fragt
-        // bei jedem Textfeld nach, auch bei Suchschlitzen und Notizen.
+        // `null`: Für dieses Formular gibt es nichts. Android fragt bei jedem
+        // Textfeld nach, auch bei Suchfeldern und Notizen.
         if (!felder.brauchbar) {
             callback.onSuccess(null)
             return
@@ -60,8 +56,7 @@ class WKeePassAutofillService : AutofillService() {
 
         val paket = struktur.activityComponent?.packageName ?: ""
 
-        // Uns selbst nicht ausfüllen — das Master-Passwort-Feld der App
-        // bekäme sonst einen Vorschlag aus der Datenbank, die es öffnen soll.
+        // Die App selbst wird nicht ausgefüllt (Master-Passwort-Feld).
         if (paket == packageName) {
             callback.onSuccess(null)
             return
@@ -69,9 +64,8 @@ class WKeePassAutofillService : AutofillService() {
 
         val web = felder.webAdresse ?: ""
 
-        // Der Kern kann warten müssen — er rechnet beim Speichern Argon2.
-        // Auf dem Hauptfaden des Dienstes hinge so lange die fremde App an
-        // ihrem Tastenfeld. Die Antwort darf von jedem Faden kommen.
+        // Der Kern kann warten müssen (Argon2 beim Speichern); die Antwort darf
+        // von jedem Faden kommen.
         Thread { callback.onSuccess(bauen(felder, paket, web)) }.start()
     }
 
@@ -82,8 +76,8 @@ class WKeePassAutofillService : AutofillService() {
 
         val stand = Kern.frage { Kern.treffer(paket, web) }
         if (Kern.gesperrt(stand) || stand.has("fehler")) {
-            // Gesperrt: eine Zeile, die zum Entsperren führt. Konten zeigen
-            // ginge nicht — ohne offene Datenbank kennen wir keine.
+            // Gesperrt: eine Zeile zum Entsperren. Konten sind ohne offene
+            // Datenbank nicht bekannt.
             antwort.addDataset(vorschlag(ids, zeile("${Kern.name(this)} entsperren", "Mit Biometrie, PIN oder Master-Passwort"), absicht(felder, paket, null, nachEntsperren = true)))
         } else {
             val liste = stand.optJSONArray("eintraege")
@@ -94,8 +88,8 @@ class WKeePassAutofillService : AutofillService() {
                 .filter { felder.passwort != null || it.optBoolean("totp") }
                 .take(MAX_VORSCHLAEGE)
 
-            // Je passendem Konto eine Zeile mit seinem Namen — die Werte
-            // entstehen trotzdem erst nach dem Antippen, in der Activity.
+            // Je passendem Konto eine Zeile mit seinem Namen; die Werte entstehen
+            // erst nach dem Antippen in der Activity.
             for (eintrag in passend) {
                 val benutzer = eintrag.optString("benutzer")
                 val titel = eintrag.optString("titel")
@@ -126,10 +120,8 @@ class WKeePassAutofillService : AutofillService() {
     }
 
     /**
-     * Nach dem Absenden eines Formulars hat der Nutzer „Speichern"
-     * angetippt: neuer Eintrag in der offenen Datenbank.
-     *
-     * Android fragt vorher selbst nach — ungefragt landet hier nichts.
+     * Nach dem Absenden eines Formulars hat der Nutzer „Speichern" angetippt:
+     * legt einen neuen Eintrag in der offenen Datenbank an.
      */
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
         val struktur = request.fillContexts.lastOrNull()?.structure
@@ -159,8 +151,8 @@ class WKeePassAutofillService : AutofillService() {
             // Gesperrt: Der Kern hat es sich gemerkt und trägt es nach dem
             // Entsperren ein.
             antwort.optString("status") == "vorgemerkt" -> {
-                // Ein Toast gehört auf den Hauptfaden — von hier aus gibt es
-                // sonst keinen Looper und die Meldung reißt den Dienst mit.
+                // Ein Toast gehört auf den Hauptfaden; auf diesem Faden gibt es
+                // keinen Looper.
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                     android.widget.Toast.makeText(
                         this, "Gemerkt — wird beim nächsten Entsperren von WKeePass gespeichert.",

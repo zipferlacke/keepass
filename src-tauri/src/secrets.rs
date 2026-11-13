@@ -1,11 +1,11 @@
 //! Geheimnisse verwahren und auswerten.
 //!
 //! Ein Wert verlässt den Kern auf genau zwei Wegen: `vault_reveal_secret`
-//! auf ausdrückliche Anforderung, und `vault_copy_secret` — das gibt ihn
-//! gar nicht heraus, sondern legt ihn direkt in die Zwischenablage.
+//! auf ausdrückliche Anforderung und `vault_copy_secret`, das ihn direkt in
+//! die Zwischenablage legt.
 //!
-//! Alles andere rechnet hier und gibt nur das Ergebnis zurück: Stärke,
-//! SHA-1-Präfix für den k-Anonymity-Abgleich, Mehrfachverwendung, TOTP.
+//! Alles Übrige liefert nur Ergebnisse: Stärke, SHA-1-Präfix für den
+//! k-Anonymity-Abgleich, Mehrfachverwendung, TOTP.
 
 use std::collections::HashMap;
 
@@ -29,8 +29,8 @@ fn value_of(vault: &VaultState, token: &str) -> Result<String, String> {
     vault.secrets.get(token).map(|v| v.to_string()).ok_or_else(|| "Unbekannter Verweis.".into())
 }
 
-/// Sperren und den Wert holen. Eigene Funktion, weil `&lock(…)?` die
-/// Umwandlung von `MutexGuard` nach `&VaultState` nicht durchreicht.
+/// Sperrt und holt den Wert. Eigene Funktion, da `&lock(…)?` die Umwandlung
+/// von `MutexGuard` nach `&VaultState` nicht durchreicht.
 fn take(state: &tauri::State<'_, Vault>, token: &str) -> Result<String, String> {
     let vault = lock(state)?;
     value_of(&vault, token)
@@ -92,8 +92,8 @@ pub fn vault_copy_secret(
    Auswertungen
    ========================================================= */
 
-/// SHA-1 in Präfix und Suffix geteilt. Nach außen geht davon nur das
-/// fünfstellige Präfix — den Rest vergleicht die Oberfläche selbst.
+/// SHA-1 in Präfix und Suffix geteilt. Nach außen geht nur das fünfstellige
+/// Präfix; den Rest vergleicht die Oberfläche selbst.
 #[tauri::command]
 pub fn vault_hash_prefix(
     state: tauri::State<'_, Vault>,
@@ -120,9 +120,9 @@ pub fn vault_duplicate_groups(state: tauri::State<'_, Vault>) -> Result<Vec<Vec<
     Ok(by_value.into_values().filter(|g| g.len() > 1).collect())
 }
 
-/// Der aktuelle Code. Zählt **nicht** als Nutzung: Die Oberfläche fragt
-/// jede Sekunde für jeden sichtbaren Code — sonst sperrte sich die
-/// Datenbank nie von selbst, solange ein Eintrag mit 2FA darin war.
+/// Der aktuelle Code. Zählt nicht als Nutzung, da die Oberfläche ihn jede
+/// Sekunde für jeden sichtbaren Code abfragt und sonst die automatische
+/// Sperre nie greifen würde.
 #[tauri::command]
 pub fn vault_totp(
     state: tauri::State<'_, Vault>,
@@ -138,9 +138,8 @@ pub fn vault_totp(
 
 /// Rechnet den Code — jetzt oder zu dem Zeitpunkt, den `config.at` nennt.
 fn totp_code(raw: &str, config: &dto::TotpConfig) -> Result<dto::TotpResult, String> {
-    // Steht schon eine vollständige otpauth-Adresse im Feld, gelten deren
-    // Angaben — sie kommen von der Gegenstelle. Sonst bauen wir eine aus dem
-    // Base32-Geheimnis und den Einstellungen des Eintrags.
+    // Eine vollständige otpauth-Adresse im Feld hat Vorrang; sonst wird aus
+    // dem Base32-Geheimnis und den Einstellungen des Eintrags eine gebaut.
     let uri = if raw.starts_with("otpauth://") {
         raw.to_string()
     } else {
@@ -173,8 +172,8 @@ pub fn vault_attachment(
 ) -> Result<Option<dto::Attachment>, String> {
     let vault = lock(&state)?;
 
-    // Ein noch nicht gespeicherter Anhang liegt im Zwischenspeicher — die
-    // Vorschau im Dialog soll ihn trotzdem zeigen können.
+    // Ein noch nicht gespeicherter Anhang liegt im Zwischenspeicher und
+    // soll in der Vorschau trotzdem angezeigt werden.
     if let Some(staged) = vault.staged.get(&r#ref) {
         let mime = mime_from_name(&staged.name);
         return Ok(Some(dto::Attachment {
@@ -192,7 +191,7 @@ pub fn vault_attachment(
         return Ok(None);
     };
 
-    // Den Namen trägt nicht der Anhang, sondern der Eintrag, der ihn nutzt.
+    // Den Namen trägt der Eintrag, der den Anhang nutzt.
     let name = db
         .iter_all_entries()
         .find_map(|e| {
@@ -217,12 +216,12 @@ pub const STAGED_PREFIX: &str = "staged:";
 
 /// Schreibt einen Anhang als Datei auf die Platte.
 ///
-/// Ein `<a download>` im Webview führt hier zu nichts: WebKitGTK bringt in
-/// einem eingebetteten View keine Download-Behandlung mit, der Klick
-/// verpufft folgenlos. Deshalb macht es der Kern — Speichern-Dialog des
-/// Systems, Bytes direkt aus der Datenbank, fertig.
+/// WebKitGTK bietet in einem eingebetteten View keine Download-Behandlung,
+/// weshalb `<a download>` im Webview wirkungslos bleibt. Der Kern öffnet
+/// stattdessen den Speichern-Dialog des Systems und schreibt die Bytes
+/// direkt aus der Datenbank.
 ///
-/// Zurück kommt der Pfad, oder nichts, wenn abgebrochen wurde.
+/// Gibt den Pfad zurück, oder nichts bei Abbruch.
 #[tauri::command]
 pub async fn save_attachment(
     app: tauri::AppHandle,
@@ -231,7 +230,7 @@ pub async fn save_attachment(
 ) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
 
-    // Erst holen, dann fragen: Ist der Anhang weg, soll kein Dialog aufgehen.
+    // Zuerst den Anhang holen, damit bei fehlendem Anhang kein Dialog erscheint.
     let (name, bytes) = {
         let vault = lock(&state)?;
 
@@ -246,7 +245,7 @@ pub async fn save_attachment(
                 .find(|a| a.id().id() == wanted)
                 .ok_or("Der Anhang steht nicht mehr in der Datenbank.")?;
 
-            // Den Namen trägt der Eintrag, nicht der Anhang.
+            // Den Namen trägt der Eintrag.
             let name = db
                 .iter_all_entries()
                 .find_map(|e| {
@@ -277,19 +276,16 @@ pub async fn save_attachment(
 
 /// Wie groß ein einzelner Anhang höchstens sein darf.
 ///
-/// Eine KDBX-Datei wird beim Speichern vollständig neu verschlüsselt und
-/// geschrieben. Große Anhänge machen also jedes Speichern langsam — und die
-/// Datei wandert oft durch eine Synchronisierung.
+/// Eine KDBX-Datei wird bei jedem Speichern vollständig neu verschlüsselt
+/// und geschrieben; große Anhänge verlangsamen das Speichern und belasten
+/// die Synchronisierung.
 const MAX_ATTACHMENT_BYTES: u64 = 2 * 1024 * 1024;
 
 /// Wählt Dateien über den Dialog des Betriebssystems und liest sie ein.
 ///
-/// Der Weg über den Kern statt über ein `<input type="file">` hat zwei
-/// Gründe. Erstens landen die Bytes damit nie im Webview — dieselbe
-/// Aufgabenteilung wie bei den Geheimnissen. Zweitens ist es derselbe
-/// Dialog wie beim Öffnen einer Datenbank, also auch derselbe
-/// Zugriffsrahmen; ein Webview-Dateifeld hängt dagegen an den Freigaben des
-/// Browsers.
+/// Der Weg über den Kern statt über ein `<input type="file">` hält die Bytes
+/// aus dem Webview (wie bei den Geheimnissen) und nutzt denselben Dialog und
+/// Zugriffsrahmen wie das Öffnen einer Datenbank.
 ///
 /// Zurück kommen nur die Angaben zur Anzeige. Der Inhalt bleibt im Kern und
 /// wird über `ref` angesprochen.
@@ -308,9 +304,9 @@ pub async fn pick_attachments(
     let picked = rx.recv().map_err(|e| format!("Dateiauswahl fehlgeschlagen: {e}"))?;
     let Some(paths) = picked else { return Ok(Vec::new()) };
 
-    // Nicht `into_path()`: Auf Android kommt hier eine `content://`-Adresse
-    // zurück, die sich nicht in einen Pfad verwandeln lässt. Was damit
-    // anzufangen ist, weiß `storage.rs`.
+    // Kein `into_path()`: Auf Android liefert der Dialog eine
+    // `content://`-Adresse, die sich nicht in einen Pfad umwandeln lässt;
+    // `storage.rs` behandelt sie.
     let paths = paths.into_iter().map(|p| p.to_string()).collect();
 
     let mut vault = lock(&state)?;
@@ -319,11 +315,11 @@ pub async fn pick_attachments(
 
 /// Liest Dateien ein und legt sie im Zwischenspeicher ab.
 ///
-/// Gemeinsamer Weg für den Auswahldialog und für Dateien, die aufs Fenster
-/// gezogen werden (siehe `lib.rs`). Einen Befehl, der beliebige Pfade aus
-/// der Oberfläche annimmt, gibt es bewusst nicht — sonst könnte der Webview
-/// jede Datei des Benutzers in die Datenbank und damit zu sich holen. Die
-/// Pfade kommen immer vom System: aus dem Dialog oder aus dem Ablegen.
+/// Gemeinsamer Weg für den Auswahldialog und für auf das Fenster gezogene
+/// Dateien (siehe `lib.rs`). Pfade stammen immer vom System (Dialog oder
+/// Ablegen); ein Befehl, der beliebige Pfade aus der Oberfläche annimmt,
+/// existiert nicht, damit der Webview keine Dateien des Benutzers einlesen
+/// kann.
 pub fn stage_paths(
     vault: &mut crate::state::VaultState,
     paths: Vec<String>,
@@ -361,13 +357,12 @@ pub fn stage_paths(
 
 /// Legt eine Datei mit vorgegebenem Inhalt im Zwischenspeicher ab.
 ///
-/// Für zwei Fälle aus der Dateiablage: eine neue, leere Datei anlegen und
-/// eine Textdatei nach dem Bearbeiten übernehmen. Geschrieben wird wie immer
-/// erst beim Speichern des Eintrags; bis dahin ist nichts verloren, wenn man
-/// den Dialog abbricht.
+/// Dient dem Anlegen einer neuen, leeren Datei und der Übernahme einer
+/// bearbeiteten Textdatei aus der Dateiablage. Geschrieben wird erst beim
+/// Speichern des Eintrags.
 ///
-/// Anders als ein Pfad liest der Inhalt nichts vom Rechner — die Oberfläche
-/// kann hier nur ablegen, was sie ohnehin schon hat.
+/// Der Inhalt wird nicht vom Rechner gelesen; die Oberfläche legt nur ab,
+/// was sie ohnehin hat.
 #[tauri::command]
 pub fn stage_attachment_content(
     state: tauri::State<'_, Vault>,
@@ -483,7 +478,7 @@ fn strength(pw: &str) -> dto::Strength {
 
     for word in COMMON {
         if word.len() >= 5 && lower.contains(word) {
-            // Je mehr des Passworts aus dem bekannten Wort besteht, desto
+            // Je größer der Anteil des bekannten Worts am Passwort, desto
             // stärker der Abzug.
             let share = word.chars().count() as f64 / length;
             entropy -= 14.0 + (share * 34.0).round();
@@ -591,8 +586,8 @@ pub fn current_totp(raw: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    /// Die Vorschau „als Nächstes" muss den Code des folgenden Zeitfensters
-    /// zeigen — nicht noch einmal den aktuellen.
+    /// Die Vorschau „als Nächstes" zeigt den Code des folgenden Zeitfensters,
+    /// nicht den aktuellen.
     #[test]
     fn vorschau_zeigt_den_naechsten_code() {
         let config = |at| dto::TotpConfig { at, ..Default::default() };
@@ -608,7 +603,7 @@ mod tests {
         assert_eq!(aktuell.remaining, 10);
     }
 
-    /// Ohne Zeitpunkt gilt die Systemzeit — und der Code läuft noch.
+    /// Ohne Zeitpunkt gilt die Systemzeit; der Code läuft noch.
     #[test]
     fn ohne_zeitpunkt_gilt_jetzt() {
         let ergebnis = totp_code("JBSWY3DPEHPK3PXP", &dto::TotpConfig::default()).unwrap();

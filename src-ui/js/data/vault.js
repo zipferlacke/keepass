@@ -7,15 +7,14 @@
  *            Aufbau von Ordnern und Einträgen
  *   Webview  Darstellung und Bedienung
  *
- * Diese Datei enthält keine Datenbanklogik mehr. Sie reicht Kommandos an
- * `invoke()` weiter und hält das Ergebnis zwischen, damit die Oberfläche
- * Ordner, Schlagworte und einzelne Einträge ohne `await` lesen kann.
+ * Das Modul enthält keine Datenbanklogik. Es reicht Kommandos an `invoke()`
+ * weiter und hält das Ergebnis zwischen, damit die Oberfläche Ordner,
+ * Schlagworte und Einträge ohne `await` lesen kann.
  *
- * Der Webview hält niemals dauerhaft ein Passwort. Er bekommt Metadaten
- * und Platzhalter-Token; einen Klartextwert gibt es nur auf ausdrückliche
- * Anfrage (`revealSecret`) und nur für den Moment der Anzeige. Beim
- * Kopieren gar nicht — `copySecret` legt den Wert direkt in die
- * Zwischenablage, ohne ihn hierher zu geben.
+ * Der Webview hält kein Passwort dauerhaft. Er erhält Metadaten und
+ * Platzhalter-Token; Klartext gibt es nur auf Anfrage (`revealSecret`) für
+ * die Dauer der Anzeige. `copySecret` legt den Wert direkt in die
+ * Zwischenablage, ohne ihn in den Webview zu geben.
  */
 
 import { invoke } from '../core/platform.js';
@@ -59,9 +58,8 @@ async function mutate(command, args) {
  *
  * `method` ist `'password'`, `'pin'`, `'biometric'` oder `'device'`;
  * `secret` ist das Master-Passwort bzw. die PIN und bleibt bei Biometrie und
- * Geräteschlüssel leer. Welcher Weg
- * am Ende zum Master-Passwort führt, entscheidet der Kern — hierher kommt
- * es nie zurück.
+ * Geräteschlüssel leer. Den Weg zum Master-Passwort wählt der Kern; es
+ * gelangt nie in den Webview.
  */
 export async function unlock({ path, method = 'password', secret = null, keyfile = null, autoLockMinutes = 0, remember = null }) {
   const info = await invoke('vault_unlock', { path, method, secret, keyfile, autoLockMinutes, remember });
@@ -72,13 +70,9 @@ export async function unlock({ path, method = 'password', secret = null, keyfile
 }
 
 /**
- * Übernimmt eine Datenbank, die **anderswo** geöffnet wurde.
- *
- * Seit die Browser-Anbindung im kleinen Fenster entsperren kann, ist das
- * Hauptfenster nicht mehr die einzige Stelle, an der eine Datei aufgeht. Der
- * Kern weiß dann Bescheid, dieses Modul aber nicht — und `listEntries` gibt
- * ohne `opened` eine leere Liste zurück. Das sah aus wie eine Datenbank ohne
- * Einträge: Fenster fertig, Zahlen auf null.
+ * Übernimmt eine Datenbank, die an anderer Stelle geöffnet wurde (etwa im
+ * kleinen Browser-Fenster). Der Kern kennt sie dann bereits; dieses Modul
+ * setzt `opened`, da `listEntries` sonst eine leere Liste liefert.
  */
 export async function adopt() {
   await refresh();
@@ -116,17 +110,16 @@ export const rememberDevice = enable => invoke('vault_remember_device', { enable
 /** Nimmt die Freigabe einer Datenbank zurück. */
 export const forget = path => invoke('vault_forget', { path });
 
-/** „Ich bin es" — ohne PIN läuft es über den Fingerabdruck. */
 /**
  * „Ich bin es" bestätigen — mit PIN, Master-Passwort oder Fingerabdruck.
  *
- * Die PIN gilt hier immer, sobald eine festgelegt ist: Zum Entsperren ist
- * sie ein Schlüssel, hier nur ein Nachweis.
+ * Eine festgelegte PIN gilt hier immer; sie dient als Nachweis, nicht als
+ * Schlüssel wie beim Entsperren.
  */
 /** Setzt die Ruhezeit der Selbstsperre neu. `0` schaltet sie ab. */
 export const setAutoLock = minutes => invoke('vault_set_auto_lock', { minutes });
 
-/** Meldet dem Kern Betrieb, damit die Selbstsperre nicht beim Lesen zuschlägt. */
+/** Meldet dem Kern Aktivität, damit die Selbstsperre nicht auslöst. */
 export const touch = () => invoke('vault_touch');
 
 /** Leert den Papierkorb endgültig. */
@@ -196,8 +189,14 @@ export async function versionRestore(id, entries = null) {
 
 export const conflicts = () => invoke('vault_conflicts');
 
-/** `choice`: `hier` (Fassung der App) oder `extern` (aus der Datei). */
-export const resolveConflict = (id, choice) => mutate('vault_conflict_resolve', { id, choice });
+/**
+ * `choice`: `hier` (Fassung der App), `extern` (aus der Datei) oder `felder`
+ * — dann nennt `fields` je Feld (`key` aus dem Konflikt) `hier` oder `extern`.
+ */
+export const resolveConflict = (id, choice, fields = null) => mutate('vault_conflict_resolve', { id, choice, fields });
+
+/** Klartext eines Feldes in einer der beiden Fassungen: `side` ist `hier` oder `extern`. */
+export const revealConflict = (id, key, side) => invoke('vault_conflict_reveal', { id, key, side });
 
 /** Name, Format und Stärke der Verschlüsselung der offenen Datenbank. */
 export const security = () => invoke('vault_security');
@@ -252,7 +251,7 @@ export async function deleteEntry(id) {
 
   const ok = await mutate('vault_delete_entry', { id });
 
-  // Die Werte gehören zum Eintrag — sie verschwinden mit ihm.
+  // Die Werte gehören zum Eintrag und werden mit ihm gelöscht.
   if (entry.passwordToken) await invoke('vault_drop_secret', { token: entry.passwordToken });
   if (entry.totpToken) await invoke('vault_drop_secret', { token: entry.totpToken });
   return ok;
@@ -407,8 +406,8 @@ export const browserUninstall = () => invoke('browser_uninstall');
 /** Löst die Verknüpfung eines Browsers. */
 export const browserForget = name => invoke('browser_forget', { name });
 
-// Beantwortet wird eine Anfrage nicht von hier, sondern vom eigenen kleinen
-// Fenster — siehe js/request.js. Es ruft `browser_answer` direkt auf.
+// Anfragen beantwortet das kleine Fenster (js/request.js) über
+// `browser_answer`.
 
 /** Mit welcher Datei wurde die Anwendung aufgerufen? (Doppelklick auf .kdbx) */
 export const startupDatabase = () => invoke('startup_database');

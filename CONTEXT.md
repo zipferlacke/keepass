@@ -163,6 +163,11 @@ js/
   `banner`, `tableview`, `qrcode`. Eingebunden von `https://open.wuefl.de/wuefl-libs/`.
 - **CSS immer verschachtelt**, alles in `@layer custom`, Variablen `--clr-*`,
   `--fs-*`, `--br-*`. Icon-Knöpfe: `data-shape="square"`.
+- **Kommentare beschreiben, was der Code tut** – Zweck, Eingaben, Ergebnis,
+  nicht offensichtliche Randbedingungen als Tatsache. Keine Fehlergeschichte
+  („vorher …“, „so geschehen …“), keine Anweisungen an spätere Bearbeiter
+  („nicht ändern“, „bewusst so“). Was früher schiefging, steht in der
+  Commit-Nachricht.
 - **Kommentare auf Deutsch, Oberflächentexte nie fest im Code**, sondern in
   `appdata/lang/de_DE.json` (Seite → Bereich → Text) und über
   `t('seite.bereich.text')` aus `core/i18n.js`; feste Texte im HTML mit

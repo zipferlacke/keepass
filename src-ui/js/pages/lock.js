@@ -40,9 +40,7 @@ export function startUnlock() {
 export function recentDatabases() {
   const list = settings.get('database.recent', []);
   if (!Array.isArray(list)) return [];
-  // Ältere Fassungen merkten sich bei Dateien aus „Downloads" den ganzen
-  // Pfad als Namen („raw:/storage/emulated/0/…") und „Downloads//storage/…"
-  // als Ort. Beim Lesen geradeziehen, statt die Liste umzuschreiben.
+  // Einträge älterer Fassungen (ganzer Pfad als Name, z. B. „raw:/storage/…“) werden beim Lesen korrigiert.
   return list.map(d => {
     const kaputt = s => /^raw:|\/storage\/|\/\//.test(String(s ?? ''));
     return {
@@ -56,14 +54,11 @@ export function recentDatabases() {
 export async function rememberDatabase(entry) {
   const list = recentDatabases().filter(d => d.path !== entry.path);
 
-  // Wo die Datei liegt, weiß unter Android nur der Kern: Er fragt den
-  // Anbieter nach dem Dateinamen. Einmal merken reicht — die Auskunft kostet
-  // jedes Mal einen Weg über die Java-Seite.
+  // Unter Android kennt nur der Kern den Ort der Datei (Anfrage an den Anbieter); der Wert wird gemerkt.
   const label = entry.label ?? await pfadAuskunft(entry.path);
 
-  // Kam beim Auswählen kein Name heraus, nimm den Dateinamen aus der
-  // Auskunft („Downloads — passwoerter.kdbx").
-  // Älter gemerkte Namen stehen noch deutsch in den Einstellungen.
+  // Ohne Namen aus der Auswahl dient der Dateiname aus der Auskunft („Downloads — passwoerter.kdbx“).
+  // Ältere gespeicherte Namen stehen noch auf Deutsch in den Einstellungen.
   const name = entry.name && entry.name !== t('entsperren.datenbank.nochNichtGeoeffnet') && entry.name !== 'Noch nicht geöffnet'
     ? entry.name
     : (label?.split('/').pop() ?? entry.name);
@@ -74,15 +69,9 @@ export async function rememberDatabase(entry) {
 }
 
 /**
- * Räumt die Ansicht hinter dem Sperrbildschirm ab.
- *
- * Der Sperrbildschirm legt sich nur darüber; was darunter aktiv war, bleibt
- * es. Wer aus den Einstellungen heraus sperrt, hätte darunter also weiter
- * die volle Einstellungsseite stehen — und weil die länger ist als das
- * Fenster, wächst die Seite mit und lässt sich scrollen.
- *
- * `showView` hilft hier nicht: Es steigt bei gesperrter Datenbank aus.
- * Deshalb von Hand, und an einer Stelle für alle Wege dorthin.
+ * Räumt die Ansicht hinter dem Sperrbildschirm ab, damit dort nichts Aktives
+ * (etwa die lange Einstellungsseite) stehen bleibt. `showView` ist hier
+ * nicht verwendbar, da es bei gesperrter Datenbank abbricht.
  */
 export function resetToHomeView() {
   state.view = 'home';
@@ -98,29 +87,23 @@ export async function showLockscreen(message = null) {
   $('#lockscreen').hidden = false;
   $('#btn-add').hidden = true;
 
-  // Frisch nachfragen: Ob es eine PIN gibt, kann sich seit dem Start
-  // geändert haben — etwa weil man sie gerade eingerichtet hat.
+  // Neu abfragen: Die PIN kann seit dem Start eingerichtet worden sein.
   const current = settings.get('database.current', null);
   try { state.unlock = await unlockMethods(current); } catch { /* Voreinstellung behalten */ }
 
   renderLockscreen(message);
 }
 
-// Markenzeichen als Bilddatei. Zur Farbe des W siehe logo.svg selbst —
-// ein über <img> geladenes SVG erbt nichts von dieser Seite.
+// Markenzeichen als Bilddatei; die Farbe des W steht in logo.svg, da ein per <img> geladenes SVG nichts von der Seite erbt.
 export const BRAND_MARK = `<img class="lock-mark" src="./logo.svg" alt="" width="128" height="128">`;
 
 /**
- * Sperrbildschirm.
- *
- * Aufbau von oben nach unten: aktuelle Datenbank, Entsperren, neue Datenbank
- * anlegen, und ganz unten zugeklappt die zuletzt genutzten. Welcher Weg zum
- * Entsperren erscheint, entscheidet der Kern über `unlock_methods` — hier
- * wird nur angezeigt, was er anbietet.
+ * Sperrbildschirm: aktuelle Datenbank, Entsperren, neue Datenbank anlegen,
+ * zugeklappt die zuletzt genutzten. Welche Entsperrwege erscheinen, liefert
+ * der Kern über `unlock_methods`.
  */
 export function renderLockscreen(message) {
-  // Nach einem erfolgreichen Entsperren bleibt die Beschäftigt-Markierung
-  // sonst am Element hängen und die Karte wirkt beim nächsten Mal blockiert.
+  // Die Beschäftigt-Markierung nach erfolgreichem Entsperren entfernen.
   $('#lock-card')?.removeAttribute('data-busy');
 
   const list = recentDatabases();
@@ -176,7 +159,7 @@ export function renderLockscreen(message) {
     startUnlock();
   }));
 
-  // Das Zahnrad sitzt im Fenster, nicht in der Karte — einmal verkabeln reicht.
+  // Das Zahnrad gehört zum Fenster, nicht zur Karte, und wird nur einmal verdrahtet.
   $('#lock-gear').onclick = openSettingsPage;
 
   $('#lock-unlock')?.addEventListener('click', openUnlockDialog);
@@ -185,12 +168,7 @@ export function renderLockscreen(message) {
   $('#lock-new')?.addEventListener('click', createDatabase);
 }
 
-/**
- * Fragt nach dem, was für diese Datenbank freigeschaltet ist.
- *
- * Ein Dialog statt drei Feldern auf der Karte: Der Sperrbildschirm bleibt
- * damit aufgeräumt, und es ist immer klar, welcher Weg gerade gemeint ist.
- */
+/** Fragt per Dialog nach dem für diese Datenbank freigeschalteten Entsperrweg. */
 export async function openUnlockDialog() {
   const u = state.unlock;
   const fields = captureFields('pin', 'pw');
@@ -226,8 +204,7 @@ export async function openUnlockDialog() {
     cancelText: t('allgemein.knoepfe.abbrechen'),
     onInsert: () => {
       fields.onInsert();
-      // Gleich lostippen können: Ohne das steht der Fokus auf dem ersten
-      // Knopf des Dialogs, und PIN oder Passwort gehen ins Leere.
+      // Fokus ins Eingabefeld statt auf den ersten Knopf des Dialogs.
       fokusInsFeld(u.pin ? 'pin' : 'pw');
       queueMicrotask(() => {
         document.getElementById('dlg-bio')?.addEventListener('click', () => {
@@ -246,13 +223,11 @@ export async function openUnlockDialog() {
 
   const wantsPin = fieldChecked(res.data, 'remember');
   const wantsBioSwitch = fieldChecked(res.data, 'rememberBio');
-  // Ein Schalter, der beste Weg: der Chip, wo es ihn gibt, sonst der
-  // Schlüsselbund mit dem Finger als Ausweis.
+  // Bester Weg: der Chip, falls vorhanden, sonst der Schlüsselbund mit dem Finger als Ausweis.
   const wantsDevice = wantsBioSwitch && bioWeg === 'device';
   const wantsBio = wantsBioSwitch && bioWeg === 'keyring';
 
-  // PIN und Fingerabdruck hängen beide am App-Schlüssel, und der entsteht
-  // erst mit der PIN des Programms. Ohne sie geht keins von beidem.
+  // PIN und Fingerabdruck beruhen auf dem App-Schlüssel, der erst mit der PIN des Programms entsteht.
   let pin = '';
   if (wantsPin || wantsBio) {
     if (!state.unlock.pinSet && !(await createAppPin())) return;
@@ -276,11 +251,11 @@ export async function openUnlockDialog() {
 /**
  * Welcher Biometrie-Weg für diese Datenbank noch einzurichten ist.
  *
- * `device`   Der Chip gibt den Schlüssel nur nach der Prüfung heraus
- *            (Android-Keystore, Windows Hello). Ersetzt das Master-Passwort.
- * `keyring`  Der Finger ist nur Ausweis, der Schlüssel liegt im
- *            Schlüsselbund, und es braucht die App-PIN (Linux, macOS).
- * `null`     Nichts möglich — oder schon eingerichtet.
+ * `device`   Der Chip gibt den Schlüssel erst nach der Prüfung heraus
+ *            (Android-Keystore, Windows Hello); ersetzt das Master-Passwort.
+ * `keyring`  Der Finger dient nur als Ausweis, der Schlüssel liegt im
+ *            Schlüsselbund; benötigt die App-PIN (Linux, macOS).
+ * `null`     Nichts möglich oder bereits eingerichtet.
  */
 function biometrieWeg(u) {
   if (u.device || u.biometric) return null;
@@ -304,20 +279,7 @@ async function askAppPin() {
   return res?.submit ? fields.value('pin', res.data) : '';
 }
 
-/**
- * Willkommensbildschirm beim allerersten Start.
- *
- * Danach steht die PIN des Programms, und der Sperrbildschirm kann sie
- * anbieten. Übergehen lässt sich das — dann geht jede Datenbank eben nur
- * mit ihrem Master-Passwort auf.
- */
-/**
- * Wo eine Datenbank liegt — in lesbar.
- *
- * Auf Android ist der „Pfad" eine Adresse wie
- * `content://org.nextcloud.documents/document/5092c86d…`. Die sagt niemandem
- * etwas; die Anwendung dahinter schon.
- */
+/** Anzeigenamen der Android-Dokumentanbieter. */
 const herkunft = () => ({
   'com.android.providers.downloads.documents': t('entsperren.herkunft.downloads'),
   'com.android.externalstorage.documents': t('entsperren.herkunft.geraetespeicher'),
@@ -326,23 +288,21 @@ const herkunft = () => ({
   'com.google.android.apps.docs.storage': 'Google Drive'
 });
 
-/**
- * Der Name, unter dem eine Datenbank in der Liste steht — bevor sie einmal
- * offen war. Danach nimmt `rememberDatabase` den Namen aus der Datei selbst.
- */
 /** Dekodiert eine Adresse, ohne an kaputten %-Folgen zu scheitern. */
 function safeDecode(text) {
   try { return decodeURIComponent(text); } catch { return text; }
 }
 
+/**
+ * Der Name, unter dem eine Datenbank vor dem ersten Öffnen in der Liste steht.
+ * Danach verwendet `rememberDatabase` den Namen aus der Datei.
+ */
 export function dbName(path) {
   const text = String(path ?? '');
   if (!text.startsWith('content://')) return text.split(/[\\/]/).pop();
 
   const name = safeDecode(text).split(/[/:]/).pop() ?? '';
-  // Steckt kein Name in der Adresse, kennt ihn niemand: Android gibt beim
-  // Auswählen und beim Anlegen nur eine Kennung zurück. Der richtige Name
-  // steht in der Datenbank selbst und kommt beim ersten Öffnen.
+  // Android liefert bei Auswahl und Anlegen nur eine Kennung; der Name steht erst nach dem Öffnen in der Datenbank.
   return name.includes('.') && !/^[0-9a-f]+$/i.test(name) ? name : t('entsperren.datenbank.nochNichtGeoeffnet');
 }
 
@@ -356,6 +316,11 @@ async function pfadAuskunft(path) {
   }
 }
 
+/**
+ * Wo eine Datenbank liegt, in lesbarer Form. Unter Android ist der Pfad eine
+ * Adresse wie `content://org.nextcloud.documents/document/…`; angezeigt wird
+ * stattdessen die dahinterliegende Anwendung.
+ */
 export function pfadLabel(path, gemerkt = null) {
   if (gemerkt) return gemerkt;
 
@@ -380,10 +345,9 @@ function biometrieFehlt() {
 }
 
 /**
- * Einmal fragen, was die App aus dem Netz holen darf — bei neuen und bei
- * bestehenden Installationen (`ui.onlineAsked`). Jeder Punkt sagt, wohin
- * etwas geht und was; vorbelegt ist der bisherige Stand der Einstellungen.
- * Alles bleibt später unter Einstellungen → Prüfungen bzw. Einträge umstellbar.
+ * Fragt einmal, was die App aus dem Netz holen darf (neue und bestehende
+ * Installationen, `ui.onlineAsked`). Jeder Punkt nennt Ziel und Inhalt; vorbelegt
+ * ist der bisherige Stand. Später unter Einstellungen → Prüfungen bzw. Einträge änderbar.
  */
 const ONLINE = [
   ['icons.download', 'symbole'],
@@ -427,6 +391,7 @@ export async function showOnlineQuestion() {
   });
 }
 
+/** Willkommensbildschirm beim ersten Start; legt die PIN des Programms an (überspringbar). */
 export async function showWelcome() {
   return new Promise(resolve => {
     $('#welcome').hidden = false;
@@ -492,8 +457,7 @@ export async function showWelcome() {
     $('#wc-ok').onclick = async () => {
       const pin = $('#wc-pin').value.trim();
       const bio = $('#wc-bio').checked;
-      // Mit Geräteschlüssel geht es auch ganz ohne PIN: Freigeschaltet wird
-      // dann beim ersten Öffnen einer Datenbank.
+      // Mit Geräteschlüssel ist keine PIN nötig; freigeschaltet wird beim ersten Öffnen einer Datenbank.
       const deviceOnly = bio && state.unlock.deviceAvailable;
 
       if (!pin && !deviceOnly) { banner(t('entsperren.willkommen.pinFehlt'), 'warning'); return; }
@@ -529,13 +493,9 @@ async function trotzdemSperren(err) {
 }
 
 /**
- * Hat Android der App den Zugriff entzogen?
- *
- * Das passiert, wenn ein anderes Programm die Datei gelöscht und neu
- * angelegt hat, statt sie zu überschreiben — manche Sync-Programme tun das.
- * Die Freigabe aus der Dateiauswahl gehörte zur alten Datei; ohne neue
- * Auswahl kommt die App nie wieder an die Datei heran. „Gerade nicht
- * erreichbar" wäre da die falsche Auskunft.
+ * Hat Android der App den Zugriff entzogen? Das geschieht, wenn ein anderes
+ * Programm (z. B. Sync) die Datei löscht und neu anlegt: Die Freigabe der
+ * Dateiauswahl gehörte zur alten Datei und eine neue Auswahl ist nötig.
  */
 function zugriffEntzogen(grund) {
   return /Permission Denial|ACTION_OPEN_DOCUMENT/.test(String(grund ?? ''));
@@ -557,8 +517,7 @@ async function zugriffNeu() {
   } catch { neu = false; }
   if (!neu) return;
 
-  // Gerade erst geöffnet, offline — da ist nichts zu speichern. Sperren
-  // ginge über lockDatabase, das aber zuerst speichern will.
+  // Gerade geöffnet und offline: nichts zu speichern. `lockDatabase` würde zuerst speichern wollen.
   await vault.lock();
   stopTicker();
   state.entries = [];
@@ -573,8 +532,7 @@ async function pickDatabase() {
 
   const name = dbName(picked);
   await rememberDatabase({ name, path: picked });
-  // Die Entsperrwege gehören zur Datei. Ohne das bot der Dialog noch PIN
-  // und Fingerabdruck der vorher gewählten Datenbank an.
+  // Die Entsperrwege gehören zur Datei, nicht zur zuvor gewählten Datenbank.
   state.unlock = await unlockMethods(picked);
   renderLockscreen();
 }
@@ -587,7 +545,7 @@ async function pickDatabase() {
    ========================================================= */
 
 
-/** Legt die PIN des Programms fest. Muss vor jeder Freigabe geschehen. */
+/** Legt die PIN des Programms fest; Voraussetzung für jede Freigabe. */
 export async function createAppPin() {
   const fields = captureFields('pin', 'pin2');
 
@@ -675,12 +633,9 @@ export async function manageAccess() {
 }
 
 /**
- * Freigabe auf Geräten mit Geräteschlüssel (Windows Hello).
- *
- * Hier ist die Biometrie der Hauptweg und braucht keine PIN. Die PIN bleibt
- * als Rückfall wählbar; nur für sie wird nachgefragt. Den schwächeren
- * Fingerabdruck-Weg über den Schlüsselbund gibt es daneben nicht — er wäre
- * dasselbe in schlechter.
+ * Freigabe auf Geräten mit Geräteschlüssel (Windows Hello). Die Biometrie ist
+ * der Hauptweg und braucht keine PIN; nur die PIN als Rückfall wird abgefragt.
+ * Der Fingerabdruck-Weg über den Schlüsselbund wird hier nicht angeboten.
  */
 async function manageDeviceAccess() {
   const u = state.unlock;
@@ -748,7 +703,7 @@ export async function clearAppPin() {
   banner(t('entsperren.pinEntfernen.entfernt'), 'success');
 }
 
-/** Ändert die PIN. Ohne die alte geht es nicht — Absicht. */
+/** Ändert die PIN; die alte PIN ist erforderlich. */
 export async function changePin() {
   const fields = captureFields('old', 'next', 'next2');
 
@@ -781,12 +736,9 @@ export async function changePin() {
 
 
 /**
- * Legt eine neue, leere Datenbank an und öffnet sie gleich.
- *
- * Erst Name und Master-Passwort, dann der Speicherort. Die Reihenfolge ist
- * Absicht: Der Name gehört in die Datei selbst, und unter Android ist er die
- * einzige Bezeichnung, die später noch da ist — aus einer
- * `content://`-Adresse lässt sich kein Dateiname herausholen.
+ * Legt eine neue, leere Datenbank an und öffnet sie. Erst Name und
+ * Master-Passwort, dann der Speicherort: Der Name gehört in die Datei, und unter
+ * Android lässt sich aus einer `content://`-Adresse kein Dateiname gewinnen.
  */
 async function createDatabase() {
   const fields = captureFields('pw', 'pw2');
@@ -866,12 +818,10 @@ export async function enterUnlocked() {
   startTicker();
   maybeAutoCheck();
 
-  // Offene Konflikte aus einem Abgleich im Hintergrund (etwa beim Ausfüllen
-  // am Handy, ohne dass die App offen war) — jetzt fragen.
+  // Offene Konflikte eines Hintergrundabgleichs (z. B. Ausfüllen am Handy) abfragen.
   import('../dialogs/konflikte.js').then(m => m.openKonflikte()).catch(() => {});
 
-  // Fehlende Website-Icons nachholen — im Hintergrund, der Kern speichert sie
-  // in der Datenbank und meldet sich mit `vault-changed`.
+  // Fehlende Website-Icons im Hintergrund nachladen; der Kern speichert sie und meldet `vault-changed`.
   vault.fetchIcons().catch(() => {});
 
   // Kam ein otpauth://-Code aus der Kamera-App, während gesperrt war?
@@ -884,20 +834,12 @@ export async function enterUnlocked() {
 }
 
 /**
- * Läuft gerade ein Entsperrversuch?
- *
- * Der Sperrbildschirm wird währenddessen zwar auf „arbeitet" gestellt, aber
- * das Zahnrad führt in die Einstellungen und von dort zurück — und dabei
- * wird er neu gezeichnet, samt bedienbarer Knöpfe. Ein zweiter Versuch
- * liefe dann parallel zum ersten, und beide schrieben am Ende in denselben
- * Tresor. Deshalb hier ein Riegel, der das Neuzeichnen überdauert.
+ * Läuft gerade ein Entsperrversuch? Der Riegel überdauert das Neuzeichnen des
+ * Sperrbildschirms (Zahnrad → Einstellungen → zurück) und verhindert parallele Versuche.
  */
 let unlocking = false;
 
-/**
- * Für den Zuhörer auf `vault-unlocked`: Der eigene Versuch meldet sich gleich
- * selbst zurück, dazwischenfunken soll da niemand.
- */
+/** Für den Listener auf `vault-unlocked`: Ein eigener Versuch meldet sich selbst zurück. */
 export function unlockBusy() {
   return unlocking;
 }
@@ -914,8 +856,7 @@ export async function unlock({ method = 'password', secret = null, remember = nu
     return;
   }
 
-  // Argon2 rechnet je nach Datenbank mehrere Sekunden. Ohne Rückmeldung
-  // sieht das aus, als sei nichts passiert.
+  // Argon2 braucht je nach Datenbank mehrere Sekunden; solange läuft die Rückmeldung.
   unlocking = true;
   const busy = markUnlocking(true);
 
@@ -943,8 +884,7 @@ export async function unlock({ method = 'password', secret = null, remember = nu
     await enterUnlocked();
     if (entzogen) zugriffNeu();
   } catch (err) {
-    // Die Datenbank ist offen, nur die Freigabe ging schief — etwa weil
-    // Windows Hello beim Einrichten abgebrochen wurde. Dann trotzdem hinein.
+    // Die Datenbank ist offen, nur die Freigabe schlug fehl (z. B. Windows-Hello-Abbruch); weiter wie gewohnt.
     if (/^Geöffnet, aber/.test(err.message)) {
       banner(err.message, 'warning', 8000);
       await vault.adopt();
@@ -959,10 +899,7 @@ export async function unlock({ method = 'password', secret = null, remember = nu
   }
 }
 
-/**
- * Schaltet den Sperrbildschirm auf „arbeitet gerade" und liefert eine
- * Funktion, die das zurücknimmt.
- */
+/** Schaltet den Sperrbildschirm auf „arbeitet“ und liefert die Funktion zum Zurücknehmen. */
 function markUnlocking(on) {
   const card = $('#lock-card');
   card?.toggleAttribute('data-busy', on);
@@ -972,7 +909,7 @@ function markUnlocking(on) {
   const before = hint?.textContent;
   if (on && hint) hint.textContent = t('entsperren.entsperren.entschluesselt');
 
-  // Drei springende Punkte — sichtbar, dass gerechnet wird.
+  // Drei springende Punkte als Hinweis auf die laufende Berechnung.
   const dots = document.createElement('div');
   dots.className = 'busy-dots';
   dots.setAttribute('aria-hidden', 'true');
@@ -988,9 +925,7 @@ function markUnlocking(on) {
 }
 
 export async function lockDatabase() {
-  // Vor dem Sperren speichern. Geht das nicht — offline, Datei gerade nicht
-  // lesbar —, fragen statt abbrechen: Vorher hing der Knopf oben rechts
-  // dann einfach, und die Datenbank ließ sich gar nicht mehr sperren.
+  // Vor dem Sperren speichern; scheitert das (offline, Datei nicht lesbar), wird nachgefragt statt abgebrochen.
   if (vault.hasUnsavedChanges()) {
     try {
       await vault.commit();
@@ -1004,9 +939,8 @@ export async function lockDatabase() {
 }
 
 /**
- * Was nach dem Sperren im Fenster passiert — beim Klick aufs Schloss und
- * genauso, wenn der Kern wegen Untätigkeit gesperrt hat: Werte aus dem
- * Speicher, Takt aus, Sperrbildschirm.
+ * Nach dem Sperren im Fenster (Klick aufs Schloss oder Sperre durch den Kern
+ * wegen Untätigkeit): Werte aus dem Speicher entfernen, Takt stoppen, Sperrbildschirm zeigen.
  */
 export async function gesperrtAufraeumen(meldung) {
   stopTicker();

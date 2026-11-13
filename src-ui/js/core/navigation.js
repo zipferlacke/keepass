@@ -5,8 +5,8 @@
  * die mit `data-active`. Hier wird umgeschaltet, der Titel gesetzt und
  * genau die eine Seite gezeichnet, die man jetzt sieht.
  *
- * Bei gesperrter Datenbank geht gar nichts — außer den Einstellungen,
- * die über das Zahnrad am Sperrbildschirm erreichbar sind.
+ * Bei gesperrter Datenbank sind nur die Einstellungen erreichbar
+ * (Zahnrad am Sperrbildschirm).
  */
 
 import { state, $, $$, viewTitle } from './state.js';
@@ -17,8 +17,7 @@ import { zeichne } from './render.js';
    Navigation
    ========================================================= */
 export function showView(name) {
-  // Bei gesperrter Datenbank gibt es nur eine sinnvolle Ansicht: die
-  // Einstellungen, aufgerufen über das Zahnrad am Sperrbildschirm.
+  // Gesperrt ist nur die Ansicht „Einstellungen" verfügbar.
   if (state.locked && !document.body.dataset.settingsOnly) return;
   state.view = name;
 
@@ -30,8 +29,8 @@ export function showView(name) {
     else b.removeAttribute('aria-current');
   });
 
-  // Suche und Tag-Leiste stecken im Abschnitt der Passwortliste und
-  // verschwinden dadurch von selbst, sobald eine andere Ansicht aktiv ist.
+  // Suche und Tag-Leiste gehören zum Abschnitt der Passwortliste und sind
+  // in anderen Ansichten ausgeblendet.
   const isPasswords = name === 'passwords';
 
   $('#btn-add').hidden = name === 'settings' || name === 'security';

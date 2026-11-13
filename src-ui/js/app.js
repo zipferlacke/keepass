@@ -42,26 +42,23 @@ async function boot() {
   uebersetzeSeite();
   applyAppearance(settings.get('appearance', {}));
 
-  // Wurde die Anwendung durch einen Doppelklick auf eine .kdbx-Datei
-  // gestartet, ist das die gemeinte Datenbank — noch vor der zuletzt
-  // benutzten. Der Kern prüft dabei, dass die Datei wirklich existiert.
+  // Datenbank, mit der die Anwendung aufgerufen wurde (z. B. Doppelklick auf
+  // eine .kdbx-Datei); sie hat Vorrang vor der zuletzt benutzten.
   await adoptStartupDatabase();
 
   state.expanded = new Set(settings.get('ui.expandedFolders', []));
   state.unlock = await unlockMethods();
 
-  // Der Kern sperrt sich selbst, wenn zu lange nichts passiert — ein Timer
-  // im Fenster liefe nicht zuverlässig weiter, wenn es im Hintergrund liegt.
-  // Dasselbe wie der Klick aufs Schloss: auch die Listen im Fenster leeren
-  // und einen offenen Dialog (etwa einen Eintrag mit Passwort) schließen.
+  // Der Kern sperrt nach Untätigkeit selbst. Hier werden wie beim Klick aufs
+  // Schloss die Listen geleert und offene Dialoge geschlossen.
   await listen('vault-locked', async ev => {
     if (state.locked) return;
     document.querySelectorAll('dialog[open]').forEach(d => d.close());
     await gesperrtAufraeumen(String(ev?.payload ?? t('start.meldungen.untaetig')));
   });
 
-  // Lesen, Scrollen und Tippen rufen keinen Befehl im Kern auf — ohne diese
-  // Meldung sperrte er mitten im Lesen. Höchstens alle 30 s.
+  // Eingaben im Fenster melden dem Kern Aktivität (höchstens alle 30 s),
+  // da Lesen und Scrollen sonst keinen Befehl auslösen.
   let lastTouch = 0;
   const activity = () => {
     if (state.locked || Date.now() - lastTouch < 30_000) return;
@@ -75,27 +72,24 @@ async function boot() {
   // Abrufe über die Browser-Erweiterung zählen ebenfalls als Nutzung.
   await listen('entries-used', ev => markUsed(ev?.payload ?? []));
 
-  // Android: Autofill und Passkeys schreiben in die offene Datenbank, ohne
-  // dass die Oberfläche beteiligt ist. Danach die Liste nachziehen — und
-  // wenn das Zurückschreiben scheitert, muss man es erfahren.
+  // Android: Autofill und Passkeys ändern die offene Datenbank ohne die
+  // Oberfläche; die Liste wird danach neu geladen.
   await listen('vault-changed', async () => {
     if (state.locked) return;
     await refreshFromVault();
     renderAll({ ohne: ['einstellungen'] });
   });
 
-  // Ein anderes Gerät hat in die Datei geschrieben, und der Kern hat den
-  // Stand beim Speichern eingemischt — auch bei Browser und Autofill.
+  // Der Kern hat beim Speichern Änderungen eines anderen Geräts eingemischt.
   await listen('vault-merged', () => takeForeign());
 
-  // Beim Zusammenführen hat der Kern Einträge gefunden, die hier und in der
-  // Datei verschieden geändert waren: gleich fragen, welche Fassung gilt.
+  // Einträge, die hier und in der Datei verschieden geändert wurden:
+  // der Konfliktdialog fragt, welche Fassung gilt.
   await listen('vault-conflicts', () => { if (!state.locked) openKonflikte(); });
 
-  // Fremde Änderungen holen. Beim Öffnen gleicht der Kern ohnehin ab, und
-  // jede Änderung schreibt über die Datei; dazwischen höchstens alle fünf
-  // Minuten — auch wenn die App öfter nach vorn kommt. Am Handy fragt
-  // Nextcloud dabei jedes Mal seinen Server.
+  // Fremde Änderungen aus der Datei holen: höchstens alle fünf Minuten, wenn
+  // das Fenster sichtbar ist (jeder Abgleich fragt bei Cloud-Speichern den
+  // Server).
   const ABSTAND = 5 * 60_000;
   let zuletztAbgeglichen = Date.now();
   await listen('vault-unlocked', () => { zuletztAbgeglichen = Date.now(); });
@@ -117,12 +111,12 @@ async function boot() {
     banner(t('start.meldungen.nichtGespeichert', { grund: ev?.payload ?? '' }), 'error', 10000);
   });
 
-  // Doppelklick auf eine .kdbx, während die App läuft (single-instance,
-  // macOS: Ereignis des Systems): Sperrbildschirm für genau diese Datei.
+  // .kdbx-Datei wird bei laufender App geöffnet (Single-Instance, macOS-
+  // Systemereignis): Sperrbildschirm für genau diese Datei.
   await listen('open-database', async ev => {
     const path = String(ev?.payload ?? '');
     if (!path) return;
-    await vault.startupDatabase().catch(() => null);   // abholen, sonst käme sie beim nächsten Start nochmal
+    await vault.startupDatabase().catch(() => null);   // gemerkten Startpfad verbrauchen
     if (!state.locked && path === settings.get('database.current', null)) return;
     if (!state.locked) await lockDatabase();
     await settings.set('database.current', path, { silent: true });
@@ -133,24 +127,21 @@ async function boot() {
 
   await bindOtpLinks();
 
-  // Auswahlfelder bekommen das Aussehen der übrigen Oberfläche.
+  // Auswahlfelder im Stil der Oberfläche.
   selectPicker();
 
   await bindBrowserRequests();
   await bindFileDrops();
   bindStaticEvents();
 
-  // Ändert sich die Auswahl, wird die Liste neu gezeichnet — dabei
-  // erscheinen oder verschwinden die Kästchen.
+  // Bei geänderter Auswahl wird die Liste neu gezeichnet (Kästchen ein-/ausblenden).
   pick.onSelectionChange(() => {
     renderAll({ ohne: ['einstellungen'] });
     renderSelectionBar();
   });
 
-  // Schmale Steuerfläche für tauri-agent-tools (siehe tools/screenshots.sh).
-  // ES-Module haben einen eigenen Bereich, `eval` von außen käme sonst nicht
-  // an `showView` heran. Bewusst nur Ansichtswechsel und Lesen — nichts, was
-  // Geheimnisse herausgibt.
+  // Steuerfläche für tauri-agent-tools (siehe tools/screenshots.sh): nur
+  // Ansichtswechsel und Lesezugriffe, keine Geheimnisse.
   window.showView = showView;
   window.wkeepass = {
     showView,
@@ -161,38 +152,32 @@ async function boot() {
 
   await showLockscreen();
 
-  // Am Rechner entsteht das Fenster auch später, auf Abruf — nachdem der
-  // Browser WKeePass ohne Fenster gestartet und im kleinen Fenster schon
-  // entsperrt hat. Dann ist die Datenbank im Kern längst offen; übernehmen
-  // statt den Sperrbildschirm zu zeigen. Scheitert es, ist sie eben zu.
+  // Am Rechner kann das Hauptfenster erst nach dem Entsperren im kleinen
+  // Browser-Fenster entstehen; eine im Kern offene Datenbank wird dann
+  // übernommen, sonst folgt der Sperrbildschirm.
   if (isTauri && !isMobile && await vault.adopt().then(() => true, () => false)) {
     await enterUnlocked();
     return;
   }
 
-  // Beim allerersten Start einmal durch die Einrichtung führen.
+  // Einrichtung beim ersten Start.
   if (!settings.get('ui.welcomeSeen', false)) await showWelcome();
   if (!settings.get('ui.onlineAsked', false)) await showOnlineQuestion();
   if (isMobile && !settings.get('android.setupSeen', false)) await showAndroidSetup();
   if (isTauri && !isMobile && !settings.get('browser.setupSeen', false)) await showBrowserSetupPage();
   renderLockscreen();
 
-  // Ist die Datenbank an das Gerät gebunden (Windows Hello), wird gleich
-  // gefragt — das ersetzt PIN und Master-Passwort. Nur beim Programmstart:
-  // Nach einem Sperren von Hand soll nicht sofort wieder etwas aufgehen.
-  //
-  // Und nicht, wenn uns jemand anderes gestartet hat — der Browser am
-  // Rechner oder das Ausfüllen am Handy. Die fragen selbst, in ihrem
-  // eigenen Fenster; eine zweite Abfrage aus der App käme obendrauf.
+  // Ist die Datenbank an das Gerät gebunden (z. B. Windows Hello), wird beim
+  // Programmstart sofort entsperrt. Entfällt nach manuellem Sperren und wenn
+  // Browser oder Handy-Ausfüllen die App gestartet haben; diese fragen selbst.
   const fuerAndere = isTauri && await invoke('started_for_others').catch(() => false);
   if (!fuerAndere && state.unlock.device && settings.get('database.current', null)) unlock({ method: 'device' });
 }
 
 /**
- * otpauth://-Codes aus anderen Apps (Android: „Öffnen mit WKeePass" in der
- * Kamera-App). Über das Deep-Link-Plugin: beim Kaltstart liegt die Adresse
- * bereit, sonst kommt sie als Ereignis. Ist die Datenbank zu, wartet sie
- * bis nach dem Entsperren.
+ * Nimmt otpauth://-Codes aus anderen Apps entgegen (Android: „Öffnen mit
+ * WKeePass"), per Deep-Link-Plugin beim Kaltstart oder als Ereignis. Bei
+ * gesperrter Datenbank wird der Code bis zum Entsperren vorgehalten.
  */
 async function bindOtpLinks() {
   if (!isTauri) return;
@@ -211,11 +196,9 @@ async function bindOtpLinks() {
 }
 
 /**
- * Übernimmt die Datenbank, mit der die Anwendung aufgerufen wurde.
- *
- * Sie wird nur ausgewählt, nicht geöffnet — das Master-Passwort will ja
- * trotzdem eingegeben werden. Der Sperrbildschirm zeigt danach den richtigen
- * Namen, und die Datei landet gleich unter „zuletzt genutzt".
+ * Wählt die Datenbank aus, mit der die Anwendung aufgerufen wurde, und trägt
+ * sie unter „zuletzt genutzt" ein. Geöffnet wird sie nicht; das
+ * Master-Passwort wird weiterhin abgefragt.
  */
 async function adoptStartupDatabase() {
   let path = null;
@@ -229,18 +212,13 @@ async function adoptStartupDatabase() {
 /* =========================================================
    Anfragen aus dem Browser
    ---------------------------------------------------------
-   Die Rückfrage selbst zeichnet ein **eigenes kleines Fenster**
-   (`request.html`), das der Kern mittig über dem Browser aufgehen lässt.
-   Wer dort in einem Anmeldeformular steht, soll nicht in die ganze
-   Anwendung geworfen werden.
-
-   Auch das Entsperren läuft dort. Hier bleibt nur der Fall, dass das
-   Hauptfenster daneben offen steht: Es soll dann mitbekommen, was drüben
-   passiert, statt auf dem Sperrbildschirm hängenzubleiben.
+   Die Rückfrage und das Entsperren zeigt ein eigenes kleines Fenster
+   (`request.html`), das der Kern über dem Browser öffnet. Hier wird nur
+   das Hauptfenster nachgeführt, falls es daneben offen ist.
    ========================================================= */
 
 async function bindBrowserRequests() {
-  // Auf Android und iOS gibt es die Browser-Erweiterung nicht.
+  // Die Browser-Erweiterung gibt es nur am Rechner.
   if (isMobile) return;
 
   await listen('browser-needs-unlock', () => {
@@ -248,36 +226,29 @@ async function bindBrowserRequests() {
     banner(t('start.browser.wartet'), 'info', 8000);
   });
 
-  // Entsperrt wurde anderswo — im kleinen Fenster. Ohne das bliebe hier der
-  // Sperrbildschirm stehen, obwohl die Datenbank längst offen ist.
-  //
-  // Der Fall „dieses Fenster hat selbst entsperrt" ist damit schon
-  // abgehakt: Dann ist `state.locked` bereits false.
+  // Entsperren im kleinen Fenster: das Hauptfenster wechselt vom
+  // Sperrbildschirm zur geöffneten Datenbank. Hat dieses Fenster selbst
+  // entsperrt, ist `state.locked` bereits false.
   await listen('vault-unlocked', async () => {
     if (!state.locked || unlockBusy()) return;
 
-    // Erst übernehmen, dann anzeigen. Ohne das hält `vault.js` die Datenbank
-    // weiter für geschlossen und liefert eine leere Liste — das Fenster käme
-    // fertig, aber ohne einen einzigen Eintrag.
+    // `vault.js` muss die im Kern offene Datenbank übernehmen, bevor die Liste entsteht.
     await vault.adopt();
 
     await enterUnlocked();
     banner(t('start.browser.entsperrt'), 'success', 4000);
   });
 
-  // Die Erweiterung darf schreiben — verknüpfen, Einträge anlegen, Passkeys.
-  // Der Kern schreibt das gleich zurück; klappt das nicht, wäre die Arbeit
-  // beim nächsten Sperren weg. Das muss man erfahren.
-  // Was der Browser angelegt oder geändert hat — Einträge, Passkeys —,
-  // steht sofort in der Liste, nicht erst nach einem Neustart.
+  // Die Erweiterung legt Einträge und Passkeys an oder ändert sie; die Liste
+  // wird neu geladen.
   await listen('browser-saved', async () => {
     if (state.locked) return;
     await refreshFromVault();
     renderAll({ ohne: ['einstellungen'] });
   });
 
-  // Gespeichert ist in der App schon; nur die Datei am Ort war nicht
-  // erreichbar. Der Kern holt das beim nächsten Abgleich nach.
+  // Die Datei am Speicherort war nicht erreichbar; der Kern schreibt beim
+  // nächsten Abgleich nach.
   await listen('vault-sync-failed', ev => {
     banner(t('start.meldungen.dateiNachgeholt', { grund: ev?.payload ?? '' }), 'warning', 8000);
   });
@@ -296,7 +267,7 @@ function bindStaticEvents() {
 
   $$('.app-nav button[data-view]').forEach(btn =>
     btn.addEventListener('click', () => {
-      // Die Navigation zeigt immer alles — der Filter kommt nur von den Kacheln.
+      // Der Typfilter gilt nur für Aufrufe über die Kacheln.
       state.kindFilter = null;
       showView(btn.dataset.view);
     }));
@@ -304,10 +275,10 @@ function bindStaticEvents() {
   $('#btn-lock').addEventListener('click', lockDatabase);
   $('#btn-close-settings').addEventListener('click', closeSettingsPage);
 
-  // Rechtsklick irgendwo in der Passwortansicht: es gibt immer ein Menü
+  // Kontextmenü für die ganze Passwortansicht
   $('#view-passwords').addEventListener('contextmenu', ev => {
     if (ev.target.closest('input, textarea, select')) return;
-    if (ev.target.closest('tr[data-id], tr.tv-group-row[data-folder]')) return;   // haben eigene Menüs
+    if (ev.target.closest('tr[data-id], tr.tv-group-row[data-folder]')) return;   // diese haben eigene Menüs
     ev.preventDefault();
     showContextMenu(ev.clientX, ev.clientY, {});
   });
@@ -334,17 +305,13 @@ function bindStaticEvents() {
 }
 
 
-/**
- * Scheitert der Start, bleibt der Sperrbildschirm stehen und sagt, warum —
- * statt stumm eine leere Hauptseite zu zeigen, die nach offener Datenbank
- * aussieht.
- */
-/** Scheitert schon das Laden der Sprache, gilt der deutsche Text. */
+/** Liefert den übersetzten Text oder `ersatz`, wenn die Sprache noch nicht geladen ist. */
 function tSicher(schluessel, ersatz) {
   const text = t(schluessel);
   return text === schluessel ? ersatz : text;
 }
 
+// Scheitert der Start, zeigt der Sperrbildschirm den Fehler.
 boot().catch(err => {
   console.error('Start fehlgeschlagen', err);
   $('#lockscreen').hidden = false;

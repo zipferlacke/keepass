@@ -1,19 +1,16 @@
 /**
  * aufdecken.js — ein Passwortfeld sichtbar machen, als echtes Textfeld.
  *
- * `type` von „password" auf „text" zu stellen genügt nicht: Der Browser
- * merkt sich, dass das Feld einmal ein Passwortfeld war, und sagt das der
- * Bildschirmtastatur weiter. Auf dem Handy fehlen dann genau die Hilfen,
- * für die man das Feld aufgedeckt hat — Markieren, Kopieren, die
- * Zwischenablage der Tastatur.
+ * Den `type` von „password" auf „text" umzustellen genügt nicht: Der Browser
+ * meldet der Bildschirmtastatur weiterhin ein Passwortfeld, sodass am Handy
+ * Markieren, Kopieren und die Zwischenablage der Tastatur fehlen.
  *
- * Deshalb bekommt das Feld einen Zwilling: ein Textfeld, das nie etwas
- * anderes war. Aufgedeckt steht der Zwilling an seiner Stelle, verdeckt
- * wieder das Passwortfeld. Beide führen denselben Wert.
+ * Das Feld erhält daher einen Zwilling, der von Anfang an ein Textfeld ist.
+ * Aufgedeckt ersetzt der Zwilling das Passwortfeld, verdeckt ist wieder das
+ * Passwortfeld sichtbar. Beide führen denselben Wert.
  *
- * Für den Rest des Programms bleibt das Passwortfeld das Feld: Es behält
- * `id` und `name`, und was im Zwilling getippt wird, kommt dort als
- * gewöhnliches `input`-Ereignis an. Wer `feld.value` setzt, setzt beide.
+ * Das Passwortfeld behält `id` und `name`; Eingaben im Zwilling kommen dort
+ * als gewöhnliches `input`-Ereignis an, und `feld.value = …` setzt beide.
  */
 
 const WERT = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
@@ -33,7 +30,7 @@ export function aufdeckbar(feld) {
   for (const name of ERBT) {
     if (feld.hasAttribute(name)) klar.setAttribute(name, feld.getAttribute(name));
   }
-  // Ein Geheimnis: nichts vorschlagen, nichts verbessern, nichts merken.
+  // Geheimnis: keine Vorschläge, Korrekturen oder Merkfunktionen.
   klar.autocomplete = 'off';
   klar.autocapitalize = 'off';
   klar.spellcheck = false;
@@ -42,7 +39,7 @@ export function aufdeckbar(feld) {
   klar.hidden = true;
   feld.after(klar);
 
-  // Vom Zwilling zum Feld — als käme die Eingabe von dort.
+  // Vom Zwilling zum Feld.
   for (const art of ['input', 'change']) {
     klar.addEventListener(art, () => {
       WERT.set.call(feld, klar.value);
@@ -58,8 +55,7 @@ export function aufdeckbar(feld) {
     set: wert => { WERT.set.call(feld, wert); klar.value = WERT.get.call(feld); }
   });
 
-  // Was das Programm am Feld einstellt, gilt auch für den Zwilling:
-  // Platzhalter, gesperrt, Art der Tastatur.
+  // Attribute des Feldes (Platzhalter, gesperrt, Tastaturart) auf den Zwilling übertragen.
   const MIT = ['placeholder', 'disabled', 'inputmode', 'required', 'minlength', 'maxlength'];
   new MutationObserver(aenderungen => {
     for (const { attributeName: name } of aenderungen) {
@@ -70,7 +66,7 @@ export function aufdeckbar(feld) {
   if (feld.hasAttribute('inputmode')) klar.setAttribute('inputmode', feld.getAttribute('inputmode'));
   if (feld.disabled) klar.disabled = true;
 
-  // Fokus und Fehlermeldung landen bei dem Feld, das gerade zu sehen ist.
+  // Fokus und Fehlermeldung gehen an das sichtbare Feld.
   for (const name of ['focus', 'select', 'setCustomValidity', 'reportValidity']) {
     const eigen = HTMLInputElement.prototype[name];
     feld[name] = (...a) => eigen.apply(api.aktiv, a);

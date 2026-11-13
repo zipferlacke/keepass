@@ -247,9 +247,8 @@
     top: 0;
     z-index: 30;
     background: var(--bg-default);
-    /* Auf dem Handy zeichnet der Webview bis unter die Statusleiste mit Uhr
-       und Akku. `viewport-fit=cover` in index.html gibt uns dafür
-       env(safe-area-inset-*) — ohne diesen Abstand läge der Titel darunter. */
+    /* Auf dem Handy zeichnet der Webview bis unter die Statusleiste. Der Abstand
+       kommt aus env(safe-area-inset-*) (`viewport-fit=cover` in index.html). */
     padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem;
     display: flex;
     flex-direction: column;
@@ -281,10 +280,8 @@
   /* ============================================================
      Hauptbereich
      ============================================================ */
-  /* Luft zwischen Kopf und Inhalt — sonst kleben Kacheln und Suchfeld an
-     der Linie darunter. `main` liegt in `.app-body`; die Regel zielte lange
-     auf `body > main` und griff deshalb nie. Nur der Abstand oben: unten
-     regelt ihn die Navigation (siehe weiter unten). */
+  /* Abstand zwischen Kopf und Inhalt. `main` liegt in `.app-body`. Nur der
+     Abstand oben; unten regelt ihn die Navigation (siehe weiter unten). */
   .app-body > main {
     padding-block-start: 1rem;
 
@@ -690,10 +687,8 @@
     dd { margin: 0.1rem 0 0; color: var(--text-hover); }
   }
 
-  /* Beschriftung und Bedienelement nebeneinander. Reicht der Platz nicht
-     (schmales Fenster, lange Beschriftung), rutscht das Bedienelement
-     rechtsbündig unter die Beschriftung — statt den Text auf ein paar
-     Buchstaben je Zeile zusammenzudrücken. */
+  /* Beschriftung und Bedienelement nebeneinander. Reicht der Platz nicht,
+     rutscht das Bedienelement rechtsbündig unter die Beschriftung. */
   .setting {
     display: flex;
     flex-wrap: wrap;
@@ -744,7 +739,7 @@
       justify-content: stretch;
 
       /* Mit der Kennung: Die Regel für Textfelder weiter unten (8rem,
-         rechtsbündig) wiegt sonst gleich und gewinnt als spätere. */
+         rechtsbündig) hat gleiche Gewichtung und gewinnt als spätere. */
       #db-name { width: 100%; text-align: start; }
     }
 
@@ -784,21 +779,19 @@
 
 
     /* Verschlüsselungsstärke: Regler mit allen Stufen darunter */
-    /* Doppelte Klasse: .setting-control weiter unten macht sonst ein
-       Flex daraus, und Regler, Stufen und Hinweis stünden nebeneinander. */
+    /* Doppelte Klasse: .setting-control weiter unten macht sonst ein Flex
+       daraus. */
     .setting-control.kdf-slider {
       display: grid;
       gap: 0.25rem;
-      /* Volle Breite: Die allgemeine Regel weiter unten schiebt das
-         Bedienfeld sonst mit `margin-inline-start: auto` nach rechts und
-         lässt es auf seine Inhaltsbreite schrumpfen — der Regler war dann
-         nur noch halb so breit wie die Karte. */
+      /* Volle Breite: Die allgemeine Regel weiter unten setzt
+         `margin-inline-start: auto` und lässt das Bedienfeld auf Inhaltsbreite
+         schrumpfen. */
       width: 100%;
       min-width: 0;
       margin-inline-start: 0;
-      /* Und dieselbe Regel richtet mit `justify-content: flex-end` aus — im
-         Raster schrumpft die Spalte damit auf ihren Inhalt und rutscht nach
-         rechts. Eine Spalte, so breit wie die Karte. */
+      /* Dieselbe Regel richtet mit `justify-content: flex-end` aus; im Raster
+         schrumpft die Spalte dadurch auf ihren Inhalt. Hier eine Spalte in Kartenbreite. */
       grid-template-columns: minmax(0, 1fr);
       justify-content: stretch;
 
@@ -891,8 +884,8 @@
       align-items: center;
       gap: 0.35rem;
 
-      /* min-width: 0 — sonst behält ein Eingabefeld seine Standardbreite
-         und schiebt zwei Felder nebeneinander auf dem Handy über den Rand. */
+      /* min-width: 0, damit ein Eingabefeld nicht auf seiner Standardbreite
+         besteht und auf dem Handy über den Rand ragt. */
       input, textarea, select { flex: 1; min-width: 0; text-align: start; }
     }
   }
@@ -1009,8 +1002,8 @@
     flex-direction: column;
     gap: 0.6rem;
 
-    /* Quadratisch und nie höher als der Platz — der Dialog soll nicht
-       scrollen, sonst verrutscht das Bild beim Zielen. */
+    /* Quadratisch und höchstens so hoch wie der Platz; der Dialog scrollt nicht,
+       damit das Bild beim Zielen nicht verrutscht. */
     .qr-frame {
       position: relative;
       width: min(100%, 60dvh);
@@ -1445,9 +1438,8 @@
   }
   .userDialog label.check + .hint { margin-top: -0.5rem; }
 
-  /* Meldungen liegen ganz oben im Fenster — auf dem Handy also unter der
-     Statusleiste mit Uhr, Kamera und Symbolen. Der Rand kommt aus
-     `viewport-fit=cover` (siehe index.html). */
+  /* Meldungen liegen oben im Fenster, auf dem Handy also unter der
+     Statusleiste. Der Rand kommt aus `viewport-fit=cover` (siehe index.html). */
   #notification_wrapper:popover-open {
     padding-top: calc(1rem + env(safe-area-inset-top, 0px));
   }
@@ -1458,8 +1450,7 @@
   }
 
   /* Nur ein Dialog, der den ganzen Bildschirm füllt, liegt unter der
-     Statusleiste mit Uhr und Akku. Einer von unten (mit Griff) reicht nicht
-     bis dorthin — dort wäre der Rand nur eine Lücke über dem Titel. */
+     Statusleiste. Ein Dialog von unten (mit Griff) reicht nicht bis dorthin. */
   .userDialog:not([data-resizable]) .content header {
     padding-top: env(safe-area-inset-top, 0px);
   }
@@ -1516,12 +1507,8 @@
       z-index: 60;
     }
 
-    /* Damit nichts unter Navigation und Knopf verschwindet.
-       `main` liegt in `.app-body`, nicht direkt unter `body` — mit
-       `body > main` griff die Regel nie, und die Einstellungen endeten
-       hinter der Navigationsleiste. Nur dieses eine `main`: Ohne
-       `.app-body` traf die Regel auch das `<main>` in jedem Dialog, und
-       über dessen Fußzeile klaffte eine Lücke von 150 px. */
+    /* Abstand, damit nichts unter Navigation und Knopf liegt. Gilt nur für das
+       `main` in `.app-body`, nicht für das `<main>` in Dialogen. */
     .app-body > main {
       padding-bottom: calc(var(--nav-bottom-height) + 5.5rem + env(safe-area-inset-bottom));
     }
@@ -1574,9 +1561,8 @@
     inset: 0;
     z-index: 80;
     display: grid;
-    /* Eine Spalte, so breit wie der Bildschirm. Ohne das richtet sich die
-       Spalte nach der Karte (26rem), und die ist breiter als ein Handy —
-       Android zoomte dann die ganze Seite heraus. */
+    /* Eine Spalte in Bildschirmbreite. Die Kartenbreite (26rem) ist breiter als
+       ein Handy, und Android zoomte sonst die Seite heraus. */
     grid-template-columns: minmax(0, 1fr);
     place-items: center;
     padding:
@@ -1769,9 +1755,8 @@
     @media (min-width: 560px) { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
   }
 
-  /* Am Handy eine Zeile je Kachel: Symbol links, Name und Erklärung
-     rechts. Untereinander gestapelt war jede über 100 px hoch, sechs davon
-     passten nicht auf den Bildschirm, und der Dialog musste scrollen. */
+  /* Am Handy eine Zeile je Kachel: Symbol links, Name und Erklärung rechts.
+     So passen alle Kacheln ohne Scrollen auf den Bildschirm. */
   .choice {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -2536,10 +2521,9 @@
         flex-direction: column;
         min-width: 0;
 
-        /* Der Name kann eine lange Zeichenkette ohne Leerzeichen sein —
-           Nextcloud liefert als Adresse eine Kennung. Ohne Kürzen zieht er
-           die Seite in die Breite, und Android zoomt die ganze Oberfläche
-           heraus, um sie unterzubringen. */
+        /* Der Name kann eine lange Zeichenkette ohne Leerzeichen sein (Nextcloud
+           liefert als Adresse eine Kennung) und wird gekürzt, damit er die Seite
+           nicht verbreitert. */
         strong {
           font-size: var(--fs-300);
           overflow: hidden;
@@ -2741,13 +2725,12 @@
   body[data-locked] [data-needs-db] { display: none; }
 
   /* Sperr- und Willkommensbildschirm: keine Navigation, kein Plus-Knopf.
-     Nur zu überdecken reicht nicht — ist der Inhalt auf kleinen
-     Bildschirmen höher als das Fenster, lugte die Leiste unten hervor. */
+     Verdecken genügt nicht, da bei hohem Inhalt die Leiste unten hervorragt. */
   body:is([data-locked], :has(#welcome:not([hidden]))) :is(.app-nav, .fab) { display: none; }
 
   /* Vom Sperrbildschirm aus: nur die Einstellungen, keine Navigation.
-     Die Navigation ist ein Rasterbereich — sie zu verstecken genügt nicht,
-     ihre Spalte bliebe stehen. Deshalb auch das Raster zurücksetzen. */
+     Die Navigation ist ein Rasterbereich; neben dem Verstecken wird auch das
+     Raster zurückgesetzt, damit ihre Spalte nicht stehen bleibt. */
   body[data-settings-only] {
     .app {
       grid-template-areas: "body";
@@ -2758,9 +2741,8 @@
     .app-nav,
     .fab { display: none; }
 
-    /* Der Schloss-Knopf ergibt ohne offene Datenbank keinen Sinn — hier
-       steht stattdessen ein Schließen. Die Regel muss spezifischer sein
-       als die der Kopfzeile, sonst greift sie nicht. */
+    /* Der Schloss-Knopf entfällt ohne offene Datenbank; stattdessen steht
+       ein Schließen-Knopf. Die Regel ist spezifischer als die der Kopfzeile. */
     .app-header .header-row .header-actions #btn-lock { display: none; }
   }
 
@@ -2889,10 +2871,9 @@
     --uD-width: min(640px, 94vw);
   }
 
-  /* Lange Dateinamen dürfen den Dialog nicht verbreitern. userDialog legt
-     Formular und Inhalt als Raster mit `1fr` an — dessen Mindestbreite ist
-     die längste nicht umbrechende Zeile, und auf dem Handy ragte die
-     Dateiliste samt Löschknöpfen rechts aus dem Bild. */
+  /* Lange Dateinamen verbreitern den Dialog nicht. userDialog legt Formular
+     und Inhalt als Raster mit `1fr` an, dessen Mindestbreite die längste
+     nicht umbrechende Zeile ist. */
   .userDialog {
     form { grid-template-columns: minmax(0, 1fr); }
     .content, .content main { min-width: 0; }
@@ -3222,9 +3203,8 @@
     &[data-kind="geloescht"] .version-change-head > .msr { color: var(--clr-error, #d64545); }
   }
 
-  /* Ein festes Raster: Symbol, darunter nichts; Name und darunter die Art;
-     rechts der Knopf über beide Zeilen. Mit Umbruch stand der Knopf mal
-     neben dem Namen, mal darunter — je nachdem, wie lang der Name war. */
+  /* Festes Raster: Symbol; Name und darunter die Art; rechts der Knopf über
+     beide Zeilen. */
   .version-change-head {
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -3293,6 +3273,55 @@
     li { margin-block: 0.15rem; }
     del { opacity: 0.7; }
     .msr { font-size: 1em; vertical-align: -0.1em; }
+  }
+
+  /* Wahl je Feld: beide Werte nebeneinander (schmal: untereinander). */
+  .konflikt-felder {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-block: 0.5rem;
+  }
+
+  .konflikt-feld {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+
+    legend { padding: 0; margin-bottom: 0.2rem; font-size: var(--fs-200); font-weight: 600; }
+  }
+
+  .konflikt-wert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--clr-neutral-200);
+    border-radius: var(--br-default);
+    font-size: var(--fs-200);
+    cursor: pointer;
+
+    &:has(input:checked) { border-color: var(--clr-primary-600); }
+    input { margin-top: 0.2rem; flex: none; }
+    > span { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    small { color: var(--text-hover); font-size: var(--fs-100); }
+    .konflikt-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+  }
+
+  .konflikt-auge {
+    flex: none;
+    padding: 0.15rem;
+    border: 0;
+    background: none;
+    color: var(--text-hover);
+    cursor: pointer;
+
+    .msr { font-size: 1.2em; }
   }
 
   .konflikt-gilt { display: block; color: var(--text-hover); font-size: var(--fs-100); }

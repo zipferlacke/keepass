@@ -1,15 +1,12 @@
 //! Anbindung an die Browser-Erweiterung `keepassxc-browser`.
 //!
-//! Zwei Hälften, sauber getrennt:
+//! Module:
 //!
-//!   `route`     wo unser Programm liegt, wo der Kanal liegt, und das
-//!               Sprachrohr, das der Browser startet
-//!   `api`       was über diesen Kanal gesprochen wird — die Gegenstelle
-//!               zu dem, was sonst KeePassXC beantwortet
-//!
-//! Dazwischen `protocol`: die Verschlüsselung. Sie steht für sich, weil sie
-//! ohne Socket und ohne Datenbank prüfbar ist — und weil ein Fehler darin
-//! sich sonst als „die Erweiterung tut nichts" tarnen würde.
+//!   `route`     Pfade von Programm und Kanal sowie der vom Browser
+//!               gestartete Vermittlungsprozess
+//!   `api`       die Nachrichten, die über den Kanal ausgetauscht werden
+//!               (Gegenstück zu dem, was sonst KeePassXC beantwortet)
+//!   `protocol`  die Verschlüsselung; unabhängig von Socket und Datenbank
 
 pub mod api;
 pub mod protocol;
@@ -17,25 +14,17 @@ pub mod route;
 
 /// Sammelt Bytes und gibt vollständige JSON-Nachrichten heraus.
 ///
-/// # Warum das nötig ist
-///
-/// Auf dem Kanal liegen die Nachrichten nackt hintereinander, ohne
-/// Längenangabe — so macht es KeePassXC. Ein `read()` liefert deshalb, was
-/// gerade da ist, und das ist selten genau eine Nachricht:
+/// Auf dem Kanal folgen die Nachrichten ohne Längenangabe aufeinander
+/// (wie bei KeePassXC). Ein `read()` kann daher mehrere Nachrichten oder nur
+/// den Anfang einer Nachricht liefern:
 ///
 /// ```text
 /// {"action":"a",…}{"action":"b",…}     zwei in einer Portion
 /// {"action":"a","message":"AbCd        eine halbe Portion
 /// ```
 ///
-/// Wer eine Portion einfach weiterreicht, verschmilzt im ersten Fall zwei
-/// Nachrichten und zerschneidet im zweiten eine. Der Browser bekommt dann
-/// kaputtes JSON oder ein abgeschnittenes Base64-Feld — und meldet
-/// „invalid encoding", ohne dass irgendetwas an der Verschlüsselung falsch
-/// wäre.
-///
-/// Deshalb wird gesammelt, bis eine Nachricht vollständig ist, und nur die
-/// wird weitergegeben. Der Rest bleibt liegen.
+/// Der Puffer behält die Bytes, bis eine Nachricht vollständig ist, und gibt
+/// nur vollständige Nachrichten heraus. Der Rest bleibt liegen.
 #[derive(Default)]
 pub struct JsonStream {
     buffer: Vec<u8>,
@@ -69,8 +58,8 @@ impl JsonStream {
                 }
                 // Unvollständig — der Rest kommt mit dem nächsten `read()`.
                 Some(Err(err)) if err.is_eof() => break,
-                // Wirklich kaputt: alles verwerfen, sonst blieben wir für
-                // immer an derselben Stelle hängen.
+                // Ungültig: gesamten Puffer verwerfen, sonst bliebe der
+                // Parser an derselben Stelle hängen.
                 Some(Err(_)) => {
                     consumed = self.buffer.len();
                     break;

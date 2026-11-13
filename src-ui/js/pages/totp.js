@@ -45,8 +45,8 @@ export function renderTotp() {
       </div>
     </div>`).join('');
 
-  // Einfacher Klick kopiert, Doppelklick öffnet — der Einzelklick wartet
-  // kurz ab, damit er einen Doppelklick nicht vorwegnimmt.
+  // Einfacher Klick kopiert, Doppelklick öffnet; der Einzelklick wird kurz
+  // verzögert, um ihn vom Doppelklick zu unterscheiden.
   host.querySelectorAll('[data-totp-card]').forEach(card => {
     let timer = null;
 

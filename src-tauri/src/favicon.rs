@@ -1,22 +1,17 @@
 //! Website-Icons: einmal holen, dann in der Datenbank.
 //!
-//! Früher lud die Oberfläche jedes Icon bei jeder Anzeige neu von der Seite
-//! selbst. Das scheitert bei allem, was nur in einem bestimmten Netz
-//! erreichbar ist — der NAS daheim, das Firmen-Wiki —, und jede Anzeige
-//! verriet der Seite die eigene Adresse.
-//!
-//! Jetzt landet das Icon als **Custom Icon** im Eintrag, genau wie bei
-//! KeePassXC („Favicon herunterladen"). Damit liegt es verschlüsselt in der
-//! Datei statt als Liste der eigenen Dienste im Klartext auf der Platte, und
-//! wer die Datei auf mehreren Geräten nutzt, hat es überall.
+//! Das Icon wird als **Custom Icon** im Eintrag gespeichert, wie bei KeePassXC
+//! („Favicon herunterladen"). Es liegt damit verschlüsselt in der Datei, steht auf
+//! allen Geräten zur Verfügung und funktioniert auch für Seiten, die nur in einem
+//! bestimmten Netz erreichbar sind (NAS, Firmen-Wiki). Die Oberfläche lädt nichts
+//! selbst von der Seite.
 //!
 //! # Wann geholt wird
 //!
-//! Möglichst dann, wenn die Seite sicher erreichbar ist: beim Anmelden über
-//! Browser-Erweiterung oder Autofill, beim Benutzen eines Eintrags — und
-//! nach dem Entsperren für alle, denen noch eines fehlt. Was nicht klappt,
-//! wird eine Viertelstunde lang nicht erneut versucht; im nächsten Netz
-//! kann es dann gehen.
+//! Wenn die Seite voraussichtlich erreichbar ist: beim Anmelden über
+//! Browser-Erweiterung oder Autofill, beim Benutzen eines Eintrags und nach dem
+//! Entsperren für alle Einträge ohne Icon. Ein Fehlschlag wird eine Viertelstunde
+//! lang nicht wiederholt.
 
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
@@ -66,7 +61,7 @@ fn basis(url: &str) -> Vec<String> {
     match schema.as_deref() {
         Some(s @ ("http" | "https")) => vec![format!("{s}://{authority}")],
         Some(_) => Vec::new(),
-        // Ein bloßes Wort ist kein Rechnername, den man ansprechen sollte.
+        // Ein einzelnes Wort ohne Punkt oder Port gilt nicht als Rechnername.
         None if !authority.contains(['.', ':']) => Vec::new(),
         None => vec![format!("https://{authority}"), format!("http://{authority}")],
     }
@@ -88,7 +83,7 @@ pub fn holen(url: &str) -> Option<Vec<u8>> {
                     kandidaten.extend(web::icon_links(&String::from_utf8_lossy(&seite.body), &seite.url));
                 }
             }
-            // Gar nicht erreichbar: Die festen Pfade dort lohnen nicht.
+            // Nicht erreichbar: Die festen Pfade dort werden übersprungen.
             Err(web::Fehler::Netz(_)) => continue,
             Err(web::Fehler::Antwort(_)) => {}
         }
@@ -162,9 +157,8 @@ fn anhaengen(db: &mut keepass::Database, id: EntryId, png: Vec<u8>) -> Option<Cu
     vorher
 }
 
-/// Entfernt die ersetzten Icons, wenn sie nun niemand mehr nutzt — sonst
-/// sammelten sich beim Neuladen alte Fassungen in der Datei. Nur diese: Was
-/// jemand anderes in der Datei abgelegt hat, bleibt, auch wenn es unbenutzt ist.
+/// Entfernt ersetzte Icons, wenn sie niemand mehr nutzt. Von anderen in der Datei
+/// abgelegte Icons bleiben unberührt, auch wenn sie unbenutzt sind.
 fn aufraeumen(db: &mut keepass::Database, ersetzt: impl IntoIterator<Item = CustomIconId>) {
     for id in ersetzt {
         let verwaist = db
@@ -187,10 +181,9 @@ fn erlaubt(app: &tauri::AppHandle) -> bool {
 /// eines fehlt, wenn `ids` leer ist. Mit `neu` auch für die, die schon eines
 /// haben.
 ///
-/// Kehrt sofort zurück — alles Weitere, auch das Sperren der Datenbank,
-/// passiert in einem eigenen Faden. Aufrufer dürfen die Sperre also gerade
-/// selbst halten. Ist etwas dazugekommen, wird gespeichert und die
-/// Oberfläche bekommt `vault-changed`.
+/// Kehrt sofort zurück; die Arbeit, auch das Sperren der Datenbank, läuft in einem
+/// eigenen Faden. Aufrufer dürfen die Sperre daher halten. Bei Änderungen wird
+/// gespeichert und die Oberfläche erhält `vault-changed`.
 pub fn im_hintergrund(app: &tauri::AppHandle, ids: Vec<String>, neu: bool) {
     if !erlaubt(app) {
         return;
@@ -200,7 +193,7 @@ pub fn im_hintergrund(app: &tauri::AppHandle, ids: Vec<String>, neu: bool) {
 }
 
 fn abrufen(app: &tauri::AppHandle, ids: &[String], neu: bool) {
-    // Was zu holen ist, unter der Sperre einsammeln — geladen wird ohne.
+    // Das Einsammeln geschieht unter der Sperre, das Laden ohne.
     let auftraege: Vec<(EntryId, String)> = {
         let state = app.state::<Vault>();
         let Ok(vault) = state.lock() else { return };
@@ -262,8 +255,8 @@ fn abrufen(app: &tauri::AppHandle, ids: &[String], neu: bool) {
             aufraeumen(db, ersetzt);
         }
 
-        // Scheitert das Speichern (nur lesbar, gerade offline), stehen die
-        // Icons trotzdem im Speicher und gehen beim nächsten Speichern mit.
+        // Schlägt das Speichern fehl (nur lesbar, offline), bleiben die Icons im
+        // Speicher und werden beim nächsten Speichern geschrieben.
         let _ = crate::database::commit(app, &app.state::<Vault>());
         let _ = app.emit("vault-changed", ());
     }

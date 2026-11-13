@@ -1,20 +1,18 @@
 /**
  * dragmove.js — Elemente per langem Drücken verschieben und umsortieren.
  *
- * Warum eigenes Modul: `gestures.js` aus wuefl-libs kann nur Wischgesten
- * und kennt weder langes Drücken noch Ziehen. Dieses Modul ist bewusst
- * allgemein gehalten, damit es sich dort einfügen ließe.
+ * `gestures.js` aus wuefl-libs kennt nur Wischgesten, kein langes Drücken
+ * und kein Ziehen; dieses Modul ist daher allgemein gehalten.
  *
- * Umgesetzt mit Pointer Events, also Maus, Finger und Stift zugleich —
- * die HTML5-Drag-and-Drop-API arbeitet auf Mobilgeräten nicht zuverlässig.
+ * Es nutzt Pointer Events (Maus, Finger und Stift), da die HTML5-Drag-and-
+ * Drop-API auf Mobilgeräten unzuverlässig ist.
  *
  * Zwei Arten, etwas abzulegen:
  *
  *   hineinlegen  Zeiger in der Mitte eines Ziels  → onDrop(gezogen, ziel)
  *   einsortieren Zeiger am oberen/unteren Rand    → onReorder(gezogen, bezug, 'before'|'after')
  *
- * Dadurch lässt sich dasselbe Modul für Ordnerstrukturen und für eine
- * rein manuelle Reihenfolge verwenden.
+ * Damit eignet es sich für Ordnerstrukturen und für manuelle Reihenfolgen.
  *
  *   const dnd = enableDragMove(container, {
  *     itemSelector:   '[data-drag-id]',
@@ -29,7 +27,7 @@ const DEFAULTS = {
   itemSelector: '[data-drag-id]',
   targetSelector: null,       // null = nur umsortieren, kein Hineinlegen
   longPressMs: 450,
-  moveTolerance: 8,           // so viel darf der Finger wackeln, ohne abzubrechen
+  moveTolerance: 8,           // Toleranz für Fingerbewegung in px, ohne abzubrechen
   edgeRatio: 0.3,             // oberer/unterer Anteil eines Elements = einsortieren
   reorder: true,
   label: null,
@@ -120,8 +118,8 @@ export function enableDragMove(container, options = {}) {
 
     const usable = node => node && node !== source && !source.contains(node);
 
-    // Ist das Element zugleich Ziel und Element, entscheidet die Höhe:
-    // Mitte heißt hineinlegen, Rand heißt daneben einsortieren.
+    // Ist das Element zugleich Ziel, entscheidet die Position: Mitte legt
+    // hinein, Rand sortiert daneben ein.
     if (usable(item)) {
       const rect = item.getBoundingClientRect();
       const edge = rect.height * cfg.edgeRatio;
@@ -185,7 +183,7 @@ export function enableDragMove(container, options = {}) {
     if (ev.pointerId !== pointerId) return;
 
     if (!dragging) {
-      // Vor dem Start heißt Bewegung: scrollen, nicht ziehen
+      // Bewegung vor dem Start scrollt, statt zu ziehen
       if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > cfg.moveTolerance) {
         clearTimeout(pressTimer);
         pressTimer = null;

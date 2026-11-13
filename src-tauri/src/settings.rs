@@ -30,17 +30,17 @@ pub fn settings_read(app: tauri::AppHandle) -> Result<Option<serde_json::Value>,
         Err(e) => return Err(format!("settings.json nicht lesbar: {e}")),
     };
 
-    // Eine beschädigte Datei darf den Start nicht verhindern — dann eben
-    // Standardwerte, und beim nächsten Schreiben ist sie wieder in Ordnung.
+    // Eine beschädigte Datei verhindert den Start nicht: Es gelten die
+    // Standardwerte, beim nächsten Schreiben wird sie ersetzt.
     Ok(serde_json::from_str(&raw).ok())
 }
 
 /// Liest einen einzelnen Wert — für Stellen im Kern, die nicht auf die
 /// Oberfläche warten können.
 ///
-/// Der Weg über die Datei statt über einen gemerkten Zustand ist Absicht:
-/// Die Browser-Anbindung läuft in eigenen Fäden, teils bevor ein Fenster
-/// steht. Ein Fehlgriff kostet hier nichts — dann gilt die Voreinstellung.
+/// Liest direkt aus der Datei statt aus einem gemerkten Zustand, da die
+/// Browser-Anbindung in eigenen Fäden läuft, teils bevor ein Fenster steht. Fehlt
+/// der Wert, gilt die Voreinstellung.
 pub fn value(app: &tauri::AppHandle, pfad: &str) -> Option<serde_json::Value> {
     let raw = std::fs::read_to_string(settings_path(app).ok()?).ok()?;
     let mut node: serde_json::Value = serde_json::from_str(&raw).ok()?;

@@ -1,16 +1,16 @@
 /**
  * entry.js — der Dialog für einen Eintrag.
  *
- * Ein Formular, zwei Gesichter: Als Zugang zeigt es Benutzer, Passwort,
- * Adresse und Einmalcode, als Dateiablage nur Name, Notiz und Anhänge.
- * Umgeschaltet wird oben; verworfen wird dabei nichts — gespeichert wird
- * am Ende in beiden Fällen dasselbe.
+ * Ein Formular in zwei Ansichten: Als Zugang zeigt es Benutzer, Passwort,
+ * Adresse und Einmalcode, als Dateiablage nur Name, Notiz und Anhänge. Das
+ * Umschalten blendet nur Felder aus; gespeichert wird in beiden Fällen
+ * dasselbe.
  *
- * Die Geheimnisse bleiben im Kern: Im Dialog steht nur eine Maske, und
- * erst beim Speichern wandert ein geänderter Wert als Token hinüber.
+ * Geheimnisse bleiben im Kern: Der Dialog zeigt eine Maske, und nur ein
+ * geänderter Wert wird beim Speichern als Token übergeben.
  *
- * Dazu gehören die Anhänge: einlesen, ablegen, umbenennen, ansehen — die
- * Vorschau im Vollbild steht am Ende der Datei.
+ * Ebenfalls enthalten sind die Anhänge (einlesen, ablegen, umbenennen,
+ * ansehen); die Vollbild-Vorschau steht am Ende der Datei.
  */
 
 import * as vault from '../data/vault.js';
@@ -36,11 +36,9 @@ import { t, gebiet } from '../core/i18n.js';
 /**
  * Eintrag bearbeiten oder anlegen.
  *
- * Zwei Ansichten desselben Formulars: `full` mit allen Feldern und `files`
- * als reine Dateiablage — Name, Ordner, Dateien, Notizen. Reine
- * Dateiablagen (siehe `isFileEntry`) gehen von selbst als `files` auf; oben
- * im Dialog lässt sich jederzeit umschalten. Das Umschalten blendet nur
- * aus, es verwirft nichts: Gespeichert wird in beiden Fällen dasselbe.
+ * Ansichten: `full` mit allen Feldern und `files` als reine Dateiablage
+ * (Name, Ordner, Dateien, Notizen). Reine Dateiablagen (siehe `isFileEntry`)
+ * öffnen als `files`; oben im Dialog lässt sich umschalten.
  *
  * `files` sind bereits eingelesene Anhänge (`staged:`), etwa aus dem
  * Ablegen aufs Fenster.
@@ -72,8 +70,8 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
   state.dialogAttachments = await loadAttachments(e);
   await addStagedAttachments(files);
 
-  // Geheimnisse bleiben im Kern. Die Felder starten leer; erst „anzeigen"
-  // holt den Wert, und nur ein tatsächlich geänderter Wert wird geschrieben.
+  // Die Geheimnisfelder starten leer; „anzeigen" holt den Wert, und nur ein
+  // geänderter Wert wird geschrieben.
   state.secretEdits = {
     password: prefill.password ?? null,
     totp: prefill.totpSecret ?? null
@@ -237,7 +235,7 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
 
   const d = result.data ?? {};
 
-  // --- Geheimnisse: nur bei echter Änderung anfassen ---
+  // --- Geheimnisse: nur bei Änderung übergeben ---
   let passwordToken = e.passwordToken;
   const newPassword = state.secretEdits?.password;
   if (newPassword !== null && newPassword !== undefined) {
@@ -253,9 +251,9 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
     totpToken = newTotp ? await vault.setSecret(totpToken, parsed?.secret ?? newTotp) : null;
   }
 
-  // --- Der Eintrag bekommt nur die Verweise ---
-  // Die Inhalte liegen längst im Kern: gespeicherte tragen ihre Nummer,
-  // frisch ausgewählte ein `staged:`. `vault_save_entry` löst beides auf.
+  // --- Anhänge als Verweise ---
+  // Gespeicherte Anhänge tragen ihre Nummer, neu ausgewählte ein `staged:`;
+  // `vault_save_entry` löst beides auf.
   const attachments = state.dialogAttachments.map(att => ({ name: att.name, ref: att.ref }));
 
   const saved = await vault.saveEntry({
@@ -276,7 +274,7 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
     attachments
   });
 
-  // Erst jetzt schreibt der Kern die Datenbank verschlüsselt auf die Platte
+  // Der Kern schreibt die Datenbank verschlüsselt auf die Platte.
   await vault.commit();
 
   const changedPassword = newPassword !== null && newPassword !== undefined;
@@ -286,8 +284,7 @@ export async function openEntryDialog(id, prefill = {}, { mode = null, files = [
   renderAll({ ohne: ['einstellungen'] });
   banner(t('dialoge.eintrag.meldungen.gespeichert'), 'success');
 
-  // Ein neu gesetztes Passwort wird sofort einzeln geprüft — nicht erst
-  // beim nächsten Gesamtdurchlauf.
+  // Ein neu gesetztes Passwort wird einzeln auf Leaks geprüft.
   if (changedPassword && settings.get('checks.passwordBreach', true)) {
     checkSingleEntry(saved?.id ?? e.id);
   }
@@ -326,7 +323,7 @@ function wireEntryDialog(entry, prefilled = {}, mode = 'full') {
   const label = document.getElementById('dlg-strength-label');
   const extra = document.getElementById('dlg-strength-extra');
 
-  // Solange das Feld noch die Maske zeigt, steckt kein echter Wert darin.
+  // `loaded`: das Feld enthält den echten Wert statt der Maske.
   let loaded = !entry.passwordToken || Boolean(prefilled.password);
 
   /** Holt den echten Wert aus dem Kern — beim ersten Bearbeiten. */
@@ -345,18 +342,18 @@ function wireEntryDialog(entry, prefilled = {}, mode = 'full') {
     extra.textContent = t('dialoge.eintrag.passwort.bit', { n: s.entropy });
   };
 
-  // Anklicken lädt den Wert, damit man direkt darin tippen kann
+  // Fokus oder Klick lädt den Wert zum Bearbeiten.
   pw.addEventListener('focus', ensureLoaded, { once: false });
   pw.addEventListener('pointerdown', ensureLoaded);
 
   pw.addEventListener('input', () => {
-    if (!loaded) return;               // Tippen vor dem Laden ignorieren
+    if (!loaded) return;               // vor dem Laden ignorieren
     state.secretEdits.password = pw.value;
     updateStrength();
   });
 
-  // Aufgedeckt steht ein echtes Textfeld da — so lässt sich das Passwort
-  // am Handy auch mit der Tastatur markieren und kopieren.
+  // Aufgedeckt ist das Feld ein Textfeld, damit sich das Passwort am Handy
+  // markieren und kopieren lässt.
   const klar = aufdeckbar(pw);
   const augePw = document.getElementById('dlg-reveal-pw');
   const zeigePw = an => {
@@ -418,8 +415,7 @@ function setEntryMode(mode) {
 
   const files = mode === 'files';
 
-  // Notizen gehören in der Dateiablage nicht zum Standard — sind aber welche
-  // da, sollen sie nicht unsichtbar werden.
+  // In der Dateiablage sind Notizen nur sichtbar, wenn welche vorhanden sind.
   const notes = document.getElementById('fld-notes');
   document.getElementById('dlg-notes-block').hidden = files && !notes?.value.trim();
 
@@ -523,10 +519,9 @@ export async function showQrDialog(uri, title) {
     content: `
       <div class="qr-output" id="qr-export"><p class="empty-state">${t('dialoge.eintrag.qr.wirdErzeugt')}</p></div>
       <p class="dlg-note">${t('dialoge.eintrag.qr.hinweis')}</p>`,
-    // Nichts zu entscheiden, also keine Fußzeile.
+    // Keine Fußzeile; Schließen über das Kreuz oben.
     confirmText: null,
     cancelText: t('allgemein.knoepfe.schliessen'),
-    // Ohne Fußzeile führt nur das Kreuz oben heraus.
     barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), action: 'cancel' },
     onInsert: () => queueMicrotask(async () => {
       const out = document.getElementById('qr-export');
@@ -550,10 +545,8 @@ function scannerHint() {
 /**
  * Kamera-Scan in einem eigenen Dialog.
  *
- * Kein „Fertig" zum Drücken: Ist ein Code erkannt, leuchtet der Rahmen auf,
- * und der Dialog schließt sich von selbst — weiter geht es dort, wo der
- * Code hingehört. Abgebrochen wird oben rechts mit dem Kreuz; eine Fußzeile
- * mit einem einzigen Knopf darin wäre hier nur verschenkte Höhe.
+ * Bei erkanntem Code leuchtet der Rahmen auf und der Dialog schließt sich
+ * selbst. Abbrechen über das Kreuz oben rechts; es gibt keine Fußzeile.
  */
 export async function scanWithCamera({ zurueck = null } = {}) {
   let controller = null;
@@ -572,7 +565,6 @@ export async function scanWithCamera({ zurueck = null } = {}) {
       </div>`,
     confirmText: null,
     cancelText: t('allgemein.knoepfe.abbrechen'),
-    // Ohne Fußzeile führt nur das Kreuz oben heraus.
     barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.abbrechen'), action: 'cancel' },
     onBack: zurueckZu(zurueck),
     onInsert: () => queueMicrotask(async () => {
@@ -580,10 +572,10 @@ export async function scanWithCamera({ zurueck = null } = {}) {
       const hint = document.getElementById('qr-hint');
       if (!video) return;
 
-      // Rückfallweg für dichte Codes: ein richtiges Foto, scharf gestellt
-      // von der Kamera-App — und dann genauso weiter wie beim Treffer.
+      // Ausweichweg für dichte Codes: Foto über die Kamera-App, danach
+      // derselbe Ablauf wie bei einem Treffer.
       document.getElementById('qr-photo')?.addEventListener('click', () => {
-        // Die Kamera-App braucht die Kamera für sich — Vorschau vorher aus.
+        // Die Kamera-App benötigt die Kamera; die Vorschau wird gestoppt.
         controller?.stop();
         const input = document.createElement('input');
         input.type = 'file';
@@ -610,12 +602,12 @@ export async function scanWithCamera({ zurueck = null } = {}) {
       try {
         controller = await qr.scanCamera(video);
         const found = await controller.promise;
-        if (resolved) return;          // schon über das Foto erkannt
+        if (resolved) return;          // bereits über das Foto erkannt
         resolved = found;
         if (hint) hint.textContent = t('dialoge.eintrag.scan.erkannt');
         video.closest('.qr-scanner')?.classList.add('found');
         navigator.vibrate?.(40);
-        // Das Aufleuchten kurz stehen lassen, dann von selbst weiter.
+        // Aufleuchten kurz anzeigen, dann schließen.
         await new Promise(r => setTimeout(r, 650));
         closeHostDialog(video, true);
       } catch (err) {
@@ -630,14 +622,11 @@ export async function scanWithCamera({ zurueck = null } = {}) {
 }
 
 /* ---------- Anhänge ----------
-   Die Datei wird über den Dialog des Betriebssystems ausgewählt, nicht über
-   ein `<input type="file">`. Der Kern liest sie ein und legt sie in seinen
-   Zwischenspeicher; hierher kommen nur Name, Art, Größe und ein Verweis.
-
-   Der Inhalt macht damit denselben Weg wie die Geheimnisse — er landet nie
-   im Webview. Und es ist derselbe Dialog wie beim Öffnen einer Datenbank,
-   also auch derselbe Zugriffsrahmen. Geschrieben wird beim Speichern des
-   Eintrags: `vault_save_entry` löst die Verweise auf. */
+   Dateien werden über den Dialog des Betriebssystems ausgewählt (kein
+   `<input type="file">`). Der Kern liest sie ein und legt sie in seinem
+   Zwischenspeicher ab; der Webview erhält nur Name, Art, Größe und einen
+   Verweis, nie den Inhalt. Geschrieben wird beim Speichern des Eintrags:
+   `vault_save_entry` löst die Verweise auf. */
 
 function wireAttachments() {
   const button = document.getElementById('btn-attach');
@@ -667,14 +656,13 @@ function wireAttachments() {
  */
 export async function addStagedAttachments(picked = []) {
   for (const att of picked) {
-    // Der Name ist in KDBX der Schlüssel des Anhangs — doppelte
-    // ersetzen einander stillschweigend. Lieber vorher fragen.
+    // Der Name ist in KDBX der Schlüssel des Anhangs; gleiche Namen
+    // ersetzen einander, daher Rückfrage.
     if (state.dialogAttachments.some(a => a.name === att.name)) {
       banner(t('dialoge.eintrag.meldungen.schonAngehaengt', { name: att.name }), 'warning', 4000);
       continue;
     }
-    // Für die Vorschau im Dialog wird der Inhalt geholt — derselbe Weg
-    // wie bei den schon gespeicherten Anhängen in `loadAttachments`.
+    // Inhalt für die Vorschau holen, wie bei gespeicherten Anhängen in `loadAttachments`.
     const stored = await vault.attachmentData(att.ref);
     state.dialogAttachments.push({ ...att, data: stored?.data ?? '' });
   }
@@ -683,9 +671,9 @@ export async function addStagedAttachments(picked = []) {
 /**
  * Dateien, die aufs Fenster gezogen werden.
  *
- * Tauri fängt das Ablegen ab, bevor der Webview es sieht; der Kern liest
- * die Dateien ein und meldet nur die Verweise (siehe lib.rs). Ist ein
- * Eintrag offen, landen sie dort — sonst entsteht eine neue Dateiablage.
+ * Tauri fängt das Ablegen vor dem Webview ab; der Kern liest die Dateien
+ * ein und meldet nur Verweise (siehe lib.rs). Bei offenem Eintrag werden
+ * sie dort angehängt, sonst entsteht eine neue Dateiablage.
  */
 export async function bindFileDrops() {
   const dragging = on => {
@@ -756,7 +744,7 @@ export function renderAttachments() {
   grid.querySelectorAll('[data-open-att]').forEach(el => el.addEventListener('click', () =>
     openAttachmentViewer(state.dialogAttachments[Number(el.dataset.openAtt)])));
 
-  // Textausschnitte nachladen, ohne das Rendern zu blockieren
+  // Textausschnitte asynchron nachladen
   grid.querySelectorAll('[data-snippet]').forEach(async el => {
     const snippet = await preview.textSnippet(state.dialogAttachments[Number(el.dataset.snippet)], 120);
     el.textContent = snippet || t('dialoge.eintrag.anhaenge.leer');
@@ -764,10 +752,8 @@ export function renderAttachments() {
 }
 
 /**
- * Dateiablage: eine Zeile je Datei statt Kacheln.
- *
- * Ein Klick zeigt die Datei, der Knopf rechts lädt sie herunter — mit
- * derselben Warnung wie in der Vorschau.
+ * Dateiablage: eine Zeile je Datei. Ein Klick zeigt die Datei, der Knopf
+ * rechts lädt sie herunter (mit derselben Warnung wie in der Vorschau).
  */
 function renderFileList(grid) {
   grid.dataset.layout = 'list';
@@ -809,18 +795,14 @@ function renderFileList(grid) {
 
 /* ---------- Anhang-Vorschau ----------
    Ein userDialog im Vollbild: oben links die Knöpfe, in der Mitte der
-   Dateiname (der zugleich der Knopf zum Umbenennen ist), rechts das Kreuz,
-   darunter die Datei auf der ganzen Fläche. Keine Fußzeile — es gibt nichts
-   zu bestätigen, und die Höhe gehört der Datei. Breite, Höhe und Rundung
-   sind Variablen der Bibliothek; `#file-viewer` setzt sie auf Vollbild.
-   Als modaler Dialog liegt die Vorschau über dem offenen Eintrag, und
-   Escape schließt nur sie.
+   Dateiname (zugleich Knopf zum Umbenennen), rechts das Kreuz, darunter die
+   Datei. Es gibt keine Fußzeile. Breite, Höhe und Rundung sind Variablen
+   der Bibliothek; `#file-viewer` setzt sie auf Vollbild. Die Vorschau ist
+   modal über dem Eintrag, Escape schließt nur sie.
 
-   Textdateien lassen sich über den Knopf oben bearbeiten, jede Datei über
-   ihren Namen umbenennen. Ist der Eintrag schon gespeichert, geht beides
-   sofort in die Datenbank — ohne „Speichern" im Eintrag und ohne Meldung,
-   außer es klappt nicht. Bei einem neuen Eintrag gibt es noch nichts, wohin
-   geschrieben werden könnte; dann zählt erst sein „Speichern". */
+   Textdateien lassen sich bearbeiten, jede Datei umbenennen. Bei einem
+   bereits gespeicherten Eintrag geht beides sofort in die Datenbank, bei
+   einem neuen erst mit dessen „Speichern". */
 
 /**
  * Schreibt einen Anhang des offenen Eintrags sofort in die Datenbank, falls
@@ -913,9 +895,8 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
   };
 
   /**
-   * Vor jedem Verlassen des Bearbeitens: Gibt es ungespeicherte Änderungen,
-   * wird gefragt. Ja speichert, Nein verwirft — danach geht es in beiden
-   * Fällen weiter. Nur wenn das Speichern scheitert, bleibt alles, wie es ist.
+   * Fragt vor dem Verlassen des Bearbeitens nach ungespeicherten Änderungen:
+   * Ja speichert, Nein verwirft. Scheitert das Speichern, bleibt der Editor offen.
    */
   const confirmLeave = async () => {
     if (!dirty()) return true;
@@ -926,14 +907,13 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
       cancelText: t('dialoge.eintrag.knoepfe.nein')
     });
     if (res?.submit) return saveEdit();
-    original = editor.value;   // verworfen: nicht noch einmal fragen
+    original = editor.value;   // verworfen
     return true;
   };
 
   /**
-   * Das Kreuz oben rechts fragt erst, dann schließt es. Deshalb hat es eine
-   * eigene Funktion statt der Aktion 'cancel' — und schließt am Ende selbst
-   * über `uDFinish`, sonst bliebe das Versprechen offen.
+   * Das Kreuz oben rechts fragt bei ungespeicherten Änderungen nach und
+   * schließt dann selbst über `uDFinish` (statt über die Aktion 'cancel').
    */
   const requestClose = async () => {
     if (await confirmLeave()) viewer.uDFinish('cancel');
@@ -967,8 +947,7 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
       return;
     }
 
-    // Mit der Endung wechselt die Art — aus .md wird beim Umbenennen in
-    // .txt reiner Text, und die Vorschau soll das auch so zeigen.
+    // Die Endung bestimmt die Art der Vorschau (z. B. .md zu .txt: reiner Text).
     try {
       att.ref = await persistAttachment(next, att.ref, att.name);
     } catch (err) {
@@ -984,10 +963,9 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
 
   await dialog({
     id: 'file-viewer',
-    // Am Handy der ganze Bildschirm, am Rechner rechts wie alle Dialoge –
-    // dort mit Griff zum Breiterziehen.
+    // Am Handy ganzer Bildschirm, am Rechner rechts mit Griff zum Breiterziehen.
     position: { small: 'full', wide: 'right' },
-    // Der Titel ist der Dateiname und zugleich der Knopf zum Umbenennen.
+    // Der Titel ist der Dateiname und zugleich der Umbenennen-Knopf.
     title: `<span class="file-viewer-title">
         <button type="button" class="file-viewer-name" data-viewer-rename title="${t('dialoge.eintrag.viewer.umbenennen')}"><strong></strong><span class="msr">edit</span></button>
         <input type="text" class="file-viewer-rename" hidden aria-label="${t('dialoge.eintrag.viewer.dateiname')}">
@@ -1005,9 +983,9 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
     onInsert: id => {
       viewer = document.getElementById(String(id));
 
-      // Escape: erst das Umbenennen abbrechen, sonst wie das Kreuz. Der
-      // eigene Horcher hängt vor dem der Bibliothek und hält sie an —
-      // sonst wäre der Dialog zu, bevor nach den Änderungen gefragt ist.
+      // Escape bricht zuerst das Umbenennen ab, sonst wirkt es wie das Kreuz.
+      // Der Handler läuft vor dem der Bibliothek und stoppt ihn, damit erst
+      // nach ungespeicherten Änderungen gefragt wird.
       viewer.addEventListener('cancel', ev => {
         ev.preventDefault();
         ev.stopImmediatePropagation();
@@ -1024,7 +1002,7 @@ export async function openAttachmentViewer(att, { edit = false } = {}) {
 
       showName();
       showButtons();
-      // Der Inhalt kommt, sobald der Dialog steht.
+      // Inhalt laden, sobald der Dialog steht.
       queueMicrotask(() => (edit && editable()) ? showEditor() : showPreview());
     }
   });

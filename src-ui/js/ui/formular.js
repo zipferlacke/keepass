@@ -1,14 +1,12 @@
 /**
  * formular.js — die Handgriffe, die jedes Formular im Dialog braucht.
  *
- * `userDialog` liefert die Werte am Ende als Objekt. Was dort steht,
- * hängt am `name` des Feldes — und weil die Bibliothek alles typisiert,
- * was wie eine Zahl aussieht, kommt aus einer PIN „1234" die Zahl 1234.
- * `captureFields` greift die Werte deshalb schon beim Tippen ab und
- * reicht sie unverändert weiter.
+ * `userDialog` liefert die Werte als Objekt nach dem `name` des Feldes und
+ * wandelt dabei zahlenähnliche Werte in Zahlen um (aus der PIN „1234" wird
+ * 1234). `captureFields` liest die Werte deshalb unverändert am Element ab.
  *
- * Dazu das Passwortfeld mit Auge zum Aufdecken, wie es in allen Dialogen
- * vorkommt, und der Hinweis zur Güte einer PIN.
+ * Außerdem enthalten: das Passwortfeld mit Auge zum Aufdecken und der
+ * Hinweis zur Stärke einer PIN.
  */
 
 import { esc, state } from '../core/state.js';
@@ -26,19 +24,13 @@ import { t } from '../core/i18n.js';
  * allValues = allConvertible ? rawValues.map(v => Number(v)) : rawValues;
  * ```
  *
- * Für PINs ist das doppelt schädlich. `"1234"` kommt als `1234` an — wer
- * eine Zeichenkette erwartet, steht mit leeren Händen da und bricht stumm
- * ab. Und `"0123"` wird zu `123`: Die führende Null wäre still verloren,
- * und zwar nur auf diesem Weg. Der Willkommensablauf liest direkt am
- * Element ab und behielte sie — dieselbe PIN, zwei Ergebnisse.
- *
- * Deshalb lesen wir die Werte am Element statt aus den Daten des Dialogs.
- * Die Elemente behalten ihren Wert auch, nachdem der Dialog aus dem
- * Dokument entfernt wurde.
+ * Für PINs ist das ungeeignet: „1234" käme als Zahl an, und bei „0123" ginge
+ * die führende Null verloren. Die Werte werden daher am Element gelesen;
+ * die Elemente behalten ihren Wert auch nach dem Entfernen des Dialogs.
  *
  * Die Rückgabe passt in die Optionen von `dialog()`: `onInsert` dort
  * einsetzen, `value(name)` nach dem Abschicken lesen. Augen-Knöpfe werden
- * gleich mit verkabelt.
+ * mit angebunden.
  */
 export function captureFields(...names) {
   const fields = new Map();
@@ -53,20 +45,16 @@ export function captureFields(...names) {
 
   return {
     onInsert: () => queueMicrotask(() => {
-      // Erst die Augen-Knöpfe, dann einsammeln — und in dieser Reihenfolge
-      // gekapselt, damit ein Fehler im einen nicht das andere verhindert.
-      try { wirePasswordFields(); } catch { /* Auge fehlt, weiter */ }
+      // Augen-Knöpfe anbinden und Felder einsammeln; getrennt abgesichert,
+      // damit ein Fehler das jeweils andere nicht verhindert.
+      try { wirePasswordFields(); } catch { /* ohne Auge-Knopf */ }
       collect();
     }),
 
     /**
-     * Der Wert des Feldes.
-     *
-     * `data` ist der Rückfallweg: Kam der Dialog nie durch `onInsert` —
-     * etwa weil ein Aufrufer es zu setzen vergisst —, wird der Wert doch
-     * noch aus den Daten des Dialogs gelesen. Zahlen werden dabei
-     * zurückverwandelt. Eine führende Null ist dann verloren; besser als
-     * wortlos gar nichts zu liefern.
+     * Der Wert des Feldes. `data` ist der Rückfall, wenn `onInsert` nicht
+     * gesetzt wurde: Der Wert kommt dann aus den Daten des Dialogs, Zahlen
+     * werden zurück in Text verwandelt, eine führende Null geht verloren.
      */
     value: (name, data = null) => {
       const field = fields.get(name);
@@ -80,10 +68,9 @@ export function captureFields(...names) {
 }
 
 /**
- * Setzt den Fokus ins genannte Feld des offenen Dialogs, sobald er steht.
- *
- * Der Dialog setzt beim Öffnen selbst einen Fokus (das erste bedienbare
- * Element, meist ein Knopf) — deshalb erst danach, zwei Bildaufbauten später.
+ * Setzt den Fokus ins genannte Feld des offenen Dialogs. Der Dialog fokussiert
+ * beim Öffnen selbst das erste bedienbare Element; deshalb erfolgt der Aufruf
+ * zwei Bildaufbauten später.
  */
 export function fokusInsFeld(name) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -91,7 +78,7 @@ export function fokusInsFeld(name) {
   }));
 }
 
-/** Häkchen aus einem Dialog — kommt mal als `true`, mal als `"on"`. */
+/** Häkchen aus einem Dialog; der Wert kommt als `true` oder `"on"`. */
 export function fieldChecked(data, name) {
   const value = data?.[name];
   return value === true || value === 'on' || value === 'true';
@@ -125,8 +112,7 @@ export function wirePasswordFields(root = document) {
     if (btn.dataset.wired) return;
     btn.dataset.wired = '1';
 
-    // Aufgedeckt steht ein echtes Textfeld da (siehe aufdecken.js) — nur
-    // den `type` umzustellen ließe der Tastatur am Handy das Kopieren nicht.
+    // Aufgedeckt ist das Feld ein echtes Textfeld (siehe aufdecken.js).
     const feld = aufdeckbar(btn.parentElement.querySelector('input'));
 
     btn.addEventListener('click', () => {

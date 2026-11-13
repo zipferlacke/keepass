@@ -7,20 +7,10 @@
 <title>WKeePass</title>
 
 <!--
-  Das kleine Fenster für Anfragen aus dem Browser.
-
-  Eigenständig und absichtlich schlank: Es geht mittig über dem Browser auf,
-  während man dort in einem Anmeldeformular steht. Die ganze Anwendung dafür
-  zu laden wäre langsam und aufdringlich — sie muss dafür nicht einmal
-  laufen.
-
-  Auch das Entsperren passiert hier. Dieselben Felder, dieselbe Form: Ob
-  gerade die Datei geöffnet oder eine Herausgabe bestätigt wird, ändert nur
-  die Beschriftung.
-
-  Dass es *unser* Fenster ist und nicht etwas, das die Website zeichnet, ist
-  der eigentliche Punkt — eine Bestätigung im Browser könnte eine Seite
-  nachbauen.
+  Kleines, eigenständiges Fenster für Anfragen aus dem Browser (Herausgabe von
+  Zugangsdaten) und für das Entsperren. Beide verwenden dieselben Felder; nur die
+  Beschriftung unterscheidet sich. Die Bestätigung erscheint in einem eigenen
+  Fenster der Anwendung, das eine Webseite nicht nachbilden kann.
 -->
 <link rel="stylesheet" href="./css/app.css">
 </head>
@@ -47,9 +37,7 @@
   <form id="req-form">
     <!-- Nur bei „legitimieren“: Nachweis statt Ja/Nein -->
     <div id="req-identify" hidden>
-      <!-- Der Umschalter ist zugleich die Beschriftung: Was gewählt ist,
-           steht darin. Eine zusätzliche Zeile darüber sagte dasselbe noch
-           einmal. -->
+      <!-- Der Umschalter dient zugleich als Beschriftung des Feldes. -->
       <div class="group-radio" id="req-methods" hidden></div>
 
       <span class="pw-field">

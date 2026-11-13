@@ -145,11 +145,8 @@ fn papierkorb_ueberlebt_den_umlauf() {
 
 /// Die Verknüpfung eines Browsers steht in `meta.custom_data`.
 ///
-/// Genau da hakte es lange: `associate` schrieb sie nur in den
-/// Arbeitsspeicher, nichts gab sie an die Datei weiter, und beim nächsten
-/// Start galt der Browser wieder als unbekannt. Seitdem schreibt die
-/// Anbindung selbst zurück — was voraussetzt, dass dieses Feld den Umlauf
-/// überhaupt übersteht.
+/// `associate` schreibt sie in den Arbeitsspeicher, die Anbindung schreibt sie
+/// zurück; geprüft wird, dass dieses Feld den Umlauf übersteht.
 #[test]
 fn browser_verknuepfung_ueberlebt_den_umlauf() {
     let mut db = beispiel();

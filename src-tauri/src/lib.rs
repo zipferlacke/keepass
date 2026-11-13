@@ -7,12 +7,12 @@
 //!            Entsperren (Master-Passwort, PIN, später Biometrie)
 //!   Webview  Darstellung und Bedienung — sonst nichts
 //!
-//! Die Oberfläche bekommt Einträge mit Token statt Werten. Ein Klartextwert
-//! geht nur über `vault_reveal_secret` hinaus; beim Kopieren gar nicht, da
-//! legt `vault_copy_secret` ihn direkt in die Zwischenablage.
+//! Die Oberfläche erhält Einträge mit Token statt Werten. Ein Klartextwert
+//! verlässt den Kern nur über `vault_reveal_secret`; `vault_copy_secret` legt
+//! ihn direkt in die Zwischenablage.
 //!
-//! Der Vertrag mit der Oberfläche steht in `ui/js/demo.js`: Was dort
-//! beantwortet wird, muss hier genauso herauskommen.
+//! Der Vertrag mit der Oberfläche steht in `ui/js/demo.js`; die Antworten des
+//! Kerns müssen mit den dortigen übereinstimmen.
 
 mod biometric;
 mod database;
@@ -20,8 +20,8 @@ mod dto;
 mod entries;
 mod favicon;
 // Die Browser-Erweiterung gibt es nur auf dem Desktop. Auf Android füllt das
-// System selbst aus (AutofillService, siehe keepass-android/) — dort wird
-// dieses Modul gar nicht erst übersetzt.
+// System selbst aus (AutofillService, siehe keepass-android/); dort wird
+// dieses Modul nicht übersetzt.
 #[cfg(desktop)]
 mod keepass_extension;
 mod keystore;
@@ -57,22 +57,19 @@ pub type Vault = Mutex<VaultState>;
 
 /// Der Zugang zur laufenden Anwendung, für Stellen ohne eigenen Handle.
 ///
-/// Zwei Module brauchen ihn, bekommen ihn aber nicht als Argument
-/// durchgereicht: `biometric.rs` ruft auf Android das Tauri-Plugin auf, und
-/// `keystore.rs` braucht dort das private Verzeichnis der App. Beides
-/// passiert tief in Aufrufketten, die bis zur Oberfläche hinaufreichen —
-/// den Handle überall mitzuschleppen hieße, ein Dutzend Signaturen zu
-/// ändern, nur damit zwei Zeilen ihn sehen.
+/// Genutzt von `biometric.rs` (Tauri-Plugin auf Android) und `keystore.rs`
+/// (privates Verzeichnis der App). Beide liegen tief in Aufrufketten, durch
+/// die ein Handle nicht als Argument gereicht wird.
 static HANDLE: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
 
 pub fn app_handle() -> Option<&'static tauri::AppHandle> {
     HANDLE.get()
 }
 
-/// Wurden wir von einem Browser über Native Messaging gestartet?
+/// Wurde die Anwendung von einem Browser über Native Messaging gestartet?
 ///
-/// Siehe `main.rs`: Dieselbe Datei bedient beide Rollen, und diese Frage
-/// entscheidet, welche.
+/// Siehe `main.rs`: Dieselbe Datei bedient beide Rollen; diese Abfrage
+/// entscheidet, welche gilt.
 #[cfg(desktop)]
 pub fn started_by_browser() -> bool {
     keepass_extension::route::started_by_browser()
@@ -86,23 +83,17 @@ pub fn run_proxy() {
 
 /// Schreibt jeden Absturz in eine Datei, bevor das Programm endet.
 ///
-/// # Warum das nötig ist
-///
-/// Unter Linux ruft Tauri **synchrone** Kommandos innerhalb des
-/// WebKit-Signalhandlers auf — also aus C heraus. Ein Panic kann dort nicht
-/// abgewickelt werden; Rust bricht hart ab und meldet nur
+/// Unter Linux ruft Tauri synchrone Kommandos innerhalb des
+/// WebKit-Signalhandlers auf, also aus C heraus. Ein Panic kann dort nicht
+/// abgewickelt werden; Rust bricht ab und meldet nur
 ///
 /// ```text
 /// thread caused non-unwinding panic. aborting.
 /// ```
 ///
-/// Der Stapel, der dabei ausgegeben wird, endet bei `main` und verrät die
-/// Ursache nicht. Die eigentliche Meldung samt Stelle im Quelltext geht
-/// unter, sobald das Fenster weg ist.
-///
-/// Der Haken läuft **vor** dem Abbruch. Was er aufschreibt, überlebt also
-/// den Absturz — Zeitpunkt, Meldung, Datei und Zeile. Mit `RUST_BACKTRACE=1`
-/// steht der Stapel gleich mit dabei.
+/// Die eigentliche Meldung samt Stelle im Quelltext geht mit dem Fenster
+/// verloren. Der Haken läuft vor dem Abbruch und schreibt Zeitpunkt,
+/// Meldung, Datei und Zeile auf; mit `RUST_BACKTRACE=1` auch den Stapel.
 fn install_panic_log() {
     let path = std::env::temp_dir().join("wkeepass-panic.log");
     let previous = std::panic::take_hook();
@@ -126,7 +117,7 @@ fn install_panic_log() {
     }));
 }
 
-/// Richtet das Hauptfenster ein — beim Start und wenn es später auf Abruf
+/// Richtet das Hauptfenster ein, beim Start und wenn es später auf Abruf
 /// entsteht ([`hauptfenster_zeigen`]).
 fn fenster_einrichten(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     // Fensterknöpfe wie auf dem übrigen Schreibtisch.
@@ -135,14 +126,13 @@ fn fenster_einrichten(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     webview::enable_camera(window);
     // Kein eingebautes Kontextmenü — wir haben ein eigenes.
     webview::suppress_context_menu(window);
-    // Schließen: ohne Browser endet die Anwendung, mit nur das Fenster.
+    // Schließen: ohne Browser endet die Anwendung, mit Browser nur das Fenster.
     #[cfg(desktop)]
     keepass_extension::api::hauptfenster(window);
 
-    // Aufs Fenster gezogene Dateien liest der Kern selbst ein und
-    // meldet der Oberfläche nur die Verweise — wie beim
-    // Auswahldialog. Ob sie gebraucht werden, entscheidet sie:
-    // Ohne offenen Eintrag verfallen sie spätestens beim Sperren.
+    // Auf das Fenster gezogene Dateien liest der Kern selbst ein und meldet
+    // der Oberfläche nur die Verweise, wie beim Auswahldialog. Ohne offenen
+    // Eintrag verfallen sie spätestens beim Sperren.
     let handle = app.clone();
     window.on_window_event(move |event| {
         let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event else {
@@ -170,17 +160,15 @@ fn fenster_einrichten(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     });
 }
 
-/// Holt das Hauptfenster nach vorn — und baut es, falls es noch keins gibt.
+/// Holt das Hauptfenster nach vorn und baut es, falls es noch nicht existiert.
 ///
-/// Nach einem Start im Hintergrund oder nachdem man es geschlossen hat,
-/// während ein Browser verbunden war, existiert es nicht mehr. Dann entsteht
-/// es neu aus `tauri.conf.json`; die Oberfläche sieht beim Start, ob die
-/// Datenbank schon offen ist (`app.js`).
+/// Das Fenster fehlt nach einem Start im Hintergrund oder nach dem Schließen
+/// bei verbundenem Browser. Es entsteht dann neu aus `tauri.conf.json`; die
+/// Oberfläche prüft beim Start, ob die Datenbank schon offen ist (`app.js`).
 ///
-/// Gebaut wird auf einem eigenen Faden: Gerufen wird das aus Rückrufen der
-/// Ereignisschleife (zweiter Start, Leistensymbol), und `build()` wartet auf
-/// genau diese Schleife — auf ihr selbst hinge alles, auch der zweite Start,
-/// der auf die Antwort wartet.
+/// Gebaut wird auf einem eigenen Faden, da der Aufruf aus Rückrufen der
+/// Ereignisschleife kommt (zweiter Start, Leistensymbol) und `build()` auf
+/// diese Schleife wartet.
 #[cfg(desktop)]
 pub fn hauptfenster_zeigen(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -192,7 +180,7 @@ pub fn hauptfenster_zeigen(app: &tauri::AppHandle) {
     };
     let app = app.clone();
     std::thread::spawn(move || {
-        // Zwei Aufrufe kurz hintereinander bauen nicht zwei Fenster.
+        // Zwei kurz aufeinanderfolgende Aufrufe bauen nur ein Fenster.
         static BAU: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let Ok(_bau) = BAU.lock() else { return };
         if let Some(window) = app.get_webview_window("main") {
@@ -230,9 +218,9 @@ pub fn run() {
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
-        // Muss als erstes Plugin laufen wollen, steht aber nur auf dem Desktop:
-        // Startet jemand eine zweite Ausgabe (Doppelklick auf eine .kdbx),
-        // bekommt die laufende deren Argumente und holt sich nach vorn.
+        // Läuft nur auf dem Desktop und muss als erstes Plugin laufen: Eine
+        // zweite Ausgabe (Doppelklick auf eine .kdbx) übergibt ihre Argumente
+        // an die laufende und holt diese nach vorn.
         .plugin({
             #[cfg(desktop)]
             {
@@ -243,8 +231,8 @@ pub fn run() {
             #[cfg(not(desktop))]
             { tauri_plugin_persisted_scope::init() }
         })
-        // Nur mobil: Das Plugin deckt ausdrücklich nur Android und iOS ab.
-        // Desktop-Biometrie steckt in biometric.rs.
+        // Nur mobil: Das Plugin deckt nur Android und iOS ab. Desktop-Biometrie
+        // steckt in biometric.rs.
         .plugin({
             #[cfg(any(target_os = "android", target_os = "ios"))]
             { tauri_plugin_biometric::init() }
@@ -256,18 +244,18 @@ pub fn run() {
             database::start_auto_lock(app.handle().clone());
 
             // Kanal für die Browser-Erweiterung. Scheitert das Einhängen,
-            // läuft die Anwendung trotzdem — nur ohne Browser-Anbindung.
+            // läuft die Anwendung ohne Browser-Anbindung weiter.
             #[cfg(desktop)]
             keepass_extension::api::start(app.handle().clone());
 
-            // Ein Symbol in der Leiste — vor allem, damit man WKeePass sieht,
-            // wenn es der Browser ohne Fenster gestartet hat.
+            // Symbol in der Leiste, damit WKeePass auch sichtbar ist, wenn
+            // es der Browser ohne Fenster gestartet hat.
             #[cfg(desktop)]
             leiste::einrichten(app.handle());
 
             if let Some(window) = app.get_webview_window("main") {
-                // Vom Browser gestartet: kein Hauptfenster, bis man WKeePass
-                // öffnet — es kostet sonst unsichtbar gut 100 MB.
+                // Vom Browser gestartet: kein Hauptfenster, bis WKeePass
+                // geöffnet wird (spart gut 100 MB).
                 #[cfg(desktop)]
                 if keepass_extension::route::im_hintergrund() {
                     keepass_extension::api::hintergrund_start(window);
@@ -277,7 +265,7 @@ pub fn run() {
             }
             Ok(())
         })
-        // Brücke für tauri-agent-tools — hängt am Feature `agent` und ist in
+        // Brücke für tauri-agent-tools; hängt am Feature `agent` und ist in
         // der ausgelieferten Fassung nicht übersetzt.
         .plugin({
             #[cfg(feature = "agent")]
@@ -308,6 +296,7 @@ pub fn run() {
             database::vault_version_restore,
             database::vault_conflicts,
             database::vault_conflict_resolve,
+            database::vault_conflict_reveal,
             database::vault_security,
             database::vault_set_security,
             database::vault_lock,
@@ -388,7 +377,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Anwendung konnte nicht gestartet werden")
         .run(|app, event| {
-            // Das letzte Fenster ist zu. Ist ein Browser verbunden, läuft die
+            // Das letzte Fenster ist zu. Bei verbundenem Browser läuft die
             // Anwendung ohne Fenster weiter (`api.rs`, „Im Hintergrund").
             // Gewolltes Beenden kommt mit Code und bleibt unberührt.
             #[cfg(desktop)]
@@ -402,8 +391,8 @@ pub fn run() {
                 }
             }
             // macOS reicht eine doppelgeklickte Datei nicht als Argument
-            // weiter, sondern als eigenes Ereignis. Zuletzt: Das verbraucht
-            // `event`, die Prüfungen oben brauchen es vorher.
+            // weiter, sondern als eigenes Ereignis. Steht zuletzt, da `event`
+            // von den Prüfungen oben vorher gebraucht wird.
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             if let tauri::RunEvent::Opened { urls } = event {
                 system::datei_uebergeben(

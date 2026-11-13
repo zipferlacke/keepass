@@ -9,33 +9,32 @@ import android.widget.Toast
 import de.wuefl.wkeepass.kern.Kern
 
 /**
- * Startet die App, wenn sie gar nicht läuft — und nur so lange, bis der Kern
+ * Startet die App, wenn sie nicht läuft, und nur so lange, bis der Kern
  * steht.
  *
  * Autofill und Passkeys entsperren selbst, im Blatt über der fremden App.
- * Das geht aber nur, wenn es im Prozess einen Kern gibt: Einstellungen,
- * Schlüsselbund und Dateizugriff richtet Tauri ein, und Tauri startet erst
- * mit der Activity der App (Status `"aus"`, siehe `android_services.rs`).
+ * Dazu braucht der Prozess einen Kern: Einstellungen, Schlüsselbund und
+ * Dateizugriff richtet Tauri ein, und Tauri startet erst mit der Activity
+ * der App (Status `"aus"`, siehe `android_services.rs`).
  *
- * Also wird die App gestartet, aber nicht benutzt: Sobald der Kern
- * antwortet, geht sie sofort wieder nach hinten. Vorn steht dann wieder die
- * fremde App mit unserem Blatt darüber, und das Blatt macht weiter — mit
- * PIN, Biometrie oder Master-Passwort wie sonst auch. Kein zweites Antippen.
+ * Die App wird daher gestartet, aber nicht benutzt: Sobald der Kern
+ * antwortet, wechselt sie in den Hintergrund. Die fremde App steht wieder
+ * vorn, das Blatt macht weiter (PIN, Biometrie oder Master-Passwort).
  *
- * Kommt der Kern nicht rechtzeitig, bleibt die App offen; dort lässt sich
+ * Antwortet der Kern nicht rechtzeitig, bleibt die App offen und lässt sich
  * wie gewohnt entsperren.
  */
 object Kaltstart {
 
     /**
-     * Ob die App gerade nur für das Blatt gestartet wurde. Die Oberfläche
-     * fragt beim Start einmal nach (`started_for_others` in `system.rs`) und
-     * lässt dann das automatische Entsperren mit Biometrie weg — sonst
-     * käme die Abfrage doppelt: aus der App und aus dem Blatt.
+     * Ob die App nur für das Blatt gestartet wurde. Die Oberfläche fragt beim
+     * Start einmal nach (`started_for_others` in `system.rs`) und lässt dann
+     * das automatische Entsperren mit Biometrie weg, damit die Abfrage nicht
+     * doppelt erscheint.
      */
     @Volatile private var fuerBlatt = false
 
-    /** Einmal abholen — danach ist es ein gewöhnlicher Start. */
+    /** Wird einmal abgeholt; danach gilt der Start als gewöhnlich. */
     @JvmStatic
     fun abholen(): Boolean {
         val war = fuerBlatt
@@ -77,15 +76,14 @@ object Kaltstart {
             override fun onActivityResumed(a: Activity) {
                 if (a !== blatt) return
                 blattVorn = true
-                // Erst weiter, wenn der Kern steht — wer vorher von Hand
-                // zurückwechselt, wartet eben noch kurz.
+                // Erst weiter, wenn der Kern steht.
                 if (kernDa) ende(true)
             }
             override fun onActivityPaused(a: Activity) {
                 if (a === blatt) blattVorn = false
             }
             override fun onActivityDestroyed(a: Activity) {
-                // Das Blatt ist weg — niemand mehr, für den es weitergeht.
+                // Das Blatt ist weg; niemand wartet mehr.
                 if (a === blatt && !fertig) {
                     fertig = true
                     app.unregisterActivityLifecycleCallbacks(beobachter)
@@ -102,8 +100,7 @@ object Kaltstart {
         blatt.startActivity(start)
         Toast.makeText(blatt, "${Kern.name(blatt)} startet …", Toast.LENGTH_SHORT).show()
 
-        // Auf den Kern warten — nicht auf dem Hauptfaden, der muss die App
-        // derweil aufbauen.
+        // Auf den Kern wird nicht auf dem Hauptfaden gewartet; der baut die App auf.
         Thread {
             val bis = System.currentTimeMillis() + FRIST_MS
             var laeuft = false
@@ -115,9 +112,8 @@ object Kaltstart {
                 if (fertig) return@post
                 if (!laeuft) return@post ende(false)
                 kernDa = true
-                // Die App hat ihren Dienst getan: zurück dorthin, wo man
-                // herkam. Android holt die Aufgabe darunter nach vorn —
-                // die fremde App samt Blatt.
+                // Zurück zur vorherigen Aufgabe: Android holt die fremde App samt Blatt
+                // nach vorn.
                 fenster?.moveTaskToBack(true)
                 if (blattVorn) ende(true)
             }

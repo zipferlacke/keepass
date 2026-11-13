@@ -50,8 +50,8 @@ pub fn kopie(app: &tauri::AppHandle, path: &str) -> Option<Vec<u8>> {
     std::fs::read(copy_path(app, path)?).ok()
 }
 
-/// Legt die Kopie ab oder erneuert sie. Fehler werden nur gemeldet, nicht
-/// weitergereicht: Ohne Kopie geht alles weiter wie bisher.
+/// Legt die Kopie ab oder erneuert sie. Fehler werden gemeldet, aber nicht
+/// weitergereicht; ohne Kopie läuft der Betrieb unverändert weiter.
 pub fn store(app: &tauri::AppHandle, path: &str, bytes: &[u8]) {
     let Some(copy) = copy_path(app, path) else { return };
 

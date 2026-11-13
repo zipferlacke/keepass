@@ -9,9 +9,8 @@ use image::GenericImageView;
 
 /// Dekodiert einen QR-Code aus kodierten Bildbytes (PNG, JPEG, WebP …).
 ///
-/// Gibt `Ok(None)` zurück, wenn das Bild gültig war, aber kein Code darin
-/// gefunden wurde — das ist beim Kamera-Scan der Normalfall pro Einzelbild
-/// und darf kein Fehler sein.
+/// Gibt `Ok(None)` zurück, wenn das Bild gültig ist, aber keinen Code enthält; das
+/// ist beim Kamera-Scan der Normalfall und kein Fehler.
 #[tauri::command]
 pub fn decode_qr_bytes(bytes: Vec<u8>) -> Result<Option<String>, String> {
     let img = image::load_from_memory(&bytes)
@@ -25,10 +24,8 @@ pub fn decode_qr_bytes(bytes: Vec<u8>) -> Result<Option<String>, String> {
 ///
 /// * **Rohdaten** (Desktop): Die Bytes sind der Anfragekörper, die Breite
 ///   steht in `x-width`. Kein JPEG, keine Zahlenliste im JSON.
-/// * **JSON** (Android): Dort kommt ein roher Körper nicht als solcher an —
-///   die Android-Brücke von Tauri reicht nur JSON durch. Dann steht
-///   `{ width, data }` darin, `data` als Base64. Früher scheiterte hier
-///   jedes Bild still, und der Scanner sah nie einen Code.
+/// * **JSON** (Android): Die Android-Brücke von Tauri reicht nur JSON durch, daher
+///   steht `{ width, data }` im Körper, `data` als Base64.
 #[tauri::command]
 pub fn decode_qr_gray(request: tauri::ipc::Request<'_>) -> Result<Option<String>, String> {
     let (width, data): (u32, std::borrow::Cow<'_, [u8]>) = match request.body() {

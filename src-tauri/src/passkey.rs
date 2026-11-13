@@ -1,8 +1,8 @@
 //! Passkeys — WebAuthn-Schlüsselpaare in der Datenbank.
 //!
-//! # Woher die Anfrage kommt
+//! # Herkunft der Anfrage
 //!
-//! Ein Passkey entsteht **nie** in dieser Oberfläche. Den Anstoß gibt immer
+//! Ein Passkey wird nie aus der Oberfläche heraus angelegt; den Anstoß gibt
 //! die Gegenstelle:
 //!
 //! ```text
@@ -10,15 +10,15 @@
 //! Android  CredentialProviderService → hier
 //! ```
 //!
-//! Die Oberfläche zeigt anschließend nur an, was vorhanden ist. Deshalb sind
-//! die Kommandos hier plattformunabhängig: Sie machen die Krypto und die
-//! Ablage, der Transport ist ein eigenes Programm.
+//! Die Oberfläche zeigt nur den vorhandenen Bestand an. Die Kommandos hier
+//! sind plattformunabhängig und erledigen Kryptografie und Ablage; der
+//! Transport ist ein eigenes Programm.
 //!
 //! # Ablage
 //!
-//! In denselben Feldern wie KeePassXC, damit beide Programme dieselben
-//! Passkeys sehen. Der private Schlüssel liegt als PEM in einem geschützten
-//! Feld — genau wie ein Passwort, also im Kern und nie im Webview.
+//! Die Felder entsprechen denen von KeePassXC, sodass beide Programme
+//! dieselben Passkeys sehen. Der private Schlüssel liegt als PEM in einem
+//! geschützten Feld, also wie ein Passwort im Kern und nie im Webview.
 //!
 //! ```text
 //! KPEX_PASSKEY_RELYING_PARTY     github.com
@@ -28,11 +28,11 @@
 //! KPEX_PASSKEY_PRIVATE_KEY_PEM   -----BEGIN PRIVATE KEY----- …
 //! ```
 //!
-//! # Was hier bewusst fehlt
+//! # Signaturzähler
 //!
-//! Der Signaturzähler. WebAuthn erlaubt ihn wegzulassen (Wert 0), und bei
-//! einer Datei, die auf mehreren Geräten liegt, würde er ohnehin
-//! auseinanderlaufen und Anmeldungen abweisen. KeePassXC macht es genauso.
+//! Der Signaturzähler bleibt auf 0, was WebAuthn erlaubt. Bei einer auf
+//! mehreren Geräten liegenden Datei würde ein Zähler auseinanderlaufen; so
+//! verfährt auch KeePassXC.
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
 use base64::Engine;
@@ -51,8 +51,8 @@ pub const FOLDER: &str = "Passkeys";
 
 const F_RP: &str = "KPEX_PASSKEY_RELYING_PARTY";
 const F_USER: &str = "KPEX_PASSKEY_USERNAME";
-/// Woran ein Passkey-Eintrag zu erkennen ist — auch von außerhalb dieses
-/// Moduls. Die Browser-Anbindung hält solche Einträge aus der Passwortliste
+/// Kennzeichnung eines Passkey-Eintrags, auch für Code außerhalb dieses
+/// Moduls: Die Browser-Anbindung hält solche Einträge aus der Passwortliste
 /// heraus (siehe `keepass_extension::api::matching_entries`).
 pub const F_ID: &str = "KPEX_PASSKEY_CREDENTIAL_ID";
 const F_HANDLE: &str = "KPEX_PASSKEY_USER_HANDLE";
@@ -101,8 +101,8 @@ pub struct AssertResponse {
     pub client_data_json: String,
     pub signature: String,
     pub user_handle: Option<String>,
-    /// Welcher Eintrag angemeldet hat — nur für „Zuletzt genutzt", geht
-    /// nicht an die Gegenstelle.
+    /// Eintrag, der angemeldet hat; nur für „Zuletzt genutzt", wird nicht an
+    /// die Gegenstelle gesendet.
     #[serde(skip)]
     pub entry_uuid: String,
 }
@@ -170,9 +170,9 @@ pub fn passkey_create(
     create_in(&mut vault, request).map(|c| c.response)
 }
 
-/// Was beim Anlegen entsteht — mehr, als die Browser-Erweiterung braucht:
-/// Android will authenticatorData und den öffentlichen Schlüssel zusätzlich
-/// einzeln in der Antwort sehen.
+/// Ergebnis des Anlegens. Enthält mehr, als die Browser-Erweiterung braucht:
+/// Android erwartet authenticatorData und öffentlichen Schlüssel zusätzlich
+/// einzeln in der Antwort.
 #[cfg_attr(desktop, allow(dead_code))] // die Einzelteile braucht nur Android
 pub struct Created {
     pub response: CreateResponse,
@@ -181,11 +181,11 @@ pub struct Created {
     pub public_key_der: Vec<u8>,
 }
 
-/// Legt einen Passkey an. Speichert **nicht** — das macht der Aufrufer.
+/// Legt einen Passkey an. Speichert nicht; das übernimmt der Aufrufer.
 pub fn create_in(vault: &mut VaultState, request: CreateRequest) -> Result<Created, String> {
     use p256::pkcs8::EncodePublicKey;
 
-    // ES256, also P-256 mit SHA-256 — das, was jede Gegenstelle versteht.
+    // ES256 (P-256 mit SHA-256), von jeder Gegenstelle unterstützt.
     let signing = SigningKey::random(&mut rand_core::OsRng);
     let pem = signing
         .to_pkcs8_pem(LineEnding::LF)
@@ -206,7 +206,7 @@ pub fn create_in(vault: &mut VaultState, request: CreateRequest) -> Result<Creat
 
     let attestation = attestation_object(&auth_data);
 
-    // Eintrag anlegen — der private Schlüssel als geschütztes Feld.
+    // Eintrag anlegen, der private Schlüssel als geschütztes Feld.
     let title = format!("{} ({})", request.rp_id, request.user_name);
     {
         let db = vault.database_mut()?;
@@ -266,11 +266,10 @@ pub fn passkey_assert(
 
 /// Meldet mit einem hinterlegten Passkey an.
 ///
-/// `allowed` leer heißt: irgendeiner für diese Gegenstelle. `client_hash`
-/// ist gesetzt, wenn der Aufrufer das clientDataJSON selbst gebaut hat —
-/// so machen es Browser auf Android. Dann wird über dessen Hash signiert,
-/// und unser eigenes clientDataJSON ist nur Beiwerk, das der Browser
-/// ersetzt.
+/// Ein leeres `allowed` bedeutet: irgendeiner für diese Gegenstelle.
+/// `client_hash` ist gesetzt, wenn der Aufrufer das clientDataJSON selbst
+/// gebaut hat (Browser auf Android); dann wird über dessen Hash signiert und
+/// das eigene clientDataJSON ersetzt der Browser.
 pub fn assert_in(
     vault: &VaultState,
     rp_id: &str,
@@ -281,9 +280,9 @@ pub fn assert_in(
 ) -> Result<AssertResponse, String> {
     let db = vault.database()?;
 
-    // Nicht aus dem Papierkorb: Ein gelöschter Passkey stand sonst womöglich
-    // vor dem neuen derselben Seite — die Anmeldung schlug dann fehl, weil
-    // die Seite seine Kennung nicht mehr kennt.
+    // Papierkorb-Einträge ausschließen: Ein gelöschter Passkey würde sonst
+    // womöglich vor dem neuen derselben Seite stehen, dessen Kennung die
+    // Seite nicht mehr kennt.
     let entry = db
         .iter_all_entries()
         .filter(|e| !crate::state::is_recycled(db, e.parent().id()))
@@ -331,8 +330,8 @@ fn client_data(kind: &str, challenge: &str, origin: Option<&str>, rp_id: &str) -
 
 /// `authenticatorData` nach WebAuthn.
 ///
-/// Bei `Some(..)` wird die attestedCredentialData angehängt — das ist der
-/// Fall beim Anlegen. Beim Anmelden bleibt es bei Hash, Flags und Zähler.
+/// Bei `Some(..)` wird die attestedCredentialData angehängt (beim Anlegen);
+/// beim Anmelden bestehen die Daten nur aus Hash, Flags und Zähler.
 fn authenticator_data(
     rp_id: &str,
     credential: Option<(&[u8; 32], &p256::ecdsa::VerifyingKey)>,
@@ -348,7 +347,7 @@ fn authenticator_data(
     data.extend_from_slice(&0u32.to_be_bytes()); // Zähler, siehe Modulkommentar
 
     if let Some((id, key)) = credential {
-        data.extend_from_slice(&[0u8; 16]); // AAGUID: keiner, wir sind kein Gerät
+        data.extend_from_slice(&[0u8; 16]); // AAGUID: keine, kein zertifiziertes Gerät
         data.extend_from_slice(&(id.len() as u16).to_be_bytes());
         data.extend_from_slice(id);
         data.extend_from_slice(&cose_key(key));
@@ -362,8 +361,8 @@ fn cose_key(key: &p256::ecdsa::VerifyingKey) -> Vec<u8> {
     let x = point.x().expect("P-256 hat eine x-Koordinate");
     let y = point.y().expect("P-256 hat eine y-Koordinate");
 
-    // Reihenfolge nach der COSE-Norm: 1, 3, -1, -2, -3. Deshalb eine Liste
-    // und keine Abbildung — die würde umsortieren.
+    // Reihenfolge nach der COSE-Norm: 1, 3, -1, -2, -3. Daher eine Liste
+    // statt einer Abbildung, die umsortieren würde.
     let value = ciborium::Value::Map(vec![
         (ciborium::Value::Integer(1.into()), ciborium::Value::Integer(2.into())),      // kty: EC2
         (ciborium::Value::Integer(3.into()), ciborium::Value::Integer((-7).into())),   // alg: ES256
@@ -378,8 +377,7 @@ fn cose_key(key: &p256::ecdsa::VerifyingKey) -> Vec<u8> {
 
 /// `attestationObject` in der Form „none" — ohne Herstellernachweis.
 ///
-/// Das ist für Passwortmanager der übliche Weg: Wir sind kein zertifiziertes
-/// Gerät und behaupten es auch nicht.
+/// Üblich für Passwortmanager, da kein zertifiziertes Gerät vorliegt.
 fn attestation_object(auth_data: &[u8]) -> Vec<u8> {
     let value = ciborium::Value::Map(vec![
         (ciborium::Value::Text("fmt".into()), ciborium::Value::Text("none".into())),
@@ -439,7 +437,7 @@ mod tests {
         p256::ecdsa::VerifyingKey::from(key).verify(&nachricht, &sig).unwrap();
     }
 
-    /// Ein gelöschter Passkey im Papierkorb darf nicht vor dem neuen stehen.
+    /// Ein gelöschter Passkey im Papierkorb steht nicht vor dem neuen.
     #[test]
     fn papierkorb_meldet_nicht_an() {
         let mut v = tresor();

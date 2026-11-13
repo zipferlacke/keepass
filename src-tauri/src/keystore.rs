@@ -1,65 +1,56 @@
 //! Der Zufallsschlüssel `K` im Schlüsselbund des Systems.
 //!
-//! `K` ist 32 Byte Zufall und wird nie angezeigt, nie exportiert und nie in
-//! unsere eigenen Dateien geschrieben. Er ist die zweite Zutat neben der PIN
-//! (siehe `seal.rs`) und die einzige Zutat, wenn per Fingerabdruck entsperrt
-//! wird.
+//! `K` besteht aus 32 Byte Zufall und wird weder angezeigt noch exportiert
+//! noch in eigenen Dateien gespeichert. Er ist die zweite Zutat neben der PIN
+//! (siehe `seal.rs`) und beim Entsperren per Fingerabdruck die einzige.
 //!
-//! # Warum überhaupt zwei Zutaten
+//! # Zweck
 //!
-//! Ohne `K` läge unser Siegel offen: Wer die Datei hat, probiert die PIN
-//! offline durch — eine sechsstellige PIN ist damit binnen Stunden auf.
-//! Mit `K` braucht ein Angreifer **beides**, unsere Datei und deine
-//! angemeldete Sitzung, und die PIN wird von der letzten Verteidigungslinie
-//! zur zweiten.
+//! Ohne `K` ließe sich die PIN anhand der Datei offline durchprobieren; eine
+//! sechsstellige PIN wäre binnen Stunden gebrochen. Mit `K` braucht ein
+//! Angreifer zusätzlich Zugriff auf die angemeldete Sitzung.
 //!
-//! # Was der Schlüsselbund je nach System taugt
+//! # Schutzniveau je System
 //!
 //! ```text
 //! macOS     Keychain, dahinter die Secure Enclave  — hardwaregebunden
 //! Windows   Credential Manager, dahinter das TPM   — hardwaregebunden
-//! Linux     Secret Service (gnome-keyring, ksecretd)
-//!           → an dein Anmeldepasswort gebunden, die Datei ist offline
-//!             angreifbar. Besser als nichts, aber kein Chip.
-//! Android   kein Secret Service. `K` liegt hier in einer Datei im
-//!           privaten Verzeichnis der App — für andere Anwendungen
-//!           unlesbar, solange das Gerät nicht gerootet ist, aber **nicht**
-//!           an einen Chip gebunden.
+//! Linux     Secret Service (gnome-keyring, ksecretd), an das
+//!           Anmeldepasswort gebunden; die Datei ist offline angreifbar.
+//! Android   kein Secret Service. `K` liegt in einer Datei im privaten
+//!           Verzeichnis der App, für andere Anwendungen unlesbar (ohne
+//!           Root), aber nicht an einen Chip gebunden.
 //!
-//!           Für den Fingerabdruck braucht es `K` deshalb gar nicht: Dort
-//!           gibt es seit dem Android-Keystore einen eigenen, wirklich
-//!           hardwaregebundenen Weg (`biometric::device_key`), und der
-//!           kommt ohne diese Datei und ohne PIN aus. `K` bleibt hier für
-//!           den PIN-Weg.
+//!           Für den Fingerabdruck wird `K` dort nicht benötigt: Er nutzt den
+//!           hardwaregebundenen Android-Keystore (`biometric::device_key`)
+//!           ohne Datei und ohne PIN. `K` dient nur dem PIN-Weg.
 //! ```
 //!
-//! Ein TPM unter x86-Linux könnte mehr — es würde Fehlversuche selbst
-//! zählen und die PIN damit wirklich absichern. Das wäre der nächste
-//! Ausbauschritt (`tss-esapi`), hier noch nicht drin.
+//! Ein TPM unter x86-Linux würde Fehlversuche selbst zählen und die PIN
+//! stärker absichern (`tss-esapi`); das ist nicht umgesetzt.
 
 use zeroize::Zeroizing;
 
-// Android hat seinen eigenen Weg (unten), dort gibt es keinen Schlüsselbund.
+// Android hat einen eigenen Weg (unten) und keinen Schlüsselbund.
 #[cfg(not(target_os = "android"))]
 const SERVICE: &str = "de.wuefl.wkeepass";
 #[cfg(not(target_os = "android"))]
 const ACCOUNT: &str = "master-key";
 
-/// In welchem Zustand ist der Schlüsselbund?
+/// Zustand des Schlüsselbunds.
 ///
-/// Die drei Fälle sind wirklich verschieden und dürfen nicht zusammenfallen:
-/// Ein gesperrter Schlüsselbund ist etwas anderes als gar keiner.
+/// Ein gesperrter Schlüsselbund ist von einem fehlenden zu unterscheiden.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Availability {
     /// Ein Dienst antwortet und gibt Werte heraus.
     Ready,
-    /// Es gibt einen, aber er ist zu. Das passiert unter Linux, wenn man
-    /// sich per Fingerabdruck oder automatisch anmeldet — dann bekommt der
-    /// Dienst nie ein Passwort zum Entschlüsseln. Auf Android gibt es den
-    /// Fall nicht.
+    /// Ein Dienst existiert, ist aber gesperrt. Unter Linux tritt das bei
+    /// Anmeldung per Fingerabdruck oder automatischer Anmeldung auf, da der
+    /// Dienst dann kein Passwort zum Entsperren erhält. Auf Android gibt es
+    /// diesen Fall nicht.
     #[cfg_attr(target_os = "android", allow(dead_code))]
     Locked,
-    /// Gar keiner da: minimale Installation, Android, oder kein Dienst
+    /// Kein Dienst vorhanden: minimale Installation, Android oder kein Dienst
     /// auf dem Bus.
     Missing,
 }
@@ -73,8 +64,8 @@ pub fn availability() -> Availability {
         Err(_) => Availability::Missing,
         Ok(()) => match keyring::Entry::new(SERVICE, ACCOUNT) {
             Err(_) => Availability::Missing,
-            // Kein Eintrag heißt: Der Speicher ist da, wir haben nur noch
-            // nichts hineingelegt.
+            // Kein Eintrag: Der Speicher ist verfügbar, enthält aber noch
+            // keinen Wert.
             Ok(entry) => match entry.get_secret() {
                 Ok(_) | Err(keyring::Error::NoEntry) => Availability::Ready,
                 Err(keyring::Error::NoStorageAccess(_)) => Availability::Locked,
@@ -96,7 +87,7 @@ pub fn store(key: &[u8; 32]) -> Result<(), String> {
         .map_err(|e| format!("Schlüsselbund nimmt den Wert nicht an: {e}"))
 }
 
-/// Holt `K` zurück. `None` heißt: Es liegt keiner dort.
+/// Holt `K` zurück. `None`: Es ist keiner hinterlegt.
 #[cfg(not(target_os = "android"))]
 pub fn load() -> Result<Option<Zeroizing<[u8; 32]>>, String> {
     match entry()?.get_secret() {
@@ -115,7 +106,7 @@ pub fn load() -> Result<Option<Zeroizing<[u8; 32]>>, String> {
     }
 }
 
-/// Entfernt `K`. Damit wird jedes Siegel unbrauchbar, das darauf aufbaut.
+/// Entfernt `K`. Alle darauf aufbauenden Siegel werden damit unbrauchbar.
 #[cfg(not(target_os = "android"))]
 pub fn clear() -> Result<(), String> {
     match entry()?.delete_credential() {
@@ -139,8 +130,8 @@ mod android {
     use super::{Availability, Zeroizing};
     use tauri::Manager;
 
-    /// Liegt unter `/data/data/de.wuefl.wkeepass/…` — von außen unlesbar,
-    /// solange das Gerät nicht gerootet ist.
+    /// Liegt unter `/data/data/de.wuefl.wkeepass/…`, ohne Root von außen
+    /// unlesbar.
     fn path() -> Result<std::path::PathBuf, String> {
         let app = crate::app_handle().ok_or("Die Anwendung läuft noch nicht.")?;
         let dir = app
@@ -161,8 +152,8 @@ mod android {
         }
         std::fs::write(&target, key).map_err(|e| format!("Schlüssel nicht gespeichert: {e}"))?;
 
-        // Nur für uns lesbar. Auf Android ist das Verzeichnis ohnehin
-        // abgeschottet; der Gürtel zum Hosenträger kostet nichts.
+        // Nur für den Besitzer lesbar, zusätzlich zur Abschottung des
+        // App-Verzeichnisses unter Android.
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600));
         Ok(())

@@ -1,22 +1,19 @@
-//! Der Verteiler: wo unser Programm liegt, wo der Kanal liegt, und das
-//! Sprachrohr dazwischen.
+//! Pfade und Vermittlung: Manifest-Dateien, Kanalpfad und der vom Browser
+//! gestartete Vermittlungsprozess.
 //!
-//! Drei Aufgaben, die zusammengehören, weil sie alle davon handeln, **wo**
-//! etwas ist:
+//! 1. Manifest-Dateien, über die ein Browser das Programm findet
+//! 2. Pfad des Kanals, je Betriebssystem verschieden
+//! 3. Vermittlungsprozess, der Browser und Kanal verbindet, mit Rückfallweg
+//!    zu KeePassXC
 //!
-//!   1. die Manifest-Dateien, über die ein Browser uns überhaupt findet
-//!   2. der Pfad des Kanals, je Betriebssystem verschieden
-//!   3. das Sprachrohr, das der Browser startet und das an diesen Kanal
-//!      weiterreicht — samt Rückfallweg zu KeePassXC
+//! Die Nachrichten auf dem Kanal beschreibt `api.rs`.
 //!
-//! Was über den Kanal *gesprochen* wird, steht nebenan in `api.rs`.
+//! # Native Messaging
 //!
-//! # Wie ein Browser eine Anwendung auf dem Rechner findet
-//!
-//! Gar nicht direkt. Eine Erweiterung darf keine Sockets öffnen und keine
-//! Programme starten. Der einzige erlaubte Weg heißt *Native Messaging*:
-//! Die Erweiterung nennt einen **Namen**, der Browser schlägt ihn in einer
-//! JSON-Datei nach, und darin steht, welches Programm zu starten ist.
+//! Eine Erweiterung darf keine Sockets öffnen und keine Programme starten.
+//! Der erlaubte Weg ist *Native Messaging*: Die Erweiterung nennt einen
+//! **Namen**, der Browser schlägt ihn in einer JSON-Datei nach, und diese
+//! nennt das zu startende Programm.
 //!
 //! ```text
 //! Erweiterung sagt: "org.keepassxc.keepassxc_browser"
@@ -28,52 +25,44 @@
 //! Browser startet dieses Programm und spricht über stdin/stdout mit ihm
 //! ```
 //!
-//! Der **Name** ist von der Erweiterung vorgegeben und nicht zu ändern. Was
-//! hinter ihm steckt, bestimmen wir — es ist eine Datei im Heimatverzeichnis,
-//! und die schreiben wir selbst. Genauso macht es KeePassXC, wenn man dort
-//! die Browser-Integration einschaltet.
+//! Der Name ist von der Erweiterung vorgegeben. Die Manifest-Datei im
+//! Heimatverzeichnis wird von WKeePass geschrieben, wie bei KeePassXC.
 //!
-//! # Warum die Datei auf unser eigenes Programm zeigt
+//! # Start durch den Browser
 //!
-//! Der Browser startet das Programm selbst, immer wieder, ohne Fenster, und
-//! beendet es danach. Die laufende Anwendung mit der offenen Datenbank kann
-//! das nicht sein. Also zeigt die Datei auf dieselbe ausführbare Datei, die
-//! sich beim Start anhand der Argumente entscheidet: als Sprachrohr arbeiten
-//! oder das Fenster öffnen (siehe `run_proxy` weiter unten).
+//! Der Browser startet das Programm ohne Fenster und beendet es danach
+//! wieder; die laufende Anwendung mit der offenen Datenbank kann das nicht
+//! sein. Das Manifest zeigt daher auf dieselbe ausführbare Datei, die sich
+//! anhand der Argumente als Vermittlungsprozess oder als Fenster startet
+//! (siehe `run_proxy`). Das Manifest von KeePassXC verweist ebenfalls auf die
+//! Anwendung selbst.
 //!
-//! KeePassXC macht das übrigens genauso — deren Manifest zeigt ebenfalls auf
-//! die Anwendung selbst, nicht auf ein eigenes Vermittlerprogramm.
+//! # Zugriffsliste
 //!
-//! # Die Falle
-//!
-//! Firefox und Chromium benennen die Zugriffsliste **verschieden**:
+//! Firefox und Chromium benennen die Zugriffsliste unterschiedlich:
 //!
 //! ```json
 //! "allowed_extensions": ["keepassxc-browser@keepassxc.org"]   // Firefox
 //! "allowed_origins":    ["chrome-extension://<Kennung>/"]     // Chromium
 //! ```
 //!
-//! Steht der falsche Schlüssel darin, verweigert der Browser wortlos. Die
-//! Kennungen unterscheiden sich zudem je Store.
-//!
-//! Deshalb: Liegt in einem Verzeichnis schon das Manifest von KeePassXC,
-//! übernehmen wir dessen Zugriffsliste **unverändert** und tauschen nur den
-//! Pfad. Das bleibt richtig, auch wenn neue Kennungen dazukommen.
+//! Die Kennungen unterscheiden sich zudem je Store. Liegt in einem
+//! Verzeichnis bereits das Manifest von KeePassXC, wird dessen Zugriffsliste
+//! unverändert übernommen und nur der Pfad ersetzt.
 //!
 //! # Windows
 //!
-//! Dort schlägt der Browser nicht in einem Ordner nach, sondern in der
-//! Registry: Unter `HKCU\Software\<Browser>\NativeMessagingHosts\<Name>`
-//! steht der Pfad zur Manifest-Datei. Die Datei legen wir unter
-//! `%LOCALAPPDATA%\WKeePass` ab. Zeigte der Eintrag vorher auf KeePassXC,
-//! merken wir uns das im selben Schlüssel und stellen es beim Abschalten
-//! wieder her.
+//! Der Browser schlägt unter
+//! `HKCU\Software\<Browser>\NativeMessagingHosts\<Name>` in der Registry
+//! nach; der Eintrag enthält den Pfad zur Manifest-Datei. Die Datei liegt
+//! unter `%LOCALAPPDATA%\WKeePass`. Zeigte der Eintrag zuvor auf KeePassXC,
+//! wird das im selben Schlüssel gemerkt und beim Abschalten wiederhergestellt.
 
 use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-/// Der Name, unter dem die Erweiterung sucht. Nicht änderbar.
+/// Der von der Erweiterung vorgegebene Host-Name.
 pub const HOST_NAME: &str = "org.keepassxc.keepassxc_browser";
 
 /// Zugriffsliste für Firefox, falls keine Vorlage zu finden ist.
@@ -113,13 +102,13 @@ impl Target {
     }
 
     pub fn installed(&self) -> bool {
-        // Ein Verzeichnis des Browsers ist der Beleg: Es existiert nur, wenn
-        // er schon einmal gelaufen ist. Wir legen es nicht selbst an —
-        // sonst schriebe man Manifeste für Browser, die es nicht gibt.
+        // Ein vorhandenes Browser-Verzeichnis belegt, dass der Browser schon
+        // gelaufen ist. Es wird nicht angelegt, damit keine Manifeste für
+        // nicht installierte Browser entstehen.
         self.probe.iter().any(|p| p.is_dir())
     }
 
-    /// Findet der Browser über diesen Weg unser Programm?
+    /// Ob der Browser über diesen Weg unser Programm findet.
     pub fn is_ours(&self, program: &Path) -> bool {
         #[cfg(windows)]
         if reg::current(self.registry).as_deref() != Some(self.file().as_path()) {
@@ -128,7 +117,7 @@ impl Target {
         points_at(&self.file(), program)
     }
 
-    /// Das Manifest, das bisher galt — die beste Vorlage für unseres.
+    /// Das bisher gültige Manifest; dient als Vorlage.
     fn previous(&self) -> Option<Value> {
         #[cfg(windows)]
         if let Some(path) = reg::current(self.registry).filter(|p| *p != self.file()) {
@@ -158,8 +147,7 @@ pub fn targets() -> Vec<Target> {
         out.push(target(name, *flavour, home.join(relative)));
     }
 
-    // Flatpak spiegelt dieselben Pfade unter ~/.var/app/<Kennung>/ —
-    // dieselbe Erweiterung, anderer Ablageort.
+    // Flatpak-Browser verwenden dieselben Pfade unter ~/.var/app/<Kennung>/.
     for (name, flavour, id, relative) in FLATPAK_LOCATIONS {
         out.push(target(name, *flavour, home.join(".var/app").join(id).join(relative)));
     }
@@ -169,9 +157,9 @@ pub fn targets() -> Vec<Target> {
 
 /// Windows: ein Registry-Schlüssel je Browserfamilie.
 ///
-/// Brave, Vivaldi und Opera lesen den Schlüssel von Chrome mit — genauso
-/// trägt sich KeePassXC ein. Die Prüfordner liegen unter `%LOCALAPPDATA%`
-/// bzw. `%APPDATA%` (Firefox).
+/// Brave, Vivaldi und Opera lesen den Schlüssel von Chrome mit (wie bei
+/// KeePassXC). Die Prüfordner liegen unter `%LOCALAPPDATA%` bzw. `%APPDATA%`
+/// (Firefox).
 #[cfg(windows)]
 pub fn targets() -> Vec<Target> {
     let env = |name| std::env::var_os(name).map(PathBuf::from);
@@ -242,9 +230,8 @@ fn home_dir() -> Option<PathBuf> {
 
 /// Baut den Inhalt der Manifest-Datei.
 ///
-/// `vorlage` ist ein bereits vorhandenes Manifest — üblicherweise das von
-/// KeePassXC. Ist eines da, wird dessen Zugriffsliste übernommen; sonst
-/// greift die mitgelieferte.
+/// `vorlage` ist ein vorhandenes Manifest, üblicherweise das von KeePassXC.
+/// Dessen Zugriffsliste wird übernommen; ohne Vorlage gilt die mitgelieferte.
 fn build(flavour: Flavour, program: &Path, vorlage: Option<&Value>) -> Value {
     let mut manifest = json!({
         "name": HOST_NAME,
@@ -295,8 +282,8 @@ pub fn install(program: &Path) -> Vec<Outcome> {
     for target in targets().into_iter().filter(Target::installed) {
         let file = target.file();
 
-        // Ein fremdes Manifest ist kein Hindernis, sondern die beste
-        // Vorlage: Es enthält die aktuell gültigen Kennungen des Stores.
+        // Ein fremdes Manifest dient als Vorlage; es enthält die aktuellen
+        // Kennungen des Stores.
         let vorlage = target.previous();
         let manifest = build(target.flavour, program, vorlage.as_ref());
 
@@ -319,9 +306,8 @@ pub fn install(program: &Path) -> Vec<Outcome> {
 
 /// Nimmt die Manifeste wieder zurück.
 ///
-/// Entfernt wird **nur**, was auf unser Programm zeigt. Ein fremdes Manifest
-/// — etwa das von KeePassXC — bleibt unangetastet; wir haben es nicht
-/// angelegt und löschen es nicht.
+/// Entfernt werden nur Manifeste, die auf unser Programm zeigen; fremde
+/// Manifeste (etwa von KeePassXC) bleiben bestehen.
 pub fn uninstall(program: &Path) -> Vec<Outcome> {
     let mut out = Vec::new();
 
@@ -331,7 +317,7 @@ pub fn uninstall(program: &Path) -> Vec<Outcome> {
             continue;
         }
 
-        // Windows: erst den Registry-Eintrag zurück auf den Vorgänger.
+        // Windows: Registry-Eintrag auf den Vorgänger zurücksetzen.
         #[cfg(windows)]
         let result = reg::reset(target.registry).and_then(|()| std::fs::remove_file(&file));
         #[cfg(not(windows))]
@@ -347,15 +333,14 @@ pub fn uninstall(program: &Path) -> Vec<Outcome> {
     out
 }
 
-/// Wo unsere eigene ausführbare Datei liegt — so, wie der Browser sie
-/// starten kann.
+/// Pfad der eigenen ausführbaren Datei, so wie der Browser sie starten kann.
 pub fn program_path() -> Result<PathBuf, String> {
     #[cfg(target_os = "linux")]
     if let Some(launcher) = flatpak_launcher() {
         return Ok(launcher);
     }
-    // Ein AppImage läuft aus einem Einhängepunkt unter /tmp, der bei jedem
-    // Start anders heißt — gemeint ist die .AppImage-Datei selbst.
+    // Ein AppImage läuft aus einem wechselnden Einhängepunkt unter /tmp;
+    // verwendet wird die .AppImage-Datei selbst.
     #[cfg(target_os = "linux")]
     if let Some(image) = std::env::var_os("APPIMAGE").filter(|p| !p.is_empty()) {
         return Ok(PathBuf::from(image));
@@ -363,13 +348,13 @@ pub fn program_path() -> Result<PathBuf, String> {
     std::env::current_exe().map_err(|e| format!("Eigener Pfad nicht ermittelbar: {e}"))
 }
 
-/// Im Flatpak ist `current_exe()` `/app/bin/wkeepass` — ein Pfad, den es
-/// nur in der Sandbox gibt. Der Browser draußen startet stattdessen den
-/// Starter, den Flatpak unter `exports/bin/<Kennung>` ablegt; der ruft
-/// `flatpak run` und reicht die Argumente durch.
+/// Im Flatpak liefert `current_exe()` `/app/bin/wkeepass`, einen Pfad, den
+/// es nur in der Sandbox gibt. Der Browser startet stattdessen den Starter
+/// unter `exports/bin/<Kennung>`, der `flatpak run` aufruft und die Argumente
+/// weiterreicht.
 ///
-/// Wo die Installation liegt (System: `/var/lib/flatpak`, Benutzer:
-/// `~/.local/share/flatpak`), verrät `/.flatpak-info` über `app-path`.
+/// Den Installationsort (System: `/var/lib/flatpak`, Benutzer:
+/// `~/.local/share/flatpak`) nennt `/.flatpak-info` unter `app-path`.
 #[cfg(target_os = "linux")]
 fn flatpak_launcher() -> Option<PathBuf> {
     let id = std::env::var("FLATPAK_ID").ok()?;
@@ -392,7 +377,7 @@ mod reg {
     use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
     use winreg::RegKey;
 
-    /// Worauf der Eintrag vor uns zeigte — meist KeePassXC.
+    /// Ziel des Eintrags vor unserer Änderung, meist KeePassXC.
     const VORHER: &str = "WKeePassVorher";
 
     fn path(base: &str) -> String {
@@ -409,7 +394,7 @@ mod reg {
             .map(PathBuf::from)
     }
 
-    /// Lässt den Eintrag auf `file` zeigen und merkt sich den Vorgänger.
+    /// Setzt den Eintrag auf `file` und merkt sich den Vorgänger.
     pub fn set(base: &str, file: &Path) -> std::io::Result<()> {
         let (key, _) = RegKey::predef(HKEY_CURRENT_USER).create_subkey(path(base))?;
         if let Ok(before) = key.get_value::<String, _>("") {
@@ -420,8 +405,8 @@ mod reg {
         key.set_value("", &file.to_string_lossy().to_string())
     }
 
-    /// Stellt den Vorgänger wieder her — oder entfernt den Eintrag, wenn
-    /// es keinen gab.
+    /// Stellt den Vorgänger wieder her oder entfernt den Eintrag, falls es
+    /// keinen gab.
     pub fn reset(base: &str) -> std::io::Result<()> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         let key = hkcu.open_subkey_with_flags(path(base), KEY_READ | KEY_WRITE)?;
@@ -442,23 +427,19 @@ mod reg {
    Wo der Kanal liegt
    ========================================================= */
 
-/// Der Name des Kanals — bei uns bewusst ein anderer als bei KeePassXC.
-///
-/// Lauschten beide auf demselben Pfad, bekäme ihn das zuerst gestartete
-/// Programm und das andere bliebe stumm. Mit einem eigenen Pfad laufen beide
-/// nebeneinander, und das Sprachrohr entscheidet, wer gefragt wird.
+/// Name des Kanals; er unterscheidet sich von dem bei KeePassXC, damit beide
+/// Programme nebeneinander laufen können. Der Vermittlungsprozess wählt, wer
+/// gefragt wird.
 const CHANNEL: &str = "de.wuefl.wkeepass.BrowserServer";
 
 /// Der Pfad, auf dem **wir** lauschen.
 ///
 /// Unter Linux und macOS ein Unix-Socket, unter Windows eine benannte Pipe.
-/// Bevorzugt wird das Laufzeitverzeichnis des Benutzers: Es gehört ihm
-/// allein, liegt im Arbeitsspeicher und wird beim Abmelden geleert. Erst
-/// wenn es das nicht gibt, weichen wir nach `/tmp` aus.
+/// Bevorzugt wird das Laufzeitverzeichnis des Benutzers (nur für ihn
+/// zugänglich, im Arbeitsspeicher, beim Abmelden geleert); sonst `/tmp`.
 pub fn socket_path() -> PathBuf {
-    // Der Namensraum der Pipes gilt für den ganzen Rechner. Mit dem
-    // Benutzernamen darin kommen sich zwei angemeldete Konten nicht in die
-    // Quere — so hält es KeePassXC auch.
+    // Der Namensraum der Pipes gilt rechnerweit; der Benutzername im Namen
+    // trennt gleichzeitig angemeldete Konten (wie bei KeePassXC).
     #[cfg(windows)]
     {
         let user = std::env::var("USERNAME").unwrap_or_default();
@@ -468,17 +449,17 @@ pub fn socket_path() -> PathBuf {
     #[cfg(not(windows))]
     {
         if let Some(dir) = std::env::var_os("XDG_RUNTIME_DIR") {
-            // Im Flatpak bekommt jede gestartete Instanz ein eigenes, leeres
-            // XDG_RUNTIME_DIR. Gemeinsam ist nur app/<Kennung>/ — dort
-            // treffen sich die App und der vom Browser gestartete Teil.
+            // Im Flatpak hat jede Instanz ein eigenes XDG_RUNTIME_DIR; nur
+            // app/<Kennung>/ ist gemeinsam und dient als Treffpunkt von App
+            // und Vermittlungsprozess.
             #[cfg(target_os = "linux")]
             if let Ok(id) = std::env::var("FLATPAK_ID") {
                 return PathBuf::from(dir).join("app").join(id).join(CHANNEL);
             }
             return PathBuf::from(dir).join(CHANNEL);
         }
-        // macOS kennt XDG_RUNTIME_DIR nicht, hat aber ein eigenes
-        // benutzergebundenes Verzeichnis.
+        // macOS kennt kein XDG_RUNTIME_DIR; verwendet wird das
+        // benutzergebundene Verzeichnis.
         if let Some(dir) = std::env::var_os("TMPDIR") {
             return PathBuf::from(dir).join(CHANNEL);
         }
@@ -488,9 +469,8 @@ pub fn socket_path() -> PathBuf {
 
 /// Die Pfade, auf denen **KeePassXC** lauscht — für den Rückfallweg.
 ///
-/// Mehrere, weil die Fassung als Flatpak ihren Kanal eine Ebene tiefer legt
-/// und ältere Fassungen nach `/tmp` auswichen. Genommen wird der erste, der
-/// tatsächlich da ist.
+/// Mehrere Kandidaten: Die Flatpak-Fassung legt ihren Kanal eine Ebene tiefer
+/// ab, ältere Fassungen nutzten `/tmp`. Verwendet wird der erste vorhandene.
 pub fn keepassxc_paths() -> Vec<PathBuf> {
     const NAME: &str = "org.keepassxc.KeePassXC.BrowserServer";
 
@@ -563,8 +543,8 @@ mod tests {
         assert_eq!(m["path"], "/usr/bin/wkeepass");
     }
 
-    /// Der Kern der Sache: Eine vorhandene Zugriffsliste wird übernommen,
-    /// damit neue Store-Kennungen nicht verlorengehen.
+    /// Eine vorhandene Zugriffsliste wird übernommen, damit neue
+    /// Store-Kennungen erhalten bleiben.
     #[test]
     fn vorhandene_zugriffsliste_wird_uebernommen() {
         let vorlage = json!({
@@ -608,11 +588,10 @@ mod tests {
 
 /// Erkennt, ob wir vom Browser gestartet wurden.
 ///
-/// Beim Aufruf über Native Messaging übergibt der Browser Argumente, die
-/// sonst nie auftauchen: Firefox den Pfad des Manifests und die Kennung der
-/// Erweiterung, Chromium die Herkunft als `chrome-extension://…`. Findet
-/// sich eines davon, arbeiten wir als Sprachrohr statt ein Fenster zu
-/// öffnen.
+/// Beim Aufruf über Native Messaging übergibt der Browser besondere
+/// Argumente: Firefox den Pfad des Manifests und die Kennung der Erweiterung,
+/// Chromium die Herkunft als `chrome-extension://…`. Ist eines vorhanden,
+/// arbeitet das Programm als Vermittlungsprozess statt ein Fenster zu öffnen.
 pub fn started_by_browser() -> bool {
     std::env::args().skip(1).any(|arg| {
         arg.starts_with("chrome-extension://")
@@ -621,38 +600,35 @@ pub fn started_by_browser() -> bool {
     })
 }
 
-/// Der Schalter, mit dem das Sprachrohr die Anwendung startet.
+/// Der Schalter, mit dem der Vermittlungsprozess die Anwendung startet.
 ///
-/// Wer WKeePass nur deshalb startet, weil der Browser fragt, will kein
-/// Fenster sehen: Rückfragen und Entsperren laufen über das kleine Fenster
-/// (`api.rs`). Das Hauptfenster bleibt dann zu, bis man WKeePass selbst
-/// öffnet; geht der letzte Browser, geht auch die Anwendung.
+/// Die Anwendung läuft dann im Hintergrund: Rückfragen und Entsperren
+/// erscheinen im kleinen Fenster (`api.rs`), das Hauptfenster bleibt
+/// geschlossen. Mit dem letzten Browser endet auch die Anwendung.
 pub const HINTERGRUND: &str = "--hintergrund";
 
-/// Lief dieser Start über das Sprachrohr?
+/// Ob dieser Start über den Vermittlungsprozess erfolgte.
 pub fn im_hintergrund() -> bool {
     std::env::args().skip(1).any(|arg| arg == HINTERGRUND)
 }
 
-/// Wie lange nach einem selbst gestarteten Fenster gewartet wird.
+/// Wartezeit auf den Kanal nach dem Start der Anwendung.
 const STARTUP_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
 
-/// Führt das Sprachrohr aus und kehrt erst zurück, wenn der Browser geht.
+/// Führt den Vermittlungsprozess aus; kehrt zurück, wenn der Browser endet.
 ///
-/// Die Suche nach der Gegenstelle in drei Schritten:
+/// Suche nach der Gegenstelle:
 ///
-///   1. Läuft WKeePass? Dann dorthin.
-///   2. Sonst WKeePass starten und warten — das ist der Fall „App war zu".
-///   3. Klappt auch das nicht, an KeePassXC weiterreichen. So bleibt die
-///      Erweiterung benutzbar, wenn unsere Anbindung abgeschaltet ist.
+///   1. Läuft WKeePass, wird dorthin verbunden.
+///   2. Sonst wird WKeePass gestartet und auf den Kanal gewartet.
+///   3. Gelingt das nicht, wird an KeePassXC weitergereicht.
 #[cfg(not(windows))]
 pub fn run_proxy() {
     let stream = match connect_anywhere() {
         Some(stream) => stream,
         None => {
-            // Ohne Gegenstelle bleibt nur, sich sauber zu beenden. Eine
-            // Fehlermeldung auf stdout würde der Browser als Nachricht
-            // deuten und daran ersticken.
+            // Ohne Gegenstelle endet der Prozess ohne Ausgabe; der Browser
+            // würde eine Fehlermeldung auf stdout als Nachricht auswerten.
             eprintln!("WKeePass: keine Gegenstelle erreichbar");
             return;
         }
@@ -671,23 +647,17 @@ fn connect_anywhere() -> Option<std::os::unix::net::UnixStream> {
         return Some(stream);
     }
 
-    // Beim Entwickeln bewusst **nicht** starten.
-    //
-    // Eine Entwicklungsfassung holt ihre Oberfläche vom Server aus
-    // `beforeDevCommand`. Startet das Sprachrohr eine zweite Ausgabe davon,
-    // während `cargo tauri dev` gerade übersetzt oder gar nicht läuft, geht
-    // ein Fenster mit „Could not connect to localhost" auf — verwirrend und
-    // ohne Nutzen, denn die Datenbank ist ja im ersten Fenster offen.
-    //
-    // In der gebauten Fassung steckt die Oberfläche im Programm; dort ist
-    // das Starten genau richtig und der eigentliche Zweck.
+    // Nur die gebaute Fassung startet die Anwendung selbst. Eine
+    // Entwicklungsfassung lädt ihre Oberfläche vom Server aus
+    // `beforeDevCommand`; ein zweiter Start davon wäre ohne laufenden Server
+    // nicht lauffähig.
     if !cfg!(debug_assertions) {
         if let Some(stream) = start_app_and_wait(&ours) {
             return Some(stream);
         }
     }
 
-    // Rückfallweg: Wer auch immer sonst zuhört.
+    // Rückfallweg: KeePassXC.
     keepassxc_paths().iter().find_map(|p| UnixStream::connect(p).ok())
 }
 
@@ -698,11 +668,9 @@ fn start_app_and_wait(socket: &Path) -> Option<std::os::unix::net::UnixStream> {
 
     let program = program_path().ok()?;
 
-    // Ohne die Argumente des Browsers — sonst hielte sich die neue Ausgabe
-    // selbst für ein Sprachrohr und beide warteten aufeinander. Nur der
-    // Schalter für den Hintergrund. Und ohne die Leitungen des Browsers:
-    // Erbte das Fenster stdin/stdout, hinge der Browser an einem Programm,
-    // das nie mit ihm spricht.
+    // Die Browser-Argumente werden nicht weitergegeben, sonst hielte sich die
+    // neue Instanz für einen Vermittlungsprozess; übergeben wird nur der
+    // Hintergrund-Schalter. stdin/stdout des Browsers werden nicht vererbt.
     std::process::Command::new(program)
         .arg(HINTERGRUND)
         .stdin(std::process::Stdio::null())
@@ -721,20 +689,19 @@ fn start_app_and_wait(socket: &Path) -> Option<std::os::unix::net::UnixStream> {
     None
 }
 
-/// Schaufelt Nachrichten in beide Richtungen, bis eine Seite geht.
+/// Überträgt Nachrichten in beide Richtungen, bis eine Seite endet.
 ///
-/// Zum Browser hin gilt das Native-Messaging-Format: vier Bytes Länge,
-/// kleinstwertiges zuerst, dann die JSON-Nachricht. Auf dem Socket liegt
-/// dieselbe Nachricht **ohne** Längenangabe — so macht es KeePassXC auch,
-/// und damit spräche deren Sprachrohr notfalls auch mit uns.
+/// Zum Browser hin gilt das Native-Messaging-Format: vier Bytes Länge
+/// (kleinstwertiges zuerst), dann die JSON-Nachricht. Auf dem Socket folgt
+/// dieselbe Nachricht ohne Längenangabe (wie bei KeePassXC).
 #[cfg(not(windows))]
 fn pump(stream: std::os::unix::net::UnixStream) {
     use std::io::{Read, Write};
 
     let Ok(mut to_socket) = stream.try_clone() else { return };
 
-    // Rückweg in einem eigenen Faden: Antworten kommen nicht unbedingt in
-    // der Reihenfolge der Anfragen, und manche kommen von selbst.
+    // Der Rückweg läuft in einem eigenen Thread, da Antworten nicht in der
+    // Reihenfolge der Anfragen und teils unaufgefordert eintreffen.
     let back = std::thread::spawn(move || {
         let mut from_socket = stream;
         let mut buffer = [0u8; 64 * 1024];
@@ -746,9 +713,8 @@ fn pump(stream: std::os::unix::net::UnixStream) {
                 break;
             }
 
-            // Genau eine Nachricht je Browser-Nachricht. Eine `read()`-Portion
-            // kann zwei enthalten oder eine halbe — beides würde der Browser
-            // als kaputt zurückweisen.
+            // Je Browser-Nachricht genau eine Nachricht; eine `read()`-Portion
+            // kann mehrere oder nur einen Teil enthalten.
             for message in stream_buffer.push(&buffer[..read]) {
                 let Ok(text) = serde_json::to_vec(&message) else { continue };
 
@@ -769,8 +735,8 @@ fn pump(stream: std::os::unix::net::UnixStream) {
     while input.read_exact(&mut header).is_ok() {
         let len = u32::from_le_bytes(header) as usize;
 
-        // Eine Grenze, damit eine kaputte Längenangabe nicht den Speicher
-        // auffrisst. Nachrichten der Erweiterung sind wenige Kilobyte groß.
+        // Obergrenze gegen fehlerhafte Längenangaben; Nachrichten der
+        // Erweiterung umfassen wenige Kilobyte.
         if len == 0 || len > 1024 * 1024 {
             break;
         }
@@ -784,15 +750,9 @@ fn pump(stream: std::os::unix::net::UnixStream) {
         }
     }
 
-    // Nur die **Senderichtung** schließen, nicht beide.
-    //
-    // `Shutdown::Both` würde auch den Rückweg kappen — und zwar sofort,
-    // während die Antworten noch unterwegs sind. Der Browser bekäme dann
-    // nichts oder nur ein Bruchstück zu sehen.
-    //
-    // So dagegen: Die Gegenstelle merkt am Dateiende, dass nichts mehr
-    // kommt, beantwortet fertig, was noch offen ist, und schließt ihrerseits.
-    // Erst dann läuft der Rückweg aus.
+    // Nur die Senderichtung wird geschlossen. Die Gegenstelle erkennt am
+    // Dateiende, dass nichts mehr kommt, beantwortet offene Anfragen und
+    // schließt dann selbst; erst danach endet der Rückweg.
     let _ = to_socket.shutdown(std::net::Shutdown::Write);
     let _ = back.join();
 }
@@ -816,8 +776,8 @@ pub fn run_proxy() {
     });
 }
 
-/// Öffnet eine Pipe. „Belegt" heißt: Alle Instanzen sind gerade verbunden,
-/// gleich wird eine frei — kurz warten und nochmal.
+/// Öffnet eine Pipe. Bei „belegt" (alle Instanzen verbunden) wird kurz
+/// gewartet und erneut versucht.
 #[cfg(windows)]
 async fn open_pipe(path: &Path) -> Option<tokio::net::windows::named_pipe::NamedPipeClient> {
     const ERROR_PIPE_BUSY: i32 = 231;
@@ -840,7 +800,7 @@ async fn connect_anywhere() -> Option<tokio::net::windows::named_pipe::NamedPipe
         return Some(pipe);
     }
 
-    // Wie unter Unix: nur die gebaute Fassung startet sich selbst.
+    // Wie unter Unix startet nur die gebaute Fassung die Anwendung selbst.
     if !cfg!(debug_assertions) && spawn_app().is_some() {
         let deadline = std::time::Instant::now() + STARTUP_WAIT;
         while std::time::Instant::now() < deadline {
@@ -861,10 +821,9 @@ async fn connect_anywhere() -> Option<tokio::net::windows::named_pipe::NamedPipe
 
 /// Startet die Anwendung im Hintergrund, losgelöst vom Browser.
 ///
-/// Chrome legt seine Native-Messaging-Programme in ein Job-Objekt und
-/// beendet beim Trennen alles darin — auch ein Fenster, das wir daraus
-/// gestartet hätten. `CREATE_BREAKAWAY_FROM_JOB` löst es davon; erlaubt der
-/// Job das nicht, eben ohne.
+/// Chrome legt Native-Messaging-Programme in ein Job-Objekt und beendet beim
+/// Trennen alle darin enthaltenen Prozesse. `CREATE_BREAKAWAY_FROM_JOB`
+/// löst die Anwendung davon; erlaubt der Job das nicht, wird ohne gestartet.
 #[cfg(windows)]
 fn spawn_app() -> Option<()> {
     use std::os::windows::process::CommandExt;
@@ -889,7 +848,7 @@ fn spawn_app() -> Option<()> {
         .map(|_| ())
 }
 
-/// Wie `pump` für Unix — Längenangabe zum Browser, nacktes JSON zur Pipe.
+/// Wie `pump` für Unix: Längenangabe zum Browser, JSON ohne Längenangabe zur Pipe.
 #[cfg(windows)]
 async fn pump(pipe: tokio::net::windows::named_pipe::NamedPipeClient) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -936,16 +895,15 @@ async fn pump(pipe: tokio::net::windows::named_pipe::NamedPipeClient) {
         }
     }
 
-    // Eine Pipe kennt kein halbes Schließen wie der Socket. Hat der Browser
-    // seine Seite zugemacht, liest ohnehin niemand mehr eine Antwort.
+    // Eine Pipe kennt kein halbes Schließen wie der Socket; nach dem Ende des
+    // Browsers wird keine Antwort mehr gelesen.
     back.abort();
 }
 
 /// Zeigt das Manifest an dieser Stelle auf unser eigenes Programm?
 ///
-/// Das ist der Unterschied zwischen „eingerichtet" und „hier ist ein fremdes
-/// Manifest". Verglichen wird der Pfad, nicht bloß die Existenz der Datei —
-/// sonst gälte KeePassXCs Eintrag als unserer.
+/// Unterscheidet ein eigenes von einem fremden Manifest. Verglichen wird der
+/// Pfad, nicht nur die Existenz der Datei.
 pub fn points_at(file: &Path, program: &Path) -> bool {
     let Some(manifest) = read(file) else { return false };
 

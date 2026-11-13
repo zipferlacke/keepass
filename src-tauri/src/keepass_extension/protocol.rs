@@ -1,10 +1,10 @@
 //! Die Verschlüsselung zwischen Erweiterung und Kern.
 //!
-//! `keepassxc-browser` spricht NaCls `crypto_box`: X25519 zum Aushandeln,
-//! XSalsa20-Poly1305 zum Verschlüsseln. Genau das, nichts anderes — das
-//! `chacha20poly1305`, das wir für das Siegel benutzen, passt hier nicht.
+//! `keepassxc-browser` verwendet NaCls `crypto_box`: X25519 zum Aushandeln,
+//! XSalsa20-Poly1305 zum Verschlüsseln. (Das `chacha20poly1305` des Siegels
+//! ist damit nicht kompatibel.)
 //!
-//! # Der Ablauf
+//! # Ablauf
 //!
 //! Die erste Nachricht geht **unverschlüsselt**: Beide Seiten schicken ihren
 //! öffentlichen Sitzungsschlüssel (`change-public-keys`). Ab da ist alles
@@ -23,22 +23,20 @@
 //!     │◀────────────────────────────────┤
 //! ```
 //!
-//! # Zwei Paare, nicht verwechseln
+//! # Zwei Schlüsselpaare
 //!
 //! **Sitzungsschlüssel** entstehen bei jeder Verbindung neu und
 //! verschlüsseln den Verkehr. Sie sind nach dem Schließen wertlos.
 //!
 //! **Verknüpfungsschlüssel** entstehen einmal beim Verknüpfen, liegen
-//! dauerhaft in der Datenbank und dienen nur der Wiedererkennung — sie
-//! verschlüsseln nichts. Wer beide vermengt, bekommt eine Anbindung, die
-//! beim ersten Neustart bricht.
+//! dauerhaft in der Datenbank und dienen nur der Wiedererkennung; sie
+//! verschlüsseln nichts.
 //!
-//! # Das Nonce der Antwort
+//! # Nonce der Antwort
 //!
 //! Die Antwort benutzt **nicht** das Nonce der Anfrage, sondern das um eins
 //! erhöhte. Gezählt wird über alle 24 Bytes, kleinstwertiges Byte zuerst,
-//! mit Übertrag — `sodium_increment` aus libsodium. Rechnet man falsch
-//! herum, verwirft die Erweiterung die Antwort wortlos, ohne Fehlermeldung.
+//! mit Übertrag (`sodium_increment` aus libsodium).
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use crypto_box::{
@@ -46,17 +44,15 @@ use crypto_box::{
     PublicKey, SalsaBox, SecretKey,
 };
 
-/// Länge eines Nonce in Bytes — durch XSalsa20 vorgegeben.
+/// Länge eines Nonce in Bytes (durch XSalsa20 vorgegeben).
 pub const NONCE_LEN: usize = 24;
 
 pub type Nonce = [u8; NONCE_LEN];
 
 /// Erhöht ein Nonce um eins.
 ///
-/// Kleinstwertiges Byte zuerst, mit Übertrag — so macht es
-/// `sodium_increment`, und so erwartet es die Erweiterung. Läuft das ganze
-/// Feld über, beginnt es wieder bei null; das ist bei 24 Bytes ohne
-/// praktische Bedeutung, aber ohne Sonderfall auch ohne Fehlerquelle.
+/// Kleinstwertiges Byte zuerst, mit Übertrag, wie `sodium_increment`.
+/// Läuft das ganze Feld über, beginnt es wieder bei null.
 pub fn increment_nonce(nonce: &Nonce) -> Nonce {
     let mut out = *nonce;
     let mut carry = 1u16;
@@ -87,8 +83,8 @@ pub fn decode(text: &str) -> Result<Vec<u8>, String> {
 
 /// Ein X25519-Schlüsselpaar.
 ///
-/// Dient je nach Verwendung als Sitzungs- oder als Verknüpfungspaar — der
-/// Unterschied liegt allein darin, wo es aufbewahrt wird.
+/// Dient als Sitzungs- oder als Verknüpfungspaar; der Unterschied liegt
+/// allein darin, wo es aufbewahrt wird.
 pub struct KeyPair {
     secret: SecretKey,
     public: PublicKey,
@@ -128,9 +124,8 @@ impl Session {
 
     /// Entschlüsselt den Inhalt einer Nachricht.
     ///
-    /// Schlägt das fehl, ist entweder der Schlüssel falsch oder jemand hat
-    /// unterwegs daran gedreht — beides führt zum Abbruch, nicht zu einem
-    /// Rateversuch.
+    /// Schlägt das fehl (falscher Schlüssel oder veränderte Nachricht),
+    /// wird abgebrochen.
     pub fn open(&self, message_base64: &str, nonce: &Nonce) -> Result<Vec<u8>, String> {
         let cipher = decode(message_base64)?;
         self.boxed
@@ -152,8 +147,8 @@ impl Session {
 mod tests {
     /// Ein zufälliges Nonce — nur hier gebraucht.
     ///
-    /// Im Betrieb gibt die Erweiterung das Nonce immer vor; wir zählen es
-    /// für die Antwort nur hoch. Erzeugt wird eines also einzig in den Tests.
+    /// Im Betrieb gibt die Erweiterung das Nonce vor; es wird für die Antwort
+    /// nur erhöht. Zufällige Nonces werden daher nur in den Tests erzeugt.
     fn fresh_nonce() -> Nonce {
         use rand_core::RngCore;
         let mut nonce = [0u8; NONCE_LEN];
@@ -200,8 +195,7 @@ mod tests {
         assert_eq!(increment_nonce(&nonce), [0u8; NONCE_LEN]);
     }
 
-    /// Beide Seiten müssen aus vertauschten Hälften denselben Schlüssel
-    /// bilden — sonst passt nichts zusammen.
+    /// Beide Seiten bilden aus vertauschten Hälften denselben Schlüssel.
     #[test]
     fn beide_seiten_kommen_auf_denselben_schluessel() {
         let kern = KeyPair::generate();
@@ -216,8 +210,8 @@ mod tests {
         assert_eq!(b.open(&cipher, &nonce).unwrap(), b"{\"action\":\"test\"}");
     }
 
-    /// So läuft es tatsächlich: Die Antwort wird mit dem erhöhten Nonce
-    /// verschlüsselt, und die Gegenstelle rechnet dasselbe.
+    /// Die Antwort wird mit dem erhöhten Nonce verschlüsselt; die Gegenstelle
+    /// berechnet dasselbe.
     #[test]
     fn antwort_nutzt_das_erhoehte_nonce() {
         let kern = KeyPair::generate();
@@ -231,9 +225,9 @@ mod tests {
 
         let antwort = seite_kern.seal(b"{\"success\":\"true\"}", &antwort_nonce).unwrap();
 
-        // Mit dem alten Nonce darf es nicht aufgehen …
+        // Mit dem alten Nonce schlägt die Entschlüsselung fehl …
         assert!(seite_browser.open(&antwort, &anfrage_nonce).is_err());
-        // … mit dem erhöhten schon.
+        // … mit dem erhöhten gelingt sie.
         assert_eq!(
             seite_browser.open(&antwort, &antwort_nonce).unwrap(),
             b"{\"success\":\"true\"}"

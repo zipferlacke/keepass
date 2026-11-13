@@ -45,7 +45,7 @@ export function passwordStrength(pw) {
   if (COMMON.has(lower)) { entropy -= 40; hints.push(t('daten.sicherheit.hinweise.haeufig')); }
   for (const w of COMMON) {
     if (w.length >= 5 && lower.includes(w)) {
-      // Je mehr des Passworts aus dem bekannten Wort besteht, desto stärker der Abzug.
+      // Der Abzug wächst mit dem Anteil des bekannten Worts am Passwort.
       const share = w.length / pw.length;
       entropy -= 14 + Math.round(share * 34);
       hints.push(t('daten.sicherheit.hinweise.wort', { wort: w }));
@@ -136,12 +136,9 @@ export async function checkPwnedByHash(hash) {
 const mailCache = new Map();
 
 /*
- * XposedOrNot lässt nur etwa eine Anfrage pro Sekunde zu und antwortet
- * sonst mit 429. Die Prüfung fragt aber Adresse um Adresse ab, bei Funden
- * noch die Einzelheiten dazu — ohne Pause lief das mal durch und mal nicht,
- * je nachdem, wie schnell die Antworten kamen. Deshalb gehen alle Anfragen
- * an den Dienst durch eine Schlange mit Abstand, und ein 429 wird nach einer
- * Pause wiederholt.
+ * XposedOrNot erlaubt etwa eine Anfrage pro Sekunde und antwortet sonst mit
+ * 429. Alle Anfragen laufen daher durch eine Schlange mit Mindestabstand;
+ * ein 429 wird nach einer Pause wiederholt.
  */
 const XON_GAP = 1100;
 const XON_RETRIES = 3;
@@ -201,9 +198,6 @@ export async function checkEmailBreached(email) {
  * Die Einzelheiten zu allen Lecks einer Adresse: wann, bei wem, was
  * abgeflossen ist und wie die Passwörter gespeichert waren.
  *
- * Ohne das steht nur ein Name da — und der Nutzer weiß nicht, ob er sein
- * Passwort ändern, mit Phishing rechnen oder gar nichts tun muss.
- *
  * @returns {Promise<Map<string, {domain, year, data: string[], passwordRisk, details, industry}>>}
  */
 export async function breachAnalytics(email) {
@@ -226,8 +220,8 @@ export async function breachAnalytics(email) {
       }
       complete = true;
     }
-  } catch { /* ohne Einzelheiten geht es auch — dann nur mit Namen */ }
-  // Ein gescheiterter Abruf wird beim nächsten Mal wiederholt.
+  } catch { /* ohne Einzelheiten nur mit Namen */ }
+  // Nur vollständige Abrufe werden zwischengespeichert.
   if (complete) analyticsCache.set(email, out);
   return out;
 }

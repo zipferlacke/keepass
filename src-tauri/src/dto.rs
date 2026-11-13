@@ -1,12 +1,10 @@
 //! Die Typen, die über die IPC-Grenze gehen.
 //!
-//! Alles hier ist `camelCase`, weil es auf der anderen Seite JavaScript ist.
-//! Maßgeblich für die Form ist `ui/config/demo.json` — was dort steht, muss
-//! hier herauskommen.
+//! Alle Felder sind `camelCase`, da die Gegenseite JavaScript ist. Die Form richtet
+//! sich nach `ui/config/demo.json`.
 //!
-//! Ein Eintrag trägt **kein** Passwortfeld. Geschützte Werte erscheinen nur
-//! als Token (`passwordToken`, `totpToken`); den Wert dazu kennt allein der
-//! Kern.
+//! Ein Eintrag trägt kein Passwortfeld: Geschützte Werte erscheinen nur als Token
+//! (`passwordToken`, `totpToken`), den Wert kennt allein der Kern.
 
 use serde::{Deserialize, Serialize};
 
@@ -57,19 +55,17 @@ pub struct UnlockMethods {
     pub password: bool,
     /// Es liegt ein mit PIN versiegeltes Master-Passwort vor.
     pub pin: bool,
-    /// Fingerabdruck ist hinterlegt **und** die Plattform kann prüfen.
     /// Diese Datenbank ist für den Fingerabdruck freigeschaltet **und** das
     /// Gerät kann ihn prüfen.
     pub biometric: bool,
-    /// Kann das Gerät überhaupt biometrisch prüfen? Das ist die andere
-    /// Frage — sie entscheidet, ob die Einstellung angeboten wird.
+    /// Das Gerät kann biometrisch prüfen; entscheidet, ob die Einstellung angeboten
+    /// wird.
     pub biometric_available: bool,
     /// Es ist überhaupt eine App-PIN festgelegt. Ohne sie lässt sich keine
     /// Datenbank freischalten.
     pub pin_set: bool,
-    /// Ein Systemschlüsselbund ist erreichbar. Ohne ihn ist die
-    /// Schnellentsperrung nur so stark wie die PIN allein — die
-    /// Oberfläche soll das sagen dürfen.
+    /// Ein Systemschlüsselbund ist erreichbar. Ohne ihn ist die Schnellentsperrung
+    /// nur so stark wie die PIN allein.
     pub keyring: bool,
     /// Diese Datenbank ist gerätegebunden freigeschaltet (Windows Hello)
     /// und das Gerät kann es gerade einlösen. Dann ersetzt dieser Weg PIN
@@ -93,9 +89,8 @@ pub struct TotpConfig {
     pub algorithm: String,
     /// Für welchen Zeitpunkt der Code gilt, in Millisekunden seit 1970.
     ///
-    /// Ohne Angabe: jetzt. Die Vorschau „als Nächstes …" fragt damit den
-    /// Code des folgenden Zeitfensters ab — ohne ihn rechnete der Kern
-    /// wieder den aktuellen, und es stand zweimal dasselbe da.
+    /// Ohne Angabe: jetzt. Die Vorschau „als Nächstes …" fragt damit den Code des
+    /// folgenden Zeitfensters ab.
     #[serde(default)]
     pub at: Option<u64>,
 }
@@ -171,8 +166,8 @@ pub struct Entry {
     #[serde(default)]
     pub attachments: Vec<AttachmentLink>,
 
-    /// Liegt im Papierkorb. Der Eintrag wird weiterhin angezeigt — mit
-    /// Passwort und allem — zählt aber beim Sicherheitscheck nicht mit.
+    /// Liegt im Papierkorb. Der Eintrag wird weiterhin angezeigt, zählt aber beim
+    /// Sicherheitscheck nicht mit.
     #[serde(default)]
     pub recycled: bool,
     /// Seit wann er im Papierkorb liegt — nach `PAPIERKORB_TAGE` ist er weg.
@@ -298,6 +293,8 @@ pub struct VersionChange {
 #[serde(rename_all = "camelCase")]
 pub struct Conflict {
     pub id: String,
+    /// `eintrag` oder `ordner`.
+    pub kind: String,
     pub name: String,
     pub folder: String,
     /// Was die App geändert hat (`geaendert` oder `geloescht`).
@@ -308,6 +305,29 @@ pub struct Conflict {
     pub file: Vec<VersionField>,
     /// Welche Fassung gerade gilt: `hier` oder `extern`.
     pub winner: String,
+    /// Worin sich die beiden Fassungen unterscheiden, zur Wahl je Feld. Leer,
+    /// wenn eine Seite den Eintrag gelöscht hat.
+    pub fields: Vec<ConflictField>,
+}
+
+/// Ein Feld, das in den beiden Fassungen verschieden ist. Bei Geheimnissen
+/// bleiben die Werte leer.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictField {
+    /// Kennung für die Wahl: `feld:<Schlüssel>`, `anhang:<Name>`, `ordner`
+    /// oder `tags`.
+    pub key: String,
+    pub name: String,
+    pub secret: bool,
+    pub here: Option<String>,
+    pub file: Option<String>,
+    /// Wer das Feld seit dem gemeinsamen Stand geändert hat: `hier`,
+    /// `extern` oder `beide`.
+    pub changed: String,
+    /// Vorschlag: die Seite, die das Feld geändert hat; haben es beide
+    /// geändert, die gerade geltende Fassung.
+    pub pick: String,
 }
 
 /// Ein einzelnes geändertes Feld. Bei Geheimnissen bleiben die Werte leer —

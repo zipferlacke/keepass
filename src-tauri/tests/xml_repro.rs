@@ -45,7 +45,7 @@ fn anhang_dazwischen() {
     println!("Anhang zwischen Feldern -> {:?}", quick_xml::de::from_str::<Entry>(xml).map(|e| e.string_fields.len()));
 }
 
-/// Und wenn man die Reihenfolge vorher glattzieht?
+/// Dasselbe mit zuvor geglätteter Reihenfolge der Felder.
 #[test]
 fn nach_sortierung() {
     let xml = "<Entry>\

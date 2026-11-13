@@ -39,9 +39,8 @@ export function wireEntryRows(root, { select = true } = {}) {
 
   // In der Tabelle öffnet ein Klick auf die Zeile den Eintrag —
   // außer man trifft einen der Knöpfe oder Marker.
-  // Erst die Auswahl: Sie entscheidet mit, ob ein Klick öffnen darf.
-  // Auswählen und gemeinsam Verschieben nur in der Passwortliste — in
-  // Befunden und Übersicht gibt es nichts zu ordnen.
+  // Die Auswahl bestimmt mit, ob ein Klick öffnet. Auswählen und
+  // gemeinsames Verschieben gibt es nur in der Passwortliste.
   if (select) pick.wireSelection(root, id => vault.getEntry(id)?.folder ?? '');
   else root.addEventListener('dragstart', ev => ev.preventDefault());
 
@@ -72,8 +71,8 @@ export function wireEntryRows(root, { select = true } = {}) {
       copyPlain(byId(el.dataset.copyUser).username, t('eintraege.kopiert.benutzername'));
     }));
 
-  // Passwort und TOTP wandern direkt aus dem Kern in die Zwischenablage —
-  // die Oberfläche bekommt den Wert nicht zu sehen.
+  // Passwort und TOTP gelangen direkt aus dem Kern in die Zwischenablage,
+  // ohne die Oberfläche zu durchlaufen.
   root.querySelectorAll('[data-copy-pw]').forEach(el =>
     el.addEventListener('click', async () => {
       markUsed(el.dataset.copyPw);
@@ -114,7 +113,7 @@ export function showContextMenu(x, y, { entryId = null, folderPath = null } = {}
   const folder = folderPath ?? entry?.folder ?? '';
   const items = [];
 
-  // Im Papierkorb gibt es nur zwei sinnvolle Wege: zurück oder endgültig weg.
+  // Im Papierkorb: wiederherstellen oder endgültig löschen.
   const inBin = entry?.recycled || isRecycledFolder(folder);
   if (inBin) {
     if (entry) {
@@ -206,8 +205,8 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
       return openFolderDialog({ parent: folderPath ?? folder ?? '' });
 
     case 'restore': {
-      // Zurück aus dem Papierkorb — nach „Allgemein", weil der ursprüngliche
-      // Ordner in KDBX nicht mitgeführt wird.
+      // Wiederherstellen nach „Allgemein"; KDBX speichert den ursprünglichen
+      // Ordner nicht.
       await vault.moveEntry(entryId, 'Allgemein');
       await vault.commit();
       await refreshFromVault();
@@ -217,7 +216,7 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
     }
 
     case 'purge': {
-      // Der Eintrag liegt schon im Papierkorb — löschen heißt hier endgültig.
+      // Liegt der Eintrag schon im Papierkorb, löscht dies endgültig.
       await vault.deleteEntry(entryId);
       await vault.commit();
       await refreshFromVault();
@@ -230,7 +229,7 @@ async function runMenuAction(action, { entryId, folderPath, folder }) {
       return emptyBin();
 
     case 'cut':
-      // Aus einer Auswahl heraus kommen alle mit — wie beim Ziehen.
+      // Gehört der Eintrag zu einer Auswahl, gilt die Aktion für alle (wie beim Ziehen).
       return cutEntries(pick.isSelected(entryId) ? pick.selectedIds() : [entryId]);
 
     case 'paste':
@@ -602,12 +601,11 @@ function entryRowHtml(e, cols, opts) {
         pick.isSelected(e.id) ? 'check_box' : 'check_box_outline_blank'}</span></span></td>`
     : '';
 
-  // Gelöschte bleiben sichtbar, werden aber als das kenntlich gemacht,
-  // was sie sind — und bei den Auswertungen ausgelassen.
+  // Gelöschte bleiben sichtbar, sind markiert und zählen nicht für
+  // Auswertungen.
   const recycled = (e.recycled ? ' data-recycled title="' + t('eintraege.zeile.imPapierkorb') + '"' : '')
     + (state.cut.includes(e.id) ? ' data-cut' : '');
-  // Ziehen nur in der Passwortliste — in Befunden und Übersicht hat
-  // Umsortieren keinen Sinn.
+  // Ziehen gibt es nur in der Passwortliste.
   const drag = opts.drag ? ` data-drag-id="entry:${e.id}" data-drag-label="${esc(e.name)}"` : '';
   return `<tr data-id="${e.id}"${drag}${recycled}>${box}${cols.map(c => cellHtml(c, e, opts)).join('')}</tr>`;
 }
@@ -630,8 +628,7 @@ function tableHtml(list, { variant = 'full', sortable = false, search = false, f
   const iconsOn = settings.get('icons.download', true);
 
   // Ordner ohne Einträge (auch darunter): Eine Gruppe entsteht nur aus
-  // Zeilen, deshalb trägt sie eine Platzhalterzeile (t-placeholder). Sonst
-  // erschien ein neuer Ordner erst mit seinem ersten Eintrag.
+  // Zeilen, deshalb erhält sie eine Platzhalterzeile (t-placeholder).
   // Mit Filter nach Art (nur 2FA, nur Passkeys …) zählen nur die Treffer.
   const leer = folders && !state.kindFilter ? leereOrdner(list) : [];
 
@@ -744,8 +741,8 @@ function wireFolderGroups(host) {
 
   host.addEventListener('tableview:groups-rendered', ev => decorateFolderRows(ev.detail.table));
 
-  // Doppelklick öffnet den Ordner-Dialog; das doppelte Umschalten durch
-  // die beiden Klicks hebt sich auf.
+  // Doppelklick öffnet den Ordner-Dialog; die zwei Umschaltungen der
+  // beiden Klicks heben sich auf.
   host.addEventListener('dblclick', ev => {
     const tr = ev.target.closest('tr.tv-group-row[data-folder]');
     if (!tr) return;
@@ -797,11 +794,11 @@ export function renderPasswords() {
     return;
   }
 
-  // Der Papierkorb steht für sich, ganz unten — nicht als Ordner im Baum.
+  // Der Papierkorb steht separat unten, nicht als Ordner im Baum.
   const bin = list.filter(e => e.recycled);
   const live = list.filter(e => !e.recycled);
 
-  // Ohne t-search: Die Suche oben in der App gilt für alles.
+  // Ohne t-search: Es gilt die Suche oben in der App.
   const zeigen = live.length || (!state.kindFilter && leereOrdner(live).length);
   host.innerHTML = (zeigen
     ? tableHtml(live, { sortable: true, folders: true })
@@ -810,7 +807,7 @@ export function renderPasswords() {
   if (!zeigen) { wireEntryRows(host); ensureTableview(); return; }
 
   // Offene Ordner vorgeben, bevor tableview die Tabelle zum ersten Mal
-  // zeichnet (das passiert erst nach diesem Durchlauf).
+  // zeichnet.
   const table = host.querySelector('table');
   const first = COLUMNS.full.length + (pick.selectionActive() ? 1 : 0);
   table.setAttribute('t-open', JSON.stringify([...state.expanded].map(f => groupPathOfFolder(f, first))));
@@ -879,7 +876,7 @@ function wireBin(host) {
   if (!box) return;
   box.addEventListener('toggle', () => { state.binOpen = box.open; });
   box.querySelector('[data-empty-bin]').addEventListener('click', ev => {
-    // Der Knopf sitzt in der Kopfzeile — kein Auf- und Zuklappen dabei.
+    // Der Knopf liegt in der Kopfzeile und klappt die Gruppe nicht um.
     ev.preventDefault();
     ev.stopPropagation();
     emptyBin();
@@ -909,7 +906,7 @@ export function renderFiles(host, list) {
     return;
   }
 
-  // Gleichnamige Einträge dürfen nicht in eine Gruppe zusammenfallen.
+  // Gleichnamige Einträge bleiben getrennte Gruppen.
   const names = new Map();
   for (const e of entries) names.set(e.name, (names.get(e.name) ?? 0) + 1);
   const groupName = e => names.get(e.name) > 1 ? `${e.name} (${e.folder || 'Allgemein'})` : e.name;
@@ -985,8 +982,7 @@ function wireFiles(host) {
 
   host.addEventListener('tableview:groups-rendered', ev => decorateFileGroups(ev.detail.table));
 
-  // In der Einfangphase: Der ⓘ in einer Gruppenzeile soll die Gruppe
-  // nicht zugleich auf- oder zuklappen.
+  // Einfangphase: Der ⓘ-Klick soll die Gruppe nicht auf- oder zuklappen.
   host.addEventListener('click', ev => {
     if (!ev.target.closest('table[data-files]')) return;
     const info = ev.target.closest('[data-file-info]');
@@ -1088,8 +1084,7 @@ async function moveInto(dragId, targetPath) {
   if (dragId.startsWith('entry:')) {
     const id = dragId.slice(6);
 
-    // Zieht man einen aus einer Auswahl, kommen alle mit — sonst wäre
-    // unklar, was die Kästchen überhaupt bewirken.
+    // Wird ein Eintrag aus einer Auswahl gezogen, wandern alle ausgewählten mit.
     const group = pick.isSelected(id) ? pick.selectedIds() : [id];
     const moving = group.filter(x => vault.getEntry(x)?.folder !== targetPath);
     if (!moving.length) return;
@@ -1140,8 +1135,7 @@ async function placeNextTo(dragId, refId, position) {
 /**
  * Leiste am unteren Rand, solange etwas ausgewählt ist.
  *
- * Sie zeigt, wie viele es sind, und bietet den Weg heraus — sonst käme man
- * auf dem Handy aus dem Auswahlmodus nicht mehr zurück.
+ * Sie zeigt die Anzahl und bietet das Beenden des Auswahlmodus an.
  */
 export function renderSelectionBar() {
   let bar = $('#selection-bar');

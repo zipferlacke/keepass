@@ -1,4 +1,4 @@
-//! Legt eine Test-Datenbank an — zum Ausprobieren, nie für echte Daten.
+//! Legt eine Test-Datenbank zum Ausprobieren an (nicht für echte Daten).
 //!
 //!     cargo run --example testdatenbank -- /tmp/test.kdbx 1234
 //!     cargo run --example testdatenbank -- --beispiel /tmp/beispiel.kdbx 1234
@@ -27,9 +27,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut db = if beispiel { gross()? } else { klein() };
 
-    // Die Stufe „Standard" der App (database.rs) — sonst gälte die Vorgabe
-    // der Bibliothek (50 Durchgänge, 1 MiB), und die App zeigte eine
-    // „eigene Einstellung", die sich so nicht wieder einstellen lässt.
+    // Stufe „Standard" der App (database.rs); die Vorgabe der Bibliothek (50
+    // Durchgänge, 1 MiB) ließe sich in der App nicht wieder einstellen.
     db.config.kdf_config = keepass::config::KdfConfig::Argon2id {
         iterations: 10,
         memory: 64 * 1024 * 1024,

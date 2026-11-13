@@ -17,9 +17,10 @@ import de.wuefl.wkeepass.kern.Kern
 import org.json.JSONObject
 
 /**
- * Das Blatt, das nach dem Schlüssel fragt — im Dienst, nicht in der App.
+ * Dialogblatt für Entsperren und Nachweis, angezeigt im Dienst über der
+ * fremden App statt in der App.
  *
- * Zwei Fragen, dieselbe Form:
+ * Zwei Fälle mit derselben Form:
  *
  * ```text
  * entsperren   Die Datenbank ist zu. Biometrie, PIN oder Master-Passwort
@@ -28,22 +29,22 @@ import org.json.JSONObject
  *              feststehen, dass du es bist (Einstellung „Vor dem Ausfüllen").
  * ```
  *
- * Geprüft wird beides im Kern (`android_services.rs`) — hier steht nur der
- * Dialog. Die Biometrie ist der einzige Unterschied zwischen beiden Fällen:
- * Beim Entsperren rechnet der Sicherheitschip einen Schlüssel, ohne den das
- * Master-Passwort versiegelt bliebe; beim Nachweis genügt die Antwort des
- * Systemdialogs, denn die Datenbank ist ja schon offen.
+ * Geprüft wird beides im Kern (`android_services.rs`); hier steht nur der
+ * Dialog. Die Biometrie unterscheidet die Fälle: Beim Entsperren rechnet der
+ * Sicherheitschip einen Schlüssel, ohne den das Master-Passwort versiegelt
+ * bleibt; beim Nachweis genügt die Antwort des Systemdialogs, da die
+ * Datenbank schon offen ist.
  *
- * Kein Aufruf in den Kern läuft auf dem Hauptfaden: Entsperren heißt Argon2,
- * und das dauert (siehe [Kern.imHintergrund]).
+ * Aufrufe in den Kern laufen nicht auf dem Hauptfaden, weil Entsperren
+ * Argon2 bedeutet (siehe [Kern.imHintergrund]).
  */
 object Nachweisblatt {
 
     /** Öffnet die Datenbank. `weiter(true)`: Sie ist jetzt offen. */
     fun entsperren(activity: Activity, weiter: (Boolean) -> Unit) {
         Kern.imHintergrund({ Kern.wege() }) { wege ->
-            // Keine Datenbank ausgewählt: Hier ist nichts zu öffnen, also
-            // doch der Weg über die App.
+            // Keine Datenbank ausgewählt: Hier ist nichts zu öffnen, daher der
+            // Weg über die App.
             if (wege.has("fehler")) {
                 Kern.appOeffnen(activity)
                 return@imHintergrund weiter(false)
@@ -106,9 +107,9 @@ object Nachweisblatt {
     /**
      * Baut das Blatt und führt die Prüfung aus.
      *
-     * `biometrieSelbst`: Den Systemdialog zeigt [Bestaetigung], und erst
-     * seine Antwort geht als `bestaetigt` an den Kern. Sonst übernimmt der
-     * Kern die Prüfung selbst — er braucht den Schlüssel, nicht das Ja.
+     * `biometrieSelbst`: [Bestaetigung] zeigt den Systemdialog, und erst seine
+     * Antwort geht als `bestaetigt` an den Kern. Sonst führt der Kern die
+     * Prüfung selbst aus; er braucht den Schlüssel, nicht das Ja.
      */
     private fun blatt(
         activity: Activity,
@@ -150,8 +151,8 @@ object Nachweisblatt {
         wege.visibility = if (feld && pin) View.VISIBLE else View.GONE
         eingabe.visibility = if (feld) View.VISIBLE else View.GONE
 
-        // Ohne PIN bleibt nur das Master-Passwort; mit PIN fängt es damit an,
-        // sie ist der kürzere Weg.
+        // Ohne PIN bleibt nur das Master-Passwort; mit PIN beginnt es damit,
+        // da sie der kürzere Weg ist.
         var methode = if (feld && pin) "pin" else "master"
         fun waehle(neu: String) {
             methode = neu
@@ -169,8 +170,8 @@ object Nachweisblatt {
         pinKnopf.setOnClickListener { waehle("pin") }
         masterKnopf.setOnClickListener { waehle("master") }
 
-        // Abbrechen ist eine gültige Antwort — nur eben ein Nein. `fertig`
-        // sorgt dafür, dass genau eine Antwort herausgeht.
+        // Abbrechen ist eine gültige Antwort (ein Nein); `fertig` stellt sicher,
+        // dass genau eine Antwort herausgeht.
         var beantwortet = false
         fun fertig(ok: Boolean) {
             if (beantwortet) return
@@ -183,9 +184,8 @@ object Nachweisblatt {
         fun arbeite(aufruf: () -> String) {
             weiterKnopf.isEnabled = false
             bioKnopf.isEnabled = false
-            // Sichtbar machen, dass gearbeitet wird: Das Öffnen kann dauern
-            // (Datei aus der Cloud, Argon2), und zwei gesperrte Knöpfe ohne
-            // Wort sahen aus, als hinge alles.
+            // Zeigt, dass gearbeitet wird: Das Öffnen kann dauern (Datei aus der
+            // Cloud, Argon2).
             meldung.text = "Datenbank wird geöffnet …"
             meldung.visibility = View.VISIBLE
             Kern.imHintergrund(aufruf) { antwort ->

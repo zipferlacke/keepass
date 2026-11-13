@@ -87,7 +87,7 @@ class WKeePassCredentialService : CredentialProviderService() {
         cancellationSignal: CancellationSignal,
         callback: OutcomeReceiver<Void?, ClearCredentialException>,
     ) {
-        // Wir merken uns keine Sitzung, also gibt es nichts zu vergessen.
+        // Es wird keine Sitzung gehalten.
         callback.onResult(null)
     }
 }

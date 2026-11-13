@@ -15,23 +15,21 @@ import { zeitLabel } from '../core/entries.js';
 /* =========================================================
    Versionen
    ---------------------------------------------------------
-   Der Kern hebt die letzten Stände der Datei auf. Gelesen wird die Liste
-   wie ein Verlauf: Jeder Stand sagt, was er gegenüber dem davor geändert
-   hat — nicht alles, was seitdem geschah. Das stand früher da und war
-   nichtssagend: Der älteste Stand zählte jede spätere Änderung auf.
+   Der Kern hebt die letzten Stände der Datei auf. Jeder Stand zeigt, was
+   er gegenüber dem vorigen geändert hat.
 
    „Zurücknehmen" macht eine einzelne Änderung rückgängig (der Eintrag
-   kommt aus dem Stand davor), „Ganz auf diesen Stand zurück" setzt alles
-   so, wie es hier war. Geschrieben wird danach wie bei jeder Änderung.
+   kommt aus dem Stand davor), „Ganz auf diesen Stand zurück" stellt den
+   gesamten Stand wieder her. Danach wird wie bei jeder Änderung gespeichert.
    ========================================================= */
 
-/** Schrittvergleiche je Stand — Stände ändern sich nie, einmal reicht. */
+/** Zwischengespeicherte Schrittvergleiche je Stand (Stände sind unveränderlich). */
 const schritte = new Map();
 
 function schritt(id) {
   if (!schritte.has(id)) {
     const p = vault.versionStep(id);
-    // Ein Fehlschlag soll beim nächsten Öffnen neu versucht werden.
+    // Fehlgeschlagene Vergleiche werden nicht zwischengespeichert.
     p.catch(() => schritte.delete(id));
     schritte.set(id, p);
   }
@@ -100,14 +98,12 @@ export async function openVersionsDialog() {
             <span class="msr">chevron_right</span>
           </button>`).join('')}
       </div>`,
-    // Ohne Bestätigungsknopf fällt die Fußzeile weg — eine Liste braucht
-    // keine.
+    // Keine Fußzeile; die Liste braucht keinen Bestätigungsknopf.
     confirmText: null,
     cancelText: t('allgemein.knoepfe.schliessen'),
-    // Ohne Fußzeile führt nur das Kreuz oben heraus.
+    // Schließen über das Kreuz oben.
     barRight: { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), action: 'cancel' },
-    // `onInsert` bekommt die Kennung, nicht das Element — der Dialog steht
-    // zu diesem Zeitpunkt schon im Dokument.
+    // `onInsert` erhält die Kennung des bereits eingefügten Dialogs.
     onInsert: id => {
       const host = document.getElementById(String(id));
       host?.querySelectorAll('[data-version]').forEach(btn => btn.addEventListener('click', () => {
@@ -121,9 +117,8 @@ export async function openVersionsDialog() {
 }
 
 /**
- * Trägt die Zusammenfassungen nach, einen Stand nach dem anderen: Jeder
- * Vergleich entschlüsselt zwei Dateien, und das dauert — auf dem Handy
- * bis zu einer Sekunde. Nacheinander erscheinen die oberen zuerst.
+ * Lädt die Zusammenfassungen nacheinander nach, die oberen zuerst. Jeder
+ * Vergleich entschlüsselt zwei Dateien (auf dem Handy bis zu einer Sekunde).
  */
 async function fuelleZusammenfassungen(host) {
   for (const row of host?.querySelectorAll('[data-version]') ?? []) {
@@ -173,16 +168,14 @@ async function openVersionChangesDialog(stand) {
 
   await dialog({
     title: t('dialoge.versionen.stand.titel', { zeit: zeitLabel(stand.at) }),
-    // Oben links „Zurück": von einem Stand wieder in die Liste, ohne über
-    // die Einstellungen zu laufen.
+    // „Zurück" führt von einem Stand in die Liste.
     onBack: zurueckZu(openVersionsDialog),
     content: `
       <p class="dlg-note"><strong>${esc(stand.reason)}.</strong> ${step.previous && step.changes.length
         ? t('dialoge.versionen.stand.gegenueber') : ''}
       ${stand.current ? t('dialoge.versionen.stand.liegtDa') : t('dialoge.versionen.stand.ganzZurueckHinweis')}</p>
       ${inhalt}`,
-    // Auf den aktuellen Stand zurück gibt es nicht — dann keine Fußzeile,
-    // und oben das Kreuz.
+    // Beim aktuellen Stand entfällt „Ganz zurück"; es bleibt das Kreuz oben.
     confirmText: stand.current ? null : t('dialoge.versionen.stand.ganzZurueck'),
     cancelText: t('allgemein.knoepfe.schliessen'),
     barRight: stand.current ? { icon: '<span class="msr">close</span>', title: t('allgemein.knoepfe.schliessen'), action: 'cancel' } : null,

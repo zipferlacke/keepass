@@ -10,18 +10,15 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 
 /**
- * Datenbank auswählen — mit **dauerhafter** Erlaubnis.
+ * Datenbank auswählen, mit dauerhafter Erlaubnis.
  *
- * Der Dateidialog von Tauri fragt mit `ACTION_GET_CONTENT`. Android gibt
- * darauf nur eine Erlaubnis bis zum Ende der App: Nach dem nächsten Start
- * war eine Datei aus Nextcloud oder Drive nicht mehr lesbar.
+ * Der Dateidialog von Tauri nutzt `ACTION_GET_CONTENT`; Android erteilt dafür
+ * nur eine Erlaubnis bis zum Ende der App. `ACTION_OPEN_DOCUMENT` zeigt
+ * dieselbe Auswahl, liefert aber eine Adresse, deren Lese- und Schreibrecht
+ * die App mit `takePersistableUriPermission` dauerhaft sichern kann.
  *
- * `ACTION_OPEN_DOCUMENT` zeigt dieselbe Auswahl des Systems, liefert aber
- * eine Adresse, deren Lese- und Schreibrecht sich die App mit
- * `takePersistableUriPermission` für immer sichern kann.
- *
- * Aufgerufen aus Rust (system.rs) auf einem eigenen Faden, der hier wartet,
- * bis gewählt oder abgebrochen ist.
+ * Aufgerufen aus Rust (system.rs) auf einem eigenen Faden, der wartet, bis
+ * gewählt oder abgebrochen ist.
  */
 object Dateiwahl {
     private const val TAG = "WKeePass"
@@ -45,8 +42,8 @@ object Dateiwahl {
                 ergebnis.offer(uri?.toString() ?: "")
                 launcher?.unregister()
             }
-            // KDBX hat keinen eigenen MIME-Typ — Anbieter melden sie als
-            // application/octet-stream oder gar nicht. Also alles zeigen.
+            // KDBX hat keinen eigenen MIME-Typ; Anbieter melden sie als
+            // application/octet-stream oder gar nicht.
             launcher.launch(arrayOf("*/*"))
         }
 
