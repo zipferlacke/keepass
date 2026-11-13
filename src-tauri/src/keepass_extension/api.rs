@@ -63,7 +63,7 @@ const ASSOCIATION_PREFIX: &str = "KPXC_BROWSER_";
 ///
 /// Der Wert entspricht daher einer aktuellen KeePassXC-Ausgabe. Der Hinweis
 /// lässt sich in der Erweiterung unter „Nach Updates suchen" abschalten.
-const PROTOCOL_VERSION: &str = "2.7.12";
+const PROTOCOL_VERSION: &str = "2.8.0";
 
 /// Die Fehlercodes der Erweiterung.
 ///
